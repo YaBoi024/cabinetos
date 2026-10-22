@@ -1,10 +1,10 @@
 <p align="center"><img src="docs/assets/mark.svg" alt="" width="72"></p>
 
-<h1 align="center">CabinetOS</h1>
+<h1 align="center">CabinetOS-handheld</h1>
 
-<p align="center"><b>Your whole game library, on the TV, as a console.</b><br>
+<p align="center"><b>Your whole game library, on a handheld, as a console.</b><br>
 35 systems, from the Atari 2600 to the Switch, played from your own
-<a href="https://github.com/rommapp/romm">RomM</a> server, up to four players at once.</p>
+<a href="https://github.com/rommapp/romm">RomM</a> server, up to four players at once locally.</p>
 
 <p align="center">
 <a href="https://cabinetos.mmagtech.com/"><b>See it in action</b></a> ·
@@ -13,10 +13,7 @@
 <a href="docs/wiki/systems.md">Systems and BIOS</a>
 </p>
 
-[![CabinetOS Home on the TV](docs/media/home.webp)](https://cabinetos.mmagtech.com/)
-
-CabinetOS turns a small PC into a games console. It starts straight into its
-own menus, and from there a controller does everything. Games, covers, BIOS and
+CabinetOS-handheld turns a handheld like a Steam Deck into a games console. It starts straight into its own menus, and from there a controller does everything. Games, covers, BIOS and
 saves all live on your RomM server, so the console is only ever a screen away
 from your whole library.
 
@@ -27,7 +24,7 @@ from your whole library.
 - **Make it look right.** CRT and LCD looks per system, and sixteen colours for
   the menus, bright ones included.
 - **Everyone their own.** Each person signs in with a QR code and gets their own
-  saves, favourites, play time, achievements and colour. A PIN guards the rest.
+  saves, favorites, play time, achievements and color. A PIN guards the rest.
 - **Four players, real Wii Remotes**, and your Miis in every Wii game.
 - **Play from your phone** with Moonlight, at home or away over Tailscale.
 - **Your Steam games too.** One press hands the TV to Steam's Big Picture, and
@@ -39,59 +36,10 @@ from your whole library.
   system at once, checked against CabinetOS's signature, with the version
   before kept on the console.
 
-| | | |
-|---|---|---|
-| ![The Library](docs/media/library.webp) | ![A game's page with three save states](docs/media/game.webp) | ![The pause menu](docs/media/pause-menu.webp) |
-| ![Zero Gunner 2 on Dreamcast](docs/media/play-dreamcast.webp) | ![Deathsmiles in the arcade, CRT look](docs/media/play-arcade.webp) | ![Six of the sixteen colours](docs/media/colours-grid.webp) |
-
-Every picture here was captured from a running console. The
-[showcase page](https://cabinetos.mmagtech.com/) has the videos.
-
-## Why CabinetOS exists
-
-Gaming, the way I remember it, was a couch, a friend, and a controller each.
-Resident Evil for the first time with the lights off. Talking trash. Punching
-each other in the arm when somebody messed up. That's the feeling I keep
-chasing.
-
-The games were never the problem. I had the ROMs. I had the emulators. I just
-spent more time getting them to work than playing them: BIOS files in the
-wrong folder, a controller that wouldn't map, a desktop in the way of
-everything. The part I loved kept getting buried under setup.
-
-So I ground through all of it once, so it never gets in the way again. That's
-CabinetOS. Turn it on, pick a game, play. No desktop, no terminal, no mapping
-buttons, no hunting for files. Your library lives on your own RomM server,
-your saves follow you, and every screen works from the couch with a
-controller.
-
-These days it's my kids on that couch. Same feeling.
-
-*MMagTech*
-
 ## What you need
 
-- **A small PC** with AMD Radeon graphics. CabinetOS is built and tested on the
-  **GEEKOM A9 Max**, the only machine it has been tested on so far.
-- **A RomM server**, 5.1 or newer, with your games, BIOS and firmware.
-- **A controller**, Bluetooth or USB, and a USB keyboard for the first run.
-- **A TV.**
-
-**Handhelds are not supported.** Bazzite has a separate image for handhelds;
-CabinetOS builds on its desktop image and is a TV console, with a classic
-controller layout. It may run on a handheld, but nothing handheld-specific is
-tested or planned. The one exception is a Steam Deck inside Steam, which reads
-the Deck's controls itself; even there, no fix is promised. Forks are welcome.
-
-## Get started
-
-The [wiki](https://cabinetos.mmagtech.com/wiki/) goes from a blank PC to
-playing: [install](docs/wiki/install.md), [first run](docs/wiki/first-run.md),
-[your RomM server](docs/wiki/romm.md), then everything else.
-
-**[Download the installer](https://download.mmagtech.com/cabinetos.iso)**:
-one file, `cabinetos.iso`, always the newest release
-([what's new](https://cabinetos.mmagtech.com/wiki/changelog.html)).
+- **A handheld** Currently testing on Steam Deck
+- **A RomM server** 5.1 or newer, with your games, BIOS and firmware.
 
 ## Thanks
 
@@ -100,8 +48,10 @@ CabinetOS stands on other people's work.
 - **[RomM](https://github.com/rommapp/romm)** keeps the library: every game,
   cover, BIOS and save the console shows comes from it. Without RomM there is
   no CabinetOS.
+- **[CabinetOS](https://github.com/MMagTech/cabinetos)** made this idea possible
+  and did all the hard work
 - **[Bazzite](https://github.com/ublue-os/bazzite)** and
-  **[Universal Blue](https://universal-blue.org)** are the system underneath:
+- **[Universal Blue](https://universal-blue.org)** are the system underneath:
   the kernel and drivers, gamescope, and the signed image updates CabinetOS is
   built from.
 - **The emulator projects** (the libretro cores, PCSX2, Dolphin, PPSSPP, Cemu,
@@ -120,7 +70,7 @@ its source and the exact version it was built from. **CabinetOS is free, is not
 sold, and takes no donations**: that is what keeps those emulators legitimate in
 this build, and it is deliberate.
 
-CabinetOS ships no games, no BIOS and no keys. All of them come from your own
+CabinetOS-handheld ships no games, no BIOS and no keys. All of them come from your own
 RomM server.
 
 CabinetOS's look comes from [Cabinet](https://github.com/MMagTech/cabinet),
@@ -142,7 +92,7 @@ from the [Universal Blue image template](https://github.com/ublue-os/image-templ
 - [`docs/ROADMAP.md`](docs/ROADMAP.md): the order of work.
 - [`docs/lessons/`](docs/lessons/README.md): what cost hours before.
 
-CabinetOS is a [bootc](https://bootc-dev.github.io/bootc/) image on Bazzite.
+CabinetOS-handheld is a [bootc](https://) image on Bazzite-handheld.
 **Nothing builds on a Mac**: every image is built by GitHub Actions, and the
 console's own frontend is in [`frontend/`](frontend/).
 
