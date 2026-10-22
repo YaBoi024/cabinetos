@@ -142,7 +142,7 @@ passwd --lock cabinet
 # --enforce-container-sigpolicy: the machine only accepts updates signed with
 # CabinetOS's key (#135; the rule is build_files/require-signed-updates.sh).
 %post
-bootc switch --mutate-in-place --enforce-container-sigpolicy --transport registry ghcr.io/mmagtech/cabinetos:latest
+bootc switch --mutate-in-place --enforce-container-sigpolicy --transport registry ghcr.io/yaboi024/cabinetos:latest
 %end
 """
 
