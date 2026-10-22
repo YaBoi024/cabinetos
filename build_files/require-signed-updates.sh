@@ -27,7 +27,7 @@ source /ctx/lib.sh
 
 readonly PUB=/etc/pki/containers/cabinetos.pub
 readonly POLICY=/etc/containers/policy.json
-readonly REPO=ghcr.io/mmagtech/cabinetos
+readonly REPO=ghcr.io/yaboi024/cabinetos
 
 group_start "Updates must be signed by CabinetOS (#135)"
 
