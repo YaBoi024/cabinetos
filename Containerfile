@@ -54,11 +54,8 @@ COPY image_payload /payload
 # Resolved 2026-10-18:
 #   ghcr.io/ublue-os/bazzite:stable == 44.20261012.1
 #
-# Variant choice: plain `bazzite` (Fedora 44 / Kinoite base), not `bazzite-deck`.
-# See docs/PROJECT.md open question 3 — `bazzite-deck` carries session and
-# power-button infrastructure we may want in Phase 2.
-FROM ghcr.io/ublue-os/bazzite:44.20261012.1@sha256:5d49529cf809ff5b9e1ba52fd4833ec4099005673af4587b15d55b69210264e3
-
+# Variant choice: `bazzite-deck`.
+FROM ghcr.io/ublue-os/bazzite-deck:stable
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
