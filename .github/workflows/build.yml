@@ -356,7 +356,7 @@ jobs:
           fi
           # The version, 2026.09.28, numbered by the tags already published.
           # A build that publishes must be able to read them.
-          CABINETOS_VERSION=$(ci/next-version.sh --strict "${IMAGE_REGISTRY,,}/${IMAGE_NAME,,}")
+          CABINETOS_VERSION=$(ci/next-version.sh "${IMAGE_REGISTRY,,}/${IMAGE_NAME,,}")
           echo "Version: ${CABINETOS_VERSION}, tag: ${DEFAULT_TAG}"
           echo "IMAGE_NAME=${IMAGE_NAME,,}" >> "${GITHUB_ENV}"
           echo "DEFAULT_TAG=${DEFAULT_TAG}" >> "${GITHUB_ENV}"
