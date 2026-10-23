@@ -1,0 +1,13 @@
+# One path per line. A line matches any upstream file whose path starts with it.
+# Lines starting with # are ignored.
+Containerfile
+cabinetos.env
+base-manifest.txt
+Justfile
+justfile
+ci/
+build_files/
+disk_config/
+system_files/etc/pki/containers/
+system_files/etc/containers/
+.github/workflows/
