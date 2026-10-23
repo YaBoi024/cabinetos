@@ -1,0 +1,71 @@
+name: Watch upstream CabinetOS
+
+on:
+  schedule:
+    - cron: "17 6 * * *"   # every day, 06:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch upstream
+        run: |
+          git remote add upstream https://github.com/MMagTech/cabinetos.git
+          git fetch upstream main
+
+      - name: Compare with the watch list
+        id: cmp
+        run: |
+          BASE=$(git merge-base HEAD upstream/main)
+          NEW=$(git rev-list --count HEAD..upstream/main)
+          git diff --name-only "$BASE" upstream/main > changed.txt
+          awk '!/^#/ && NF' .github/upstream-watch.txt > watch.txt
+          awk 'NR==FNR{w[$0]=1; next} {for (p in w) if (index($0,p)==1) {print; break}}' watch.txt changed.txt > hits.txt
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+          echo "hits=$(wc -l < hits.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+          {
+            echo "Upstream commits not in this fork: $NEW"
+            echo "Files changed upstream: $(wc -l < changed.txt)"
+            echo
+            echo "Watched files changed:"
+            cat hits.txt
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open, update or close the issue
+        env:
+          NEW: ${{ steps.cmp.outputs.new }}
+          HITS: ${{ steps.cmp.outputs.hits }}
+        run: |
+          TITLE="Upstream changes to review"
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ "$HITS" -gt 0 ]; then
+            {
+              echo "Upstream has $NEW commit(s) this fork has not merged."
+              echo "These changed files are on your watch list:"
+              echo
+              sed 's/^/- `/; s/$/`/' hits.txt
+              echo
+              echo "Compare: https://github.com/${GITHUB_REPOSITORY}/compare/main...MMagTech:main"
+              echo
+              echo "Read these changes before using Sync fork."
+            } > body.md
+            if [ -n "$EXISTING" ]; then
+              gh issue edit "$EXISTING" --body-file body.md
+            else
+              gh issue create --title "$TITLE" --body-file body.md
+            fi
+          elif [ -n "$EXISTING" ]; then
+            gh issue close "$EXISTING" --comment "No watched files differ from upstream now."
+          fi
