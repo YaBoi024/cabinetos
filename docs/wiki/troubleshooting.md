@@ -42,7 +42,9 @@ graphics under Linux:
   try again every six hours.
   Leave the console on and connected.
 - **A Wii or Wii U game is greyed.** It needs a Wii Remote (pair one) or the Wii
-  U GamePad (not supported).
+  U GamePad (not supported). *Needs MotionPlus* means it requires MotionPlus,
+  which works only on TechKen Remotes here, not on Nintendo's own; see
+  [Wii Remotes](controllers.md#wii-remotes).
 - **The top bar says *Offline*.** The server cannot be reached. Games on the
   drive still play, and saves wait. See [Offline](library.md#offline).
 

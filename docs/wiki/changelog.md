@@ -4,9 +4,51 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## 2026.10.22.2 {#v2026-10-22-2}
+## 2026.10.23.2 {#v2026-10-23-2}
 
-*21 October 2026*
+- **Fixed:** a game kept on your server as a *.zip* or *.7z* showed
+  *Unpacking…* at every start, not only the first: for a 3DS game, up to 37
+  seconds every time. Only the first start unpacks now. After this update,
+  each such game unpacks one last time at its next start, then goes
+  straight to the game. A nearly full drive also no longer removes other
+  downloads, or says *Not enough space*, to start a game already unpacked.
+  ([#530](https://github.com/MMagTech/cabinetos/issues/530))
+
+## 2026.10.23 {#v2026-10-23}
+
+- **Fixed:** in a Wii U game, a screen that reads only the GamePad ignored
+  every button, such as a first screen asking you to set the screen size.
+  Player 1's controller now counts as the Wii U GamePad, as on a real Wii U,
+  and players 2 and up are Pro Controllers as before. A game that shows a
+  map or items on the GamePad's own screen may now put them there, and the
+  console cannot show that screen yet.
+  ([#555](https://github.com/MMagTech/cabinetos/issues/555))
+
+## 2026.10.22.4 {#v2026-10-22-4}
+
+- **Changed:** Wii games that require MotionPlus, such as Wii Sports Resort,
+  Red Steel 2 and Skyward Sword, are greyed with *Needs MotionPlus* until a
+  TechKen Wii Remote is paired: on Nintendo's own Remotes, Linux turns
+  MotionPlus off whenever a game turns it on. TechKen's copies are the only
+  officially supported Wii Remote. See
+  [Wii Remotes](controllers.md#wii-remotes).
+- **Fixed:** a Wii U game that needs the GamePad said *Needs a Wii Remote* on
+  its tile. It says *Needs a Wii U GamePad* now.
+
+## 2026.10.22.3 {#v2026-10-22-3}
+
+- **Fixed:** on a computer with a speaker built into its case, every sound
+  played from that speaker instead of the TV. The TV plays it now, and
+  headphones still take over while they are plugged in. While the TV is
+  asleep or off, the built-in speaker stays silent.
+  ([#547](https://github.com/MMagTech/cabinetos/issues/547))
+- **Changed, for players on a handheld PC or a laptop:** sorry, the built-in
+  speakers on a handheld PC or a laptop may no longer play. This came with a
+  fix for PCs on a TV that played their sound through a small speaker in the
+  case. CabinetOS is made to be a home console: a PC attached to a TV, so
+  handheld PCs and laptops are not supported.
+
+## 2026.10.22.2 {#v2026-10-22-2}
 
 - **Fixed:** a Wii Remote made by Nintendo, or a copy that reports itself as
   one, showed as two controllers, a player and a Wii Remote (P2 and W1), and
@@ -14,8 +56,6 @@ one you install, so you only ever install the newest.
   ([#548](https://github.com/MMagTech/cabinetos/issues/548))
 
 ## 2026.10.21.4 {#v2026-10-21-4}
-
-*21 October 2026*
 
 - **New:** the PlayStation Vita, played as a PlayStation TV. A game is a zip
   with its licence inside; the first Play installs it, and both of Sony's
@@ -30,8 +70,6 @@ one you install, so you only ever install the newest.
   ([#198](https://github.com/MMagTech/cabinetos/issues/198))
 
 ## 2026.10.21.2 {#v2026-10-21-2}
-
-*20 October 2026*
 
 - **New:** the Nintendo 3DS. Decrypted cartridge dumps play, the two
   screens side by side on the TV; the right stick moves a pointer on the
@@ -49,8 +87,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.20.4 {#v2026-10-20-4}
 
-*20 October 2026*
-
 - **New:** Vectrex games show the coloured sheet each cartridge came with,
   over the screen as it sat on the real console: the colours, the artwork
   and the controls printed around the play area. The pause menu has
@@ -59,8 +95,6 @@ one you install, so you only ever install the newest.
   ([#224](https://github.com/MMagTech/cabinetos/issues/224))
 
 ## 2026.10.20.3 {#v2026-10-20-3}
-
-*20 October 2026*
 
 - **Fixed:** streaming an arcade game to a phone, a tap of Select could open
   the pause menu instead of putting a coin in. Select, Start and the stick
@@ -73,8 +107,6 @@ one you install, so you only ever install the newest.
   slides the keyboard away rather than dropping it.
 
 ## 2026.10.20 {#v2026-10-20}
-
-*20 October 2026*
 
 - **Fixed:** opening Steam, and some restarts, could sit on a blank screen
   for about 25 seconds while the picture changed over. The change-over
@@ -100,8 +132,6 @@ one you install, so you only ever install the newest.
   tried once, noted, and tried again at the next start.
 
 ## 2026.10.19.3 {#v2026-10-19-3}
-
-*19 October 2026*
 
 - **New:** this page, on the console. Settings, **About**, **What's new**
   shows a QR code that opens What's new; scan it with your phone, B goes
@@ -132,8 +162,6 @@ one you install, so you only ever install the newest.
   ([#305](https://github.com/MMagTech/cabinetos/issues/305))
 
 ## 2026.10.19.2 {#v2026-10-19-2}
-
-*19 October 2026*
 
 - **New:** save states keep your RetroAchievements progress. Loading a state
   no longer starts every achievement's count over, here or on another
@@ -205,8 +233,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.18.7 {#v2026-10-18-7}
 
-*18 October 2026*
-
 - **Fixed:** ready for RomM 5.4. After your server moves to RomM 5.4, a
   game's page still shows how long you have played it.
   ([#401](https://github.com/MMagTech/cabinetos/issues/401))
@@ -233,8 +259,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.18.6 {#v2026-10-18-6}
 
-*18 October 2026*
-
 - **New:** PS1 games get a DualShock. The sticks work in the games made for
   them, and the controller rumbles. Games made for the original pad play as
   they always did. A game that needs the DualShock's ANALOG button pressed
@@ -250,8 +274,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.18.5 {#v2026-10-18-5}
 
-*18 October 2026*
-
 - **Fixed:** with more than one PS2 BIOS on your server, every game started
   on whichever BIOS the emulator found first. Each game now starts on a BIOS
   for its own region (USA, Europe or Japan), going by the disc code RomM
@@ -261,8 +283,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.18.4 {#v2026-10-18-4}
 
-*18 October 2026*
-
 - **Changed:** the system CabinetOS is built on moves to Bazzite
   44.20261012.1, with Linux 7.2.9. The new kernel has fixes for Radeon
   graphics, Bluetooth and sound, and the libraries that draw the screen,
@@ -271,8 +291,6 @@ one you install, so you only ever install the newest.
   ([#503](https://github.com/MMagTech/cabinetos/pull/503))
 
 ## 2026.10.18.3 {#v2026-10-18-3}
-
-*18 October 2026*
 
 - **Fixed:** a game kept on your RomM server as one file inside its own
   folder now starts. RomM makes such a folder when you upload a manual, a
@@ -284,8 +302,6 @@ one you install, so you only ever install the newest.
   [#416](https://github.com/MMagTech/cabinetos/issues/416))
 
 ## 2026.10.18.2 {#v2026-10-18-2}
-
-*18 October 2026*
 
 - **Fixed:** a console set up over Wi-Fi now gets its Xbox and Switch
   emulators without needing a restart.
@@ -341,8 +357,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.17.3 {#v2026-10-17-3}
 
-*17 October 2026*
-
 - **Changed:** nothing you should see. The console's code has been
   reorganised into smaller files named for what they do, so others can find
   their way around it and help. Every screen, game and setting works as
@@ -355,8 +369,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.14.5 {#v2026-10-14-5}
 
-*14 October 2026*
-
 - **Added:** when two games on one system have the same name, the heading
   now shows what tells them apart, such as the region, language or revision
   in brackets in their file names on your RomM server: "Metroid Prime
@@ -367,8 +379,6 @@ one you install, so you only ever install the newest.
   their file names, to help sort out a library where two games look the same.
 
 ## 2026.10.14.4 {#v2026-10-14-4}
-
-*14 October 2026*
 
 - **Changed:** the interface sounds are softer and lower, to suit the
   console's quiet look.
@@ -383,8 +393,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.14.3 {#v2026-10-14-3}
 
-*14 October 2026*
-
 - **Fixed:** on some machines the console made no sound at all, because it
   played into a headphone jack or USB sound device with nothing plugged in.
   The sound now always plays on your TV. USB sound devices no longer take it
@@ -397,8 +405,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.14.2 {#v2026-10-14-2}
 
-*14 October 2026*
-
 - **Changed:** in a platform's game grid, the heading (the platform, how
   many games, and the name of the game you are on) now stays at the top
   while the covers scroll underneath, so you can always see which game is
@@ -406,8 +412,6 @@ one you install, so you only ever install the newest.
   cut off under the heading.
 
 ## 2026.10.14 {#v2026-10-14}
-
-*14 October 2026*
 
 - **Fixed:** some games showed a blank tile on Home, the shelves and the
   grid, and some showed no cover even on their own page, although your RomM
@@ -418,8 +422,6 @@ one you install, so you only ever install the newest.
   ([#376](https://github.com/MMagTech/cabinetos/issues/376))
 
 ## 2026.10.13.5 {#v2026-10-13-5}
-
-*13 October 2026*
 
 - **Fixed:** a console switched on while the TV was off, on another input or
   unplugged could come up at a lower size and stay blurry on a 4K TV until it
@@ -433,8 +435,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.12.9 {#v2026-10-12-9}
 
-*12 October 2026*
-
 - **Fixed:** a game kept as a folder on your RomM server (for example a
   Switch game with `update` and `dlc` folders beside it, or a PS1 game as a
   `.cue` and its tracks) downloaded again every time you started it. It now
@@ -446,8 +446,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.12.8 {#v2026-10-12-8}
 
-*12 October 2026*
-
 - **New:** a **Widescreen** row in the pause menu for PS2 games that play in
   16:9. Some of those games stretch their menus and on-screen display to fit;
   turn it **Off** to play that game in 4:3 as it was made. It is kept for that
@@ -457,8 +455,6 @@ one you install, so you only ever install the newest.
   menu, the notice now says **Exit and relaunch to apply**.
 
 ## 2026.10.12.7 {#v2026-10-12-7}
-
-*12 October 2026*
 
 - **New:** read a game's manual on the TV. When your RomM server has a
   manual for a game, a small book shows on its cover. On the game's page,
@@ -470,23 +466,17 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.12.5 {#v2026-10-12-5}
 
-*12 October 2026*
-
 - **Fixed:** the console made no sound at all, in menus or games, after
   updating to 2026.10.12.3 or 2026.10.12.4. Sound works again.
   ([#351](https://github.com/MMagTech/cabinetos/issues/351))
 
 ## 2026.10.12.4 {#v2026-10-12-4}
 
-*12 October 2026*
-
 - **New:** the diagnostic report (Settings, **System**) now includes your
   sound setup, so a "no sound" report can show where it goes wrong.
 - Known problem in this version: no sound. Fixed in 2026.10.12.5.
 
 ## 2026.10.12.3 {#v2026-10-12-3}
-
-*12 October 2026*
 
 - **New:** the volume keys on a keyboard (or a Steam Deck's volume buttons)
   change the console's volume, in menus and every game. The console starts
@@ -500,16 +490,12 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.12 {#v2026-10-12}
 
-*12 October 2026*
-
 - **Fixed:** a GameCube save kept only on your RomM server (after a fresh
   install, or on a second console) loaded as an empty memory card. It loads
   now, and saves made from now on reach your server.
   ([#344](https://github.com/MMagTech/cabinetos/issues/344))
 
 ## 2026.10.11.4 {#v2026-10-11-4}
-
-*11 October 2026*
 
 - **New:** games on several discs play as one game, with one save that
   carries on from disc to disc. When the game asks for the next disc, open
@@ -522,16 +508,12 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.11.3 {#v2026-10-11-3}
 
-*11 October 2026*
-
 - **Fixed:** in a system's game list, the letter column showed only near the
   top of the list, and some letters were out of order. It now shows wherever
   you are, in your server's order, and holding **L2** or **R2** keeps jumping
   letter by letter.
 
 ## 2026.10.10.10 {#v2026-10-10-10}
-
-*11 October 2026*
 
 - **Fixed:** an Xbox controller connected for the first time after a restart
   could count as two players, so every press happened twice (the pause menu
@@ -540,8 +522,6 @@ one you install, so you only ever install the newest.
   Bluetooth. They pair now.
 
 ## 2026.10.10 {#v2026-10-10}
-
-*10 October 2026*
 
 The first release. See its
 [release notes](https://github.com/MMagTech/cabinetos/releases/tag/2026.10.10).

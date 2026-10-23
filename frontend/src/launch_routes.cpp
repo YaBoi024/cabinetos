@@ -655,8 +655,12 @@ void launchWorker(LaunchJob& job, romm::Client& client, const int id, const int 
         romfile::Kind kind = romfile::Kind::Plain;
         if (cancelled(job)) return;
         job.stage = LaunchJob::Stage::Unpacking;
-        if (!romfile::prepareFile(boot, entry, validExts, blockExtract, &primary, &kind,
-                                  &err, job.cancel)) {
+        // A boot file that is an archive an earlier start unpacked is not
+        // unpacked again (#530), as for a game of one file below.
+        if (romfile::alreadyUnpacked(boot, entry, validExts, blockExtract, &primary)) {
+            std::fprintf(stderr, "[launch] already unpacked\n");
+        } else if (!romfile::prepareFile(boot, entry, validExts, blockExtract, &primary,
+                                         &kind, &err, job.cancel)) {
             std::fprintf(stderr, "[launch] file: %s\n", err.c_str());
             job.message = "Couldn't open this game's file";
             job.stage = LaunchJob::Stage::Failed;
@@ -799,6 +803,20 @@ void launchWorker(LaunchJob& job, romm::Client& client, const int id, const int 
         // A file entry is one the console already collapsed, which only
         // happens for a payload no core wanted unpacked. Nothing to do.
         job.romPath = dest;
+        finish(job, client, user);
+        return;
+    }
+
+    // ALREADY UNPACKED BY AN EARLIER START (#530): every file the archive
+    // holds is beside it as that unpacking left it. Before #530 each start
+    // wrote it all again, 37 s for Super Smash Bros. on the 3DS, and the room
+    // check below asked for its whole size again, which on a nearly full
+    // drive could evict other games or say "Not enough space" for a game
+    // already on it. Neither happens now. Anything the check is unsure of
+    // unpacks, as before.
+    if (romfile::alreadyUnpacked(dest, entryPath, validExts, blockExtract, &primary)) {
+        std::fprintf(stderr, "[launch] already unpacked\n");
+        job.romPath = primary;
         finish(job, client, user);
         return;
     }

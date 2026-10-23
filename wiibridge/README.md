@@ -20,7 +20,10 @@ there.
 Build (in the builder container): `make`. `make test` builds and runs
 `pacing-test.cpp` (#480): with no Remote, it checks that a Remote coming back,
 or a Mii read, never keeps the other Remotes waiting, and that the setup and
-the Mii answers still go out in order and as far apart as before.
+the Mii answers still go out in order and as far apart as before; and that a
+Remote Linux's own Wii Remote driver also takes (Nintendo's) gets the game's
+report mode and rumble put back after the driver, while a TechKen is sent
+nothing (#548).
 
 The image carries it as `/usr/libexec/cabinetos-wii-bridge`, which is where the
 console app looks (frontend/src/wiiremote.cpp). CI builds it beside the frontend

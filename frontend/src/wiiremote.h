@@ -54,7 +54,13 @@ std::vector<Paired> known();
 // True while any Wii Remote is paired. Cheap: answered from what refresh()
 // last read. Remote games un-grey on it (PROJECT.md question 35).
 bool anyPaired();
-// Reads it again from bluetoothd. Slow; run at start and after pair/remove.
+// True while a Remote whose MotionPlus works here is paired: any but
+// Nintendo's own, by the id bluetoothd read off it. The kernel's driver takes
+// a Remote with Nintendo's id and turns its MotionPlus off whenever a game
+// turns it on, so a game that requires MotionPlus un-greys only on another
+// (MMagTech, 2026-10-22: the TechKens; PROJECT.md question 35). Cheap.
+bool anyWithMotionPlus();
+// Reads both again from bluetoothd. Slow; run at start and after pair/remove.
 void refresh();
 
 // --- The running Remotes ------------------------------------------------------

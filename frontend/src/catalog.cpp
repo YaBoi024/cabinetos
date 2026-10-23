@@ -367,12 +367,20 @@ Coverage coverageFor(const romm::Game& g) {
     // needs a real Wii Remote, and plays while any Wii Remote is paired, as
     // on a Wii (#200, PROJECT.md question 35). Remove every Remote and they
     // grey out again. AND NOT WHILE A STREAM PLAYS (#286): the paired Remote
-    // is by the TV, and the person streaming is not.
-    if (c.support == Support::Playable && g.platformSlug == "wii" &&
-        wii::padDevice(wii::codeFromTitleId(g.titleId)) == 0 &&
-        (!wiiremote::anyPaired() || players::streaming())) {
-        c.support = Support::NeedsController;
-        c.reason = "Needs a Wii Remote";
+    // is by the TV, and the person streaming is not. ONE THAT REQUIRES
+    // MOTIONPLUS plays only while a Remote whose MotionPlus works here is
+    // paired, never one of Nintendo's own (wiiremote.h; MMagTech, 2026-10-22).
+    if (c.support == Support::Playable && g.platformSlug == "wii") {
+        const std::string code = wii::codeFromTitleId(g.titleId);
+        if (wii::padDevice(code) == 0) {
+            if (!wiiremote::anyPaired() || players::streaming()) {
+                c.support = Support::NeedsController;
+                c.reason = "Needs a Wii Remote";
+            } else if (wii::needsMotionPlus(code) && !wiiremote::anyWithMotionPlus()) {
+                c.support = Support::NeedsController;
+                c.reason = "Needs MotionPlus";
+            }
+        }
     }
     // A Wii U game that takes neither a Pro nor a Classic Controller was made
     // for the GamePad or the Wii Remote (wiiu.h).
@@ -429,6 +437,8 @@ bool shownGreyed(Support s) {
 const char* shortReason(const Coverage& c) {
     if (c.support == Support::NotInstalled && c.core && cab::standalone::find(c.core))
         return "Emulator not installed";
+    // Which controller: every one of these reasons fits the tile.
+    if (c.support == Support::NeedsController && c.reason) return c.reason;
     return shortReason(c.support);
 }
 

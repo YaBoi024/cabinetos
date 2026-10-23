@@ -25,6 +25,11 @@
 // A stand-in lasts as long as the bridge: a Remote that goes off and comes back
 // is joined to the same one (see detach).
 //
+// NINTENDO'S OWN REMOTES (#548): Linux's own Wii Remote driver takes them as
+// well, and resets the report mode and the rumble behind the game; the bridge
+// puts them back (see putBack). Their MotionPlus it cannot keep on: only the
+// TechKens are supported (MMagTech, 2026-10-22; PROJECT.md question 35).
+//
 // MIIS ON A REMOTE (#275) are kept on the console, not on the Remote: the
 // Remote's memory where a Wii keeps them is answered from one file per player
 // light. See miiRead, in mii.cpp.
@@ -216,6 +221,7 @@ bool extensionBytes(uint8_t id, size_t* off, size_t* len) {
 void fromGame(Remote& r, const uint8_t* d, size_t n) {
     if (n < 1) return;
     const uint8_t id = d[0];
+    if (n >= 2) r.rumble = (d[1] & 0x01) != 0;   // every report carries it
     if (id == 0x11 && n >= 2) r.lastLed.assign(d, d + n);
     if (id == 0x12 && n >= 3) r.lastMode.assign(d, d + n);
     // Dolphin's once-a-second rumble-off (10 00) while it holds a Remote it is
@@ -301,6 +307,41 @@ void fromGame(Remote& r, const uint8_t* d, size_t n) {
     toReal(r, d, n);
 }
 
+// WHAT LINUX'S DRIVER UNDOES, PUT BACK (#548; PROJECT.md question 35). Linux's
+// own Wii Remote driver (hid-wiimote) takes a Remote with Nintendo's id beside
+// the bridge. After every status report the Remote sends, a game's request
+// included, it sets its own report mode, buttons only (handler_status_K), and
+// every command it sends carries its own rumble bit, off. Measured on the A9,
+// 2026-10-22, with a fake Remote. So a moment later (the driver's command
+// goes out as the report arrives) the game's last report mode goes back, with
+// the game's rumble; after any other answer while the game's rumble is on,
+// the rumble alone. Neither asks for an acknowledgement, so nothing comes
+// back. The TechKens report Samsung's id: the driver never takes them, and
+// none of this runs for them.
+constexpr auto kPutBackGap = std::chrono::milliseconds(10);
+
+void putBack(Remote& r) {
+    if (r.putBackAt == std::chrono::steady_clock::time_point{} ||
+        std::chrono::steady_clock::now() < r.putBackAt)
+        return;
+    r.putBackAt = {};
+    const bool mode = r.putBackMode;
+    r.putBackMode = false;
+    if (r.real < 0 || r.replaying) return;   // a replay ends with the mode itself
+    if (mode && !r.lastMode.empty()) {
+        std::vector<uint8_t> m = r.lastMode;
+        m[1] = static_cast<uint8_t>((m[1] & ~0x03) | (r.rumble ? 0x01 : 0x00));
+        toReal(r, m.data(), m.size());
+        if (!r.putBackSaid)
+            std::fprintf(stderr, "[wiibridge] %s: Linux's driver reset its report mode; the game's is put back, "
+                                 "after every status report\n", r.uniq.c_str());
+        r.putBackSaid = true;
+    } else if (r.rumble) {
+        const uint8_t on[2] = {0x10, 0x01};
+        toReal(r, on, sizeof on);
+    }
+}
+
 // From the Remote to the game.
 void fromReal(Remote& r, uint8_t* d, size_t n) {
     if (n < 1) return;
@@ -318,6 +359,12 @@ void fromReal(Remote& r, uint8_t* d, size_t n) {
         return;
     }
     if (id == 0x20 && n >= 7) r.lastStatus.assign(d, d + n);
+    // Linux's driver has just answered this with its own report mode, or, for
+    // an answer the game's rumble rides through, sent a command of its own.
+    if (r.linuxDriver && (id == 0x20 || (r.rumble && (id == 0x21 || id == 0x22)))) {
+        r.putBackAt = std::chrono::steady_clock::now() + kPutBackGap;
+        r.putBackMode = r.putBackMode || id == 0x20;
+    }
     if (id == 0x20 && n >= 4) {
         const bool ext = (d[3] & 0x02) != 0;
         if (ext != r.ext) {
@@ -421,6 +468,9 @@ void detach(Remote& r) {
     r.swallowed = 0;
     r.replay = {};
     r.replaying = false;
+    r.putBackAt = {};
+    r.putBackMode = false;
+    r.putBackSaid = false;
     // The real extension forgets its setup when the Remote goes off; what the
     // GAME believes (extension in, encryption on, its key) is kept, because the
     // game never saw the Remote go.
@@ -502,6 +552,9 @@ int openReal(const std::string& path) {
 
 void adopt(const std::string& node, const std::string& uevent) {
     const std::string uniq = field(uevent, "HID_UNIQ");
+    // Which kernel driver has it: "wiimote" (hid-wiimote) for Nintendo's own
+    // ids, see putBack.
+    const bool linuxDriver = field(uevent, "DRIVER") == "wiimote";
     for (auto& old : gRemotes) {
         if (old->real < 0 && strcasecmp(old->uniq.c_str(), uniq.c_str()) == 0) {
             const int fd = openReal("/dev/" + node);
@@ -510,6 +563,7 @@ void adopt(const std::string& node, const std::string& uevent) {
                              std::strerror(errno));
                 return;
             }
+            old->linuxDriver = linuxDriver;
             reattach(*old, node, fd);
             return;
         }
@@ -518,6 +572,7 @@ void adopt(const std::string& node, const std::string& uevent) {
     r->node = node;
     r->name = field(uevent, "HID_NAME");
     r->uniq = uniq;
+    r->linuxDriver = linuxDriver;
     const std::string path = "/dev/" + node;
     r->real = openReal(path);
     if (r->real < 0) {
@@ -564,8 +619,9 @@ void adopt(const std::string& node, const std::string& uevent) {
         ::close(r->real);
         return;
     }
-    std::fprintf(stderr, "[wiibridge] %s on %s: stand-in created as %04x:%04x \"%s\"\n",
-                 r->uniq.c_str(), node.c_str(), kNintendo, kWiiRemote, r->name.c_str());
+    std::fprintf(stderr, "[wiibridge] %s on %s: stand-in created as %04x:%04x \"%s\"%s\n",
+                 r->uniq.c_str(), node.c_str(), kNintendo, kWiiRemote, r->name.c_str(),
+                 r->linuxDriver ? "; Linux's Wii Remote driver has it too" : "");
     gRemotes.push_back(std::move(r));
 }
 
@@ -603,6 +659,8 @@ timespec pollWait() {
     for (const auto& r : gRemotes) {
         if (r->replaying) wait = std::min(wait, std::chrono::nanoseconds(r->replay.due - now));
         if (r->miiAnswers.busy()) wait = std::min(wait, std::chrono::nanoseconds(r->miiAnswers.due - now));
+        if (r->putBackAt != std::chrono::steady_clock::time_point{})
+            wait = std::min(wait, std::chrono::nanoseconds(r->putBackAt - now));
     }
     const long long ns = std::max<long long>(wait.count(), 0);
     return {static_cast<time_t>(ns / 1000000000), static_cast<long>(ns % 1000000000)};
@@ -669,6 +727,7 @@ void pass() {
         if (r.real >= 0 && (gone || ::access(("/dev/" + r.node).c_str(), F_OK) != 0)) detach(r);
         replayNext(r);
         miiAnswer(r);
+        putBack(r);
         ++i;
     }
 }

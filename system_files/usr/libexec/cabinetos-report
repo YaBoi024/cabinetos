@@ -831,10 +831,45 @@ def keyboards():
     return out or "(none)\n"
 
 
+def sound_outputs():
+    # #547: a built-in speaker read "unknown" (nothing senses it), so it
+    # outranked the TV, and the report could only show that it had won, not
+    # why. Each card's outputs from PipeWire, the one in use marked. Since
+    # build_files/built-in-speaker.sh a standard built-in speaker reads "no";
+    # one still "unknown" is wired some other way.
+    raw = run(["pw-dump"])
+    try:
+        objects = json.loads(raw)
+    except ValueError:
+        return raw
+    senses = {"yes": "connected", "no": "not connected", "unknown": "unknown, nothing senses it"}
+    out = ""
+    for o in objects:
+        info = o.get("info") or {}
+        props = info.get("props") or {}
+        if o.get("type") != "PipeWire:Interface:Device" or props.get("device.api") != "alsa":
+            continue
+        params = info.get("params") or {}
+        routes = [r for r in params.get("EnumRoute") or [] if r.get("direction") == "Output"]
+        if not routes:
+            continue
+        in_use = {r.get("name") for r in params.get("Route") or [] if r.get("direction") == "Output"}
+        out += (props.get("device.description") or props.get("device.name") or "?") + "\n"
+        for r in routes:
+            # a count, then key and value pairs
+            ri = r.get("info") or []
+            kind = next((ri[i + 1] for i in range(1, len(ri) - 1, 2) if ri[i] == "port.type"), "?")
+            out += "    %s (%s): %s%s\n" % (r.get("description") or r.get("name"), kind,
+                                          senses.get(r.get("available"), r.get("available")),
+                                          ", in use" if r.get("name") in in_use else "")
+    return out or "(no sound card outputs)\n"
+
+
 def section_sound(frontend_lines):
     # #341: a machine with no sound sent a report that could not say why.
     # The kernel's cards, what the sound server made of them (wpctl status,
-    # the outputs PipeWire has, and which one is the default), and the volume.
+    # the outputs PipeWire has, and which one is the default), what each
+    # card's connectors sense, and the volume.
     # The sound server's own log lines are in the system log below.
     sink = first_line(run(["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"])).replace("Volume: ", "") \
         or "(no sound output)"
@@ -850,6 +885,7 @@ def section_sound(frontend_lines):
     status = run(["wpctl", "status"])
     block = re.search(r"^Audio\n.*?(?=^Video\n|\Z)", status, re.M | re.S)
     out += "\n--- What the sound server has (wpctl status)\n" + (block.group(0) if block else status)
+    out += "\n--- Each sound card's outputs, and what their connectors sense\n" + sound_outputs()
     lines = [l for l in frontend_lines if re.match(r"\[(sound|audio|volume)\]", l)]
     out += "\n--- What the frontend said about sound (last 30 lines)\n"
     out += "".join(l + "\n" for l in lines[-30:])

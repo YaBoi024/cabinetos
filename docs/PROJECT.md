@@ -1,13 +1,12 @@
 # CabinetOS
 
 > **The record of what was decided, and why: look things up here, do not
-> read it through.** It holds every decision since the project began
-> (2026-09-13) with the research behind it, and is far too long to read
-> whole. A contributor needs CONTRIBUTING.md, docs/ARCHITECTURE.md and
-> docs/lessons/; their rules point to the section here that explains each
-> one. A session searches it for the question in hand (the Index below lists
-> them), and updates it when a decision is made, a phase changes status, or
-> new uncertainty appears.
+> read it through.** It holds every decision from the project's start
+> (2026-09-13) to 2026-10-23 with the research behind it, and is far too
+> long to read whole. A contributor needs CONTRIBUTING.md,
+> docs/ARCHITECTURE.md and docs/lessons/; their rules point to the section
+> here that explains each one. A session searches it for the question in
+> hand (the Index below lists them).
 >
 > **Starting a session?** `docs/NEXT-SESSION.md` is the short version: what
 > state things are in, what to pick up, and the things that waste a day if
@@ -21,18 +20,19 @@
 > Where a line below says Cabinet or tvOS does something, it describes the
 > apps as they were.
 >
-> Rules for maintaining this document:
-> - When a phase is finished, change its status and say what actually shipped,
->   not what was planned.
-> - When you are unsure about something, add it to **Open questions**. Do not
->   guess and do not quietly resolve an open question without saying so.
-> - When a decision is reversed, record the reversal rather than editing history.
+> This file is frozen since 2026-10-23: nothing new goes in it. New decisions
+> are one small file each in docs/decisions/ (CLAUDE.md, rule 7;
+> docs/decisions/README.md has the template and the index). When your work
+> relies on a decision here, move it there and leave a one-line pointer in
+> its place. A line that becomes untrue is rewritten or deleted, not
+> annotated (CLAUDE.md, rule 5).
 >
 > **Since 2026-10-17 (#398, "Audit the code and restructure it for
 > contributors (main.cpp is 20,000 lines)"):** this file is the record of what
 > was decided and why; for what the code does today, the code and
 > CONTRIBUTING.md are current. Stale lines below carry a dated note rather
-> than an edit, as the rules above say. Since 2026-10-11 (open question 12b,
+> than an edit, which was this file's rule until 2026-10-23. Since
+> 2026-10-11 (open question 12b,
 > #344, "GameCube: a save restored from RomM never reaches Dolphin (card.raw vs
 > card.USA.raw)"), Cabinet is a reference, not a constraint: read
 > docs/history/CABINET.md for how a problem was solved before; Cabinet's own
@@ -70,8 +70,9 @@ code cites them more than a hundred times.
   frame pacing, the emulator settings audit, the emulator queue, PS2's
   BIOS, time played).
 - **Developer mode**: superseded; kept as history.
-- **Staying current with Bazzite**: the base pinned by digest, and moving
-  the pin.
+- **Staying current with Bazzite**: the base pinned by digest, moving the
+  pin, and fixes waiting for a stable base (gamescope's crash when a game's
+  window closes, 2026-10-22).
 - **Measured behaviour**: the first booted image, the A9 Max measured,
   every platform run once, a start with no display answering.
 - **Branding and the boot experience**: the palette.
@@ -273,14 +274,18 @@ down. "Look now at" is where the code or a later decision moved on.
 - **35. Wii (Dolphin), issue #173** ("New systems 4: Wii (Dolphin)"). Opens
   "Research only; no code"; built 2026-09-30; real Remotes decided
   2026-10-02 and built 2026-10-03; Miis and rumble 2026-10-07; Nintendo's
-  own Remotes counted twice, fixed 2026-10-21 (#548). Open: #203
+  own Remotes counted twice, fixed 2026-10-21 (#548); only the TechKens
+  supported, MotionPlus games grey until one (2026-10-22). Open: #203
   ("Wii: the HOME menu's "Wii Menu" leaves a black screen"). Look now at:
   `wiibridge/` (#200, "Real Wii Remotes: pair once, like a Wii").
 - **36. Wii U (Cemu), issue #174** ("New systems 5: Wii U (Cemu)"). Opens
   "No code yet"; built 2026-10-01, judged on the testing image 2026-10-02.
   Graphic packs: none (#207, "Wii U: Cemu's graphic packs (resolution and
   fix), reconsider", closed). Games that need a Wii Remote stay greyed
-  (#231, "Wii U: real Wii Remotes in Cemu", closed 2026-10-04). Look now at:
+  (#231, "Wii U: real Wii Remotes in Cemu", closed 2026-10-04). Player 1 is
+  the GamePad since 2026-10-22 (Shovel Knight); Wii U gets small fixes
+  only, and the GamePad's screen waits (#555, "Wii U: see the GamePad's
+  screen, and touch it, on the TV"). Look now at:
   `frontend/src/standalone_cemu.cpp`.
 - **37. Steam: one entry that hands over to Big Picture, issue #223**
   ("Steam: one entry that hands over to Big Picture (audit first)"). Decided
@@ -311,9 +316,12 @@ down. "Look now at" is where the code or a later decision moved on.
 - **45. Smart collections, issue #352** ("RomM Smart Collections don't show
   up (only regular collections do)"). Decided 2026-10-12, built.
 - **46. Where the sound goes, issue #341** ("No audio [Expected on this
-  machine]"). Decided 2026-10-13, built 2026-10-14. Open: #390 ("Headphones
-  don't take over after a Remote Play session (waiting on Sunshine)") and
-  #391.
+  machine]"). Decided 2026-10-13, built 2026-10-14. Built-in speakers, #547
+  ("Sounds plays only from onboard speakers (Beelink ser9)"): decided
+  2026-10-21 and 22, built as one PipeWire file edit at image build, never
+  the speaker, silent when the TV's sound is gone.
+  Open: #390 ("Headphones don't take over after a Remote Play session
+  (waiting on Sunshine)") and #391.
 - **47. Interface sounds everywhere, and a calmer set, issue #389**
   ("Interface sounds on every screen and menu, not only some"). Decided at
   the TV 2026-10-14, built. "No start-up or shut-down sound, ever." The
@@ -2954,6 +2962,65 @@ Either supply a `BASE_UPDATE_TOKEN` secret (a fine-grained PAT with contents and
 pull-request write), which the workflow prefers when present, or close and
 reopen the PR to kick CI off by hand.
 
+#### Waiting for stable: gamescope crashes when a game's window closes (2026-10-22)
+
+**What happened.** On the A9, 2026.10.22.2, 8:36 AM: Shovel Knight (Wii U)
+was quit from the pause menu, Cemu closed cleanly (exit 0), and in the same
+second gamescope crashed (SIGSEGV in its compositor thread,
+`gamescope-xwm`). The session restarted by itself: black for about 3 s, the
+start-up screen, Home about 5 s after the crash. Nothing was lost: the save
+was zipped before the crash, and the new session sent it again (`[save]
+resent, uploaded cemu`).
+
+**The cause, from the core's backtrace** (systemd-coredump's journal entry;
+the core file itself is root's): `wl_resource_post_event` from
+`wlserver_presentation_feedback_discard`, from `commit_t::~commit_t`, from
+`global_focus_t::~global_focus_t`, from `determine_and_apply_focus`. When
+focus moved off the closed game, gamescope dropped its last hold on one of
+the game's frames and sent "that frame was never shown"
+(`wp_presentation_feedback.discarded`) over a connection the game had closed
+50 ms earlier: a use after free. Any Vulkan emulator can meet it. With
+`ENABLE_GAMESCOPE_WSI=1` each one presents on its own Wayland connection to
+gamescope, and the image's gamescope (terra-gamescope 3.16.31^2, the Open
+Gaming Collective fork's 3.16.31-ogc2) keeps bare pointers to those frames'
+notices.
+
+**How often.** The A9's journal from 2026-10-06 holds 76 gamescope crashes.
+75 are at a stop (docs/lessons/testing.md, "gamescope crashes on its way
+out"); this is the only one while the console ran, in 57 standalone emulator
+exits on record.
+
+**Fixed upstream, not in the base.** Valve's a71c7f900 ("steamcompmgr:
+discard feedback for commits that never present", on master 2026-10-10 with
+PR #2395) gives each notice a destroy handler that clears the pointer. Its
+message does not mention a client that quits; reading the code, it covers
+one. It is in no Valve tag yet. The fork has it from 3.16.31-ogc3
+(2026-10-15). Terra publishes 3.16.31^4 for Fedora 44 (in terra44-extras)
+and ^6 for Fedora 45. Bazzite stable is still 44.20261012.1 with ^2;
+Bazzite testing, on Fedora 45, has ^6. Nobody has reported this backtrace,
+and there is nothing left to report.
+
+**Decided (MMagTech, 2026-10-22): wait for the base update that brings it**,
+likely Bazzite's Fedora 45 stable, as exception 1 above says for a fix only
+in testing. **If it happens again before then, take Terra's fixed gamescope
+into the image ahead of the base.** That is 41 changes over ogc2, not one.
+The ones that touch this console: how the frame limiter and VRR pace frames,
+the Vulkan layer every emulator presents through (presentation timing),
+how Xwayland pictures join overlay windows, and an HDR10 colour fix. So it
+needs TV checks: the pause menu over each standalone emulator, a heavy
+game's smoothness, the Steam tile, a Remote Play stream. Set aside: a
+gamescope of our own with only the one fix (the first gamescope the project
+would build, with a patch to track, for a crash that recovers by itself),
+and changing how the console closes games (it cannot be made to happen on
+demand, so a dodge could never be shown to work).
+
+**To know it again:** a kernel line `gamescope-xwm[...]: segfault` while the
+console was running, not at a stop, and `wlserver_presentation_feedback_discard`
+in the core's journal entry (`journalctl -t systemd-coredump`). **When a base
+update moves gamescope past 3.16.31^2**, add a check to it: quit a
+standalone game from the pause menu a few times, and no gamescope crash in
+the log.
+
 ---
 
 ## Measured behaviour
@@ -4471,13 +4538,8 @@ Since 2026-10-07 (#134): it is called Developer access, a hidden row in About
    fact that cannot be known until after the merge — the pull request's own
    number, the merge commit — may be corrected straight on `main`, in one
    commit that changes nothing else.
-8. **Emulators favour stability over the newest version** (MMagTech,
-   2026-10-14). An emulator, core or pinned Flatpak is moved only when the
-   move brings something a player gets: a game that now plays, a real
-   gameplay fix, a fix for newer hardware, or a large performance gain.
-   New features that do not change how games play are not a reason. Every
-   proposed update starts with that question asked out loud, and the answer
-   is recorded on its issue or pull request.
+8. **Emulators favour stability over the newest version**: the rule moved to
+   `docs/decisions/2026-10-23-when-an-emulator-pin-moves.md`.
 
 ---
 
@@ -15744,7 +15806,10 @@ and down, pause, Resume, Screenshot, Exit to Home, a kept game promoted from
 cache without a download and kept as one file.
 
 **Known gaps, left for later:** a controller connected mid-game waits for the
-next launch; motion (gyro) does not come through; updates and DLC (#181);
+next launch, because Eden has no way to add a player once a game runs; asked
+for in eden-emulator/Issue-Reports#739 (from #529, "Switch: Can't use split
+joycons for multiplayer"). Motion (gyro) does not come through; updates and
+DLC (#181);
 Shredder's Revenge (above); a Switch game kept on an external drive is
 untested (the console grants Eden that folder per launch, as on the internal
 drive).
@@ -16691,6 +16756,93 @@ ids) losing the kernel driver's controller does not matter; a Wii U game
 plays on an ordinary pad. What must not break: the TechKens, and ordinary
 pads in Wii U and Wii games.
 
+#### Only the TechKens supported; Nintendo's own get no MotionPlus, 2026-10-22
+
+**MMagTech, 2026-10-22:** Nintendo's own Remotes (the original and the Wii
+Remote Plus) supported alongside the TechKens, as long as the TechKens never
+break and the change can be undone in one step. Before anything was built,
+the driver's source was read (`hid-wiimote-core.c`, kernel 7.2.9) and a fake
+Wii Remote Plus was run on the A9 with no game running: a uhid device on the
+Bluetooth bus, 057E:0330, answering as a Remote Plus with nothing plugged in,
+named so the bridge leaves it alone. Besides the 4-second check, the driver:
+
+- **resets the report mode after every status report** the Remote sends,
+  one a game asked for included (`handler_status_K`): 0x12 00 30, buttons
+  only, not continuous. Measured: a status report, then "report mode 0030".
+  A game's pointer, tilt and Nunchuk data stop until it sets its mode again.
+- **switches rumble off** with every command it sends: each carries the
+  driver's own rumble bit, which is off.
+- **switches MotionPlus off as soon as a game switches it on.** Switched on,
+  MotionPlus answers at 0xA4 and the Remote reports an extension; the driver
+  reads 0xA400FA, finds MotionPlus's id, writes 0x55 to 0xA400F0 (which turns
+  it off) and detects everything again. Measured: on, then off within the
+  same millisecond, on a Remote Plus; the same code runs for a MotionPlus
+  plugged into an original Remote.
+- at connect, still opens for about 10 ms with #549's rule in place: report
+  modes 0x31 and 0x37, the camera, MotionPlus mapped, then all off again.
+  Something on the console opens the driver's input devices; not traced.
+
+**What the bridge could do**, only for a Remote the driver drives (the
+TechKens never are, so none of it would run for them): pass the game only
+the answers it asked for, hold the game's commands while the driver is in
+the middle of its own so the two never mix, then put back the game's report
+mode and rumble. **What it cannot do:** keep MotionPlus on, since the driver
+sees every report first and switches it off again. So on Nintendo's Remotes
+the games that need MotionPlus would not work: on MMagTech's RomM, Wii Sports
+Resort and Red Steel 2, 2 of its 52 Wii games.
+
+**MotionPlus on the TechKens, MMagTech at the TV, 2026-10-22, 17:37:** Wii
+Sports + Wii Sports Resort on one TechKen: "it looks like motion controls
+worked". It had never been tried before: Mario Kart's steering is the tilt
+sensor every Remote has, and Geometry Wars is the Nunchuk and the pointer.
+
+**DECIDED, MMagTech 2026-10-22, in the end:** **the TechKens are the only
+officially supported Wii Remote.** Other Remotes, Nintendo's own included,
+may work, but no fixes or promises are made for them, and a later issue with
+one of Nintendo's is a no-go. What was agreed that day ships, once: #549, the
+greying below, and the bridge's report-mode fix (below). The wiki says so in
+his approved words (Controllers, "Wii Remotes"). Earlier the same day he had
+chosen "two Remotes supported, Nintendo's without MotionPlus"; he turned to
+this on learning that a full fix had a second, open-ended part (the answer
+filter below), which he never wants built. **A Wii game that requires
+MotionPlus stays grey, "Needs MotionPlus", until a Remote that is not
+Nintendo's own is paired**; one where MotionPlus is optional plays on any
+Remote. Both from GameTDB, the console's list of Wii controllers already: its
+file marks each MotionPlus control `required="true"` or not (48 entries
+required and 220 optional on 2026-10-22, 29 of the required kept after the
+tool leaves out mods and homebrew). Every game by the same rule: GameTDB
+marks the "Wii Sports + Wii Sports Resort" disc as requiring MotionPlus, so
+with only Nintendo's Remotes the whole disc is grey, its Wii Sports too.
+
+**What was built.** `tools/wii-controls.py` writes `M` for a required
+MotionPlus (`m` stays optional); the regenerated list changed only those
+entries. `wiiremote.cpp` reads which paired Remotes are Nintendo's own from
+bluetoothd (`bluetoothctl info`, `Modalias: usb:v057Ep0306` or `0330`, the
+ids hid-wiimote takes; the TechKens say `v04E8p7021`), and `catalog.cpp`
+greys by it after the "Needs a Wii Remote" rule. A Remote bluetoothd cannot
+describe counts as not Nintendo's, so nothing greys that did not before.
+Tested headless on the A9 through the read-only relay, with a stand-in
+`bluetoothctl` for the Nintendo case: one Nintendo Remote paired, Wii Sports
++ Wii Sports Resort and Red Steel 2 read "Needs MotionPlus" (page and grid)
+and Geometry Wars plays; the A9's two TechKens, all three play; no Remote,
+"Needs a Wii Remote" as before.
+
+**Built in the same PR (MMagTech's go, 2026-10-22, evening):** on Nintendo's
+Remotes the driver's report-mode reset after a status report and its rumble
+cuts would let pointer, tilt and Nunchuk data stop in a game until it sets
+its mode again. The bridge puts them back (`putBack`, `wiibridge/bridge.cpp`):
+10 ms after a status report from a Remote the driver has, the game's last
+report mode with its current rumble bit and no acknowledgement asked; after
+any other answer while the game's rumble is on, the rumble alone. "The driver
+has it" is the kernel's own record, `DRIVER=wiimote` in the Remote's uevent
+(read on the A9 for a Nintendo id; the TechKens are bound to `samsung`), so
+none of it runs for a TechKen. `make test` gained a third case: the mode back
+10.4 ms after the status and the rumble 10.6 ms after an answer, the TechKen
+sent nothing. Shown with the fake Remote on the A9 (named so the bridge takes
+it) right before a TechKen check at the TV: a Nunchuk game and the Miis.
+**Never built** (MMagTech, 2026-10-22): the bridge keeping the driver's own
+answers from the game (the 4-second check's three), even on a report.
+
 ### 36. Wii U (Cemu), issue #174
 **Researched 2026-10-01 (the research is on #174); decided with MMagTech the
 same day.** No code yet. Most of question 35 carries over; what follows is only
@@ -16711,6 +16863,30 @@ planned): "Wii Remotes in Wii U games" above is reversed. A Wii U game that
 needs a Wii Remote and takes neither a Pro nor a Classic Controller stays greyed,
 "Needs a Wii Remote", whether or not a Remote is paired (catalog.cpp:367-375;
 `wiiu::needs`, wiiu.h:60).
+
+Since 2026-10-22 (MMagTech): **player 1 is a Wii U GamePad to Cemu**, and
+players 2 and up stay Pro Controllers (`cemuProfile`,
+standalone_cemu.cpp). Shovel Knight (`WKNE`, eShop) ignored every press on
+its first screen, the screen size setup, on the A9 that morning, while
+Hyrule Warriors played on the same pad between its starts. With no GamePad
+set up, Cemu still answers a game's GamePad reads with an empty sample and
+no error (`Cafe/OS/libs/vpad/vpad.cpp`, `VPADRead`: "most games expect the
+Wii U GamePad to be connected"), so a screen that reads only the GamePad
+sees nothing pressed. GameTDB lists the Pro Controller for Shovel Knight and
+marks nothing required, so the catalog could not have caught it. On a Wii U
+the GamePad is always there and always player 1, and Cemu's own guide
+(cemu.cfw.guide, controller configuration), RetroArch's Cemu core ("Port 1
+is always the Wii U GamePad"), Batocera and RetroDECK all make player 1 the
+GamePad; only EmuDeck's script of 2026-07-23 uses Pro Controllers on a TV,
+with no reason written. Cemu puts a GamePad on the first GamePad channel and
+each Pro Controller on the first free Wii controller channel, whatever its
+slot, so player 2 is a game's first Pro Controller, as on a Wii U. Which
+games play is unchanged. What it costs: a game that puts its map or items
+on the GamePad's screen when a GamePad is used shows them there, and nothing
+shows that screen on the TV. MMagTech banked that for another time, with
+Wii U kept to small fixes: #555, "Wii U: see the GamePad's screen, and
+touch it, on the TV", which holds what Cemu can do and the options talked
+through.
 
 #### Carried over from Wii (question 35) unchanged
 
@@ -17832,7 +18008,10 @@ rule: WirePlumber switches its card off while nothing is plugged in, so the
 output only exists while headphones are in, and its own rank (1009 on the
 A9) is above HDMI. A small WirePlumber script that ignores any output unable
 to sense a plug was considered and rejected: more than standard settings,
-for hardware the rule says not to account for.
+for hardware the rule says not to account for. **Both held only on a sound
+chip with no built-in speaker, as the A9's has none. Built-in speakers are
+handled since 2026-10-22 by one edit to a PipeWire file, not a script (#547,
+below).**
 
 **Why the memory goes off.** A chosen output beats every priority, and
 WirePlumber kept the choice across restarts. On the A9 the TV was chosen, so
@@ -17857,6 +18036,91 @@ returns the sound to the TV.
 
 **Open:** the volume goes back to full at every start (#351 above), on the
 default output. With headphones in at start, that is the headphones (#391, waiting, not built).
+
+#### Built-in speakers (#547), 2026-10-21 and 22
+
+**The fault.** A Beelink SER9 (#547, "Sounds plays only from onboard
+speakers (Beelink ser9)") played everything through the speaker in its
+case. Its ALC897 drives a built-in speaker (`speaker_outs=1` in the kernel
+log), and a speaker has no plug to sense, so its connector reports
+`unknown`. WirePlumber passes over an output only when its connector says
+`no` (`lutils.haveAvailableRoutes`), so the speaker counted and its analog
+rank beat the TV. The same fault is in the report on #416 ("PCSX2 loads the
+wrong bios for the region of the game"): an HP EliteDesk 705 G4, its CX20632
+with `speaker_outs=1`, the speaker chosen over an Acer CB272U whose EDID
+declares speakers. Nobody there mentioned sound. The A9 never showed it:
+its ALC269VC has only the headphone jack, which says `no` while empty. No
+priority can fix it: the speaker and the headphone jack are one output
+whose connector changes when headphones go in. The three HCAR5000-MI
+reports (#341, #400, #529) already had the TV as the default.
+
+**Decided by MMagTech, 2026-10-21 and 22.** A built-in speaker never takes
+the sound from the TV. When the TV's sound is gone (the screen asleep, the TV
+off or unplugged) the console is silent, never the speaker: a console is
+designed around a TV, every modern TV has speakers, a monitor without them
+has the jack, and Remote Play carries the sound through Sunshine's own
+output. Falling back to the speaker was considered and rejected: the
+screen's sleep removes the TV's output (#228, below), so the sound would move
+to the speaker at every sleep and come back only if SDL noticed the TV's
+return. No sound menu: picking an output would turn the headphone switching
+off, its "Automatic" would still need this fix, and #341 said no setting.
+Handheld PCs and laptops are not targets (CONTRIBUTING.md, "Made for a PC
+attached to a TV", 2026-10-22): what this does to their built-in speakers
+does not decide anything. He asked for the fix that is easiest to maintain,
+and accepts a build that fails on an upstream change so long as it says so.
+
+**Researched 2026-10-22** (three agents; GitLab issue pages were unreadable
+to them). No setting in PipeWire or WirePlumber does this; WirePlumber's
+documentation says routes of unknown availability count as usable "since
+built-in speakers have no jack detection", and its issue #166, "Give HDMI
+outputs a higher priority than internal speakers", exists (its answer was
+not read). Bazzite does it per machine: the Framework Desktop's hardware
+profile raises one HDMI node by name (`51-preferHDMI.conf`). Batocera and
+Kodi give the player a menu. PulseAudio deliberately never switched to HDMI
+by itself (`module-switch-on-connect` ignores "hdmi" by default). ChromeOS
+ranks exactly this rule (headphones, line out, USB and Bluetooth 3, HDMI 2,
+internal speaker 1, in `audio_device.cc`), because its sound daemon keeps
+the speaker and the headphones apart. Ruled out: raising HDMI's priority
+(headphones would never take over); a kernel `patch=` or hint (per codec,
+and a wrong pin silences a machine); a copied profile set (a large file that
+drifts); `api.acp.hidden-ports` (undocumented, and a card with only a
+speaker would still win).
+
+**Built:** `build_files/built-in-speaker.sh`, run by `build.sh`. In PipeWire's
+`/usr/share/alsa-card-profile/mixer/paths/analog-output-speaker.conf` the
+sections `[Jack Speaker Phantom]` and `[Jack Speaker Front Phantom]` change
+`state.plugged` and `state.unplugged` from `unknown` to `no`. The kernel
+gives a built-in speaker a phantom jack that always reads plugged in (since
+2012, so that sound servers could see fixed speakers), and in PipeWire a
+plugged-in jack that says `no` "should override all other availability
+information" (`calc_port_state`, `spa/plugins/alsa/acp/acp.c`, read at
+1.6.9, the image's version). So a built-in speaker counts as an empty
+headphone jack does: the onboard analog output exists only while headphones
+are in, which is how the A9 already behaves. The script fails the build if
+either section does not read exactly as at 1.6.9, or the file is missing.
+Cards set up by their own UCM profile never read this file: the image ships
+one for the Steam Deck (`ucm2/AMD/acp5x`, Valve's Jupiter and Galileo), so a
+Deck keeps its speakers. Not covered, and left as they were: a jack other
+than a speaker that cannot sense a plug, and a speaker with no phantom jack.
+A machine with no HDMI or DisplayPort sound at all is silent through a
+built-in speaker. The diagnostic report's Sound section lists each card's
+outputs and what each connector reads.
+
+**First built as a WirePlumber script, 2026-10-21, and replaced.** A Lua hook
+before `find-best-default-node` dropped every sound-card output that was not
+HDMI and not sensed "yes". It worked in WirePlumber's own Lua against 14
+stand-in setups and loaded in a real WirePlumber on the VM, but it leaned on
+WirePlumber's hook names and needed care to load safely: listed as optional
+in a profile it never loaded, required it would let a broken script stop all
+sound, and loaded after the event source it missed the start-up choice. The
+file edit has none of that.
+
+**Tested 2026-10-22:** the rule above read in PipeWire 1.6.9's source; the
+build step run on the A9 against a copy of the image's file (exactly the
+four lines change; run again on the edited file, on a reworded section and
+with the file missing, it stops the build); the Steam Deck's UCM profile
+found on the image. **Not tested on a real built-in speaker:** the A9 has
+none, so the reporter's update is the test.
 
 #### Sound dying until a restart (#228): the 2026-10-18 failure, read from the A9's logs
 
@@ -18525,7 +18789,7 @@ Vita lists; this repository at `38cd735`.
   WizzardSK/vita3k-libretro (`48b9307`, 2026-10-17; a fork, made
   2026-10-05, of danprice142/Vita3K-libretro, itself a fork of Vita3K;
   GPL-2.0), given a page in libretro's docs on 2026-10-13 (libretro/docs
-  `15883c8`, `docs/library/vita3k.md`). Touch follows the frontend's
+  `15883c8`, docs/library/vita3k.md). Touch follows the frontend's
   libretro pointer (`RETRO_DEVICE_POINTER`), front, or the rear pad while L2
   is held; and Cross with no touch held also taps the middle of the screen
   (`vita3k/libretro/libretro_input.cpp:164-200`). It has no stick pointer
@@ -19213,7 +19477,7 @@ same scene. Switching is one option, `citra_graphics_api` (`Vulkan`,
 
 | Where | What the touchpad does in games | Default | How it gets there | Source |
 |---|---|---|---|---|
-| Batocera, Knulli | A mouse. For the DS and 3DS libretro cores each player is handed the mouse that shares the pad's device path, its own touchpad, which RetroArch's udev driver also reports as the pointer (as written it passes a device path where RetroArch reads a number; read, not tested) | automatic; the core's touch mode decides (melonDS: the right stick; Azahar: mouse and pointer on) | evdev; Batocera's SDL is built without HIDAPI | batocera.linux `1af1766`: `associated_mouse_mixin.py:33-43`, `cores/azahar.py:33`, `devices/device.py:141-148`, `sdl3.mk:20`; knulli `ab3a680`: `libretroControllers.py:119-125` |
+| Batocera, Knulli | A mouse. For the DS and 3DS libretro cores each player is handed the mouse that shares the pad's device path, its own touchpad, which RetroArch's udev driver also reports as the pointer (as written it passes a device path where RetroArch reads a number; read, not tested) | automatic; the core's touch mode decides (melonDS: the right stick; Azahar: mouse and pointer on) | evdev; Batocera's SDL is built without HIDAPI | batocera.linux `1af1766`: `associated_mouse_mixin.py:33-43`, cores/azahar.py:33, `devices/device.py:141-148`, `sdl3.mk:20`; knulli `ab3a680`: `libretroControllers.py:119-125` |
 | Lakka, ROCKNIX | One more RetroArch mouse (next row); ROCKNIX ships Azahar's touchpad setting off | nothing of their own | evdev | Lakka-v6.1 `4f70542`: `retroarch.cfg:247,287`; ROCKNIX `47b49b6`: `azahar-sa/config/AMD64/qt-config.ini:86-107` |
 | RetroArch, udev input driver | The kernel's touchpad device as an absolute mouse: one finger as pointer, mouse and lightgun over the whole screen, the click as the left button; picked by "Mouse Index", not tied to the pad's port | always, when `/dev/input` is readable | evdev | RetroArch `054ecb4`: `udev_input.c:3580-3583` |
 | RetroArch, SDL2 and SDL3 joypad drivers | The click only, as button 20; the fingers are not read. #16188 (SDL's touchpad as the pointer) closed 2026-10-02: the touchpad waits for an input rewrite, "touch as a per-device capability" | | SDL | `sdl3_joypad.c:67-74,282`; libretro/RetroArch#16188; #19369 (halves as buttons, open) |
@@ -19605,10 +19869,10 @@ state's cost: factor 5 made and loaded one as fast as factor 1.
 **RetroAchievements for the 3DS: no, for three reasons, any one enough.**
 
 1. **RetroAchievements does not support the 3DS.** Its docs list it under
-   "Unsupported Consoles" (`docs/developer-docs/unsupported-emulators-and-cores.md:246`,
+   "Unsupported Consoles" (docs/developer-docs/unsupported-emulators-and-cores.md:246,
    the 3DS at `:367`, the three Citra cores marked unusable: "Only exposes
    64MB of memory", "Does not support save states") and as a rollout still
-   "Pending", with "??" sets (`docs/developer-docs/rollouts.md:81`; the Wii
+   "Pending", with "??" sets (docs/developer-docs/rollouts.md:81; the Wii
    was the last to launch, 2026-03-19, with 183). Its pages for system 62
    answered this session with a bot check, which was not passed, so no game
    count was read there; the API's game list needs a web API key the project
@@ -19856,7 +20120,9 @@ HOME and storage root with no input devices. Nothing ran on the TV.
   at Performance, 2400x1200 at Quality).
 - **Every start unpacks the archive again**, the first and every one after
   ("already downloaded", then "Unpacking…" on the Play row): to the core,
-  about 12 s for Mario Kart 7, 21 s for Kirby, 37 s for Smash. The
+  about 12 s for Mario Kart 7, 21 s for Kirby, 37 s for Smash. Only the
+  first start unpacks since #530, "An archived game unpacks again at every
+  start (3DS: up to 37 s)". The
   download from the write-test RomM over the A9's Wi-Fi took 6 to 13 s.
   One download of six stalled at 190 MB inside the write-test VM (its
   rootless port forwarding stopped taking data from RomM's nginx); the

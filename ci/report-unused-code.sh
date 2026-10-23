@@ -29,6 +29,12 @@
 # in its class), which the compiler never emits. A function used only by
 # another listed one is listed too.
 #
+# ON A PULL REQUEST it also names what is unused in the files the pull request
+# touches, as warnings on it and a list at the end of the report
+# (ci/warn-unused-touched.sh, which has the names held on purpose). CLAUDE.md,
+# rule 6 asks each of those to be removed, or kept with the reason in the pull
+# request. Still a warning, never a failure.
+#
 # Usage: ci/report-unused-code.sh
 #
 # Run by build-frontend.yml at the end of the Compile job, on pull requests.
@@ -135,4 +141,11 @@ variables=$(awk -F'\t' '$2 == "variable"' "$WORK/ours" | wc -l)
         echo "</details>"
     fi
 } >> "$REPORT"
+
+# On a pull request, HEAD is GitHub's merge of it into its base (its first
+# parent), as in check-new-warnings.sh: the names in the files the pull
+# request touches also go on the pull request as warnings.
+if git rev-parse -q --verify 'HEAD^2' > /dev/null; then
+    GITHUB_STEP_SUMMARY="$REPORT" ci/warn-unused-touched.sh "$WORK/ours" "$(git rev-parse 'HEAD^1')" HEAD || true
+fi
 done_with

@@ -71,6 +71,22 @@ log: The console came up on the GPU, not software drawing :: journalctl -b -t ca
 log: Wi-Fi or the cable is connected :: nmcli -t -f TYPE,STATE dev | grep -qE '^(wifi|ethernet):connected'
 log: Bluetooth is on :: bluetoothctl show | grep -q 'Powered: yes'
 log: The sound devices are there :: wpctl status | sed -n '/^Audio/,/^Video/p' | grep -q '\[alsa\]'
+# The volume keys (#351): system_files/usr/lib/udev/rules.d/71-cabinetos-key-
+# devices.rules tags every key device for the seat, and systemd's own rules
+# after it (73-seat-late.rules) turn the tag into the console's access. A
+# systemd that renames or reorders those leaves the keys dead in every game
+# run as a program, with nothing in the log.
+log: The console can read every key device, for the volume keys :: out=$(for e in /dev/input/event*; do udevadm info -q property -n "$e" 2>/dev/null | grep -qx 'ID_INPUT_KEY=1' && [ ! -r "$e" ] && echo "$e $(cat "/sys/class/input/${e##*/}/device/name" 2>/dev/null)"; done); [ -z "$out" ] || { echo "$out"; exit 1; }
+# Picture quality's Auto judges the machine by the GPU's top clock from
+# amdgpu's pp_dpm_sclk ("2: 2900Mhz") and the processor's from cpufreq and
+# its topology (gpu.cpp, cpus.cpp); the kernel can rename either, and Auto
+# then falls to Performance with one line in the log. AMD's file only.
+log: Picture quality's Auto still reads the GPU's and the processor's speeds :: g=$(cat /sys/class/drm/card*/device/pp_dpm_sclk 2>/dev/null); out=$(grep -qE '^[0-9]+: [0-9]+Mhz' <<<"$g" || echo "no clock lines in /sys/class/drm/card*/device/pp_dpm_sclk: $g"; c=/sys/devices/system/cpu/cpu0; [ -s $c/cpufreq/cpuinfo_max_freq ] || echo "no $c/cpufreq/cpuinfo_max_freq"; [ -s $c/topology/core_cpus_list ] || [ -s $c/topology/thread_siblings_list ] || echo "no core_cpus_list or thread_siblings_list in $c/topology"); [ -z "$out" ] || { echo "$out"; exit 1; }
+# A Wii Remote with Nintendo's own id is taken by the kernel's Wii Remote
+# driver too, hid-wiimote, whose devices 72-cabinetos-wii-remote.rules hides
+# by those two ids (#549). A driver that took another id would make a second
+# player of that Remote again; one that took neither leaves the rule idle.
+log: The kernel's Wii Remote driver still takes only the two ids the console hides :: a=$(modinfo -F alias hid_wiimote 2>&1 | LC_ALL=C sort | tr '\n' ' '); [ "$a" = 'hid:b0005g*v0000057Ep00000306 hid:b0005g*v0000057Ep00000330 ' ] || { echo "hid_wiimote's ids: ${a:-none}"; exit 1; }
 tv: Picture: after the restart Home comes up on the TV, sharp
 tv: Sound: Home's sounds play from the TV
 tv: A Bluetooth pad: turn on a paired pad; it connects and moves around Home
@@ -90,8 +106,9 @@ changelog: Controllers :: ^HID: ((core|input|hidraw|uhid|usbhid|generic|quirks|p
 # The drivers system_files/usr/lib/modules-load.d/cabinetos-controllers.conf
 # loads at boot, and the kernel's list of pads that wait for their own driver
 # (hid-quirks.c, hid_have_special_driver). When that list covers Xbox, Switch
-# and Steam pads, the file is no longer needed (#318).
-series: Controllers :: drivers/hid/hid-microsoft.c drivers/hid/hid-playstation.c drivers/hid/hid-nintendo.c drivers/hid/hid-steam.c drivers/hid/hid-quirks.c
+# and Steam pads, the file is no longer needed (#318). And the kernel's Wii
+# Remote driver, whose devices 72-cabinetos-wii-remote.rules hides (#549).
+series: Controllers :: drivers/hid/hid-microsoft.c drivers/hid/hid-playstation.c drivers/hid/hid-nintendo.c drivers/hid/hid-steam.c drivers/hid/hid-quirks.c drivers/hid/hid-wiimote-core.c
 changelog: Sound :: ^ALSA: (hda|pcm|core|control|timer)\b
 changelog: USB :: ^(usb|USB): (xhci|core|hub)\b|^xhci\b|^usb: storage: uas\b|^thunderbolt:
 changelog: Processor, sleep and power :: ^(platform/x86(/amd|: amd)|cpufreq: amd-pstate|cpufreq/amd-pstate|iommu/amd|x86/(cpu/)?amd)\b
@@ -117,14 +134,53 @@ kernel-*
 # Loads the kernel's modules. It matched the old kmod-* glob by accident.
 kmod
 kmod-libs
-bootc
-ostree
 rpm-ostree
 dracut*
 systemd
 systemd-*
 grub2-*
 plymouth*
+
+# --- System update ----------------------------------------------------------
+# bootc and ostree were under Kernel and startup until 2026-10-21. The
+# console's update (system_files/usr/libexec/cabinetos-update) reads bootc's
+# own output: `bootc status --json` (the booted image, a staged version),
+# the text of `bootc upgrade --check` ("No changes in", "Version:") and its
+# progress lines (ProgressBytes "pulling", ProgressSteps). None of that is a
+# promise bootc makes, and a change shows only as a wrong answer in Settings,
+# System update. The size it offers comes from skopeo and jq and from
+# ostree's names for the layers a console holds (sha256_3A_...), which the
+# log check below runs as the update does. bootc answers only root, so its
+# own output is the TV check.
+area: System update
+log: The A9 booted the image's own kernel :: [ "$(uname -r)" = "$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' kernel-core)" ]
+log: No service failed to start :: out=$(systemctl --failed --no-legend --plain); [ -z "$out" ] || { echo "$out"; exit 1; }
+log: The update check still finds every layer of the running image on the console :: r=$(rpm-ostree status --json | jq -r '.deployments[] | select(.booted) | (."container-image-reference" | sub(".*docker://"; "") | sub(":[^:/]*$"; "")) + "@" + ."container-image-reference-digest"'); m=$(skopeo inspect --raw "docker://$r") || { echo "skopeo could not read $r"; exit 1; }; if jq -e .manifests >/dev/null <<<"$m"; then m=$(skopeo inspect --raw "docker://${r%@*}@$(jq -r 'first(.manifests[] | select(.platform.architecture == "amd64") | .digest)' <<<"$m")") || exit 1; fi; n=$(ostree refs --repo=/sysroot/ostree/repo ostree/container/blob | jq -R -s --argjson m "$m" '(split("\n") | map(select(length > 0))) as $have | [$m.layers[] | select((.digest | sub(":"; "_3A_")) as $d | $have | index($d) | not)] | length'); [ "$n" = 0 ] || { echo "layers of $r the update would fetch again: ${n:-none counted}"; exit 1; }
+# Which image and channel it booted the console reads itself
+# (frontend/src/update.cpp): /proc/cmdline's ostree= to the deployment's
+# .origin file and its container-image-reference, and the base's version from
+# /usr/share/ublue-os/image-info.json, which no package owns, so it is
+# checked here, when these move.
+log: The console still reads which image and channel it booted :: o=$(sed -n 's/.*ostree=\([^ ]*\).*/\1/p' /proc/cmdline); f="$(readlink -f "/sysroot$o").origin"; out=$(grep -qE '^container-image-reference=.+:[^:/]+$' "$f" 2>/dev/null || echo "no container-image-reference=<image>:<tag> in ${f}"; jq -er '.version | strings' /usr/share/ublue-os/image-info.json >/dev/null 2>&1 || echo "no version in /usr/share/ublue-os/image-info.json"); [ -z "$out" ] || { echo "$out"; exit 1; }
+tv: System update: press System update in Settings, System; it checks, then says Up to date
+bootc
+ostree
+skopeo
+jq
+
+# --- What the console may do as root, added 2026-10-21 ----------------------
+# Every root job the console asks for (System update, File access, Remote
+# Play, Steam's slice, drives, the Wii search, the pads) is a unit that a
+# polkit rule of ours lets it start (system_files/usr/share/polkit-1/
+# rules.d/); the rules read polkit's subject and action fields. polkit
+# answers an ordinary user's question about another process only without
+# the unit's name, so the check reads the console's own starts this boot
+# (frontend/src/unit.cpp logs each); the A9 has Remote Play and File access
+# on, so it starts at least one.
+area: What the console may do as root
+log: polkit let the console start its own services this boot :: l=$(journalctl -b -o cat -t cabinetos-session | grep -E '^\[unit\] (Start|Stop|Reload)Unit '); [ -n "$l" ] || { echo "the console started no service this boot (Remote Play or File access on would)"; exit 1; }; bad=$(grep -v ': taken$' <<<"$l"); [ -z "$bad" ] || { echo "$bad"; exit 1; }
+tv: System update: press System update in Settings, System; it checks, then says Up to date
+polkit
 
 # --- Firmware --------------------------------------------------------------
 # ADDED 2026-09-17, because the first real base bump this tool ever classified
@@ -171,6 +227,36 @@ nvidia-gpu-firmware
 # a dlopen is invisible to `ldd` and therefore to require-frontend-libs.sh.
 #
 # Mesa also encodes Remote Play's stream (VA-API), and draws Steam's games.
+#
+# gamescope has an area of its own since 2026-10-21, with every Graphics
+# check and two of its own: the console leans on gamescope's internals, and
+# a Mesa update need not ask for them. The pause menu over a game run as a
+# program or a PS2 game is a window of ours that gamescope must put on top
+# and give the pad to (frontend/src/overlaywin.cpp: the STEAM_OVERLAY,
+# STEAM_INPUT_FOCUS and GAMESCOPE_NO_FOCUS properties, read by gamescope's
+# own code, not a promise it makes; tools/gamescope-overlay-test.sh tries it
+# by hand).
+area: The picture on the TV (gamescope)
+log: The console came up on the GPU, not software drawing :: journalctl -b -t cabinetos-session -o cat | grep -q 'gamescope (drm) is up'
+log: gamescope draws with the GPU's Vulkan driver, not software :: journalctl -b -t cabinetos-session -o cat | grep 'selecting physical device' | grep -vq llvmpipe
+# gamescope's settings are not a promise it makes, and the console reads
+# gamescopectl's exit as "gamescope took it", which says only that gamescope
+# answered. A renamed one would do nothing: the screen never sleeping
+# (drm_sleep_external_screen, idle.cpp, cabinetos-remoteplay), a Vita game's
+# touch screen (touch_click_mode, vtouch.cpp), Remote Play's stream black
+# (composite_force, cabinetos-remoteplay). Also the two variables that keep
+# the TV's picture size across restarts (cabinetos-session), the reaper the
+# session waits on, and gamescopectl's screenshot, the pause menu's
+# screenshot of a game run as a program (states.cpp). ci/check-gamescope-flags.sh
+# checks the command line; this checks the names.
+log: gamescope still knows every setting and name the console uses :: command -v strings >/dev/null || { echo "no strings (binutils) to read gamescope with"; exit 1; }; s=$(strings -a "$(command -v gamescope)"); c=$(strings -a "$(command -v gamescopectl)"); out=$(for n in drm_sleep_external_screen touch_click_mode composite_force GAMESCOPE_PATCHED_EDID_FILE GAMESCOPE_MODE_SAVE_FILE; do grep -qxF "$n" <<<"$s" || echo "gamescope has no $n"; done; grep -qxF take_screenshot <<<"$c" || echo "gamescopectl has no take_screenshot"; command -v gamescopereaper >/dev/null || echo "no gamescopereaper"); [ -z "$out" ] || { echo "$out"; exit 1; }
+tv: Picture: after the restart Home comes up on the TV, sharp
+tv: One heavy game: a PS2 or GameCube game plays smoothly for a minute, with sound
+tv: The pause menu over a PS2 game: L3 + R3 opens it, the pad moves in it, and after Resume the game has the pad
+tv: Remote Play: a stream to a phone shows the picture and plays the sound
+tv: Steam: its tile opens Big Picture, a game starts, and leaving Steam returns to Home
+gamescope
+terra-gamescope*
 area: Graphics
 log: The console came up on the GPU, not software drawing :: journalctl -b -t cabinetos-session -o cat | grep -q 'gamescope (drm) is up'
 log: gamescope draws with the GPU's Vulkan driver, not software :: journalctl -b -t cabinetos-session -o cat | grep 'selecting physical device' | grep -vq llvmpipe
@@ -178,8 +264,6 @@ tv: Picture: after the restart Home comes up on the TV, sharp
 tv: One heavy game: a PS2 or GameCube game plays smoothly for a minute, with sound
 tv: Remote Play: a stream to a phone shows the picture and plays the sound
 tv: Steam: its tile opens Big Picture, a game starts, and leaving Steam returns to Home
-gamescope
-terra-gamescope*
 mesa-*
 vulkan-*
 libdrm
@@ -200,6 +284,27 @@ libglvnd*
 # driver in Bazzite will not show here until it is added by name.
 area: Controllers
 log: Bluetooth is on :: bluetoothctl show | grep -q 'Powered: yes'
+# Pair a Wii Remote searches with btmgmt (cabinetos-wii-search), one of
+# BlueZ's tools that Fedora could stop shipping, and reads its "dev_found"
+# and "name" lines; the search needs root, so only the tool is checked
+# here. It waits for input when given a command, hence --help alone, timed.
+log: btmgmt, which finds Wii Remotes, is still there :: timeout 5 btmgmt --help 2>&1 | grep -qE '^[[:space:]]+find[[:space:]]' || { echo "btmgmt is missing, or its help no longer lists find"; exit 1; }
+# A real Wii Remote is the Wii bridge's alone because udev reads
+# 99-cabinetos-wii-remote.rules after the base's 92-viia.rules
+# (ublue-os-udev-rules), which opens every hidraw node to everyone. A rule
+# file that sorts after ours and touches hidraw nodes would open the Remote
+# to Dolphin and Cemu again, beside its stand-in, and its Nunchuk would drop
+# off as it did before the bridge (#200). The bridge
+# also needs /dev/uhid, which 72-cabinetos-wii-remote.rules and the base's
+# 60-sunshine-ublue.rules both grant.
+# The console reads bluetoothctl's text, not BlueZ's D-Bus, for most of
+# pairing (frontend/src/bluetooth.cpp, wiiremote.cpp): "Controller <address>"
+# and "Powered:" from show, "Device <address> <name>" lines from devices
+# (Paired as a filter; wiiremote.cpp reads the name at a fixed column), and
+# "Name:", "Paired:" and "Connected:" from info. A paired pad is asked about,
+# which changes nothing.
+log: bluetoothctl still answers in the lines the console reads :: s=$(bluetoothctl show); d=$(bluetoothctl devices Paired); m=$(sed -n '1s/^Device \([0-9A-F:]\{17\}\) .*/\1/p' <<<"$d"); out=$(grep -qE '^Controller ([0-9A-F]{2}:){5}[0-9A-F]{2} ' <<<"$s" || echo "show: no Controller line"; grep -qE '^[[:space:]]+Powered: (yes|no)$' <<<"$s" || echo "show: no Powered line"; [ -n "$m" ] || echo "devices Paired: no Device <address> <name> line: $d"; if [ -n "$m" ]; then i=$(bluetoothctl info "$m"); for k in Name Paired Connected; do grep -qE "^[[:space:]]+$k: " <<<"$i" || echo "info: no $k line"; done; fi); [ -z "$out" ] || { echo "$out"; exit 1; }
+log: The Wii Remote's rule still comes after every rule that opens controller nodes, and the bridge can make its stand-ins :: out=$(for f in $( (ls /usr/lib/udev/rules.d; ls /etc/udev/rules.d 2>/dev/null) | grep '\.rules$' | LC_ALL=C sort -u | LC_ALL=C awk '$0 > "99-cabinetos-wii-remote.rules"'); do for d in /etc/udev/rules.d /usr/lib/udev/rules.d; do [ -e "$d/$f" ] && { grep -l hidraw "$d/$f"; break; }; done; done; [ -r /dev/uhid ] && [ -w /dev/uhid ] || echo "the console cannot open /dev/uhid"); [ -z "$out" ] || { echo "$out"; exit 1; }
 tv: A Bluetooth pad: turn on a paired pad; it connects and moves around Home
 tv: Rumble: a game that rumbles still rumbles on that pad
 tv: A Wii Remote: it connects, and a Wii game takes it
@@ -213,6 +318,8 @@ ds-inhibit
 bluez
 bluez-*
 libratbag*
+# Bazzite's controller udev rules, 92-viia.rules among them (above).
+ublue-os-udev-rules
 
 # --- The frontend's own runtime ---------------------------------------------
 # Phase 3 links against these and the OS image is the only place they come
@@ -227,7 +334,15 @@ libratbag*
 area: Libraries the console's screens use
 log: Home started :: journalctl -b -t cabinetos-session -o cat | grep -q 'Home is up'
 log: Nothing crashed this boot :: out=$(coredumpctl list --since "$(uptime -s)" --no-legend 2>/dev/null); [ -z "$out" ] || { echo "$out"; exit 1; }
+# The frontend opens the type ramp's files by name (startup.cpp): without
+# Regular it does not start, and without SemiBold or Bold it draws the wrong
+# weights and says nothing. A move to one variable font would do that.
+log: The type ramp's font files are where the console opens them :: out=$(for f in /usr/share/fonts/google-noto/NotoSans-Regular.ttf /usr/share/fonts/google-noto/NotoSans-SemiBold.ttf /usr/share/fonts/google-noto/NotoSans-Bold.ttf /usr/share/fonts/google-noto-sans-cjk-fonts/NotoSansCJK-Regular.ttc; do [ -s "$f" ] || echo "missing $f"; done); [ -z "$out" ] || { echo "$out"; exit 1; }
 tv: Home: cover art and names draw as before, Japanese names included
+# SDL reads every pad the console has (players.cpp, input.cpp) and keeps
+# hints and numbering the console relies on (startup.cpp, shortcuts.cpp).
+# The emulators run as programs carry SDL of their own.
+tv: A Bluetooth pad: turn on a paired pad; it connects and moves around Home
 SDL3
 SDL3-*
 freetype
@@ -288,10 +403,41 @@ libxkbcommon*
 # libudev lives in systemd-libs (a "libudev*" pattern matched no package).
 systemd-libs
 
+# --- Games drives, added 2026-10-21 ----------------------------------------
+# The console mounts, claims and formats every drive itself through udisks
+# (frontend/src/drives.cpp, udisks.cpp): ext4, exFAT and NTFS, formatted as
+# ext4. Unwatched until this day. The A9 keeps its games on a drive the
+# console mounts at start.
+area: Games drives
+log: The A9's games drive is mounted where the console looks :: findmnt -rn -o TARGET | grep -q '^/run/media/cabinet/' || { echo "nothing mounted under /run/media/cabinet"; lsblk -o NAME,FSTYPE,LABEL,MOUNTPOINTS; exit 1; }
+udisks2
+libudisks2
+libblockdev*
+e2fsprogs*
+exfatprogs
+ntfs-3g*
+ntfsprogs
+
+# --- Game manuals, added 2026-10-21 ----------------------------------------
+# A game's manual (#364, manual.cpp) is measured by reading pdfinfo's "Page N
+# size: W x H pts" and "Page N rot: R" lines, and drawn by pdftoppm's PPM on
+# standard output. Both are poppler's, and that text is not a promise it
+# makes. The check runs both on a one-page PDF given on standard input, so
+# nothing is written.
+area: Game manuals
+log: A manual's pages are still measured and drawn :: p() { printf '%%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 100]>>endobj\ntrailer<</Size 4/Root 1 0 R>>\n%%%%EOF\n'; }; p | pdfinfo -f 1 -l 1000000 fd://0 | grep -qE '^Page +1 size: +200 x 100 pts' || { echo "pdfinfo no longer says a page's size the way manual.cpp reads it"; p | pdfinfo -f 1 -l 1 fd://0; exit 1; }; [ "$(p | pdftoppm -f 1 -l 1 -cropbox -scale-to-x 20 -scale-to-y -1 fd://0 | head -c 2)" = P6 ] || { echo "pdftoppm no longer writes a PPM to standard output"; exit 1; }
+poppler
+poppler-utils
+poppler-data
+
 # --- Audio -----------------------------------------------------------------
 area: Sound
 log: PipeWire and WirePlumber are running :: systemctl --user is-active -q pipewire wireplumber
 log: The sound devices are there :: wpctl status | sed -n '/^Audio/,/^Video/p' | grep -q '\[alsa\]'
+# The volume keys (volume.cpp) read `wpctl get-volume`'s "Volume: 0.50"
+# (" [MUTED]" after it when muted) and set it the same way. With the TV
+# asleep there is no output to ask, so this fails then: wake the TV first.
+log: wpctl still says the TV's volume the way the volume keys read it :: v=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>&1); [[ "$v" =~ ^Volume:\ [0-9]+\.[0-9]{2}(\ \[MUTED\])?$ ]] || { echo "wpctl get-volume said: $v (is the TV awake?)"; exit 1; }
 tv: Sound: Home's sounds play from the TV
 tv: Remote Play: a stream to a phone shows the picture and plays the sound
 pipewire*
@@ -303,6 +449,10 @@ alsa-*
 area: Power
 log: tuned runs, with the console's sound profile laid over it :: tuned-adm active | grep -q 'post-loaded profile: cabinetos-audio'
 log: No service failed to start :: out=$(systemctl --failed --no-legend --plain); [ -z "$out" ] || { echo "$out"; exit 1; }
+# A game switches tuned to Bazzite's own profile and Home switches back
+# (powerprofile.cpp), by name; a renamed one leaves every game on balanced,
+# with one line in the log.
+log: tuned still has the two profiles the console switches between :: l=$(tuned-adm list); grep -qE '^- balanced( |$)' <<<"$l" && grep -qE '^- throughput-performance-bazzite( *- |$)' <<<"$l" || { echo "$l"; exit 1; }
 tuned
 tuned-*
 power-profiles-daemon
@@ -313,11 +463,24 @@ thermald
 area: Network
 log: Wi-Fi or the cable is connected :: nmcli -t -f TYPE,STATE dev | grep -qE '^(wifi|ethernet):connected'
 log: Avahi runs, so phones find the console for Remote Play :: systemctl is-active -q avahi-daemon
+# Settings and first run read nmcli's terse text (frontend/src/net.cpp):
+# device status's four fields, "running", the radio's "enabled", a saved
+# Wi-Fi's type "802-11-wireless", the network list's "*" for the one in use,
+# and IP4.ADDRESS. Nothing here rescans or changes a connection.
+log: nmcli still answers in the fields the console reads :: s=$(nmcli -t -f DEVICE,TYPE,STATE,CONNECTION device status); dev=$(sed -n 's/^\([^:]*\):\(wifi\|ethernet\):connected:.*/\1/p' <<<"$s" | head -1); out=$([ -n "$dev" ] || echo "device status has no DEVICE:wifi|ethernet:connected:NAME line: $s"; [ "$(nmcli -t -f RUNNING general)" = running ] || echo "general RUNNING is not running"; [[ "$(nmcli -t -f WIFI radio)" =~ ^(enabled|disabled)$ ]] || echo "radio WIFI is not enabled or disabled"; [ -z "$dev" ] || nmcli -t -f IP4.ADDRESS device show "$dev" | grep -qE '^IP4\.ADDRESS\[1\]:[0-9.]+/[0-9]+$' || echo "no IP4.ADDRESS[1] for $dev"; if grep -q ':wifi:connected:' <<<"$s"; then nmcli -t -f NAME,TYPE connection show | grep -q ':802-11-wireless$' || echo "no saved Wi-Fi of type 802-11-wireless"; nmcli -t -f IN-USE,SSID,SIGNAL,SECURITY device wifi list --rescan no | grep -qE '^\*:.+:[0-9]+:' || echo "the Wi-Fi list has no *:SSID:SIGNAL: line"; fi); [ -z "$out" ] || { echo "$out"; exit 1; }
+# Remote Play's ports and the diagnostic report's link (report.cpp, a port
+# the system picks) are above 1024, which the base's default zone leaves
+# open to the home network. A base whose zone closes them leaves a phone
+# unable to reach either, and nothing on the console says so.
+log: The firewall still lets a phone reach Remote Play and the report's link :: z=$(sed -n 's/^DefaultZone=//p' /etc/firewalld/firewalld.conf); f=/etc/firewalld/zones/$z.xml; [ -e "$f" ] || f=/usr/lib/firewalld/zones/$z.xml; grep -qE '<port (protocol="tcp" port="1025-65535"|port="1025-65535" protocol="tcp")/>' "$f" || { echo "the default zone ${z:-(none)} ($f) does not open TCP 1025-65535"; exit 1; }
 NetworkManager
 NetworkManager-*
 wpa_supplicant
 avahi
 avahi-*
+firewalld
+firewalld-*
+python3-firewall
 # Broadcom Wi-Fi, for machines that have it (added to Bazzite 44.20260929).
 kmod-wl
 broadcom-wl
@@ -328,6 +491,10 @@ broadcom-wl
 # 44.20261012.1, which moved it.
 area: Remote Play away from home
 log: Tailscale runs when Remote Play away from home is on :: s=/var/lib/cabinetos/config/settings.json; if [ "$(jq -r '.remote_play // "off"' "$s")" = on ] && [ "$(jq -r '.tailscale // "off"' "$s")" = on ]; then systemctl is-active -q tailscaled && tailscale status >/dev/null; fi
+# Settings reads `tailscale status --json` (tailscale.cpp), whose format
+# Tailscale says may change: BackendState in the words the console knows,
+# and, once signed in, Self.HostName and Self.TailscaleIPs.
+log: Tailscale still answers in the fields the console reads :: systemctl is-active -q tailscaled || exit 0; j=$(tailscale status --json --peers=false); jq -e '(.BackendState | IN("Running", "NeedsLogin", "Stopped", "NeedsMachineAuth", "Starting", "NoState")) and (.BackendState != "Running" or ((.Self.HostName | type) == "string" and (.Self.TailscaleIPs | type) == "array"))' >/dev/null <<<"$j" || { jq -c '{BackendState, Self: (.Self // {} | {HostName, TailscaleIPs})}' <<<"$j"; exit 1; }
 tv: Remote Play away from home (only if you use it): a stream over Tailscale shows the picture
 tailscale
 

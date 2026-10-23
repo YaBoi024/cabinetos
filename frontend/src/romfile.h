@@ -128,10 +128,32 @@ int64_t unpackedSize(const std::string& path, const std::string& validExtensions
 // `cancel` is the launch's (#472): set, the unpacking stops between two
 // blocks and returns false, and what was written so far stays for the
 // launch's own clean-up, as after a failed read.
+//
+// Each file written whole is given the archive's own modification time
+// (#530), which is how alreadyUnpacked knows it later.
 bool prepareFile(const std::string& downloadedPath, const std::string& outDir,
                  const std::string& validExtensions, bool blockExtract,
                  std::string* primaryPath, Kind* kindOut, std::string* err,
                  const std::atomic<bool>& cancel);
+
+// WHETHER AN EARLIER prepareFile ALREADY UNPACKED THIS ARCHIVE INTO `outDir`
+// (#530), so a start can skip writing it all again: 37 s at every start for
+// Super Smash Bros. on the 3DS. Read from the archive's headers, never its
+// data. True only when every file prepareFile would write is there at the
+// size the archive lists AND carries the archive's own time, which
+// prepareFile gives each file it finishes; `primaryPath` is then the file
+// prepareFile would point the core at. Anything else unpacks again: a new
+// download (the archive's time is new), an unpacking cut off (a short file,
+// or one never stamped), anything that wrote into a file, a copy from
+// another drive (fresh times). False too when prepareFile would write
+// nothing, the file being handed over as it stands.
+//
+// Equal times, not "no older": each filesystem keeps a time at its own grain
+// (exFAT's is 10 ms), and the file's time is the archive's as that same
+// filesystem stored it, so the two stay equal on every drive.
+bool alreadyUnpacked(const std::string& downloadedPath, const std::string& outDir,
+                     const std::string& validExtensions, bool blockExtract,
+                     std::string* primaryPath);
 
 // Whether `fileName`'s extension is one the core lists ("bin|cue|chd").
 bool accepts(const std::string& validExtensions, const std::string& fileName);

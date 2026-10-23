@@ -431,7 +431,8 @@ int firstRunRules() {
 // console replaces goes through cab::writeBytes; this proves the rules it
 // promises in fileio.h, and the callers with rules of their own on top:
 // pending markers, prefs::set, the cover cache's sweeps and a game's archive
-// unpacked (romfile::prepareFile). A full disk is a
+// unpacked (romfile::prepareFile), and not unpacked again while what came out
+// of it is untouched (romfile::alreadyUnpacked, #530). A full disk is a
 // file size limit here (RLIMIT_FSIZE, with SIGXFSZ ignored so the write
 // fails rather than the process). A power cut cannot be made headless; the fsync is read, not run.
 int filesTest() {
@@ -590,6 +591,49 @@ int filesTest() {
     check(!cased && text(std::string(root) + "/cased/a/x.bin") == "first\n",
           "and so does one differing only in case (one file on exFAT), the first not "
           "written over");
+
+    // 7. A game's archive is unpacked once (#530): a later start finds every
+    // file at its size with the archive's own time and boots the same one;
+    // anything else unpacks again.
+    const std::string again = std::string(root) + "/again";
+    const std::string zip = again + "/again.zip";
+    std::string boot;
+    const bool once = unpack("again", src, {"a/x.bin", "b/x.bin"}, &boot, &why);
+    auto skips = [&] {
+        std::string booted;
+        return romfile::alreadyUnpacked(zip, again, "bin", false, &booted) && booted == boot;
+    };
+    check(once && skips(), "a second start finds the zip unpacked, and boots the same file");
+    const std::atomic<bool> go{false}, stop{true};
+    auto redo = [&](const std::atomic<bool>& cancel) {
+        romfile::Kind kind = romfile::Kind::Plain;
+        return romfile::prepareFile(zip, again, "bin", false, &boot, &kind, &why, cancel);
+    };
+    struct stat zst{};
+    ::stat(zip.c_str(), &zst);
+    auto stampAt = [&](const std::string& p, time_t later) {
+        const struct timespec t[2] = {{0, UTIME_OMIT},
+                                      {zst.st_mtim.tv_sec + later, zst.st_mtim.tv_nsec}};
+        ::utimensat(AT_FDCWD, p.c_str(), t, 0);
+    };
+    // A filesystem's clock moves in ticks of a few milliseconds, and a write
+    // in the same tick as the download is not one a person can make.
+    ::usleep(20 * 1000);
+    cab::writeBytes(again + "/a/x.bin", std::string("FIRST\n"));
+    check(!skips(), "a file changed at its own size unpacks again");
+    check(redo(go) && text(again + "/a/x.bin") == "first\n" && skips(),
+          "and the unpacking puts it back, skipped after");
+    stampAt(again + "/b/x.bin", 1);
+    check(!skips(), "a file one second newer than the archive unpacks again");
+    redo(go);
+    ::truncate((again + "/b/x.bin").c_str(), 3);
+    stampAt(again + "/b/x.bin", 0);
+    check(!skips(), "a file cut short unpacks again, though it has the archive's time");
+    check(!redo(stop) && !skips(), "and so does an unpacking cancelled before its end");
+    check(redo(go) && skips(), "which the next unpacking finishes");
+    ::usleep(20 * 1000);
+    cab::writeBytes(zip, cab::readBytes(zip));
+    check(!skips(), "a new download of the archive unpacks again, the same bytes or not");
 
     storage::removeEntry(root);
     std::printf("\nfiles: %d failure%s\n", failures, failures == 1 ? "" : "s");

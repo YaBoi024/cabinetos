@@ -104,6 +104,8 @@ unsigned padDevice(const std::string& code) {
     return 0;
 }
 
+bool needsMotionPlus(const std::string& code) { return controls(code).find('M') != std::string::npos; }
+
 // By its four letters, so a code read off the file (eight hex digits, when
 // RomM had none) is the same answer as RomM's sixteen.
 bool isMiiChannel(const std::string& titleId) {

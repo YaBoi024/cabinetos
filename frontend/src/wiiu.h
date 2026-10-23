@@ -2,13 +2,14 @@
 //
 // THE RULE, MMagTech 2026-10-01 (docs/PROJECT.md open question 36), Wii's rule
 // carried over: a Wii U game plays on a pad when GameTDB says it takes a Pro
-// Controller or a Classic Controller, and each player's pad is a Pro Controller
-// to Cemu. A game that takes a Wii Remote and neither of those needs a Wii
-// Remote and is greyed for good, "Needs a Wii Remote" (#231, closed not
-// planned). Everything else was made for the
+// Controller or a Classic Controller. A game that takes a Wii Remote and
+// neither of those needs a Wii Remote and is greyed for good, "Needs a Wii
+// Remote" (#231, closed not planned). Everything else was made for the
 // GamePad, its second screen and its touchscreen, which nothing can provide:
 // greyed for good, "Needs a Wii U GamePad". Captain Toad: Treasure Tracker is
-// one. One rule, no per-game exceptions.
+// one. One rule, no per-game exceptions. Player 1's pad is a GamePad to Cemu
+// and every other player's a Pro Controller (MMagTech, 2026-10-22;
+// standalone_cemu.cpp, cemuProfile), which brings the GamePad's buttons only.
 //
 // WHO KNOWS WHAT. GameTDB lists a game's controllers under its product code
 // (`BWPE01` for Hyrule Warriors on disc, `WKNE` for Shovel Knight from the

@@ -335,7 +335,12 @@ then `YDOTOOL_SOCKET=/tmp/ydotool.sock ydotool key 108:1 108:0` (Down; Up
 
 - **gamescope crashes on its way out when the app is stopped**
   (`wl_display_destroy`, SIGSEGV or SIGABRT). It is every session stop, not
-  the thing being tested; look at what stopped the app.
+  the thing being tested; look at what stopped the app. A crash while the
+  app was running is something else: 2026-10-22's, as a game's window
+  closed (`wlserver_presentation_feedback_discard` in the core's journal
+  entry), is gamescope's own bug, fixed upstream and waiting for the base
+  (PROJECT.md, "Waiting for stable: gamescope crashes when a game's window
+  closes").
 
 - **A SESSION START REMAKES THE TV'S SOUND OUTPUT.** Measured 2026-10-11
   (#351): the HDMI sink was node 65, then 70, then 55 within a second of

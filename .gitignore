@@ -52,6 +52,11 @@ image_payload/
 # Actions cache the same way, and ignored for the same reason.
 .vectrex-sheets/
 
+# Claude Code's local files (preview config, settings, worktrees) stay on the
+# machine; only the skills in .claude/skills/ are part of the repository.
+.claude/*
+!.claude/skills/
+
 # macOS
 .DS_Store
 .ui-loop.png

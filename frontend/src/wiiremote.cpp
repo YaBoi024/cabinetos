@@ -43,6 +43,7 @@ bool isRemoteName(const std::string& name) { return name.rfind(kPrefix, 0) == 0;
 // --- What is paired -------------------------------------------------------------
 
 std::atomic<bool> gAnyPaired{false};
+std::atomic<bool> gAnyWithMotionPlus{false};
 std::mutex gPairedLock;
 std::vector<Paired> gPaired;
 
@@ -59,6 +60,20 @@ std::vector<std::pair<std::string, std::string>> listed(const char* filter) {
         if (isRemoteName(name)) out.emplace_back(address, name);
     }
     return out;
+}
+
+// NINTENDO'S OWN REMOTE, by the id bluetoothd read off it (its Device ID
+// record, "Modalias: usb:v057Ep0306..."): the two the kernel's Wii Remote
+// driver takes (hid-wiimote; 0330 is the Wii Remote Plus). The TechKens say
+// v04E8p7021. When bluetoothd cannot say, it is not counted as Nintendo's,
+// so nothing greys that did not before.
+bool nintendosOwn(const std::string& address) {
+    const proc::Result r = proc::run({"bluetoothctl", "info", address}, 10);
+    if (!r.ok()) return false;
+    std::string out = r.out;
+    for (char& c : out) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return out.find("modalias: usb:v057ep0306") != std::string::npos ||
+           out.find("modalias: usb:v057ep0330") != std::string::npos;
 }
 
 // --- The running Remotes ----------------------------------------------------------
@@ -386,23 +401,29 @@ std::vector<Paired> known() {
 }
 
 bool anyPaired() { return gAnyPaired; }
+bool anyWithMotionPlus() { return gAnyWithMotionPlus; }
 
 void refresh() {
     std::vector<Paired> now;
+    size_t nintendos = 0;
     for (const auto& [address, name] : listed("Paired")) {
         Paired p;
         p.address = address;
         p.name = name;
         now.push_back(p);
+        if (nintendosOwn(address)) ++nintendos;
     }
     const bool any = !now.empty();
-    if (any != gAnyPaired)
-        std::fprintf(stderr, "[wiiremote] %zu Remote(s) paired\n", now.size());
+    const bool motionPlus = now.size() > nintendos;
+    if (any != gAnyPaired || motionPlus != gAnyWithMotionPlus)
+        std::fprintf(stderr, "[wiiremote] %zu Remote(s) paired, %zu of them Nintendo's own\n", now.size(),
+                     nintendos);
     {
         std::lock_guard<std::mutex> lk(gPairedLock);
         gPaired = std::move(now);
     }
     gAnyPaired = any;
+    gAnyWithMotionPlus = motionPlus;
 }
 
 // THE BRIDGE (wiibridge/bridge.cpp, its own program, GPL because it carries

@@ -1,11 +1,12 @@
 # Contributing to CabinetOS
 
 This is for people who can program and want to find their way around
-CabinetOS, build it, test it, and change one thing safely without having to
-ask first (a new kind of part is the one thing to raise on an issue
-before building it). It is written from what the code does today. Where an older doc
-describes the code differently, the code wins; docs/PROJECT.md stays the
-record of what was decided. The known disagreements are listed at the end of
+CabinetOS, build it, test it, and change one thing safely. A small fix needs
+no asking; anything that decides something new is raised on an issue first
+("Pull requests and issues", below). It is written from what the code does today. Where an older doc
+describes the code differently, the code wins; docs/decisions/, and
+docs/PROJECT.md before it, stay the record of what was decided. The known
+disagreements are listed at the end of
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 **Read in this order:**
@@ -203,7 +204,7 @@ with 0 when it passes, and CI runs every one ("What CI checks"):
 | `--playtime-test` | time played: the clock and what is reported to RomM |
 | `--disc-test` | the rules for games on several discs |
 | `--same-names-test` | the diagnostic report's list of games with the same name |
-| `--files-test` | that a full disk leaves the file it was replacing whole, credentials stay 0600, a cut save's marker is not counted as owed, two settings changed at once both stick, the cover sweeps spare the tile map, a cover being written and what a link points at, and a game's archive keeps its folders and refuses a name outside them or one that comes twice |
+| `--files-test` | that a full disk leaves the file it was replacing whole, credentials stay 0600, a cut save's marker is not counted as owed, two settings changed at once both stick, the cover sweeps spare the tile map, a cover being written and what a link points at, and a game's archive keeps its folders and refuses a name outside them or one that comes twice, and is not unpacked again at a later start, but is when a file that came out of it was changed or cut short, its unpacking was cancelled, or it was downloaded again |
 | `--vectrex-sheets-test` | which Vectrex game takes which screen sheet: RomM's md5 first, then the longest name token, and the sheets that never shipped drawing nothing, against `frontend/data/vectrex-overlays.json` |
 | `--check-option-tables cores/options` | that every option the console sets (`coreoptions.cpp`, `quality.cpp`, `sysopts.cpp`, the Wii's rumble in `wii.cpp` and the Vectrex sheets' fit in `vectrexsheets.cpp`, with every answer that depends on the machine or a setting) exists in the core it is set on, and that every libretro core in `catalog.cpp`'s table has its list in `cores/options/` (CI runs it as a step of its own) |
 
@@ -333,7 +334,11 @@ the linked program, so a header's function that one file never calls is
 not. Constants are not listed (a `constexpr` is folded where it is used),
 nor the C++ library or vendored rcheevos, and an inline function nobody
 calls is never compiled, so the linker never sees it. The binary that ships
-is not that one. A report only: it never fails the job.
+is not that one. A report only: it never fails the job. On a pull request
+the names in the files it touches are also a warning on each file and a list
+at the end of the report (`ci/warn-unused-touched.sh`, with the names held on
+purpose, none today): each is removed, or kept with the reason in the pull
+request (CLAUDE.md, rule 6).
 
 **A pull request to `main` never builds the image**, the cores, PCSX2 (and
 so `frontend/ps2`), Cemu or Sunshine; a mistake there first shows when the
@@ -370,8 +375,8 @@ runs `checks.yml`, a few seconds each:
 - **PROJECT.md index** (`ci/check-project-index.sh`), report only, never a
   failure: a numbered question in `docs/PROJECT.md` (`### 32.`) with no line
   in its index, an index line with no question, or the index's count of
-  questions gone wrong is a warning on the pull request. Add the line under
-  "The open questions, and where each ended".
+  questions gone wrong is a warning on the pull request. The file is frozen
+  (CLAUDE.md, rule 7), so no question is added to it.
 - **Long files** (`ci/check-long-files.sh`), report only, never a failure:
   every source file over 1,500 lines in `frontend/`, `wiibridge/`,
   `build_files/`, `ci/`, `cores/`, `system_files/` and `tools/` is listed in
@@ -380,13 +385,28 @@ runs `checks.yml`, a few seconds each:
   Source is code (`.c`, `.cpp`, `.h`, `.sh`, `.py`, or a script starting
   `#!`); vendored files (`frontend/third_party/`, `frontend/src/libretro.h`)
   are on the script's list and left out.
+- **Docs list** (`ci/check-docs-list.sh`): a `.md` file directly under
+  `docs/`, or a folder under `docs/` that holds `.md` files, that is not named
+  in "The docs, each with its one job" (above) fails, so a new doc has to say
+  what its one job is (CLAUDE.md, rule 2). What is inside a folder is not
+  read here.
+- **Decisions** (`ci/check-decisions.sh`): a file in `docs/decisions/` that
+  is not named `YYYY-MM-DD-short-name.md`, is over 60 lines, or does not have
+  exactly one line in the index of `docs/decisions/README.md` fails, as does
+  an index line with no file; and a pull request that makes `docs/PROJECT.md`
+  longer by more than 5 lines net fails, since the file is frozen. A line a
+  pull request adds to a decision file or to PROJECT.md that says "known gap",
+  "not fixed", "still open" or "left for later" is a warning on the pull
+  request and never a failure: a decision file holds no fault (CLAUDE.md,
+  rule 7).
 
 **A check's first week is report only.** Until the end of the date in
 `checks.yml`'s `REPORT_ONLY_UNTIL` (2026-10-25, UTC; `build-frontend.yml`
 has its own, the same date, for its checks), a check that can fail marks
 what it finds as warnings on the pull request and passes; from the next
 day it fails. A new check that can fail starts the same way, with that
-date set a week ahead in its pull request.
+date set a week ahead in its pull request: the Docs list and Decisions
+checks have their own, 2026-10-31, in their jobs in `checks.yml`.
 
 **Not checked by CI:** the frontend's tests that need a screen, a core or a
 server, the shell scripts under `tools/`, what any Python does (Lint only
@@ -537,9 +557,10 @@ here, not reworded; follow the link for the full text.
   saves. docs/CABINET.md says what Cabinet is now; docs/history/CABINET.md
   is worth reading for how a problem was solved before.
 - **Emulators favour stability over the newest version**: a pin moves only
-  for something a player gets, and the question is asked out loud on the
-  issue or pull request (docs/PROJECT.md, "Constraints and principles", 8).
-  This is the rule for moving a core's pin; the older comment in
+  for one of five named reasons, with its evidence, and the question is
+  asked out loud on the issue or pull request
+  (`docs/decisions/2026-10-23-when-an-emulator-pin-moves.md`). This is the
+  rule for moving a core's pin; the older comment in
   `cores/build-core.sh` saying pins follow Cabinet's manifest is out of date
   (docs/ARCHITECTURE.md, section 7).
 - **Fewer settings; no emulator settings page** (docs/SETTINGS.md, "The screen";
@@ -580,6 +601,14 @@ here, not reworded; follow the link for the full text.
 - **A patch to an emulator's source is proposed and agreed first (MMagTech,
   2026-10-20),** and tracked on an issue linked to its upstream report until
   upstream fixes it (docs/WORKING.md, "Patches to an emulator's code").
+- **Made for a PC attached to a TV (MMagTech, 2026-10-21).** CabinetOS is
+  built for a computer connected to a television: a mini PC, or a larger
+  desktop PC. A computer monitor with built-in speakers counts as a TV. A
+  fix never risks that experience for another kind of machine. Handhelds (a
+  Steam Deck) and laptops are not targets. Since 2026-10-22, a fault is not
+  looked at if it shows only on a handheld PC, a laptop, or a computer that
+  is not attached to a TV, and not on a mini PC or desktop attached to a TV.
+  Remote Play with no screen connected (#381) is the one exception.
 
 ### Duties that come with some changes
 
@@ -591,7 +620,22 @@ here, not reworded; follow the link for the full text.
   `docs/LICENCES.md`. A stale options list fails the core's build, which a
   pull request to `main` does not run: it fails at the testing push. Then
   check the console's own option tables still fit (`--check-option-tables`),
-  and ask the stability question above.
+  and ask the stability question above. Moving any emulator's or Sunshine's
+  pin, go through its rows in docs/ARCHITECTURE.md, "What leans on other
+  projects", too.
+- **Leaning on another project's internals** (asked for by MMagTech,
+  2026-10-21): anything that works only because another project behaves a
+  way it does not promise (a patch to its source, a settings key or file it
+  does not document, its output or its log read as text, a setting's name, a
+  file laid over one of its own) gets, in the same pull request, a check in
+  the place that is read when that project moves, and a row in
+  docs/ARCHITECTURE.md, "What leans on other projects". For a package of the
+  Bazzite base, that place is its area in `ci/base-watch.txt`: a `log:` line,
+  run on the reference console as `tools/base-checks.sh` runs it and seen to
+  fail when its answer is wrong, or a `tv:` line when only eyes can tell. For
+  something pinned here (a core, an emulator, Sunshine), an assertion in its
+  build or install script that stops the build. Where nothing can check it,
+  the row says so, and what would show it broken.
 - **Changing the controls:** change About, How to, and
   `docs/wiki/navigation.md` together (docs/SETTINGS.md, About).
 - **A new emulator or library in the image:** `docs/LICENCES.md`,
@@ -611,6 +655,26 @@ here, not reworded; follow the link for the full text.
 
 ## Pull requests and issues
 
+- **Ask first for anything that decides something new.** A fix of a few lines
+  that puts back what was already meant to work goes straight to a pull
+  request: a typo on screen, a label cut off, a crash from a missing check. A
+  feature, a setting, a changed default, a new emulator or system, a pin move,
+  a new file or folder, a new download or checksum, a change to the build or
+  CI, or a refactor across files needs an issue the maintainer has agreed to
+  before you write it, linked from the pull request. A fix for one game is
+  never taken. If you are unsure which this is, ask on an issue. A pin moves
+  only for one of the five reasons in
+  `docs/decisions/2026-10-23-when-an-emulator-pin-moves.md`, with its evidence.
+- **AI-assisted pull requests are welcome; CabinetOS is built with AI
+  itself.** AI tools read `AGENTS.md`. An AI may help write an issue or a pull
+  request; a person reads it, sends it and answers for it, and the pull request
+  says which tool helped and which checks were run. The maintainer reads every
+  pull request, and CI does not run on one from a fork until he approves it.
+- **Skills:** a procedure for one job lives in
+  `.claude/skills/<job>/SKILL.md`, plain Markdown that any AI tool can read as
+  instructions. Name a skill for the job it does: verb first, plain words, no
+  project jargon (`check-emulator-update`, not `pin-check`). One job per skill,
+  and it points at the docs for the rule instead of repeating it.
 - **One branch, one pull request, aimed at `main`.** Its body says first what
   the change does and why it exists, in plain words, then the detail, and
   "Closes #N" for an issue it finishes (docs/WORKING.md, "The loop").
@@ -631,20 +695,40 @@ here, not reworded; follow the link for the full text.
 - **Security problems** are reported privately, never in a public issue:
   [SECURITY.md](SECURITY.md).
 
-## Where decisions live
+## The docs, each with its one job
 
-Before proposing a change, look for the decision that already covers it:
+Before proposing a change, look for the decision that already covers it: the
+index in docs/decisions/, then docs/PROJECT.md for anything before
+2026-10-23.
 
-- **docs/PROJECT.md**: the specification, the phase history and 51 numbered
-  open questions, most of them decided. Code cites them by number ("open
-  question 32"), so the numbers never change. It is 17,000 lines, too large
-  for GitHub to render, so it shows as plain text there. Its index, at the
-  top, lists every section and every question with where it ended; then
-  search it by question number (`### 32.`) or keyword.
+- **docs/decisions/**: what the project decided and why, one small file
+  each, with an index. Since 2026-10-23.
+- **docs/PROJECT.md**: the old record of decisions and why, up to
+  2026-10-23, frozen. Code cites its questions by number ("open question
+  32"), so the numbers never change. It is too large for GitHub to render,
+  so it shows as plain text; its index, at the top, lists every section and
+  question with where it ended. Search it by question number (`### 32.`) or
+  keyword.
 - **docs/SETTINGS.md**: every Settings decision, as the screen is.
-- **docs/ROADMAP.md**: milestones, and "Decided against", kept so nobody
-  proposes those again.
+- **docs/ROADMAP.md**: how the release was reached, the Later milestone, and
+  what was decided against, kept so nobody proposes it again.
+- **docs/ARCHITECTURE.md**: how the code is laid out, what each part owns and
+  must never do, and the main flows.
+- **docs/NEXT-SESSION.md**: what the next session works on, and what state
+  things are in.
+- **docs/WORKING.md**: how MMagTech works: the loop, the testing branch,
+  merges.
 - **docs/lessons/**: what cost hours, with the reasons.
+- **docs/LICENCES.md**: every emulator and library in the image, with its
+  licence, its source and the exact version built.
+- **docs/CABINET.md**: what CabinetOS shares with Cabinet Go, the pocket app:
+  the save and state names on RomM, which must not change. It points to the
+  history of the retired Apple apps.
+- **docs/wiki/**: the pages for players, with the changelog.
+- **docs/history/**: what is kept as history, not current.
+  docs/CORE-OPTIONS-AUDIT.md, docs/PCSX2-HOST-SURFACE.md and
+  docs/SETTINGS-INVENTORY.md are one-line pointers to files that moved
+  there.
 - **GitHub issues**: one per piece of work; the audit and restructure of the
   code are #398 ("Audit the code and restructure it for contributors
   (main.cpp is 20,000 lines)"). Its audit comments each start "Audit, Part

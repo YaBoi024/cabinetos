@@ -1,4 +1,4 @@
-# GameTDB wiitdb.xml version 20261001005820 (https://www.gametdb.com).
+# GameTDB wiitdb.xml version 20261022233449 (https://www.gametdb.com).
 # Made by tools/wii-controls.py; regenerate rather than edit.
 091E00 nw
 410E01 gnw
@@ -40,8 +40,8 @@ D2SE18 nw
 D3DE18 mnw
 DASE4Q nw
 DAVE01 nw
-DAXE01 mnw
-DAXP01 mnw
+DAXE01 Mnw
+DAXP01 Mnw
 DBBE18 nw
 DBKE69 nw
 DBKP69 nw
@@ -332,7 +332,7 @@ EBSE cgnw
 EBSJ nw
 EBSP nw
 EBTJ nw
-EBUE cmnw
+EBUE Mcnw
 EBUJ nw
 EBUP cgmnw
 EBVJ nw
@@ -1754,9 +1754,9 @@ QBAJ nw
 QBBE cgw
 QBBJ nw
 QBBP cgmnw
-R22E01 mnw
-R22J01 mnw
-R22P01 mw
+R22E01 Mnw
+R22J01 Mnw
+R22P01 Mw
 R23E52 nw
 R23P52 w
 R24J01 nw
@@ -2358,11 +2358,11 @@ RCXE78 bnw
 RCXP78 bnw
 RCXX78 bnw
 RCYPGN nw
-RD2E41 mnw
-RD2J41 mnw
-RD2K41 mnw
-RD2P41 mnw
-RD2X41 mnw
+RD2E41 Mnw
+RD2J41 Mnw
+RD2K41 Mnw
+RD2P41 Mnw
+RD2X41 Mnw
 RD4EA4 cgnw
 RD4JA4 cgnw
 RD4PA4 cgnw
@@ -3932,11 +3932,11 @@ RZREGT nw
 RZRPGT nw
 RZSEGJ cghnw
 RZSP68 cghnw
-RZTE01 mnw
-RZTJ01 mnw
-RZTK01 mnw
-RZTP01 mnw
-RZTW01 mnw
+RZTE01 Mnw
+RZTJ01 Mnw
+RZTK01 Mnw
+RZTP01 Mnw
+RZTW01 Mnw
 RZUE4Z nw
 RZYE41 nw
 RZYF41 w
@@ -4203,10 +4203,10 @@ SC7I52 cnwz
 SC7P52 cnwz
 SC7S52 cnwz
 SC7Z52 cnwz
-SC8E01 mw
-SC8J01 mw
-SC8K01 mnw
-SC8P01 mw
+SC8E01 Mw
+SC8J01 Mw
+SC8K01 Mnw
+SC8P01 Mw
 SC9P52 nwz
 SCAE18 nw
 SCAJ18 nw
@@ -4433,8 +4433,8 @@ SGREGT bnw
 SGRPGT bw
 SGSESZ nw
 SGSP7J nw
-SGTEFS bmnw
-SGTPUG bmnw
+SGTEFS Mbnw
+SGTPUG Mbnw
 SGUE4Q w
 SGVEAF bhmnwz
 SGVJAF bhmnwz
@@ -4806,12 +4806,12 @@ SORE4Z nw
 SOSEG9 nw
 SOSPAF nw
 SOTE52 cnw
-SOUE01 mnw
-SOUJ01 mnw
-SOUK01 mnw
-SOUP01 mnw
-SP2E01 mnw
-SP2P01 mnw
+SOUE01 Mnw
+SOUJ01 Mnw
+SOUK01 Mnw
+SOUP01 Mnw
+SP2E01 Mnw
+SP2P01 Mnw
 SP3E41 nw
 SP4PJW mnw
 SP4V cgw
@@ -5150,7 +5150,7 @@ SVXE52 nw
 SVXF52 nw
 SVXI52 nw
 SVXP52 nw
-SVXX52 mnw
+SVXX52 Mnw
 SVXY52 nw
 SVYEG9 nw
 SVYPAF cnw

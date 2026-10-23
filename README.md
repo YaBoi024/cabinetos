@@ -88,7 +88,10 @@ from the [Universal Blue image template](https://github.com/ublue-os/image-templ
   how its parts fit.
 - [`docs/WORKING.md`](docs/WORKING.md): how the maintainer works: the loop,
   the testing branch, merges.
-- [`docs/PROJECT.md`](docs/PROJECT.md): the specification.
+- [`docs/decisions/`](docs/decisions/README.md): what the project decided and
+  why, one small file each.
+- [`docs/PROJECT.md`](docs/PROJECT.md): the older record of decisions, frozen
+  on 2026-10-23.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md): the order of work.
 - [`docs/lessons/`](docs/lessons/README.md): what cost hours before.
 

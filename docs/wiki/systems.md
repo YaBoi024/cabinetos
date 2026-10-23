@@ -113,8 +113,10 @@ downloads anything new into the console's shared BIOS folder.
 
 - A Wii game that takes a **Classic Controller** gets one on every pad. One that
   takes a **GameCube pad** gets that. Anything else needs a real **Wii Remote**
-  (see [Controllers](controllers.md)) and is greyed with *Needs a Wii Remote*
-  until one is paired.
+  (see [Controllers](controllers.md#wii-remotes)) and is greyed with *Needs a
+  Wii Remote* until one is paired. A game that requires MotionPlus is greyed
+  with *Needs MotionPlus* until a TechKen Remote is paired: Nintendo's own
+  Remotes cannot use MotionPlus here.
 - Your Miis from the Mii Channel are copied into every Wii game.
 - Wii U games that need a Wii Remote or the GamePad are greyed: *Needs a Wii
   Remote*, *Needs a Wii U GamePad*.

@@ -325,8 +325,11 @@ bool prepareEden(const Emulator& e, const std::string& saveDir, const std::strin
 
     // THE CONSOLE'S SETTINGS, laid over Eden's own file before every start.
     // Every one of these is something that would otherwise put a box or a
-    // choice on the television. Batocera's generator and the community Eden
-    // add-on write the same ones.
+    // choice on the television. Batocera's Switch generators (yuzu, suyu,
+    // Citron; Batocera dropped the Switch on 2026-07-13) and the community
+    // Eden add-on (foclabroc/New-batocera-switch) write some of the same,
+    // between them: fullscreen, firstStart, confirmStop, update checks and
+    // docked mode.
     const std::string ini = user + "/config/qt-config.ini";
     std::vector<IniSet> sets = {
         {"UI", "fullscreen", "true"},
@@ -340,6 +343,8 @@ bool prepareEden(const Emulator& e, const std::string& saveDir, const std::strin
         // "Wayland Detected!" at start.
         {"UI", "gui_hide_backend_warning", "true"},
         // A game asking for a controller layout opens Eden's own dialog.
+        // Ours alone: no Batocera generator ever set it, and the add-on's
+        // first-start template sets it false, so the dialog shows there.
         {"UI", "disableControllerApplet", "true"},
         // Docked, always: the television mode (decision B). 1 is Docked.
         {"System", "use_docked_mode", "1"},

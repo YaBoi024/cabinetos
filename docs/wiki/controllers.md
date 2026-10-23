@@ -56,7 +56,11 @@ system. It is on to start with.
 
 ## Wii Remotes
 
-Real Wii Remotes play Wii games, pointer included.
+Real Wii Remotes play Wii games, pointer included. **TechKen's Wii Remote Plus
+copies are the only officially supported Wii Remote**, MotionPlus included.
+Other Wii Remotes, Nintendo's own included, may work, but no fixes or promises
+are made for them. On Nintendo's own Remotes MotionPlus cannot work: Linux
+turns it off whenever a game turns it on.
 
 1. Settings, Controllers, **Wii Remotes**, **Pair a Wii Remote**.
 2. Press the red **sync** button on the Remote (under the battery cover).
@@ -68,8 +72,12 @@ selects, **B** (the trigger) goes back, **+** is Start. It switches itself off
 after five minutes untouched outside a game.
 
 Wii games that need a Remote are greyed (*Needs a Wii Remote*) until one is
-paired. In a Wii game, hold the Remote's **HOME** button for a second for the
-console's pause menu; a short press is the game's own HOME menu.
+paired. A game that requires MotionPlus, such as Wii Sports Resort, Red Steel 2
+or Skyward Sword, is greyed (*Needs MotionPlus*) until a TechKen Remote is
+paired; a Nintendo Remote alone does not un-grey it. A game where MotionPlus
+is optional plays on either. In a Wii game, hold the Remote's **HOME** button
+for a second for the console's pause menu; a short press is the game's own
+HOME menu.
 
 ## In-game shortcuts
 

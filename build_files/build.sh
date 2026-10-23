@@ -354,6 +354,14 @@ for needed in /usr/lib64/libvulkan.so.1 /usr/lib64/libvulkan_radeon.so; do
 done
 
 # ---------------------------------------------------------------------------
+# A built-in speaker counts as not there (#547).
+# ---------------------------------------------------------------------------
+#
+# Edits one PipeWire file so a speaker inside the case never takes the sound
+# from the TV, and fails the build if a PipeWire update changed that file.
+/ctx/built-in-speaker.sh
+
+# ---------------------------------------------------------------------------
 # The console itself is NOT installed here, as of 2026-09-23.
 # ---------------------------------------------------------------------------
 #
