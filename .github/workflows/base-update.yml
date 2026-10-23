@@ -67,6 +67,7 @@ jobs:
       - name: Check the base image
         id: check
         env:
+          BASE_REPO: ghcr.io/ublue-os/bazzite-deck
           BASE_CHANNEL: ${{ inputs.channel || 'stable' }}
           # Read-only, for the OGC kernel's tags on GitHub (the kernel's
           # own patches go in the pull request).
