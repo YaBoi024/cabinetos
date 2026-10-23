@@ -215,7 +215,12 @@ log "base image has $(wc -l < /usr/share/cabinetos/packages-before-strip.txt) pa
 #
 # Order matters slightly: Steam first, because the desktop pass removes desktop
 # entries and we want Steam's gone before then.
+/ctx/strip-steam.sh
 /ctx/strip-desktop.sh
+
+# Steam's Big Picture session, for the one Steam entry (#223). After the strip,
+# which removes cardwire: the session would launch Steam through it.
+/ctx/install-steam-session.sh
 
 # Sunshine, for Remote Play (#286): Sunshine's own Fedora package, pinned and
 # checksummed. After the strip, so nothing it pulls in is taken out again.
