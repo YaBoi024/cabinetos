@@ -3,5 +3,5 @@
 # rule that requires them is in /etc/containers/policy.json, added by
 # build_files/require-signed-updates.sh.
 docker:
-  ghcr.io/mmagtech/cabinetos:
+  ghcr.io/yaboi024/cabinetos:
     use-sigstore-attachments: true
