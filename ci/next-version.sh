@@ -19,7 +19,7 @@ set -euo pipefail
 
 strict=0
 if [[ "${1:-}" == --strict ]]; then strict=1; shift; fi
-IMAGE="${1:?usage: ci/next-version.sh [--strict] <registry/image>}"
+IMAGE="${1:?usage: ci/next-version.sh --strict <registry/image>}"
 
 today=$(date -u +%Y.%m.%d)
 
