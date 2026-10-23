@@ -55,7 +55,7 @@ COPY image_payload /payload
 #   ghcr.io/ublue-os/bazzite:stable == 44.20261012.1
 #
 # Variant choice: `bazzite-deck`.
-FROM ghcr.io/ublue-os/bazzite-deck:stable
+FROM ghcr.io/ublue-os/bazzite-deck:44.20261012.1@sha256:96301a1520b5bb63db95640896300c10ae3b1fcf8bf10681af154514395e1634
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
