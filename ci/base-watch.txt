@@ -568,3 +568,12 @@ steamdeck-dsp
 galileo-mura
 jupiter-*
 powerstation
+
+# --- Steam Deck hardware (fork) ---------------------------------------------
+area: Steam Deck hardware
+log: The Deck's speakers are there :: wpctl status | sed -n '/^Audio/,/^Video/p' | grep -q 'Speaker'
+tv: Sound: the Deck's speakers play
+steamdeck-dsp
+galileo-mura
+jupiter-*
+powerstation
