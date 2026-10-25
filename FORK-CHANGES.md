@@ -16,18 +16,22 @@ upstream. When a sync conflicts, use it to decide which side to keep.
 
 ## Updates
 - Created /system_files/usr/lib/systemd/system/cabinetos-update-download.service.d/10-selinux.conf to adjust SELinux for successful updates.
+- Created system_files/usr/lib/systemd/system/cabinetos-session.service.d/10-audio.conf, it allows audio to swap from dock (tested on HDMI) to internal speaker whenever going from docked to handheld.
 
 ## Tested on
 - Steam Deck OLED: tested.
 - Steam Deck LCD: not tested.
 
 ## Known issues
-- The console's update screen fails under SELinux (`mac_admin` denied to
-  the update service). Workaround: `sudo bootc upgrade` over SSH, then reboot.
 - First boot after install: Eden installs in about two minutes and needs
-  internet; audio and Eden appear after the first reboot.
+  internet; audio and Eden appear after the first reboot. (May be fixed, need to verify)
 - Touchscreen does not work in CabinetOS menus.
-- No multiplayer yet (wishful thinking) by me.
 
 ## To do
-- Test an SELinux fix for the update service when the next update is pending.
+- Upstream safety: more watch paths, drop-in target check, Deck checklist
+- second controller as player 1 on single-player systems (GBA)
+- Gyro working
+- Check back buttons, trackpads, rumble, sleep, battery
+- Touchscreen in CabinetOS menus (low priority)
+- Test on a Steam Deck LCD
+- No multiplayer yet (wishful thinking) by me (on emulators that support it)
