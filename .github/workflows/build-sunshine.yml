@@ -40,9 +40,6 @@ jobs:
       # CUDA, Boost and the web page's packages take a few GB.
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@695eb75bc387dbcd9685a8e72d23439d8686cba6
-        with:
-          remove-codeql: true
-
       # NOTHING CHANGES UNLESS ONE OF THESE DOES: the script holds the pin,
       # the patches are ours, the Containerfile is the toolchain.
       - name: Restore the build, if this exact one has been built before

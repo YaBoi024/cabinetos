@@ -28,5 +28,3 @@ upstream. When a sync conflicts, use it to decide which side to keep.
 
 ## To do
 - Test an SELinux fix for the update service when the next update is pending.
-- Add the Deck hardware block to `ci/base-watch.txt`.
-- Remove the `remove-codeql` line from the workflows.

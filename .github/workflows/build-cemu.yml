@@ -45,8 +45,6 @@ jobs:
       # vcpkg's sources and build trees take several GB.
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@695eb75bc387dbcd9685a8e72d23439d8686cba6
-        with:
-          remove-codeql: true
 
       # NOTHING CHANGES UNLESS ONE OF THESE DOES: build-cemu.sh holds the
       # pinned commit (and through it vcpkg's every library version) and the

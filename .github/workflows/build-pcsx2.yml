@@ -77,8 +77,6 @@ jobs:
       # free space is not generous once its preinstalled toolchains are counted.
       - name: Maximize build space
         uses: ublue-os/remove-unwanted-software@695eb75bc387dbcd9685a8e72d23439d8686cba6
-        with:
-          remove-codeql: true
 
       # NOTHING CHANGES UNLESS ONE OF THESE DOES, so a cache keyed on them is
       # the whole input rather than a guess about staleness: build-pcsx2.sh
