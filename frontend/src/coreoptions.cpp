@@ -260,6 +260,14 @@ std::map<std::string, std::string> optionOverrides(const std::string& core, bool
     // judged on the TV with Ms. Pac-Man (MMagTech, 2026-10-02), whose ghosts
     // cycle over more frames than a plain two-frame average smooths; Heavy
     // (85%) left trails behind everything. Looks, not saves or states.
+    // MAME 2003-PLUS STARTS EVERY GAME WITHOUT ITS COPYRIGHT NOTICE. The
+    // declared default draws MAME's disclaimer over the first eight seconds
+    // of each game (ui_copyright_and_warnings in src/usrintrf.c at our pin);
+    // MMagTech asked for it off, 2026-10-25, at the TV, testing #577. Its
+    // warnings about a game's known faults stay at their default: the core
+    // sends those as a message to the frontend (RETRO_ENVIRONMENT_SET_MESSAGE),
+    // which this console does not show.
+    if (coreName == "mame2003_plus") return {{"mame2003-plus_skip_disclaimer", "enabled"}};
     if (coreName == "mgba") return {{"mgba_interframe_blending", "mix_smart"}};
     if (coreName == "stella2014") return {{"stella2014_mix_frames", "ghost_75"}};
 

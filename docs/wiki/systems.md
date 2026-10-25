@@ -108,6 +108,16 @@ downloads anything new into the console's shared BIOS folder.
 - The zip must keep its set name, for example `sf2.zip`. The set name is
   what picks the emulator in an `arcade` folder.
 - Saves belong to the emulator the game ran in.
+- **Hold Start for a second for the game's own settings.** In a MAME
+  2003-Plus game this opens MAME's menu, where **Dip Switches** has the
+  difficulty, the lives and the rest. Up and down move, left and right
+  change a setting; on a pad the right face button chooses and the bottom
+  one goes back. Hold Start again, or choose **Return to Game**, to play on.
+  In a FinalBurn Neo game it opens the board's own test menu, where the
+  board has one (CPS2 and Neo Geo games and Cave shooters among them).
+  Some FinalBurn Neo games have none, Final Fight among them: holding Start
+  does nothing there, and the game plays as the board was set at the
+  factory. What you change is kept on this console, for you.
 
 ## Wii and Wii U
 

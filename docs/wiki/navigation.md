@@ -54,15 +54,17 @@ and **A** steps through it.
 |---|---|
 | **L3 + R3** (both sticks pressed) | The [pause menu](pause-menu.md), in every game |
 | Power button | The Power menu, with **Resume** first |
-| Hold **HOME** (Wii Remote, Wii games) | The pause menu |
+| Hold **HOME** (Wii Remote) | The pause menu, in every game |
 | Hold **Select** (Remote Play device) | The pause menu |
+| Tap **Home** ([8BitDo Arcade Stick](controllers.md#fight-sticks)) | The pause menu, in every game |
 
 The Home (Guide) button is never passed to a game.
 
-## On four systems
+## On some systems
 
 | System | Button | Does |
 |---|---|---|
+| Arcade | Hold **Start** for a second | The game's own settings, see [Arcade](systems.md#arcade) |
 | Nintendo DS | Right stick, **R3** | The right stick moves a pointer on the touch screen; **R3** (press the stick) touches |
 | Nintendo 3DS | Right stick, **R3**, **L3** | The right stick moves a pointer on the touch screen, and is the C-stick too; **R3** touches; hold **L3** to swap the two screens |
 | PlayStation (PS1) | **L1 + R1 + Select** | The DualShock's ANALOG button, for the few games that need it pressed |

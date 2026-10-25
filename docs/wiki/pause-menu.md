@@ -11,7 +11,7 @@ The same menu in every game, on every system.
   and PS Vita games the keyboard does not reach the menu: use a pad.
 - A tap of the **shortcut button** (Home, unless you chose another), when
   [In-game shortcuts](navigation.md#in-game-shortcuts) are on.
-- **Hold HOME** for a second on a Wii Remote, in a Wii game.
+- **Hold HOME** for a second on a Wii Remote, in any game.
 - **Hold Select** on a phone or controller streaming over
   [Remote Play](remote-play.md).
 

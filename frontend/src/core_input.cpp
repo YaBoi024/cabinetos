@@ -1,6 +1,7 @@
 // The pads as the core sees them: the players and their ports, the answer to
-// inputState, the rumble interface, the port count and the button names a
-// core declares (environmentInput), and the Core calls that set them. Moved
+// inputState, the keys held on the core's keyboard, the rumble interface, the
+// port count and the button names a core declares, kept per port
+// (environmentInput), and the Core calls that set and read them. Moved
 // out of core.cpp in the restructure (#398). Telling the core what is plugged
 // in stays in Core::loadGame (core.cpp), after retro_load_game, because that
 // is when the core has said how many ports it has.
@@ -9,6 +10,7 @@
 #include "core_state.h"
 
 #include <algorithm>
+#include <bitset>
 #include <cstdio>
 #include <optional>
 #include <string>
@@ -41,6 +43,36 @@ unsigned gCorePorts = 0;
 
 // Once per game, like the rotation line. Cleared in loadGame.
 bool gInputDescriptorsLogged = false;
+
+// EACH PORT'S BUTTONS AS THE CORE LAST DECLARED THEM (Core::inputDescriptors),
+// copied, since the core's array and its strings are its own. A core may
+// declare the same again mid-game (MAME 2003-Plus does when a port is
+// plugged in), which leaves the version where it was.
+std::vector<InputDescriptor> gDescriptors[kMaxPorts];
+unsigned gDescriptorsVersion = 0;
+
+// THE KEYS HELD ON THE CORE'S KEYBOARD (Core::setKey), port 0 only. No real
+// keyboard reaches a core: the console's keyboard is player 1's pad
+// (play.cpp), and the one key ever pressed here is MAME 2003-Plus's menu key
+// (arcadesettings.h).
+std::bitset<RETROK_LAST> gKeys;
+
+void releaseKeys() { gKeys.reset(); }
+
+void keepDescriptors(const retro_input_descriptor* d) {
+    std::vector<InputDescriptor> now[kMaxPorts];
+    for (; d && d->description; ++d) {
+        if (d->port >= kMaxPorts || d->device != RETRO_DEVICE_JOYPAD || d->index != 0 ||
+            d->id > RETRO_DEVICE_ID_JOYPAD_R3)
+            continue;
+        now[d->port].push_back({d->id, d->description});
+    }
+    if (std::equal(std::begin(now), std::end(now), std::begin(gDescriptors))) return;
+    for (int p = 0; p < kMaxPorts; ++p) gDescriptors[p] = std::move(now[p]);
+    ++gDescriptorsVersion;
+}
+
+void clearInputDescriptors() { keepDescriptors(nullptr); }
 
 // RetroPad ids as a person says them, for the input descriptor log. The order
 // is libretro's own and matches cab::Button.
@@ -117,6 +149,8 @@ int16_t inputState(unsigned port, unsigned device, unsigned index, unsigned id) 
                             : (id == RETRO_DEVICE_ID_ANALOG_X ? pad.rightX : pad.rightY);
         return static_cast<int16_t>(std::clamp(v, -1.0f, 1.0f) * 32767.0f);
     }
+    if (device == RETRO_DEVICE_KEYBOARD)
+        return port == 0 && id < gKeys.size() && gKeys[id] ? 1 : 0;
     return 0;
 }
 
@@ -160,7 +194,9 @@ std::optional<bool> environmentInput(unsigned cmd, void* data) {
             //
             // Printed once per game, port 0 only, and only for the joypad:
             // Flycast declares four ports and a mouse and a lightgun besides,
-            // and a wall of those is not a diagnostic.
+            // and a wall of those is not a diagnostic. Kept, every port and
+            // every time, for a fight stick's layout (fightstick.h).
+            keepDescriptors(static_cast<const retro_input_descriptor*>(data));
             if (gInputDescriptorsLogged) return true;
             const auto* d = static_cast<const retro_input_descriptor*>(data);
             if (!d) return true;
@@ -236,6 +272,17 @@ void Core::setPadDevice(unsigned device) {
 }
 
 void Core::setRealRemotesFrom(int firstPort) { gRealRemotesFrom = firstPort; }
+
+const std::vector<InputDescriptor>& Core::inputDescriptors(int port) const {
+    static const std::vector<InputDescriptor> none;
+    return port >= 0 && port < kMaxPorts ? gDescriptors[port] : none;
+}
+
+unsigned Core::inputDescriptorsVersion() const { return gDescriptorsVersion; }
+
+void Core::setKey(unsigned retrok, bool down) {
+    if (retrok < gKeys.size()) gKeys[retrok] = down;
+}
 
 void Core::setPad(int port, const PadState& pad) {
     if (port < 0 || port >= kMaxPorts) return;

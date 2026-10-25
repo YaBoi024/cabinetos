@@ -1,5 +1,6 @@
 # The wiki's pages, in reading order. The layout builds the side list and the
-# previous and next links from this, so a new page is one line here.
+# previous and next links from this, so a new page is one line here. A
+# title with a comma in it is quoted, or YAML ends it at the comma.
 - section: Start here
   pages:
     - { file: README.md, title: Wiki home }
@@ -16,7 +17,7 @@
     - { file: library.md, title: The library }
     - { file: pause-menu.md, title: The pause menu }
     - { file: discs.md, title: Games on several discs }
-    - { file: saves.md, title: Saves, states and sync }
+    - { file: saves.md, title: "Saves, states and sync" }
     - { file: players.md, title: Players and accounts }
     - { file: screenshots.md, title: Screenshots }
     - { file: achievements.md, title: Achievements }
@@ -30,6 +31,6 @@
 - section: Reference
   pages:
     - { file: navigation.md, title: Buttons and shortcuts }
-    - { file: systems.md, title: Systems, formats and BIOS }
+    - { file: systems.md, title: "Systems, formats and BIOS" }
     - { file: troubleshooting.md, title: When something is wrong }
     - { file: changelog.md, title: What's new }

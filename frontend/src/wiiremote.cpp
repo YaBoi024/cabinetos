@@ -132,15 +132,15 @@ struct Remote {
     Clock::time_point lastAsk{};
 };
 
-// A Remote reports its battery only when asked. Once a minute, out of a game
-// and only while it is on: one tiny request, its answer carries the buttons
+// A Remote reports its battery only when asked. Once a minute, out of a Wii
+// game and only while it is on: one tiny request, its answer carries the buttons
 // too, and it does not count as the Remote being used (lastActive).
 constexpr auto kBatteryAsk = std::chrono::minutes(1);
 
 constexpr auto kQuiet = std::chrono::milliseconds(1500);
-// A WII'S OWN IDLE TIME: a Remote untouched this long out of a game is switched
-// off, as a Wii does (a Wii Remote has no timer of its own; the console turns it
-// off). In a game the bridge does it when the game lets the Remote go.
+// A WII'S OWN IDLE TIME: a Remote untouched this long out of a Wii game is
+// switched off, as a Wii does (a Wii Remote has no timer of its own; the console
+// turns it off). In a Wii game the bridge does it when the game lets it go.
 constexpr auto kIdleOff = std::chrono::minutes(5);
 
 bool isOn(const Remote& r) { return Clock::now() - r.lastReport < kQuiet; }
@@ -155,7 +155,8 @@ void switchOff(const std::string& address) {
 
 std::mutex gLock;
 std::vector<Remote> gRemotes;
-std::atomic<bool> gGame{false};
+std::atomic<bool> gGame{false};     // a Wii game: Dolphin has the Remotes
+std::atomic<bool> gInGame{false};   // any game: HOME held is the menu
 std::atomic<bool> gHomeHold{false};
 std::once_flag gStarted;
 
@@ -285,7 +286,7 @@ void rescan() {
         r.lastActive = Clock::now();
         r.lastReport = Clock::now();
         r.lastAsk = Clock::now();   // setUp asks
-        // While a game runs Dolphin sets it up, with its own light.
+        // While a Wii game runs Dolphin sets it up, with its own light.
         if (!gGame) setUp(r);
         gRemotes.push_back(std::move(r));
     }
@@ -362,9 +363,10 @@ void run() {
                 r.lastAsk = Clock::now();
                 send(r.fd, {0x15, 0x00});
             }
-            // HOME HELD, while a game runs: the console's own menu. A press is
-            // the game's HOME menu, which Dolphin passes on as a Wii would.
-            if ((r.buttons & kHome) && !r.homeFired && gGame &&
+            // HOME HELD, while any game runs: the console's own menu. In a Wii
+            // game a press is the game's HOME menu, which Dolphin passes on as
+            // a Wii would.
+            if ((r.buttons & kHome) && !r.homeFired && gInGame &&
                 Clock::now() - r.homeSince >= kHomeHold) {
                 r.homeFired = true;
                 gHomeHold = true;
@@ -472,7 +474,15 @@ void setGameRunning(bool running) {
     }
 }
 
+void setInGame(bool inGame) {
+    if (gInGame == inGame) return;
+    gInGame = inGame;
+    gHomeHold = false;
+}
+
 bool takeHomeHold() { return gHomeHold.exchange(false); }
+
+bool isRemote(uint32_t padId) { return padId == kRemoteId; }
 
 std::vector<Battery> batteries() {
     std::vector<Battery> out;

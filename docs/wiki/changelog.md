@@ -4,6 +4,45 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.10.25.2 {#v2026-10-25-2}
+
+- **New:** hold **Start** for a second in an arcade game to open the game's
+  own settings: in a MAME 2003-Plus game, MAME's menu, whose **Dip Switches**
+  set the difficulty, the lives and the rest; in a FinalBurn Neo game, the
+  board's own test menu, where the board has one. Hold Start again to close
+  MAME's menu. See [Arcade](systems.md#arcade).
+  ([#580](https://github.com/MMagTech/cabinetos/pull/580))
+- **Fixed:** leaving a MAME 2003-Plus game with both stick clicks could
+  open MAME's DIP switch menu. It no longer does.
+  ([#580](https://github.com/MMagTech/cabinetos/pull/580))
+- **Changed:** MAME 2003-Plus games start without MAME's copyright notice
+  over their first seconds.
+  ([#580](https://github.com/MMagTech/cabinetos/pull/580))
+
+## 2026.10.25 {#v2026-10-25}
+
+- **New:** the 8BitDo Arcade Stick plays arcade games with a fight-stick
+  layout. Pair it over Bluetooth in **X mode**: the game's buttons follow the
+  game's own order along the top row, then the bottom, so a Street
+  Fighter-style game has its punches on top and its kicks below; a four-button game, such as a Neo Geo
+  game, uses the bottom row, as does a game with one to three. Press two
+  buttons together for moves that need them, as on the cabinet. Tap **Home** on the stick
+  for the pause menu in any game. Wired, or on its 2.4G receiver, it is
+  treated as an ordinary pad, as before, and nothing changes for any other
+  controller. See
+  [Fight sticks](controllers.md#fight-sticks).
+  ([#576](https://github.com/MMagTech/cabinetos/pull/576))
+
+## 2026.10.24 {#v2026-10-24}
+
+- **Fixed:** with only a Wii Remote on, you could start a game it can't play
+  and be stuck in it until you turned the console off. A Wii Remote now
+  starts only Wii games: on any other game, Play says *This Remote only plays
+  Wii games*. And holding **HOME** on a Remote for a second opens the pause
+  menu in every game, not only Wii games. See
+  [Wii Remotes](controllers.md#wii-remotes).
+  ([#571](https://github.com/MMagTech/cabinetos/pull/571))
+
 ## 2026.10.23.2 {#v2026-10-23-2}
 
 - **Fixed:** a game kept on your server as a *.zip* or *.7z* showed

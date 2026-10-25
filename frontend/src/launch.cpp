@@ -378,6 +378,27 @@ void App::showWhyUnplayable(int romId) {
     }
 }
 
+// A WII REMOTE STARTS ONLY WII GAMES (MMagTech, 2026-10-24;
+// docs/decisions/2026-10-24-wii-remote-outside-wii-games.md). Its buttons
+// drive the menus, so with only a Remote on, a player started a game it
+// cannot play and could not leave it (a Discord report, 2026-10-23). Asked
+// first by each press that starts a game (Play, Play from a state, Home's
+// Resume), never by launchById, so nothing that starts a game without a
+// press is touched. True when it refused: a toast where the press was made.
+bool App::refuseRemoteStart(int romId) {
+    if (!lastPressFromRemote) return false;
+    for (const auto& g : games) {
+        if (g.id != romId) continue;
+        if (g.platformSlug == "wii") return false;
+        std::fprintf(stderr, "[launch] a Wii Remote cannot start %s (%s)\n", g.name.c_str(),
+                     g.platformName.c_str());
+        menuNotice.say("This Remote only plays Wii games", Tone::Info);
+        sound::play(sound::Cue::Edge);
+        return true;
+    }
+    return false;
+}
+
 // A LAUNCH THAT DOES NOT START A GAME TAKES WHAT ITS PRESS ASKED FOR WITH
 // IT: the state picked on the game's page, Home's Resume and the disc Start
 // over asked for belong to this launch, and left set they were loaded into

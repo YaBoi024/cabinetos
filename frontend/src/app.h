@@ -43,6 +43,7 @@
 
 #include "accountpanel.h"
 #include "accounts.h"
+#include "arcadesettings.h"
 #include "achievements.h"
 #include "achlist.h"
 #include "battery.h"
@@ -790,6 +791,10 @@ struct App {
     uint64_t previous = 0;
     int frame = 0;
     bool pressing = false;
+    // Whether the last press came from a Wii Remote (wiiremote::isRemote),
+    // for a press that starts a game (refuseRemoteStart). Any other
+    // controller's press, a key or a click clears it.
+    bool lastPressFromRemote = false;
 
 
     // Starting a game from the UI. Everything it needs was decided elsewhere:
@@ -998,6 +1003,10 @@ struct App {
         SDL_JoystickID pad = 0;   // as ShortcutHold: another pad in the seat drops it
     };
     StickPair stickPair[players::kMax];
+    // HOLDING START IN AN ARCADE GAME (#577, arcadesettings.h): player 1's
+    // hold, which opens MAME 2003-Plus's own menu. FinalBurn Neo counts its
+    // own.
+    arcadesettings::Hold arcadeHold;
     // FAST FORWARD (#77): the shortcut button and ZR, held. Fast while held,
     // normal on release, the sound discarded meanwhile. About 4x, a fixed top
     // speed rather than a setting. ONLY WHERE STATES ARE (MMagTech,
@@ -1927,6 +1936,7 @@ struct App {
     void pumpArrive();
     void refuseLaunch(const std::string& why);
     void showWhyUnplayable(int romId);
+    bool refuseRemoteStart(int romId);
     void startStandalone(const cab::standalone::Emulator& emu);
     static void dropPressesFromClosing();
     void finishStandalone();

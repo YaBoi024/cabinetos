@@ -438,6 +438,10 @@ void Core::unload() {
 bool Core::loadGame(const std::string& romPath, const std::string& systemDir,
                     const std::string& saveDir) {
     rumble::reset();
+    // The last game's buttons go with it, whatever this one declares, and
+    // no key it pressed is still down.
+    clearInputDescriptors();
+    releaseKeys();
     if (!handle_) {
         error_ = "no core loaded";
         return false;

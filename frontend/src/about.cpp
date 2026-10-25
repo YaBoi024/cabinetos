@@ -27,9 +27,14 @@ void App::openHowTo() {
                      line("Pause menu, Wii Remote", "Hold HOME"),
                      line("Pause menu, Remote Play", "Hold Select"),
                      line("Leave a game", "Pause menu, Exit to Home"),
-                     line("Power menu", "The PC's power button"),
+                     line("Power menu", "The PC's power button")}});
+    // WHAT WORKS IN ONE KIND OF GAME ONLY, apart from what works in every
+    // game, so "In a game" stays short (MMagTech, 2026-10-25, #577).
+    cats.push_back({"Systems",
+                    {line("Arcade game settings", "Hold Start"),
                      line("DS touch screen", "Right stick moves, R3 touches"),
-                     line("PS1 analog button", "L1 + R1 + Select")}});
+                     line("PS1 analog button", "L1 + R1 + Select")},
+                    ""});
     {
         std::vector<screens::SettingsRow> rows;
         if (!on) rows.push_back(line("Turn on", "Settings, Controllers, In-game shortcuts"));

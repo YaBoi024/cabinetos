@@ -76,6 +76,8 @@ extern unsigned gPadDevice;
 extern int gRealRemotesFrom;
 extern unsigned gCorePorts;
 extern bool gInputDescriptorsLogged;
+void clearInputDescriptors();
+void releaseKeys();
 void inputPoll(void);
 int16_t inputState(unsigned port, unsigned device, unsigned index, unsigned id);
 std::optional<bool> environmentInput(unsigned cmd, void* data);

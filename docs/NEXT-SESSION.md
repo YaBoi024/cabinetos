@@ -29,7 +29,11 @@ the GamePad, so Shovel Knight's first screen answers"; #558, "An archived
 game is unpacked once, not at every start (3DS: 37 s to under a second)"
 (it closed #530, "An archived game unpacks again at every start (3DS: up to
 37 s)"); and #560, "Changelog: no game-led Wii U entry, and no date lines".
-The newest image in the changelog is 2026.10.23.2 (#558). What the A9
+The newest image in the changelog is 2026.10.25.2: #580, "Hold Start in
+an arcade game to open its own settings (#577)", merged and promoted on
+2026-10-25, judged on the TV and checked on the testing image. Before it,
+2026.10.25: #576, "The 8BitDo Arcade Stick plays arcade games with a
+fight-stick layout", merged and promoted. What the A9
 runs now is not written here: read it from the console before a test. The
 Azahar patches each have a tracking issue linked to a request upstream: #534,
 "Azahar patch: each game sets its own folders (until Azahar fixes

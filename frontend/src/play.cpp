@@ -9,8 +9,10 @@
 #include <cmath>
 #include <cstdio>
 
+#include "arcadesettings.h"
 #include "core.h"
 #include "discs.h"
+#include "fightstick.h"
 #include "ps2.h"
 #include "saves.h"
 #include "savetable.h"
@@ -209,12 +211,19 @@ void App::watchPs2Start() {
 }
 
 // REAL WII REMOTES (#200): while a Wii game runs Dolphin drives them,
-// and HOME held on one is the console's own menu; a press of HOME is
-// the game's HOME menu, as on a Wii. Out of the game each Remote gets
-// its own light again.
+// and a press of HOME is the game's HOME menu, as on a Wii. Out of the
+// game each Remote gets its own light again. HOME HELD ON ONE IS THE
+// CONSOLE'S OWN MENU IN EVERY GAME, an emulator of its own included, as
+// both stick clicks are on a pad: in any other game the Remote plays
+// nothing, and a Remote that started one with no pad on was stuck in it.
+// The frame loop calls this, and watchStandalone does while an emulator
+// of its own has the screen, since the loop then stops before its call.
 void App::followRemotesInGame() {
     wiiremote::setGameRunning(playing && session.platformSlug == "wii");
-    if (wiiremote::takeHomeHold() && (playing || overlayOpen)) toggleOverlay();
+    wiiremote::setInGame(playing || standaloneRun.active());
+    if (!wiiremote::takeHomeHold()) return;
+    if (standaloneRun.active() && !standalonePaused) openStandaloneMenu();
+    else if (playing || overlayOpen) toggleOverlay();
 }
 
 // Buttons first, then run: a core samples input inside retro_run,
@@ -356,10 +365,12 @@ bool App::readGameInput(cab::Core& core) {
         // back_button_timeout), so it is the one way to pause from any
         // app (MMagTech, 2026-10-08). The shortcuts themselves stay
         // the switch's. The pads seated during a stream are only the
-        // stream's, so nothing changes at the TV.
+        // stream's, so nothing changes at the TV. A FIGHT STICK'S HOME
+        // OPENS IT THE SAME WAY, in every game: the stick has no stick
+        // clicks for the pair (fightstick.h).
         const bool combos = shortcuts::enabled();
         if (SDL_Gamepad* gp = players::gamepad(p);
-            gp && (combos || players::streaming())) {
+            gp && (combos || players::streaming() || players::stick(SDL_GetGamepadID(gp)))) {
             ShortcutHold& h = shortcutHold[p];
             const SDL_JoystickID who = SDL_GetGamepadID(gp);
             if (h.down && h.pad != who) h = {};
@@ -432,6 +443,20 @@ bool App::readGameInput(cab::Core& core) {
         st.buttons &= ~heldThroughMenu[p];
         if (heldThroughMenu[p] & bit(cab::L2)) st.leftTrigger = 0;
         if (heldThroughMenu[p] & bit(cab::R2)) st.rightTrigger = 0;
+        // A FIGHT STICK IN AN ARCADE GAME (fightstick.h): its eight
+        // buttons, read above as any pad's and kept from the game above
+        // the same way, are moved last to where the game's layout puts
+        // them. No other pad, and no other game, has a layout.
+        if (SDL_Gamepad* gp = players::gamepad(p))
+            if (const fightstick::Layout* layout = fightstick::forPort(p, gp, session.core))
+                fightstick::apply(*layout, st);
+        // HOLDING START IN AN ARCADE GAME (#577, arcadesettings.h): player
+        // 1's buttons as the game is about to hear them, so a hold kept from
+        // the game above does not count.
+        if (p == 0)
+            core.setKey(arcadesettings::kMenuKey,
+                        arcadesettings::step(arcadeHold, session.core, st.buttons,
+                                             core.framesRun()));
         core.setPad(p, st);
     }
 

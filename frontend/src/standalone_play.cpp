@@ -274,7 +274,7 @@ void App::openStandaloneMenu() {
 //
 // AND THE PAUSE MENU OPENS THE WAY IT DOES FOR EVERY SYSTEM: both
 // stick clicks, always, or a tap of the shortcut button with the
-// in-game shortcuts on. The shortcut button (Home, unless set) is
+// in-game shortcuts on, or HOME held on a Wii Remote (watchStandalone). The shortcut button (Home, unless set) is
 // never passed to the emulator at all: its Home is its own menu
 // and a set of Home+button shortcuts, one of which leaves
 // fullscreen, and none of them belong on a console.
@@ -389,6 +389,11 @@ bool App::takeStandaloneEvent(const SDL_Event& e) {
 // Every frame while an emulator of its own runs. True when this frame is
 // done: while the emulator has the screen the frame loop does nothing else.
 bool App::watchStandalone(float dt) {
+    // HOME HELD ON A WII REMOTE opens the menu here as in every game
+    // (followRemotesInGame). While the emulator has the screen the frame
+    // loop stops before its own call, so it is asked here.
+    if (standaloneRun.active() && !standalonePaused) followRemotesInGame();
+
     // PAUSED OVER AN EMULATOR OF ITS OWN, the ordinary loop below runs and
     // draws the menu; here it only keeps watch. The emulator can still end
     // (Exit to Home asked it to, or it fell over), and when the menu has

@@ -42,6 +42,40 @@ Read before working on a core, an emulator, input, saves or states.
 - **Never dispatch on a file extension.** Thirty-two files in the reference
   library have none. Sniff the magic bytes.
 
+## The questions for every core
+
+Every core meets the console at the same places: each person's and each
+game's folders, saves on RomM, caches and states. Each new core has broken
+one of them unnoticed: Azahar wrote every 3DS game after the first into the
+first game's folder (#534, "Azahar patch: each game sets its own folders
+(until Azahar fixes SetUserPath)"). Ask all of these for any core, emulator,
+save or cache work, answer them in the report without being asked, and say
+which were checked on the reference console and which come from reading the
+code.
+
+1. **Two games in a row**, with no restart, and with another core in
+   between: does each game use its own folders? A core can stay in memory
+   after `dlclose` when it has GNU unique symbols, so its statics survive.
+2. **Two people:** switch person without a restart (`users.cpp`,
+   `setCurrentUser`): each keeps their own saves, states and settings, and
+   nothing is read from or uploaded to the other person's account.
+3. **The save round trip:** on RomM under this game and this person after
+   quitting; restored on the next start; restored on a console that never
+   had it.
+4. **Everything else it writes** (shader caches, NAND, settings, logs):
+   where it lands, whether it survives a quit, a restart and an image
+   update, per person or shared, bounded in size, never uploaded by mistake.
+5. **States:** save, load, after quitting, after a restart, per person.
+6. **The first start against later ones:** what is downloaded, unpacked or
+   compiled again every time.
+7. **No network, or the server down:** it starts, and the save uploads later.
+8. **Quit paths:** quitting from the menu, power off, a crash: is the save
+   written?
+9. **Parity with the other cores:** controllers, picture levels, sound,
+   RetroAchievements, the pause menu, time played.
+10. **The rules:** the emulator reaches no network, never needs Steam, gets
+    no fix for one game, and uses Vulkan (CONTRIBUTING.md, "The rules").
+
 ## Input
 
 - **A GAME FACT FROM MEMORY IS A GUESS: CHECK REDUMP.** "Snatcher, two discs"

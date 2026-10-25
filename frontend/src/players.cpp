@@ -1,6 +1,7 @@
 #include "players.h"
 
 #include "battery.h"
+#include "fightstick.h"
 
 #include <algorithm>
 #include <atomic>
@@ -100,6 +101,7 @@ std::map<SDL_JoystickID, bool> gIsRemote;
 std::mutex gIsRemoteLock;
 std::map<SDL_JoystickID, SDL_Gamepad*> gOpen;
 std::map<SDL_JoystickID, std::string> gDir;   // its HID device, for its battery
+std::map<SDL_JoystickID, const fightstick::Stick*> gStick;   // the open fight sticks
 
 // The seats a game hears now.
 Seats& active() { return gStreaming ? gRemote : gSeats; }
@@ -165,19 +167,25 @@ std::string addressOf(SDL_Gamepad* gp) {
     return asAddress(uniq);
 }
 
+// The name the kernel gives the pad's device, which SDL does not pass on: an
+// input device's name, or a HID device's HID_NAME.
+std::string deviceName(SDL_Gamepad* gp) {
+    const char* p = SDL_GetGamepadPath(gp);
+    if (!p) return {};
+    const std::string path = p;
+    if (path.rfind("/dev/input/", 0) == 0)
+        return firstLine("/sys/class/input/" + path.substr(11) + "/device/name");
+    if (path.rfind("/dev/hidraw", 0) == 0)
+        return firstLine("/sys/class/hidraw/" + path.substr(5) + "/device/uevent", "HID_NAME=");
+    return {};
+}
+
 // A PAD THAT CAME THROUGH A STREAM: Sunshine's virtual controller, whose
 // device is named "Sunshine (libvirtualhid) X-Box Series Controller" (read on
 // the A9, 2026-10-07). SDL names it "Xbox Series X Controller", like a real
 // one, so the device's own name is read.
 bool isRemote(SDL_Gamepad* gp) {
-    const char* p = SDL_GetGamepadPath(gp);
-    if (!p) return false;
-    const std::string path = p;
-    std::string name;
-    if (path.rfind("/dev/input/", 0) == 0)
-        name = firstLine("/sys/class/input/" + path.substr(11) + "/device/name");
-    else if (path.rfind("/dev/hidraw", 0) == 0)
-        name = firstLine("/sys/class/hidraw/" + path.substr(5) + "/device/uevent", "HID_NAME=");
+    const std::string name = deviceName(gp);
     return name.find("Sunshine") != std::string::npos ||
            name.find("libvirtualhid") != std::string::npos;
 }
@@ -251,6 +259,12 @@ void added(SDL_JoystickID id) {
     std::fprintf(stderr, "[players] pad %u is %s%s%s%s\n", static_cast<unsigned>(id),
                  nameOf(gp).c_str(), addressOf(gp).empty() ? "" : " over Bluetooth ",
                  addressOf(gp).c_str(), remote ? ", through a stream" : "");
+    if (const fightstick::Stick* s = fightstick::match(SDL_GetGamepadVendor(gp),
+                                                       SDL_GetGamepadProduct(gp), deviceName(gp))) {
+        gStick[id] = s;
+        std::fprintf(stderr, "[players] pad %u is a fight stick on the table: %s\n",
+                     static_cast<unsigned>(id), s->name);
+    }
     changed("connected", id);
 }
 
@@ -266,6 +280,7 @@ void removed(SDL_JoystickID id) {
         gIsRemote.erase(id);
     }
     gDir.erase(id);
+    gStick.erase(id);
     changed("disconnected", id);
 }
 
@@ -301,6 +316,11 @@ SDL_Gamepad* gamepad(int player) {
     if (!id) return nullptr;
     auto it = gOpen.find(id);
     return it == gOpen.end() ? nullptr : it->second;
+}
+
+const fightstick::Stick* stick(SDL_JoystickID id) {
+    auto it = gStick.find(id);
+    return it == gStick.end() ? nullptr : it->second;
 }
 
 int playerOf(SDL_JoystickID id) { return active().playerOf(id); }

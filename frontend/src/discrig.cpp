@@ -105,7 +105,8 @@ void App::runDiscScript() {
                              : b == "up" ? bit(cab::Up) : b == "down" ? bit(cab::Down)
                              : b == "left" ? bit(cab::Left) : b == "right" ? bit(cab::Right)
                              : b == "l" ? bit(cab::L) : b == "r" ? bit(cab::R)
-                             : b == "l2" ? bit(cab::L2) : b == "r2" ? bit(cab::R2) : 0u;
+                             : b == "l2" ? bit(cab::L2) : b == "r2" ? bit(cab::R2)
+                             : b == "l3" ? bit(cab::L3) : b == "r3" ? bit(cab::R3) : 0u;
             // A mistyped button presses nothing and says so, as --nav does.
             if (m == 0u) {
                 say("UNKNOWN button " + b);

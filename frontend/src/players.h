@@ -32,6 +32,10 @@
 
 #include <SDL3/SDL.h>
 
+namespace fightstick {
+struct Stick;
+}
+
 namespace players {
 
 constexpr int kMax = 4;
@@ -98,6 +102,9 @@ bool setAside(SDL_JoystickID id);
 
 // The pad a game hears as `player`, or null.
 SDL_Gamepad* gamepad(int player);
+// The fight stick an open pad is (fightstick.h), or null for any other pad:
+// the table is read once, as the pad is opened.
+const fightstick::Stick* stick(SDL_JoystickID id);
 int playerOf(SDL_JoystickID id);
 // How many players there are, counting a seat held for a pad that went off.
 int count();

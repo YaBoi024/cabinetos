@@ -185,6 +185,9 @@ footer.foot a { color: var(--text-dim); }
 .doc h1 { font-size: clamp(30px, 4vw, 40px); line-height: 1.15; margin: 0 0 18px; letter-spacing: -0.015em; }
 .doc h2 { font-size: 25px; margin: 40px 0 10px; padding-top: 8px; }
 .doc h3 { font-size: 19px; margin: 28px 0 8px; }
+/* A link to a heading (a search result, a page's own links) lands below the
+   top bar, which stays on screen. */
+.doc h2, .doc h3 { scroll-margin-top: 72px; }
 .doc p, .doc li { color: rgba(244, 241, 250, 0.86); }
 .doc li { margin: 4px 0; }
 .doc img, .doc video { border-radius: 14px; border: 1px solid var(--line); margin: 18px 0; width: 100%; height: auto; }
@@ -208,3 +211,42 @@ footer.foot a { color: var(--text-dim); }
   .side details { display: block; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: rgba(36, 26, 61, 0.6); }
   .side details summary { cursor: pointer; font-weight: 600; }
 }
+
+/* ---------- Wiki search (assets/search.js, on the wiki's front page) ---------- */
+
+/* The results lie over the page in a panel under the box; nothing moves. */
+.search { position: relative; z-index: 5; margin: 22px 0 28px; scroll-margin-top: 76px; }
+.search label {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+.search input {
+  width: 100%; font: inherit; font-size: 17px; color: var(--text);
+  padding: 13px 18px 13px 46px; border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: var(--surface) no-repeat 17px 50% / 18px 18px
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b9b1cc' stroke-width='2.4' stroke-linecap='round'%3E%3Ccircle cx='10.5' cy='10.5' r='6.5'/%3E%3Cpath d='M15.5 15.5 21 21'/%3E%3C/svg%3E");
+  -webkit-appearance: none; appearance: none;
+}
+.search input::placeholder { color: var(--text-faint); }
+.search input:focus { outline: 2px solid var(--cyan); outline-offset: 2px; border-color: transparent; }
+.search-panel {
+  position: absolute; left: 0; right: 0; top: calc(100% + 8px);
+  max-height: min(70vh, 640px); overflow-y: auto; overscroll-behavior: contain;
+  padding: 4px 16px 8px; border-radius: 18px;
+  background: var(--surface); border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+}
+.search-panel[hidden] { display: none; }
+.search-status { margin: 10px 4px 0; font-size: 14px; color: var(--text-faint); }
+@media (max-width: 640px) {
+  .search-panel { max-height: 62vh; max-height: 62dvh; }
+}
+.doc .search-results { list-style: none; margin: 6px 0 0; padding: 0; }
+.doc .search-results li { margin: 0; padding: 12px 4px; border-bottom: 1px solid var(--line); }
+.doc .search-results li:last-child { border-bottom: 0; }
+.search-results a { font-weight: 600; text-decoration: none; overflow-wrap: anywhere; }
+.search-results .search-page { color: var(--text); }
+.doc .search-results p { margin: 4px 0 0; font-size: 15px; color: var(--text-dim); overflow-wrap: anywhere; }
+.search-results mark { background: rgba(255, 196, 87, 0.28); color: var(--text); border-radius: 3px; padding: 0 1px; }
+.doc .search-results .search-more { color: var(--text-faint); font-size: 14px; border-bottom: 0; }

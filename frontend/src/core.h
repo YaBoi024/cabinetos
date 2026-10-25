@@ -85,6 +85,15 @@ struct PadState {
     float leftTrigger = 0, rightTrigger = 0;
 };
 
+// One of a game's joypad buttons as the core declared it
+// (RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS): the RetroPad id, and the core's
+// own word for what it does in this game.
+struct InputDescriptor {
+    unsigned id = 0;
+    std::string label;
+    bool operator==(const InputDescriptor&) const = default;
+};
+
 class Core {
 public:
     static Core& shared();
@@ -316,6 +325,11 @@ public:
     const std::vector<int16_t>& drainAudio();
 
     void setPad(int port, const PadState& pad);
+    // A key of the core's keyboard, as libretro numbers it (RETROK_*), held
+    // or let go, for port 0. No real keyboard is passed to a core; the one
+    // key pressed is MAME 2003-Plus's menu key (arcadesettings.h). Every key
+    // is let go when a game loads.
+    void setKey(unsigned retrok, bool down);
     // How many players there are, so the core is told a controller is in
     // each of their ports. Before loadGame it sets what the game starts with;
     // during a game a higher number plugs the new ports in. Never unplugs: a
@@ -339,6 +353,15 @@ public:
     // Remote is plugged in, and Dolphin seats each Remote the OS has connected
     // in the first free one, now or mid-game. Cleared when the game unloads.
     void setRealRemotesFrom(int firstPort);
+
+    // WHAT EACH PORT'S BUTTONS DO IN THIS GAME, as the core last declared
+    // them and in its order: the joypad's ids, index 0, for the four ports
+    // (core_input.cpp). Empty for a port the core said nothing about.
+    // Replaced when the core declares them again, emptied when a game loads,
+    // and the version moves only when they change, so a reader can keep
+    // what it made of them (fightstick.cpp).
+    const std::vector<InputDescriptor>& inputDescriptors(int port) const;
+    unsigned inputDescriptorsVersion() const;
 
     // --- PlayStation 2 ---------------------------------------------------
     //
