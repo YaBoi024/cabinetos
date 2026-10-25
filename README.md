@@ -80,6 +80,13 @@ from the [Universal Blue image template](https://github.com/ublue-os/image-templ
 
 ---
 
+## Tested hardware
+- Steam Deck OLED: tested
+- Steam Deck LCD: not tested yet. Reports welcome.
+- Other handhelds: untested. Reports welcome.
+
+---
+
 ## Working on CabinetOS
 
 - [`CONTRIBUTING.md`](CONTRIBUTING.md): start here. Building, testing, what
