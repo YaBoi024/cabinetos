@@ -14,6 +14,9 @@ upstream. When a sync conflicts, use it to decide which side to keep.
   (daily check of upstream; opens an issue when watched files change).
 - `base-update.yml`: [pointed at bazzite-deck]
 
+## Updates
+- Created /system_files/usr/lib/systemd/system/cabinetos-update-download.service.d/10-selinux.conf to adjust SELinux for successful updates.
+
 ## Tested on
 - Steam Deck OLED: tested.
 - Steam Deck LCD: not tested.
