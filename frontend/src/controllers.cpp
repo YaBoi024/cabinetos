@@ -244,6 +244,9 @@ void App::openPadsPanelAt(int focus) {
 }
 
 bool App::interceptControllers(const SDL_Event& e) {
+    // CONTROLS IS LISTENING over the pause menu (controlsflow.cpp): the next
+    // press on its pad is the answer, before anything else sees it.
+    if (interceptControls(e)) return true;
     // THE NEW PAD SAYING IT WORKS: any button on a pad that was not
     // here when Add a controller opened closes it, and the press goes
     // no further.

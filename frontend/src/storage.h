@@ -28,6 +28,7 @@
 //   │   ├── screenshots/<romId>/
 //   │   ├── keeps/                           which games this person kept
 //   │   ├── pending/                         what has not reached RomM yet
+//   │   ├── controls/<romId> - <name>.json   an arcade game's buttons moved (controls.h)
 //   │   └── server-saves/<romId>/            RomM's saves as last seen, for play offline
 //   ├── config/
 //   ├── logs/
@@ -163,6 +164,10 @@ std::string statesDir(const User& u, const std::string& platform, int romId,
 std::string screenshotsDir(const User& u);
 std::string keepsDir(const User& u);
 std::string pendingDir(const User& u);
+// An arcade game's buttons as this person moved them, one file per game
+// (controls.h). Outside cache/, so eviction never touches it; never sent to
+// RomM.
+std::string controlsDir(const User& u);
 
 // Where a save goes when there is no game and no person — `--core <so> <rom>`,
 // the developer entry point that plays a file off the disk with no RomM behind

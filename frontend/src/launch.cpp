@@ -9,6 +9,7 @@
 #include "app.h"
 #include "cache.h"
 #include "catalog.h"
+#include "controls.h"
 #include "core.h"
 #include "disc.h"
 #include "discs.h"
@@ -1017,6 +1018,8 @@ void App::startPlaying(cab::Core& core) {
     std::fprintf(stderr, "[launch] running %s\n",
                  core.isPs2() ? "PCSX2" : core.coreName().c_str());
     playing = true;
+    // An arcade game's buttons as this person moved them (controls.h).
+    controls::beginGame(session.core, session.romId, session.title);
     // RetroAchievements, when this person signed in (achievements.h):
     // after the battery save and before the first frame it checks.
     ra::beginGame(session.raHash, session.platformSlug, core.isPs2());

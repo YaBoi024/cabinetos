@@ -1035,10 +1035,10 @@ struct App {
     design::Animated overlayFade;
     design::Animated overlayFocus;
     enum OverlayItem { OvResume = 0, OvSaveState, OvLoadState, OvScreenshot, OvChoice, OvExit,
-                       OvDisc, OvCount };
+                       OvDisc, OvControls, OvCount };
     const char* kOverlayLabels[OvCount] = {
         "Resume", "Save state", "Load latest state", "Screenshot", "", "Exit to Home",
-        "Change disc",
+        "Change disc", "Controls",
     };
     // CHOICE ROWS in a list of buttons: "Picture: Console" (#63) and a
     // system's own options, "3D glasses: Off" (#73). Built when the menu
@@ -1067,6 +1067,34 @@ struct App {
     // that says no.
     std::vector<OverlayItem> pauseItems{OvResume, OvSaveState, OvLoadState, OvExit};
     PauseChoice* choiceAt(int slot);
+    // THE PAD THAT OPENED THE PAUSE MENU, 0 when no pad's press did (Escape,
+    // a pad going off, a stream, a Wii Remote): L3 + R3 (input.cpp) and the
+    // shortcut tap (play.cpp) say which. Controls starts on its kind.
+    SDL_JoystickID menuOpener = 0;
+    // CONTROLS (controls.h): an arcade game's buttons, in the Change disc
+    // panel over the pause menu (controlsflow.cpp).
+    struct ControlsKind {
+        std::string kind;          // fightstick::kind
+        int player = 0;            // the lowest player holding one, 0-based
+        SDL_JoystickID pad = 0;    // that player's pad: the rows show its layout
+        std::string name;          // as the pad gives it, written beside the kind
+    };
+    struct ControlsPanel {
+        bool open = false;
+        std::vector<ControlsKind> kinds;   // one per kind connected, by player
+        int shown = 0;                     // the kind the rows are for
+        std::vector<std::string> labels;   // the rows as last shown
+        int padsSeen = -1;                 // players::generation when shown
+        unsigned rowsSeen = 0;             // controls::generation when shown
+        // LISTENING: the next press on this pad gives row `row` its control.
+        SDL_JoystickID listen = 0;
+        int row = -1;
+        // A trigger held as listening began is let go before it counts.
+        bool triggerDown[2] = {};
+        // The pad that last pressed a button on the panel: A on a row listens
+        // to it when it is of the kind shown.
+        SDL_JoystickID lastPressed = 0;
+    } controlsPanel;
 
     // ---- The Power menu — docs/PROJECT.md, open question 10b ------------
     //
@@ -2024,8 +2052,21 @@ struct App {
     } discScript;
     void openDiscPanel();
     void pickDisc(int n);
+    // controlsflow.cpp
+    void openControlsPanel();
+    void showControls(bool fresh);
+    void pickControlsRow(int answer);
+    void stepControlsKind(int dir, bool wrap);
+    void takeControl(int control);
+    void stopListening();
+    bool interceptControls(const SDL_Event& e);
+    void followControls();
+    // The pause menu's panel height for its rows now, which a level opened
+    // from it is drawn at (choice.h, setOverPauseMenu).
+    float pauseMenuHeight();
     void overlayActivate();
-    void toggleOverlay();
+    // `opener` is the pad whose press opened it, when one did (menuOpener).
+    void toggleOverlay(SDL_JoystickID opener = 0);
     void openStandaloneMenu();
     void openPowerMenu();
     // Set while logind is waiting on us to leave a game before it proceeds.

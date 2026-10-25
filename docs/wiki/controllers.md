@@ -13,9 +13,11 @@ Other pads in the [SDL controller list](https://github.com/mdqinc/SDL_GameContro
 usually work too, with no setup; the list holds over two thousand pads and
 arrives with each update. The original Steam Controller is expected to work; the
 2026 Steam Controller needs a system update that has not arrived yet. If a pad
-misbehaves, [report it](troubleshooting.md). There is no
-button-mapping screen; buttons are matched by position, so the bottom face
-button is always **A** (Cross on PlayStation, B on Nintendo).
+misbehaves, [report it](troubleshooting.md). Buttons are matched by
+position, so the bottom face button is always **A** (Cross on PlayStation, B
+on Nintendo). There is no button-mapping screen, except in arcade games:
+their pause menu's [Controls](pause-menu.md#controls) moves the game's
+buttons.
 
 Wii Remotes have their own pairing, below.
 
@@ -69,7 +71,8 @@ Kick, High Punch. A game with four buttons, such as a Neo Geo game, uses the
 bottom row, as the cabinet's one row did; one with one to three uses the
 bottom row too. Moves that need two buttons at once take two buttons, as on
 the cabinet: the combination buttons a pad gets in these games are not on the
-stick. Tap **Home** for the pause menu in any game. Other
+stick. To put a game's buttons elsewhere, use [Controls](pause-menu.md#controls)
+in its pause menu. Tap **Home** for the pause menu in any game. Other
 games play it as an Xbox pad. Wired, or on its 2.4G receiver, it is treated as
 an ordinary pad everywhere.
 

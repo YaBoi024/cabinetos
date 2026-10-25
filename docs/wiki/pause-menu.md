@@ -33,6 +33,7 @@ Remote Play stream starts or ends.
 | **Widescreen** | PS2: **On** plays the game in 16:9 with PCSX2's widescreen patch; **Off** plays it in 4:3 as made. Kept for this game. Takes effect from the next start. |
 | **Look** | The screen look for this system: CRT, LCD, sharp or plain. Changes behind the menu straight away. |
 | **Screen** / **Colors** | Virtual Boy's screen colours and 3D glasses, Game Boy's colour palettes. |
+| **Controls** | Arcade games: puts the game's buttons on the buttons you choose, for this game. See [Controls](#controls). |
 | **Exit to Home** | Saves your game to RomM and goes back to its page. |
 
 Rows appear only where they apply:
@@ -47,6 +48,33 @@ Rows appear only where they apply:
 - **Change disc**: only on a game with several discs. Not on GameCube, which
   changes discs by itself; 3DO has Insert and restart only. On Saturn Insert
   goes through the console's CD player screen: press Start there.
+- **Controls**: only in arcade games (FBNeo and MAME 2003-Plus) that name
+  their buttons.
+
+## Controls
+
+In an arcade game, **Controls** lists the game's buttons by the game's own
+names, each with the button on your controller that presses it, such as
+*Button 1: A* or *Jab Punch: X*.
+
+1. Highlight one and press **A**. It reads *Button 1: Press a button…*.
+2. Press the button you want it on: a face button, a shoulder or a trigger.
+   If another of the game's buttons was there, the two swap.
+
+To leave it as it was, press the button it is already on. **B** on the list
+goes back to the pause menu. The change works as soon as you go back to the game, and is kept
+for this game, for you, and for this kind of controller: every controller of
+the same kind uses it. The stick clicks, Start, Select, the d-pad and the
+shortcut button can't take a game's button. **Reset to default** puts every
+button back.
+
+With two kinds of controller on (a pad and a fight stick, say), the first row
+says whose they are, **Player 1** or **Player 2**: press Left or Right to
+change it.
+
+Your changes are kept on the console, in `users/<you>/controls/`, one small
+file per game, which [File access](file-access.md) shows. They are not sent to
+your RomM server.
 
 ## The Power menu
 

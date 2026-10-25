@@ -44,6 +44,7 @@ folder the program was started in. The one chosen is printed at start-up as
 │   ├── screenshots/<romId>/
 │   ├── keeps/                           which games this person kept
 │   ├── pending/                         what has not reached RomM yet
+│   ├── controls/<romId> - <name>.json   an arcade game's buttons as this person moved them (Controls)
 │   └── server-saves/<romId>/            RomM's saves as last seen, for play offline
 ├── config/                              settings, the server address, the accounts list
 ├── logs/                                a separate emulator's output, when it keeps no log of its own

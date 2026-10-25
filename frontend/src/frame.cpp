@@ -271,8 +271,10 @@ void App::runFrameLoop() {
             screens::Ctx actx{renderer, text, images, sc, &cards};
             accountScreen.draw(actx);
         }
-        // The question panel, over the account switcher.
-        if (choiceScreen.isOpen() && (!playing || overlayOpen)) {
+        // The question panel, over the account switcher. A level of the pause
+        // menu also while it fades out, and with the menu as that closes.
+        if (choiceScreen.visible() &&
+            (!playing || overlayOpen || overlayFade.value() > 0.001f)) {
             screens::Ctx cctx{renderer, text, images, sc, &cards};
             choiceScreen.draw(cctx);
             renderer.setContentAlpha(1.0f);

@@ -303,6 +303,7 @@ std::string statesDir(const User& u, const std::string& platform, int romId,
 std::string screenshotsDir(const User& u) { return userDir(u) + "/screenshots"; }
 std::string keepsDir(const User& u) { return userDir(u) + "/keeps"; }
 std::string pendingDir(const User& u) { return userDir(u) + "/pending"; }
+std::string controlsDir(const User& u) { return userDir(u) + "/controls"; }
 
 std::string scratchSavesDir(const std::string& core) {
     // `--core` is given a path, not a name. Taking the whole thing would make a

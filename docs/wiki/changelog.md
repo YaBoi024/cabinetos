@@ -4,6 +4,18 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.10.25.4 {#v2026-10-25-4}
+
+- **New:** in an arcade game (FinalBurn Neo or MAME 2003-Plus), the pause
+  menu has **Controls**: the game's buttons by their own names, each with the
+  button that presses it. Highlight one, press **A**, then press the button
+  you want it on; if another of the game's buttons was there, the two swap.
+  Press the button it is already on to leave it, and **Reset to default**
+  puts them all back. It is kept for
+  that game, for you and for that kind of controller, and works as soon as
+  you go back to the game. See [Controls](pause-menu.md#controls).
+  ([#582](https://github.com/MMagTech/cabinetos/pull/582))
+
 ## 2026.10.25.2 {#v2026-10-25-2}
 
 - **New:** hold **Start** for a second in an arcade game to open the game's

@@ -40,6 +40,7 @@ TESTS=(
     --players-test
     --fightstick-test
     --arcade-settings-test
+    --controls-test
     --battery-test
     --volume-test
     --playtime-test

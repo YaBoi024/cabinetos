@@ -70,6 +70,17 @@ const Stick* match(uint16_t vendor, uint16_t product, const std::string& device)
 // shortcuts.cpp keeps its button under, which keeps its own in this pass).
 std::string kind(SDL_Gamepad* gp);
 
+// Whether a core is one of the two arcade cores, FBNeo and MAME 2003-Plus:
+// the games a stick gets a layout in and Controls is offered in (controls.h).
+bool isArcadeCore(const std::string& core);
+
+// The button number a joypad id is in MAME 2003-Plus's Classic table, 1 to 8
+// (B A Y X L R L2 R2), or 0 for an id that is not one of the eight; and
+// whether a core declares a game's buttons in RetroPad id order, so they are
+// read in that table's order (MAME 2003-Plus) rather than as declared.
+int classicNumber(unsigned id);
+bool readsClassic(const std::string& core);
+
 constexpr int kSlots = 8;
 constexpr int kNone = -1;
 

@@ -1724,13 +1724,7 @@ MMagTech asked whether Button mapping should be RetroArch-style remapping,
 then whether he was drifting into adding too much: *"the os is meant to be
 simple and take the complexity away alot of emulators add."* Decided:
 
-- **No remapping, for the first release at least.** Every system already
-  plays with RetroArch's out-of-the-box layout, read by position (bottom
-  button to RetroPad B, and so on), so the defaults are the ones people
-  know. With four players a remap has no clean owner: per system changes
-  the game for everyone, per pad multiplies screens, per person fails for
-  players 2 to 4. If it is asked for after release, the likely request is
-  "A and B swapped on a Nintendo-style pad", which is one switch.
+- **No remapping:** moved to [decisions/2026-09-26-no-remapping.md](decisions/2026-09-26-no-remapping.md).
 - **No mapping screen for unknown pads either (#66).** The console carries
   SDL_GameControllerDB (`players::loadMappings`) and a weekly pull request
   keeps it current; a pad that is still missing is added to the list. The

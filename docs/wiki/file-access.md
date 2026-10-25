@@ -27,7 +27,7 @@ with the console's own address. You see these folders:
 
 | Folder | Holds |
 |---|---|
-| `users` | Each person's saves, states and screenshots |
+| `users` | Each person's saves, states and screenshots, and the buttons they moved in arcade games (`controls`) |
 | `bios` | The BIOS, firmware and keys the console has fetched |
 | `roms` | Downloaded games, and their manuals in each system's `Manuals` folder |
 | `cache` | Games fetched by Play, and their manuals the same way |

@@ -412,7 +412,7 @@ void App::handleEvent(const SDL_Event& e) {
                 r3Down = true;
             if (l3Down && r3Down && (playing || overlayOpen)) {
                 l3Down = r3Down = false;   // one toggle per pair, not per frame
-                toggleOverlay();
+                toggleOverlay(e.gbutton.which);
                 break;
             }
             if (owner == InputOwner::Overlay && choiceScreen.isOpen()) {

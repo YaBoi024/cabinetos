@@ -50,14 +50,6 @@ constexpr cab::Button kSlot[kSlots] = {cab::Y, cab::X, cab::R,  cab::L,
 constexpr cab::Button kClassic[] = {cab::B, cab::A, cab::Y,  cab::X,
                                     cab::L, cab::R, cab::L2, cab::R2};
 
-// The button number an id is in the Classic table, 1 to 8, or 0 for an id
-// that is not one of the eight.
-int classicNumber(unsigned id) {
-    for (int i = 0; i < 8; ++i)
-        if (id == kClassic[i]) return i + 1;
-    return 0;
-}
-
 enum class Order { Declared, Classic };
 
 // The order a core's buttons are counted in, or none for a core that is not
@@ -132,6 +124,16 @@ void say(int port, SDL_Gamepad* gp, const std::optional<Layout>& l) {
 }
 
 }  // namespace
+
+int classicNumber(unsigned id) {
+    for (int i = 0; i < 8; ++i)
+        if (id == kClassic[i]) return i + 1;
+    return 0;
+}
+
+bool isArcadeCore(const std::string& core) { return orderFor(core).has_value(); }
+
+bool readsClassic(const std::string& core) { return orderFor(core) == Order::Classic; }
 
 const Stick* match(uint16_t vendor, uint16_t product, const std::string& device) {
     for (const Stick& s : kSticks)

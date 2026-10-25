@@ -37,6 +37,8 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [wii-remote-outside-wii-games](2026-10-24-wii-remote-outside-wii-games.md): a Wii Remote starts only Wii games, and holding HOME on one opens the pause menu in every game.
 - [fight-stick-layout](2026-10-24-fight-stick-layout.md): the 8BitDo Arcade Stick over Bluetooth plays arcade games with a fixed fight-stick layout, and every other pad as before.
 - [hold-start-opens-arcade-settings](2026-10-25-hold-start-opens-arcade-settings.md): holding Start in an arcade game opens the emulator's own menu, never one of the console's.
+- [no-remapping](2026-09-26-no-remapping.md): no button remapping on any system but arcade games, which have Controls.
+- [arcade-controls](2026-10-25-arcade-controls.md): an arcade game's pause menu has a Controls row that moves its buttons, per game, kind of controller and person.
 
 ### Sound and display
 

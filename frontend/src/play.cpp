@@ -10,6 +10,7 @@
 #include <cstdio>
 
 #include "arcadesettings.h"
+#include "controls.h"
 #include "core.h"
 #include "discs.h"
 #include "fightstick.h"
@@ -230,6 +231,7 @@ void App::followRemotesInGame() {
 // so anything set afterwards is a frame late.
 // Returns whether rewind is held this frame (pace.cpp steps the game by it).
 bool App::readGameInput(cab::Core& core) {
+    followControls();
     cab::PadState pad;
     const bool* keys = SDL_GetKeyboardState(nullptr);
     auto held = [&](SDL_Scancode k) { return keys && keys[k]; };
@@ -391,7 +393,8 @@ bool App::readGameInput(cab::Core& core) {
                     h.used = true;
                     // The screenshot shortcut works in the pause menu too,
                     // on the paused frame. Nothing else does there.
-                    if (combos && overlayOpen && !powerMenu && (fresh & bit(cab::Y))) {
+                    if (combos && overlayOpen && !powerMenu && !controlsPanel.listen &&
+                        (fresh & bit(cab::Y))) {
                         std::fprintf(stderr,
                                      "[shortcuts] player %d: screenshot, paused\n", p + 1);
                         screenshotNow(session, uploader, menuNotice);
@@ -422,10 +425,12 @@ bool App::readGameInput(cab::Core& core) {
                 if (!down) {
                     h.down = false;
                     heldThroughMenu[p] |= st.buttons;
-                    if (!h.used && !stateHold && !stateHoldWaiting) {
+                    // Not while Controls listens: the shortcut button
+                    // is no control, and pressing it does nothing there.
+                    if (!h.used && !stateHold && !stateHoldWaiting && !controlsPanel.listen) {
                         std::fprintf(stderr, "[shortcuts] player %d: tap, %s the menu\n",
                                      p + 1, overlayOpen ? "closing" : "opening");
-                        toggleOverlay();
+                        toggleOverlay(who);
                     }
                 } else {
                     st.buttons = 0;
@@ -446,10 +451,17 @@ bool App::readGameInput(cab::Core& core) {
         // A FIGHT STICK IN AN ARCADE GAME (fightstick.h): its eight
         // buttons, read above as any pad's and kept from the game above
         // the same way, are moved last to where the game's layout puts
-        // them. No other pad, and no other game, has a layout.
-        if (SDL_Gamepad* gp = players::gamepad(p))
-            if (const fightstick::Layout* layout = fightstick::forPort(p, gp, session.core))
+        // them. No other pad, and no other game, has a layout. CONTROLS
+        // (controls.h): where this person moved the game's buttons for
+        // this kind of pad, the same place, over the layout or the plain
+        // table, in its stead.
+        if (SDL_Gamepad* gp = players::gamepad(p)) {
+            const fightstick::Layout* layout = fightstick::forPort(p, gp, session.core);
+            if (const controls::Map* moved = controls::forPort(p, gp, layout))
+                controls::apply(*moved, st);
+            else if (layout)
                 fightstick::apply(*layout, st);
+        }
         // HOLDING START IN AN ARCADE GAME (#577, arcadesettings.h): player
         // 1's buttons as the game is about to hear them, so a hold kept from
         // the game above does not count.
