@@ -16,10 +16,12 @@ namespace screens {
 class GridScreen {
 public:
     // `title` is drawn as ordinary content at the top of the scroll view,
-    // never as chrome. `all` is the card table the indices point into — the
+    // never as chrome. `namesSystem` puts the focused game's system after its
+    // name: a collection's grid, whose title names no system (#579), and not
+    // a platform's. `all` is the card table the indices point into — the
     // screen needs the NAMES once, at open, to build its letter index, and
     // holding a reference to the table would outlive the call.
-    void open(std::string title, std::vector<int> cards,
+    void open(std::string title, bool namesSystem, std::vector<int> cards,
               const std::vector<design::Card>& all);
 
     // More of the same grid, arriving after it was opened.
@@ -77,6 +79,7 @@ private:
     void drawIndex(Ctx& c);
 
     std::string title_;
+    bool namesSystem_ = false;
     std::vector<int> cards_;
     // The distinct initials, in order, and the first slot of each. Built once
     // at open: a 141-game platform is scanned once rather than per keypress.

@@ -4,6 +4,17 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.10.25.5 {#v2026-10-25-5}
+
+- **Changed:** in a collection and in Search, the line beside the heading
+  names the focused game's system after its name, as Home does: "Altered
+  Beast · Sega Genesis". A system's own games still show the name alone,
+  since the heading names the system.
+  ([#579](https://github.com/MMagTech/cabinetos/issues/579))
+- **Fixed:** on Home, a long game name could push its system off the end of
+  the line. The name is shortened now, and the system always shows.
+  ([#579](https://github.com/MMagTech/cabinetos/issues/579))
+
 ## 2026.10.25.4 {#v2026-10-25-4}
 
 - **New:** in an arcade game (FinalBurn Neo or MAME 2003-Plus), the pause

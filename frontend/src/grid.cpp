@@ -20,9 +20,10 @@ using design::Card;
 // A grid of games
 // ---------------------------------------------------------------------------
 
-void GridScreen::open(std::string title, std::vector<int> cards,
+void GridScreen::open(std::string title, bool namesSystem, std::vector<int> cards,
                       const std::vector<design::Card>& all) {
     title_ = std::move(title);
+    namesSystem_ = namesSystem;
     cards_ = std::move(cards);
     slot_ = 0;
 
@@ -366,31 +367,14 @@ void GridScreen::drawGlass(Ctx& c) {
 
     const int idx = focusedCard();
     if (idx >= 0 && idx < static_cast<int>(c.cards->size())) {
-        const design::Card& card = (*c.cards)[idx];
-        float room = ui::kCanvasWidth - design::kLibraryInset - x - design::kLetterIndexWidth;
-        // After the name, dimmer: RomM's tags when another copy of this game
-        // is in the grid (#383), and a greyed game's reason. Both survive
-        // when the line does not fit; the name is what gets shortened.
-        std::string after;
-        if (design::hasTwin(*c.cards, cards_, idx)) after = card.tagLabel;
-        if (!card.unavailable.empty())
-            after += (after.empty() ? "" : "   ") + card.unavailable;
-        if (!after.empty()) {
-            const float afterW = c.text.measure(after, ui::TextStyle::Callout, c.sc);
-            const std::string name =
-                c.text.truncate(card.title, ui::TextStyle::Callout, c.sc,
-                                std::max(0.0f, room - afterW - 24.0f));
-            c.text.draw(c.r, name, x, baseline, ui::TextStyle::Callout,
-                        ui::Color::white(0.95f), c.sc);
-            const float wx = x + c.text.measure(name, ui::TextStyle::Callout, c.sc) + 24.0f;
-            c.text.draw(c.r, after, wx, baseline, ui::TextStyle::Callout,
-                        ui::Color::white(0.45f), c.sc);
-        } else {
-            c.text.draw(c.r, c.text.truncate(card.title, ui::TextStyle::Callout, c.sc, room), x,
-                        baseline, ui::TextStyle::Callout, ui::Color::white(0.95f), c.sc);
-        }
+        // After the name: RomM's tags when another copy of this game is in
+        // the grid (#383), the system in a collection (#579), and a greyed
+        // game's reason. See drawFocusedLine.
+        const float room = ui::kCanvasWidth - design::kLibraryInset - x - design::kLetterIndexWidth;
+        drawFocusedLine(c.r, c.text, c.sc, (*c.cards)[idx],
+                        /*tags=*/design::hasTwin(*c.cards, cards_, idx),
+                        /*system=*/namesSystem_, /*reason=*/true, x, baseline, room, 0.95f);
     }
-
 }
 
 // --- The letter index, down the right ---------------------------------------

@@ -189,7 +189,7 @@ void App::openTile(const screens::Result& res) {
         sound::play(sound::Cue::Edge);
         return;
     }
-    gridScreen.open(t->title, gridOrder(lib, *t), cards);
+    gridScreen.open(t->title, /*namesSystem=*/isCollection, gridOrder(lib, *t), cards);
     gridTileQuery = t->query;
     gridReadId = t->readId;
     fillGrid(*t);

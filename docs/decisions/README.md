@@ -46,6 +46,8 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 
 ### Screens and settings
 
+- [focused-game-names-its-system](2026-10-25-focused-game-names-its-system.md): the focused game's line names its system on Home, in a collection and in Search, and not in a system's own grid.
+
 ### The image and updates
 
 ### Building and checking
