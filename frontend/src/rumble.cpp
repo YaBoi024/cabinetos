@@ -3,6 +3,7 @@
 #include <SDL3/SDL.h>
 
 #include <atomic>
+#include <cstdio>
 
 #include "players.h"
 #include "prefs.h"
@@ -77,7 +78,20 @@ void update(bool live) {
         }
         if (s.id == id && s.strong == strong && s.weak == weak && now - s.at < kHoldMs / 2)
             continue;
-        SDL_RumbleGamepad(gp, strong, weak, kHoldMs);
+        if (!SDL_RumbleGamepad(gp, strong, weak, kHoldMs)) {
+    static bool said[players::kMax];
+    if (!said[p]) {
+        said[p] = true;
+        std::fprintf(stderr, "[rumble] pad %d: %s\n", p, SDL_GetError());
+    }
+} else {
+    static bool ok[players::kMax];
+    if (!ok[p]) {
+        ok[p] = true;
+        std::fprintf(stderr, "[rumble] pad %d: first rumble sent (strong=%u weak=%u)\n", p,
+                     static_cast<unsigned>(strong), static_cast<unsigned>(weak));
+    }
+}
         s = Sent{id, strong, weak, now};
     }
 }
