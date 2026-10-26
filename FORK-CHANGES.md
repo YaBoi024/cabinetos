@@ -37,9 +37,7 @@ upstream. When a sync conflicts, use it to decide which side to keep.
   error if one happens. If rumble stops, check:
   `journalctl -b -t cabinetos-session -o cat | grep "\[rumble\]"`
   `frontend/src/rumble.cpp`
-- **Touchscreen works in the menus.** Tap the top bar or the on-screen keyboard, swipe to move,
-  swipe in from the left edge to go back.
-  `touchinput.cpp` (new), plus small changes in `app.h`, `input.cpp` and `bar.cpp`
+- **Touchscreen works on the Deck** Tap the top bar the or swipe to move, swipe in from the left edge to go back. `touchinput.cpp` and tapspots.h (new), plus small changes in `app.h`, `input.cpp` and `bar.cpp`
 - **Staying in sync with CabinetOS.** A daily check lists upstream changes that could break the Deck
   changes, and warns if a Deck setting no longer matches an upstream file.
   `.github/workflows/watch-upstream.yml`, `.github/upstream-watch.txt`

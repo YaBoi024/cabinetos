@@ -598,6 +598,7 @@ void App::repeatHeld(float dt) {
     // The held direction, repeating and speeding up. Driven from the frame
     // loop rather than from the event queue, because the pad sends nothing
     // at all while a button is held down.
+    tickTouch(dt);   // FORK (handheld): a flick running on (touchinput.cpp) 
     if (navHeld && inputOwner() == InputOwner::UI && !keyboard.isOpen()) {
         heldFor += dt;
         if (heldFor >= nextRepeat) {

@@ -250,6 +250,7 @@ void App::retargetHomePress() {
 }
 
 void App::drawHome(float dt, float sc) {
+    homeTaps.clear();   // FORK (handheld): see touchinput.cpp
     // The height a shelf will occupy, known before it is drawn so the
     // scroll target can be computed this frame rather than one frame late.
     // No caption row. The focused card's title rides in the shelf header
@@ -427,6 +428,9 @@ void App::drawHome(float dt, float sc) {
                                 p * (kFocusScale - kPressScale);
 
             const float baseX = cullX;
+            // FORK (handheld): the cover's touch target, under the bar.
+            homeTaps.add(rowId * 1000 + static_cast<int>(slot), baseX, shelfTop,
+                         kShelfCoverWidth, kShelfCoverHeight, barTop + barHeight);
             const float w = kShelfCoverWidth * scale;
             const float h = kShelfCoverHeight * scale;
             const float x = baseX - (w - kShelfCoverWidth) * 0.5f;

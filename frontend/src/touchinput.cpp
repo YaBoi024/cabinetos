@@ -7,16 +7,19 @@
 //   - a tap on a top-bar destination or the account chip opens it;
 //   - a tap on a key of the on-screen keyboard presses that key (the keyboard
 //     already knows where its keys are, keyboard.h `pressAt`);
-//   - a tap on a tile, row or category of the Library, a game grid or Settings
+//   - a tap on a cover on Home, or a tile, row or category of the Library, a
+//     game grid or Settings
 //     goes to that exact one (each screen says where its items are drawn,
 //     tapspots.h); a tap on empty space there does nothing;
 //   - a tap on any other screen is A: it opens what has focus;
 //   - a drag moves focus the way the d-pad does, one step for each stretch of
 //     travel, in the direction the finger goes (drag down = Down);
-//   - a drag in from the left edge is B.
+//   - a drag in from the left edge is B;
+//   - a quick flick keeps going after the finger lifts: a few more steps that slow
+//     down, more of them the faster the flick (tickTouch, called every frame).
 //
-// Home, Search and a game's page are still to come: they have no tap targets
-// yet, so a tap there is A.
+// Search and a game's page are still to come: they have no tap targets yet, so
+// a tap there is A.
 //
 // The pointer reaches here as mouse events. gamescope turns a touch into a
 // click for a program that does not ask for touch itself, which is also why
@@ -40,6 +43,13 @@ constexpr float kStep = 150.0f;        // and of each one after it
 constexpr float kEdge = 56.0f;         // a drag that begins this close to the left edge is Back
 constexpr float kBackTravel = 220.0f;  // and goes this far across
 constexpr uint64_t kTapMaxMs = 600;    // a touch held longer than this is not a tap
+// A flick: lift the finger while it is still moving fast and the focus runs on.
+constexpr float kFlingMinSpeed = 450.0f;   // canvas points a second below which there is none
+constexpr float kFlingPerStep = 300.0f;    // and one more step for each of these above that
+constexpr int kFlingMaxSteps = 10;         // however fast
+constexpr float kFlingFirstGap = 0.05f;    // seconds to the first step after the lift
+constexpr float kFlingSlowing = 1.2f;      // each gap is this much longer than the last
+constexpr uint64_t kFlingMaxAgeMs = 80;    // the finger must still have been moving this recently
 
 struct Finger {
     bool down = false;
@@ -52,6 +62,32 @@ struct Finger {
     int stepped = 0;              // steps already sent, signed
 };
 Finger gFinger;
+
+// The last few places the finger was, to tell how fast it was going when it lifted.
+constexpr int kTrail = 6;
+struct Sample {
+    float x, y;
+    uint64_t t;
+};
+Sample gTrail[kTrail];
+int gTrailN = 0;
+void trailAdd(float x, float y) {
+    if (gTrailN == kTrail) {
+        for (int i = 0; i + 1 < kTrail; ++i) gTrail[i] = gTrail[i + 1];
+        --gTrailN;
+    }
+    gTrail[gTrailN++] = {x, y, SDL_GetTicks()};
+}
+
+// The focus steps still to come after a flick.
+struct Fling {
+    bool on = false;
+    int left = 0;
+    screens::Nav nav = screens::Nav::Right;
+    float wait = 0.0f;   // seconds to the next step
+    float gap = 0.0f;    // the gap just used
+};
+Fling gFling;
 
 // The window's pointer position, through the letterbox, as canvas points. The
 // same sum as the setup screens' (setup.cpp, Flow::canvasPoint).
@@ -113,18 +149,26 @@ bool tapScreen(App& a, App::InputOwner owner, float x, float y) {
     if (a.pinScreen.isOpen() || a.choiceScreen.isOpen() || a.raList.isOpen() ||
         a.downloadsPanel.isOpen() || a.accountsOpen)
         return false;
+    // An empty Home says "Press A to open the Library": a tap is that A.
+    if (a.here() == App::Screen::Home && a.homeEmpty()) return false;
+    const bool ours = a.here() == App::Screen::Home || a.here() == App::Screen::Library ||
+                      a.here() == App::Screen::Grid || a.here() == App::Screen::Settings;
+    if (!ours) return false;
+    // Nothing takes a press behind a curtain (navigate() says the same).
+    if (a.switchPendingId || a.leaving != App::Leave::None ||
+        (a.arriving && !a.arriveLifting))
+        return true;
     screens::Result res;
     bool hit = false;
     switch (a.here()) {
+        case App::Screen::Home:
+            a.tapHome(x, y);   // acts for itself
+            return true;
         case App::Screen::Library: hit = a.libraryScreen.tapAt(x, y, &res); break;
         case App::Screen::Grid: hit = a.gridScreen.tapAt(x, y, &res); break;
         case App::Screen::Settings: hit = a.settingsScreen.tapAt(x, y, &res); break;
         default: return false;
     }
-    // Nothing takes a press behind a curtain (navigate() says the same).
-    if (a.switchPendingId || a.leaving != App::Leave::None ||
-        (a.arriving && !a.arriveLifting))
-        return true;
     if (!hit) return true;
     // Focus is on the screen now, not up in the bar.
     a.barFocused = false;
@@ -161,6 +205,44 @@ bool tapBar(App& a, float x, float y) {
 
 }  // namespace
 
+// FORK (handheld): a tap on a cover on Home. The cover under the finger gets focus and
+// is opened, as A opens the focused one (activateHome): the first on Recent resumes
+// the game, any other opens its page. A tap on nothing does nothing.
+bool App::tapHome(float x, float y) {
+    const int id = homeTaps.at(x, y);
+    if (id < 0) return false;
+    const int row = id / 1000, slot = id % 1000;
+    if (!rowExists(row) || slot >= static_cast<int>(rowSlots(row))) return false;
+    leaveFocus();
+    focusRow = row;
+    focusSlot = slot;
+    barFocused = false;
+    enterFocus();
+    activateHome();
+    return true;
+}
+
+// Once a frame: the steps of a flick, one after another, each a little later than
+// the last so it slows down. A game, the on-screen keyboard or a shutdown ends it.
+void App::tickTouch(float dt) {
+    if (!gFling.on) return;
+    const InputOwner owner = inputOwner();
+    if (owner == InputOwner::Game || owner == InputOwner::Keyboard || poweringDown) {
+        gFling = Fling{};
+        return;
+    }
+    gFling.wait -= dt;
+    while (gFling.on && gFling.wait <= 0.0f) {
+        stepFocus(*this, owner, gFling.nav);
+        if (--gFling.left <= 0) {
+            gFling.on = false;
+            break;
+        }
+        gFling.gap *= kFlingSlowing;
+        gFling.wait += gFling.gap;
+    }
+}
+
 // One mouse event, after handleEvent has had its look at it. True when it was
 // a finger's and was used.
 bool App::handleTouch(const SDL_Event& e) {
@@ -176,6 +258,8 @@ bool App::handleTouch(const SDL_Event& e) {
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
             if (e.button.button != SDL_BUTTON_LEFT) return false;
             if (!canvasPoint(window, e.button.x, e.button.y, &x, &y)) return false;
+            gFling = Fling{};   // a touch stops a flick
+            gTrailN = 0;
             gFinger = Finger{};
             gFinger.down = true;
             gFinger.x0 = x;
@@ -187,6 +271,7 @@ bool App::handleTouch(const SDL_Event& e) {
         case SDL_EVENT_MOUSE_MOTION: {
             if (!gFinger.down) return false;
             if (!canvasPoint(window, e.motion.x, e.motion.y, &x, &y)) return false;
+            trailAdd(x, y);
             const float dx = x - gFinger.x0;
             const float dy = y - gFinger.y0;
             if (!gFinger.moved && std::hypot(dx, dy) < kTapSlop) return true;
@@ -225,7 +310,35 @@ bool App::handleTouch(const SDL_Event& e) {
             if (e.button.button != SDL_BUTTON_LEFT || !gFinger.down) return false;
             gFinger.down = false;
             const bool tap = !gFinger.moved && SDL_GetTicks() - gFinger.at < kTapMaxMs;
-            if (!tap) return true;
+            if (!tap) {
+                // A flick: how fast it was going along its direction as it lifted.
+                if (gFinger.moved && !gFinger.fromEdge && gFinger.axis != 0 &&
+                    owner != InputOwner::Keyboard && gTrailN >= 2) {
+                    const uint64_t now = SDL_GetTicks();
+                    const Sample& last = gTrail[gTrailN - 1];
+                    int from = gTrailN - 1;
+                    while (from > 0 && last.t - gTrail[from - 1].t <= 100) --from;
+                    const Sample& first = gTrail[from];
+                    const float secs = static_cast<float>(last.t - first.t) / 1000.0f;
+                    if (now - last.t <= kFlingMaxAgeMs && secs >= 0.02f) {
+                        const float along = gFinger.axis == 1 ? last.x - first.x : last.y - first.y;
+                        const float speed = along / secs;
+                        const float fast = std::fabs(speed);
+                        if (fast >= kFlingMinSpeed) {
+                            const int steps = std::min(
+                                kFlingMaxSteps, static_cast<int>((fast - kFlingMinSpeed) / kFlingPerStep) + 1);
+                            const bool forward = speed > 0.0f;
+                            gFling.on = true;
+                            gFling.left = steps;
+                            gFling.nav = gFinger.axis == 1 ? (forward ? Nav::Right : Nav::Left)
+                                                           : (forward ? Nav::Down : Nav::Up);
+                            gFling.gap = kFlingFirstGap;
+                            gFling.wait = kFlingFirstGap;
+                        }
+                    }
+                }
+                return true;
+            }
             if (!canvasPoint(window, e.button.x, e.button.y, &x, &y)) return true;
             // The keyboard first, docked on Search or asking a question: it knows where
             // its keys are, and a tap that misses them is not a press.

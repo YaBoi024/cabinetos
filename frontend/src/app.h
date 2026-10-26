@@ -1307,6 +1307,7 @@ struct App {
     struct BarSpot { float x0 = 0.0f, x1 = 0.0f; };
     BarSpot barSpot[BarCount];
     uint64_t barDrawnAt = 0;
+    screens::TapSpots homeTaps;   // FORK (handheld): Home's covers, as last drawn
     // Trigger edge state. See the axis handler.
     bool l2Held = false, r2Held = false;
     // A HELD TRIGGER KEEPS JUMPING (MMagTech, 2026-10-10: "holding them should
@@ -2292,6 +2293,8 @@ struct App {
     void repeatHeld(float dt);
     // touchinput.cpp (FORK, handheld)
     bool handleTouch(const SDL_Event& e);
+    bool tapHome(float x, float y);
+    void tickTouch(float dt);
     // frame.cpp
     void runFrameLoop();
 };
