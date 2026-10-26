@@ -153,6 +153,8 @@ void App::drawBar(bool gameUp, float sc, float dt) {
             const bool on = barFocused && barSlot == i;
             const bool sel = (i == selected);
             const float w = text.measure(kBarLabels[i], ui::TextStyle::Callout, sc);
+            // FORK (handheld): the item's touch target, half the gap each side so they meet.
+            barSpot[i] = {bx - kBarItemGap * 0.5f, bx + w + kBarItemGap * 0.5f};
             // SELECTED AND FOCUSED ARE BOTH A CAPSULE, at the design
             // system's two tints. A cyan underline under the selected one
             // was tried on 2026-09-21 and withdrawn the same minute —
@@ -269,6 +271,9 @@ void App::drawBar(bool gameUp, float sc, float dt) {
         // it hard to tell when focus had arrived on it, 2026-09-24:
         // *"can we make the text or some way grab your attention more
         // beside just the little highlight of the icon"*.
+        // FORK (handheld): the chip's touch target, and that the bar was drawn just now.
+        barSpot[BarAccount] = {discX - 10.0f - nameW - 22.0f, discX + discD + 12.0f};
+        barDrawnAt = SDL_GetTicks();
         const bool chipOn = barFocused && barSlot == BarAccount;
         if (chipOn) {
             constexpr float kChipPillPadX = 22.0f;   // the bar pill's

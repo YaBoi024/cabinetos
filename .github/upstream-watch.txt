@@ -26,3 +26,5 @@ frontend/src/input.cpp
 frontend/src/volume.cpp
 frontend/src/standalone_eden.cpp
 frontend/src/standalone_play.cpp
+frontend/src/bar.cpp
+frontend/src/app.h

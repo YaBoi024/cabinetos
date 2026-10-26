@@ -1302,6 +1302,11 @@ struct App {
     bool accountsOpen = false;
     bool barFocused = false;
     int barSlot = 0;
+    // FORK (handheld): where the bar's items were last drawn, in canvas points,
+    // and when, so a finger can tap them (touchinput.cpp).
+    struct BarSpot { float x0 = 0.0f, x1 = 0.0f; };
+    BarSpot barSpot[BarCount];
+    uint64_t barDrawnAt = 0;
     // Trigger edge state. See the axis handler.
     bool l2Held = false, r2Held = false;
     // A HELD TRIGGER KEEPS JUMPING (MMagTech, 2026-10-10: "holding them should
@@ -2285,6 +2290,8 @@ struct App {
     // input.cpp
     void handleEvent(const SDL_Event& e);
     void repeatHeld(float dt);
+    // touchinput.cpp (FORK, handheld)
+    bool handleTouch(const SDL_Event& e);
     // frame.cpp
     void runFrameLoop();
 };

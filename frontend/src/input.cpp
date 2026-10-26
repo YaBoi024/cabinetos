@@ -582,6 +582,12 @@ void App::handleEvent(const SDL_Event& e) {
                 r3Down = false;
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_SOUTH) pressing = false;
             break;
+        // FORK (handheld): a finger on the touchscreen (touchinput.cpp).
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        case SDL_EVENT_MOUSE_MOTION:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+            handleTouch(e);
+            break;
         default:
             break;
     }
