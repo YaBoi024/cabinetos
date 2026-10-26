@@ -14,11 +14,12 @@ upstream. When a sync conflicts, use it to decide which side to keep.
   (daily check of upstream; opens an issue when watched files change).
 - `base-update.yml`: [pointed at bazzite-deck]
 
-## Updates
+## Updates / Changes
 - Created /system_files/usr/lib/systemd/system/cabinetos-update-download.service.d/10-selinux.conf to adjust SELinux for successful updates.
 - Created system_files/usr/lib/systemd/system/cabinetos-session.service.d/10-audio.conf, it allows audio to swap from dock (tested on HDMI) to internal speaker whenever going from docked to handheld.
 - players.cpp: added: a connected external pad takes player 1 ahead of the Deck’s built-in controls
 - Upstream safety: more watch paths, drop-in target check for deck related things against the main CabinetOS
+- Gyro (Cemu) on Deck: Added motionserver.h/.cpp and 
 
 ## Tested on
 - Steam Deck OLED: tested.
@@ -30,7 +31,7 @@ upstream. When a sync conflicts, use it to decide which side to keep.
 - Touchscreen does not work in CabinetOS menus.
 
 ## To do
-- Gyro working
+- Test / work on Gyro for external controllers
 - Check back buttons, trackpads, rumble, sleep, battery
 - Touchscreen in CabinetOS menus (low priority)
 - Test on a Steam Deck LCD
