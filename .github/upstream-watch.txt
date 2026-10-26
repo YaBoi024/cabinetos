@@ -24,3 +24,5 @@ system_files/usr/lib/udev/rules.d/
 frontend/src/players.cpp
 frontend/src/input.cpp
 frontend/src/volume.cpp
+frontend/src/standalone_eden.cpp
+frontend/src/standalone_play.cpp
