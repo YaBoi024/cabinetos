@@ -11,3 +11,16 @@ disk_config/
 system_files/etc/pki/containers/
 system_files/etc/containers/
 .github/workflows/
+# Units and scripts the fork's drop-ins and fixes depend on
+system_files/usr/lib/systemd/system/cabinetos-session
+system_files/usr/lib/systemd/system/cabinetos-update
+system_files/usr/libexec/cabinetos-update
+system_files/usr/bin/cabinetos-session
+system_files/usr/share/polkit-1/rules.d/
+system_files/usr/share/wireplumber/
+system_files/usr/share/cabinetos/flatpaks.list
+system_files/usr/lib/udev/rules.d/
+# Frontend input and audio code
+frontend/src/players.cpp
+frontend/src/input.cpp
+frontend/src/volume.cpp
