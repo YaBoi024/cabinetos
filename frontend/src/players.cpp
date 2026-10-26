@@ -275,6 +275,7 @@ void added(SDL_JoystickID id) {
         gIsRemote[id] = remote;
     }
     gDir[id] = battery::deviceDir(SDL_GetGamepadPath(gp));
+    if (isBuiltIn(gp)) gDir[id] = battery::systemDir();   // FORK: the handheld's own battery
     (remote ? gRemote : gSeats).add(id, keyOf(gp));
     if (!remote && !isBuiltIn(gp)) putAheadOfBuiltIn(id);
     std::fprintf(stderr, "[players] pad %u is %s%s%s%s\n", static_cast<unsigned>(id),

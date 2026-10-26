@@ -48,6 +48,9 @@ void start();
 // "/dev/input/event14"), as a sysfs directory; empty when there is none.
 // Cheap (two symlinks): called once as a pad connects.
 std::string deviceDir(const char* sdlPath);
+// FORK (handheld): the key for the machine's own battery, which kernel() can
+// answer for a handheld's built-in controls. Empty reading when there is none.
+std::string systemDir();
 
 // The latest kernel reading for that device. Never blocks on the pad.
 Reading kernel(const std::string& dir);

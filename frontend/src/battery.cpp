@@ -22,6 +22,9 @@ namespace battery {
 namespace {
 
 constexpr const char* kSupplies = "/sys/class/power_supply";
+// FORK (handheld): the key under which the machine's own battery is kept, for
+// the pad that is a handheld's own controls (players.cpp).
+constexpr const char* kSystemKey = "system";
 
 std::string firstLine(const std::string& path) {
     std::ifstream f(path);
@@ -63,8 +66,14 @@ void scan() {
             // the Remote for a status report, which a Wii game then gets too.
             if (std::strncmp(e->d_name, "wiimote_battery", 15) == 0) continue;
             const std::string p = std::string(kSupplies) + "/" + e->d_name;
-            if (firstLine(p + "/scope") != "Device") continue;
-            const std::string dev = realDir(p + "/device");
+                        // FORK (handheld): also keep the machine's own battery (BAT1 on a
+            // Steam Deck: no scope file), under kSystemKey.
+            const std::string scope = firstLine(p + "/scope");
+            const bool system = scope != "Device" &&
+                                firstLine(p + "/type") == "Battery" &&
+                                std::strncmp(e->d_name, "BAT", 3) == 0;
+            if (scope != "Device" && !system) continue;
+            const std::string dev = system ? std::string(kSystemKey) : realDir(p + "/device");
             if (dev.empty()) continue;
             Entry en;
             en.model = firstLine(p + "/model_name");
@@ -141,6 +150,7 @@ std::string deviceDir(const char* sdlPath) {
     return {};
 }
 
+std::string systemDir() { return kSystemKey; }
 Reading kernel(const std::string& dir) {
     if (dir.empty()) return {};
     std::lock_guard<std::mutex> lk(gLock);
