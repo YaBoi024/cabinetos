@@ -286,6 +286,8 @@ void added(SDL_JoystickID id) {
         std::fprintf(stderr, "[players] pad %u is a fight stick on the table: %s\n",
                      static_cast<unsigned>(id), s->name);
     }
+    std::fprintf(stderr, "[players] pad %u gyro: %s\n", static_cast<unsigned>(id),
+                 SDL_GamepadHasSensor(gp, SDL_SENSOR_GYRO) ? "yes" : "no");
     changed("connected", id);
 }
 
