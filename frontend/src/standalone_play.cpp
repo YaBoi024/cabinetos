@@ -20,6 +20,7 @@
 #include "shortcuts.h"
 #include "storage.h"
 #include "vtouch.h"
+#include "motionserver.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
 
@@ -407,6 +408,7 @@ bool App::watchStandalone(float dt) {
         // it, SIGKILL included (2026-09-28: its Pad Thread in
         // uinput_request_submit).
         cab::vpad::pump(static_cast<int64_t>(SDL_GetTicks()));
+        cab::motion::pump(static_cast<int64_t>(SDL_GetTicks()));
         rumble::update(false);
         if (!standaloneRun.poll()) {
             finishStandalone();
@@ -466,6 +468,7 @@ bool App::watchStandalone(float dt) {
         // The game's rumble, to the pads in people's hands, and never
         // while it is frozen under the pause menu.
         cab::vpad::pump(static_cast<int64_t>(SDL_GetTicks()));
+        cab::motion::pump(static_cast<int64_t>(SDL_GetTicks()));
         rumble::update(!standaloneRun.frozen());
         if (!standaloneRun.poll()) finishStandalone();
         // This loop skips everything below, so the handover is asked here

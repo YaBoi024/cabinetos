@@ -8,6 +8,7 @@
 
 #include "storage.h"
 #include "vpad.h"
+#include "motionserver.h"
 
 #include <archive.h>
 #include <archive_entry.h>
@@ -242,6 +243,12 @@ std::string edenProfile(const std::string& homeDir, const std::string& player) {
 std::vector<std::string> edenControls(int players) {
     const std::string guid = cab::vpad::edenGuid();
     std::vector<std::string> lines;   // "key=value" for [Controls]
+    const std::string udpGuid = cab::motion::edenGuid();
+    auto motion = [&](int p) {
+        return "\"engine:cemuhookudp,guid:" + udpGuid + ",port:" +
+                  std::to_string(cab::motion::kPort) + ",pad:" + std::to_string(p) +
+                  ",motion:0\"";
+       };
     auto btn = [&](int p, SDL_GamepadButton b) {
         return "\"engine:sdl,port:" + std::to_string(p) + ",guid:" + guid +
                ",button:" + std::to_string(cab::vpad::buttonIndex(b)) + "\"";
@@ -290,6 +297,8 @@ std::vector<std::string> edenControls(int players) {
         lines.push_back(k + "button_screenshot=\"\"");
         lines.push_back(k + "lstick=" + stick(p, SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY));
         lines.push_back(k + "rstick=" + stick(p, SDL_GAMEPAD_AXIS_RIGHTX, SDL_GAMEPAD_AXIS_RIGHTY));
+        lines.push_back(k + "motionleft=" + motion(p));
+        lines.push_back(k + "motionright=" + motion(p));
     }
     return lines;
 }
@@ -356,6 +365,10 @@ bool prepareEden(const Emulator& e, const std::string& saveDir, const std::strin
         // which the virtual controllers exist to prevent (vpad.h).
         {"Controls", "enable_joycon_driver", "false"},
         {"Controls", "enable_procon_driver", "false"},
+        // FORK: Eden's Cemuhook client, pointed at the console's motion server.
+        {"Controls", "enable_udp_controller", "true"},
+        {"Controls", "motion_enabled", "true"},
+        {"Controls", "udp_input_servers", "127.0.0.1:26760"},
         // NO INTERNET, as far as a game can tell. Nintendo's online services do
         // not answer an emulator, so nothing is lost. It did NOT save
         // Shredder's Revenge, whose Epic online layer quits on a call Eden
