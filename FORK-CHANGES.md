@@ -17,14 +17,32 @@ upstream. When a sync conflicts, use it to decide which side to keep.
   (daily check of upstream; opens an issue when watched files change).
 - `base-update.yml`: [pointed at bazzite-deck]
 
-## Updates / Changes
-- Created /system_files/usr/lib/systemd/system/cabinetos-update-download.service.d/10-selinux.conf to adjust SELinux for successful console updates.
-- Created system_files/usr/lib/systemd/system/cabinetos-session.service.d/10-audio.conf, it allows audio to swap from dock (tested on HDMI) to internal speaker whenever going from docked to handheld.
-- players.cpp: added: a connected external pad takes player 1 ahead of the Deck’s built-in controls/ player order fix ; additions to frontend/src/players.cpp
-- Upstream safety: more watch paths, drop-in target check for deck related things against the main CabinetOS; .github/workflows/watch-upstream.yml, .github/upstream-watch.txt
-- Gyro (Cemu) on Deck: Emulator listens to Decks's gyro server frontend/src/standalone_eden.cpp ; motionserver.h/.cpp, standalone_play.cpp
-(external controller works via included secondary server. Currently, to go from external gyro to Deck gyro, game need to be relaunched.)
--The Deck's battery appears on the top bar like a controller. battery.h, battery.cpp, players.cpp changes
+## Changes in this fork
+- **Base image: the fork builds on bazzite-deck instead of plain bazzite
+- **Updates from the console work.** The update button used to download an update and then fail to
+  install it, because of an SELinux permission. A small settings file fixes it.
+  `system_files/usr/lib/systemd/system/cabinetos-update-download.service.d/10-selinux.conf`
+- **Sound follows the dock.** Audio moves to the TV (tested over HDMI) when you dock the Deck, and back
+  to the built-in speakers when you undock.
+  `system_files/usr/lib/systemd/system/cabinetos-session.service.d/10-audio.conf`
+- **A connected controller becomes player 1.** The Deck's own controls step back to player 2, so
+  one-player systems like Game Boy Advance work with an external controller.
+  `frontend/src/players.cpp`
+- **The Deck's battery shows in the top bar**, the same way a controller's does.
+  `battery.h`, `battery.cpp`, `players.cpp`
+- **Gyro works on the Deck in Switch games (Eden).** Eden listens to the Deck's own gyro server.
+  Gyro from an external controller is not supported yet (Works but fails to swap back to Deck's gyro without a reboot).
+  `frontend/src/standalone_eden.cpp`
+- **Rumble works on the Deck's built-in controls.** A log line now records the first rumble, or the
+  error if one happens. If rumble stops, check:
+  `journalctl -b -t cabinetos-session -o cat | grep "\[rumble\]"`
+  `frontend/src/rumble.cpp`
+- **Touchscreen works in the menus.** Tap the top bar or the on-screen keyboard, swipe to move,
+  swipe in from the left edge to go back.
+  `touchinput.cpp` (new), plus small changes in `app.h`, `input.cpp` and `bar.cpp`
+- **Staying in sync with CabinetOS.** A daily check lists upstream changes that could break the Deck
+  changes, and warns if a Deck setting no longer matches an upstream file.
+  `.github/workflows/watch-upstream.yml`, `.github/upstream-watch.txt`
 
 ## Tested on
 - Steam Deck OLED: tested.
