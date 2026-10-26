@@ -69,3 +69,21 @@ jobs:
           elif [ -n "$EXISTING" ]; then
             gh issue close "$EXISTING" --comment "No watched files differ from upstream now."
           fi
+      - name: Check fork drop-ins still have their target
+        run: |
+          : > lost.txt
+          for dir in $(git ls-tree -r --name-only HEAD system_files/usr/lib/systemd/system/ \
+                       | grep '\.service\.d/' | sed 's|/[^/]*$||' | sort -u); do
+            unit="${dir%.d}"
+            git cat-file -e "upstream/main:${unit}" 2>/dev/null || echo "${unit}" >> lost.txt
+          done
+          TITLE="A fork drop-in has lost its target"
+          EXISTING=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
+          if [ -s lost.txt ]; then
+            { echo "Upstream no longer has these units, so the fork's drop-ins do nothing:"; echo
+              sed 's/^/- `/; s/$/`/' lost.txt; } > lost.md
+            if [ -n "$EXISTING" ]; then gh issue edit "$EXISTING" --body-file lost.md
+            else gh issue create --title "$TITLE" --body-file lost.md; fi
+          elif [ -n "$EXISTING" ]; then
+            gh issue close "$EXISTING" --comment "All drop-in targets exist upstream again."
+          fi
