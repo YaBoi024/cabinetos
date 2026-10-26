@@ -208,6 +208,26 @@ void light() {
     }
 }
 
+// FORK (handheld): a handheld's own controls must not hold player 1 against a
+// pad that is plugged in. The pad you picked up is player 1, as on a TV.
+bool isBuiltIn(SDL_Gamepad* gp) {
+    if (SDL_GetGamepadVendor(gp) == 0x28de && SDL_GetGamepadProduct(gp) == 0x1205)
+        return true;
+    const char* n = SDL_GetGamepadName(gp);
+    return n && std::strcmp(n, "Steam Deck Controller") == 0;
+}
+
+// A pad that has just been seated moves up past any built-in pad above it.
+// Seats::swap refuses during a game, so a game in progress keeps its numbers.
+void putAheadOfBuiltIn(SDL_JoystickID id) {
+    for (;;) {
+        const int p = gSeats.playerOf(id);
+        if (p <= 0) return;
+        auto above = gOpen.find(gSeats.idOf(p - 1));
+        if (above == gOpen.end() || !isBuiltIn(above->second)) return;
+        if (!gSeats.swap(p - 1, p)) return;
+    }
+}
 void changed(const char* what, SDL_JoystickID id) {
     ++gGeneration;
     light();
@@ -256,6 +276,7 @@ void added(SDL_JoystickID id) {
     }
     gDir[id] = battery::deviceDir(SDL_GetGamepadPath(gp));
     (remote ? gRemote : gSeats).add(id, keyOf(gp));
+    if (!remote && !isBuiltIn(gp)) putAheadOfBuiltIn(id);
     std::fprintf(stderr, "[players] pad %u is %s%s%s%s\n", static_cast<unsigned>(id),
                  nameOf(gp).c_str(), addressOf(gp).empty() ? "" : " over Bluetooth ",
                  addressOf(gp).c_str(), remote ? ", through a stream" : "");
