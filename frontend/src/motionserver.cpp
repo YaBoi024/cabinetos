@@ -196,7 +196,15 @@ void handle(const uint8_t* b, size_t n, const sockaddr_in& from, int64_t nowMs) 
         if ((flags & 1) && slot < kSlots) c->slot[slot] = true;
     }
 }
-
+// Which port to serve on: 26760 normally. CABINETOS_MOTION_PORT overrides it, so this
+// server can run beside the Deck's own while the two are being compared.
+int bindPort() {
+    if (const char* p = std::getenv("CABINETOS_MOTION_PORT"); p && *p) {
+        const int v = std::atoi(p);
+        if (v > 1023 && v < 65536) return v;
+    }
+    return bindPort();
+}
 bool openSocket() {
     gSock = ::socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);
     if (gSock < 0) return false;
@@ -204,10 +212,10 @@ bool openSocket() {
     ::setsockopt(gSock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
     sockaddr_in a{};
     a.sin_family = AF_INET;
-    a.sin_port = htons(kPort);
+    a.sin_port = htons(bindPort());
     a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     if (::bind(gSock, reinterpret_cast<const sockaddr*>(&a), sizeof a) != 0) {
-        std::fprintf(stderr, "[motion] cannot bind 127.0.0.1:%d: %s\n", kPort, std::strerror(errno));
+        std::fprintf(stderr, "[motion] cannot bind 127.0.0.1:%d: %s\n", bindPort(), std::strerror(errno));
         ::close(gSock);
         gSock = -1;
         return false;
@@ -224,7 +232,7 @@ void pump(int64_t nowMs) {
         const char* d = std::getenv("CABINETOS_MOTION_DEBUG");
         gDebug = d && *d && *d != '0';
         if (!openSocket()) return;
-        std::fprintf(stderr, "[motion] serving gyro on 127.0.0.1:%d\n", kPort);
+        std::fprintf(stderr, "[motion] serving gyro on 127.0.0.1:%d\n", bindPort());
     }
 
     uint8_t in[64];
