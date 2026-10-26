@@ -17,6 +17,8 @@ upstream. When a sync conflicts, use it to decide which side to keep.
 ## Updates
 - Created /system_files/usr/lib/systemd/system/cabinetos-update-download.service.d/10-selinux.conf to adjust SELinux for successful updates.
 - Created system_files/usr/lib/systemd/system/cabinetos-session.service.d/10-audio.conf, it allows audio to swap from dock (tested on HDMI) to internal speaker whenever going from docked to handheld.
+- players.cpp: added: a connected external pad takes player 1 ahead of the Deck’s built-in controls
+- Upstream safety: more watch paths, drop-in target check for deck related things against the main CabinetOS
 
 ## Tested on
 - Steam Deck OLED: tested.
@@ -28,8 +30,6 @@ upstream. When a sync conflicts, use it to decide which side to keep.
 - Touchscreen does not work in CabinetOS menus.
 
 ## To do
-- Upstream safety: more watch paths, drop-in target check, Deck checklist
-- second controller as player 1 on single-player systems (GBA)
 - Gyro working
 - Check back buttons, trackpads, rumble, sleep, battery
 - Touchscreen in CabinetOS menus (low priority)
