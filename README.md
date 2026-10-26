@@ -88,19 +88,9 @@ from the [Universal Blue image template](https://github.com/ublue-os/image-templ
 ---
 
 ## Working on CabinetOS
-
-- [`CONTRIBUTING.md`](CONTRIBUTING.md): start here. Building, testing, what
-  CI checks, how a change reaches a console, and the rules.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): the map of the code and
   how its parts fit.
-- [`docs/WORKING.md`](docs/WORKING.md): how the maintainer works: the loop,
-  the testing branch, merges.
-- [`docs/decisions/`](docs/decisions/README.md): what the project decided and
-  why, one small file each.
-- [`docs/PROJECT.md`](docs/PROJECT.md): the older record of decisions, frozen
-  on 2026-10-23.
-- [`docs/ROADMAP.md`](docs/ROADMAP.md): the order of work.
-- [`docs/lessons/`](docs/lessons/README.md): what cost hours before.
+
 
 CabinetOS-handheld is a [bootc](https://) image on Bazzite-handheld.
 **Nothing builds on a Mac**: every image is built by GitHub Actions, and the
