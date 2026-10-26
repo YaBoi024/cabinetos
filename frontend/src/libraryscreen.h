@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "screens.h"
+#include "tapspots.h"
 
 namespace screens {
 
@@ -76,6 +77,9 @@ public:
 
     void tick(float dt);
     Result key(Nav n);
+    // FORK (handheld): a finger on the screen. True when it landed on a pill or
+    // a tile, with what pressing that would do in `out`. See tapspots.h.
+    bool tapAt(float x, float y, Result* out);
     void draw(Ctx& c);
     // Glass reads the scene through itself, so anything frosted has to be drawn
     // AFTER Renderer::presentScene. That is a property of the renderer rather
@@ -136,6 +140,8 @@ private:
     int columns() const;
     float tileWidth() const;
     void moveFocus(int dx, int dy);
+    void focusOn(int row, int slot);   // FORK (handheld)
+    TapSpots taps_;                    // FORK (handheld)
 
     std::vector<Tile> platforms_;
     std::vector<Tile> collections_;

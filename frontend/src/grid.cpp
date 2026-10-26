@@ -208,7 +208,16 @@ Result GridScreen::key(Nav n) {
     return {};
 }
 
+bool GridScreen::tapAt(float x, float y, Result* out) {
+    const int id = taps_.at(x, y);
+    if (id < 0 || id >= static_cast<int>(cards_.size())) return false;
+    slot_ = id;
+    *out = key(Nav::Activate);
+    return true;
+}
+
 void GridScreen::draw(Ctx& c) {
+    taps_.clear();
     c.r.setContentAlpha(appear_.value());
     c.r.setScissor(0, design::kScrollClipTop, ui::kCanvasWidth,
                    ui::kCanvasHeight - design::kScrollClipTop);
@@ -276,6 +285,8 @@ void GridScreen::draw(Ctx& c) {
             const float by = gridTop + static_cast<float>(r) * rowPitch - scroll;
             if (by + ch < -rowPitch) continue;
             if (by > ui::kCanvasHeight + rowPitch) break;
+
+            taps_.add(i, bx, by, cw, ch, clipTop);
 
             Card& card = cards[idx];
             card.focus.retarget(isFocused ? 1.0f : 0.0f, design::kFocusDuration);

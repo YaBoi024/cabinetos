@@ -7,13 +7,16 @@
 //   - a tap on a top-bar destination or the account chip opens it;
 //   - a tap on a key of the on-screen keyboard presses that key (the keyboard
 //     already knows where its keys are, keyboard.h `pressAt`);
-//   - a tap anywhere else is A: it opens what has focus;
+//   - a tap on a tile, row or category of the Library, a game grid or Settings
+//     goes to that exact one (each screen says where its items are drawn,
+//     tapspots.h); a tap on empty space there does nothing;
+//   - a tap on any other screen is A: it opens what has focus;
 //   - a drag moves focus the way the d-pad does, one step for each stretch of
-//     travel, and the content follows the finger (drag up = Down);
+//     travel, in the direction the finger goes (drag down = Down);
 //   - a drag in from the left edge is B.
 //
-// Taps on one exact tile or row are a later step: they need each screen to say
-// where its items are.
+// Home, Search and a game's page are still to come: they have no tap targets
+// yet, so a tap there is A.
 //
 // The pointer reaches here as mouse events. gamescope turns a touch into a
 // click for a program that does not ask for touch itself, which is also why
@@ -103,6 +106,32 @@ void goBack(App& a, App::InputOwner owner) {
     a.navigate(Nav::Back);
 }
 
+// A tap on the exact thing under the finger, for the screens that say where
+// their things are. True when the tap was theirs, whether or not it hit.
+bool tapScreen(App& a, App::InputOwner owner, float x, float y) {
+    if (owner != App::InputOwner::UI) return false;
+    if (a.pinScreen.isOpen() || a.choiceScreen.isOpen() || a.raList.isOpen() ||
+        a.downloadsPanel.isOpen() || a.accountsOpen)
+        return false;
+    screens::Result res;
+    bool hit = false;
+    switch (a.here()) {
+        case App::Screen::Library: hit = a.libraryScreen.tapAt(x, y, &res); break;
+        case App::Screen::Grid: hit = a.gridScreen.tapAt(x, y, &res); break;
+        case App::Screen::Settings: hit = a.settingsScreen.tapAt(x, y, &res); break;
+        default: return false;
+    }
+    // Nothing takes a press behind a curtain (navigate() says the same).
+    if (a.switchPendingId || a.leaving != App::Leave::None ||
+        (a.arriving && !a.arriveLifting))
+        return true;
+    if (!hit) return true;
+    // Focus is on the screen now, not up in the bar.
+    a.barFocused = false;
+    a.apply(res);
+    return true;
+}
+
 // A tap on the top bar: the destination or the account chip under the finger,
 // opened as the pad's A opens it. False when the bar is not on screen or
 // something is over it, or the tap is not on any of its items.
@@ -174,9 +203,8 @@ bool App::handleTouch(const SDL_Event& e) {
             if (owner == InputOwner::Keyboard) return true;
             // One direction for the whole drag, so a wobble does not wander.
             if (gFinger.axis == 0) gFinger.axis = std::fabs(dx) > std::fabs(dy) ? 1 : 2;
-            // The content follows the finger: a finger going left or up brings
-            // the next item, which is Right or Down.
-            const float travel = gFinger.axis == 1 ? -dx : -dy;
+            // The focus goes the way the finger goes: right or down is Right or Down.
+            const float travel = gFinger.axis == 1 ? dx : dy;
             const float past = std::fabs(travel) - kFirstStep;
             const int count = past < 0.0f ? 0 : 1 + static_cast<int>(past / kStep);
             const int want = travel < 0.0f ? -count : count;
@@ -211,6 +239,7 @@ bool App::handleTouch(const SDL_Event& e) {
                 if (owner == InputOwner::Keyboard) return true;
             }
             if (tapBar(*this, x, y)) return true;
+            if (tapScreen(*this, owner, x, y)) return true;
             activateFocus(*this, owner);
             return true;
         }

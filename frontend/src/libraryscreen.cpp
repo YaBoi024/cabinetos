@@ -324,7 +324,38 @@ Result LibraryScreen::key(Nav n) {
     return {};
 }
 
+// FORK (handheld): a pill is spot 1000 + its place, a tile its own place.
+constexpr int kPillSpot = 1000;
+
+void LibraryScreen::focusOn(int row, int slot) {
+    auto& tiles = tab_ == 0 ? platforms_ : collections_;
+    const int count = static_cast<int>(tiles.size());
+    if (row_ == 0) pillFocus_[slot_].retarget(0.0f, design::kFocusDuration);
+    else if (slot_ < count) tiles[slot_].focus.retarget(0.0f, design::kFocusDuration);
+    row_ = row;
+    slot_ = slot;
+    if (row_ == 0) {
+        pillFocus_[slot_].retarget(1.0f, design::kFocusDuration);
+    } else {
+        rememberedTileSlot_ = slot_;
+        tiles[slot_].focus.retarget(1.0f, design::kFocusDuration);
+    }
+    sound::play(sound::Cue::Move);
+}
+
+bool LibraryScreen::tapAt(float x, float y, Result* out) {
+    const int id = taps_.at(x, y);
+    if (id < 0) return false;
+    const int count = static_cast<int>(visible().size());
+    if (id >= kPillSpot) focusOn(0, id - kPillSpot);
+    else if (id < count) focusOn(1, id);
+    else return false;
+    *out = key(Nav::Activate);
+    return true;
+}
+
 void LibraryScreen::draw(Ctx& c) {
+    taps_.clear();
     // Everything this screen draws is multiplied by the arrival. The backdrop
     // underneath is NOT — it belongs to the app and stays put, which is what
     // the content is fading in against.
@@ -405,6 +436,9 @@ void LibraryScreen::draw(Ctx& c) {
             // art that is nowhere near the screen.
             if (by + design::kTileHeight < -rowPitch) continue;
             if (by > ui::kCanvasHeight + rowPitch) break;
+
+            taps_.add(static_cast<int>(i), bx, by, tw, design::kTileHeight,
+                      design::kScrollClipTop);
 
             const Tile& t = tiles[i];
             const float f = t.focus.value();
@@ -511,6 +545,8 @@ void LibraryScreen::drawGlass(Ctx& c) {
     float x = design::kLibraryInset;
     for (int i = 0; i < 2; ++i) {
         const float f = (row_ == 0 && slot_ == i) ? pillFocus_[i].value() : 0.0f;
+        taps_.add(kPillSpot + i, x - design::kPillPadX, y, pillWidth(c.text, kLabels[i], c.sc),
+                  pillHeight(c.text, c.sc), design::kScrollClipTop);
         drawPill(c, kLabels[i], x, y, tab_ == i, f);
         x += pillWidth(c.text, kLabels[i], c.sc) + design::kPillGap;
     }

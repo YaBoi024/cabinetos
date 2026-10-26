@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "screens.h"
+#include "tapspots.h"
 
 namespace screens {
 
@@ -65,11 +66,15 @@ public:
     }
     void tick(float dt, Ctx& c);
     Result key(Nav n);
+    // FORK (handheld): a finger on the screen. True when it landed on a cover,
+    // with what pressing that would do in `out`. See tapspots.h.
+    bool tapAt(float x, float y, Result* out);
     void draw(Ctx& c);
     void drawGlass(Ctx& c);
 
 private:
     bool loadingMore_ = false;
+    TapSpots taps_;   // FORK (handheld)
     int columns() const;
     float coverWidth() const;
 

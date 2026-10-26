@@ -24,6 +24,7 @@
 
 #include "qrtexture.h"
 #include "screens.h"
+#include "tapspots.h"
 
 namespace screens {
 
@@ -96,12 +97,16 @@ public:
 
     void tick(float dt);
     Result key(Nav n);
+    // FORK (handheld): a finger on the screen. True when it landed on a category
+    // or a row, with what pressing that would do in `out`. See tapspots.h.
+    bool tapAt(float x, float y, Result* out);
     void draw(Ctx& c);
     // Everything here is glass, so it all draws after presentScene.
     void drawGlass(Ctx& c);
 
 private:
     bool focusable(int cat, int row) const;
+    TapSpots taps_;   // FORK (handheld)
     int firstFocusable(int cat) const;
     void retargetFocus();
 

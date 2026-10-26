@@ -232,12 +232,50 @@ Result SettingsScreen::key(Nav n) {
     return {};
 }
 
+// FORK (handheld): a category is spot 1000 + its place, a row of the open
+// category its own place.
+constexpr int kCategorySpot = 1000;
+
+bool SettingsScreen::tapAt(float x, float y, Result* out) {
+    const int id = taps_.at(x, y);
+    if (id < 0) return false;
+    if (id >= kCategorySpot) {
+        const int next = id - kCategorySpot;
+        if (next >= static_cast<int>(cats_.size())) return false;
+        if (next != cat_ || row_ >= 0) {
+            // As walking onto it with the d-pad does: the rows on the right follow at once.
+            if (next != cat_) {
+                prevCat_ = cat_;
+                cat_ = next;
+                paneChange_.retarget(0.0f, 0.0f);
+                paneChange_.elapsed = 0.0f;
+                paneChange_.retarget(1.0f, kPaneChange);
+                scroll_.settle(0.0f);
+            }
+            row_ = -1;
+            retargetFocus();
+            sound::play(sound::Cue::Move);
+        }
+        *out = {};
+        return true;
+    }
+    if (id >= static_cast<int>(cats_[cat_].rows.size()) || !focusable(cat_, id)) {
+        *out = {};
+        return true;   // on a row, but one that does nothing: taken, not acted on
+    }
+    row_ = id;
+    retargetFocus();
+    *out = key(Nav::Activate);
+    return true;
+}
+
 void SettingsScreen::draw(Ctx&) {
     // Nothing: every surface on this screen is glass, which reads the scene
     // through itself and so has to draw after presentScene. See drawGlass.
 }
 
 void SettingsScreen::drawGlass(Ctx& c) {
+    taps_.clear();   // FORK (handheld)
     if (cats_.empty()) return;
     const float a = appear_.value();
     c.r.setContentAlpha(a);
@@ -278,6 +316,8 @@ void SettingsScreen::drawGlass(Ctx& c) {
                         c.text.ascent(ui::TextStyle::Title3, c.sc),
                     ui::TextStyle::Title3,
                     ui::Color::white(selected ? 1.0f : 0.60f), c.sc);
+        taps_.add(kCategorySpot + i, listX(), y, design::kSettingsListWidth, itemH,
+                  design::kScrollClipTop);
         y += itemH + design::kSettingsListGap;
     }
 
@@ -315,6 +355,7 @@ void SettingsScreen::drawGlass(Ctx& c) {
     for (int i = 0; i < static_cast<int>(list.size()); ++i) {
         const SettingsRow& row = list[i];
         const float rh = rowHeight(c, row);
+        if (&list == &rows) taps_.add(i, px, y, pw, rh, design::kScrollClipTop);
         const bool on = (i == focusRow) && hasFocus_;
         const float rf = on ? f : 0.0f;
         const bool dimmed = row.kind == Kind::Disabled;

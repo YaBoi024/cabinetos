@@ -28,3 +28,10 @@ frontend/src/standalone_eden.cpp
 frontend/src/standalone_play.cpp
 frontend/src/bar.cpp
 frontend/src/app.h
+frontend/src/touchinput.cpp
+frontend/src/libraryscreen.h
+frontend/src/libraryscreen.cpp
+frontend/src/grid.h
+frontend/src/grid.cpp
+frontend/src/settings.h
+frontend/src/settings.cpp
