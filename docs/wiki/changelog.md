@@ -4,6 +4,38 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.10.27 {#v2026-10-27}
+
+- **Fixed:** leaving a Wii game such as Mario Kart Wii could freeze the
+  picture for up to a minute while the emulator waited on Nintendo's old
+  servers. No emulator reaches the internet any more, so leaving is
+  immediate, and no game contacts a server of its own. A 3DS game now sees
+  its Wi-Fi as on, and its online modes still do not connect.
+  ([#557](https://github.com/MMagTech/cabinetos/issues/557))
+
+## 2026.10.26.3 {#v2026-10-26-3}
+
+- **Fixed:** after the screen had gone to sleep or the TV had been off, the
+  console could come back with no sound at all, in menus and in games, until
+  it was restarted. Its sound now comes back with the TV.
+  ([#228](https://github.com/MMagTech/cabinetos/issues/228))
+
+## 2026.10.26.2 {#v2026-10-26-2}
+
+- **New:** a game says which controller it needs when that one is off. While
+  only Wii Remotes are on, every game that isn't a Wii game says *Needs a
+  controller* after its name, on Home, in your games and in Search, and Play
+  on it with the Remote says the same (it used to say *This Remote only plays
+  Wii games*). While no Wii Remote is on, a Wii game that needs one says
+  *Needs a Wii Remote*, and Play on it says the same instead of starting a
+  game nothing can play. Turn on the controller it asks for and the note
+  goes.
+  ([#589](https://github.com/MMagTech/cabinetos/pull/589))
+- **Fixed:** a game greyed out on Home or in Search, such as a Wii game that
+  needs a Wii Remote while a Remote Play stream is on, now says why after its
+  name and system, as it already did in a system's games.
+  ([#588](https://github.com/MMagTech/cabinetos/pull/588))
+
 ## 2026.10.25.5 {#v2026-10-25-5}
 
 - **Changed:** in a collection and in Search, the line beside the heading

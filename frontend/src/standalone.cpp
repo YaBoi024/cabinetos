@@ -504,11 +504,22 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
         gameDir.erase(slash);
     storage::makeDirs(storage::logsDir());
 
-    // A PROGRAM IN THE IMAGE has no sandbox and no `flatpak run` to carry its
-    // settings, so `env` does, and then becomes it: the pid started is the
-    // emulator's own. Its settings are in its home (XDG_CONFIG_HOME); what it
-    // builds per game goes in the game's folder (XDG_CACHE_HOME, when
-    // `cacheInGame`), which is how a removed game takes its cache with it.
+    // A PROGRAM IN THE IMAGE has no `flatpak run` to carry its settings, so
+    // `env` does, and then becomes it, under bwrap: the emulator is bwrap's
+    // child, found as a Flatpak's is. Its settings are in its home
+    // (XDG_CONFIG_HOME); what it builds per game goes in the game's folder
+    // (XDG_CACHE_HOME, when `cacheInGame`), which is how a removed game takes
+    // its cache with it.
+    //
+    // NO EMULATOR REACHES THE NETWORK (#557; the ones inside the console's
+    // program, netblock.h). bwrap gives it a network of its own with nothing
+    // in it, and hides systemd-resolved's folder, whose Unix socket otherwise
+    // still answers a name lookup there: measured on the A9, the Mario Kart
+    // Wii server's name resolved in 0.1 s; hidden, a lookup failed in 8 ms
+    // and a connection in 1 ms. Everything else is the console's own,
+    // devices included, and gamescope's X11 socket is a path, so it is
+    // reached as before. A Flatpak is given --unshare=network instead
+    // (below, and startXemu), whose sandbox already hides the folder.
     if (e.binary) {
         // THE GRAPHICS DRIVER'S MEMORY STAYS SHARED, where the console's own
         // is, even though RPCS3's cache moves into the game's folder: Mesa
@@ -525,6 +536,8 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
                                           ? std::string(xdgCache)
                                           : std::string(userHome ? userHome : "") + "/.cache";
         const std::vector<std::string> args = {
+            "bwrap", "--dev-bind", "/", "/", "--unshare-net",
+            "--tmpfs", "/run/systemd/resolve", "--",
             "env",
             "XDG_CONFIG_HOME=" + dir,
             "XDG_CACHE_HOME=" + (e.cacheInGame ? entryPath : dir),
@@ -551,7 +564,6 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
             root_ = -1;
             return false;
         }
-        program_ = root_;
         startMs_ = nowMs();
         std::fprintf(stderr, "[standalone] started %s (pid %d) on %s\n", e.program, root_,
                      romPath.c_str());
@@ -562,6 +574,7 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
 
     const std::vector<std::string> args = {
         "flatpak", "run",
+        "--unshare=network",
         "--cwd=" + dir,
         "--filesystem=" + dir,
         "--filesystem=" + saveDir,
@@ -590,9 +603,16 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
     return true;
 }
 
+// The emulator itself, below what was started. A program in the image is
+// bwrap's one child, whatever it calls itself (Cemu names its main thread
+// "cemu"); a Flatpak's is found by its name.
+int Run::findProgram() const {
+    return proc::findDescendant(root_, emu_->binary ? "" : emu_->program);
+}
+
 void Run::freeze() {
     if (!active() || frozen_ || stopping()) return;
-    if (program_ <= 0) program_ = proc::findDescendant(root_, emu_->program);
+    if (program_ <= 0) program_ = findProgram();
     if (program_ <= 0) return;
     ::kill(program_, SIGSTOP);
     frozen_ = true;
@@ -610,7 +630,7 @@ void Run::stop() {
     if (!active() || stopping()) return;
     thaw();
     stopAtMs_ = nowMs();
-    if (program_ <= 0) program_ = proc::findDescendant(root_, emu_->program);
+    if (program_ <= 0) program_ = findProgram();
     if (program_ > 0 && emu_->closesByWindow && gTitles.closeWindowsOf(program_) > 0) {
         std::fprintf(stderr, "[standalone] asked %s's window (pid %d) to close\n",
                      emu_->program, program_);
@@ -627,7 +647,7 @@ void Run::stop() {
 }
 
 void Run::kill9() {
-    if (program_ <= 0) program_ = proc::findDescendant(root_, emu_->program);
+    if (program_ <= 0) program_ = findProgram();
     if (program_ > 0) ::kill(program_, SIGKILL);
     ::kill(root_, SIGKILL);
     // And whatever it started: RPCS3 shows a fatal error as a second RPCS3
@@ -674,7 +694,11 @@ bool Run::poll() {
     }
 
     const int64_t now = nowMs();
-    if (program_ <= 0 && now - startMs_ > 200) program_ = proc::findDescendant(root_, emu_->program);
+    if (program_ <= 0 && now - startMs_ > 200) {
+        program_ = findProgram();
+        if (program_ > 0)
+            std::fprintf(stderr, "[standalone] %s is pid %d\n", emu_->program, program_);
+    }
     const bool watchLoad = !failedLoad_ && now - startMs_ < kLoadWatchMs;
 
     if (stopping() && now - stopAtMs_ > kStopGraceMs) {

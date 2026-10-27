@@ -136,6 +136,10 @@ kmod
 kmod-libs
 rpm-ostree
 dracut*
+# Emulators run as programs start under bwrap with no network and
+# systemd-resolved's folder hidden (frontend/src/standalone.cpp, #557): a
+# systemd that answers lookups from anywhere else lets one look names up.
+log: A program started as an emulator cannot look a name up :: out=$(bwrap --dev-bind / / --unshare-net --tmpfs /run/systemd/resolve -- getent hosts github.com 2>&1) && { echo "it resolved: $out"; exit 1; }; exit 0
 systemd
 systemd-*
 grub2-*
@@ -387,6 +391,11 @@ area: Downloads from RomM
 log: Home started :: journalctl -b -t cabinetos-session -o cat | grep -q 'Home is up'
 log: Nothing crashed this boot :: out=$(coredumpctl list --since "$(uptime -s)" --no-legend 2>/dev/null); [ -z "$out" ] || { echo "$out"; exit 1; }
 tv: A download: a game not on the console yet downloads from RomM and starts
+# No emulator reaches the network (#557): the console refuses an emulator's
+# lookups by who asked, and curl inside an emulator's call looks names up on a
+# thread of its own, which only that thread's mark refuses (netblock.cpp). A
+# libcurl that stopped starting that thread, or shared one, would let it out.
+log: No emulator reaches the network (the console's self-test) :: out=$(/usr/bin/cabinetos-frontend --netblock-test 2>&1) || { grep -v '^  ok' <<<"$out"; exit 1; }
 libcurl
 libcurl-minimal
 libarchive
@@ -434,6 +443,11 @@ poppler-data
 area: Sound
 log: PipeWire and WirePlumber are running :: systemctl --user is-active -q pipewire wireplumber
 log: The sound devices are there :: wpctl status | sed -n '/^Audio/,/^Video/p' | grep -q '\[alsa\]'
+# The backup output (#228, build_files/sound-backup-output.sh): pipewire-pulse
+# starts at login, so its Dummy Output catches the console's sound while the
+# TV's output is gone. `is-enabled` says "disabled" for the image's link, so
+# this reads is-active.
+log: pipewire-pulse runs from login, so a backup output can catch the console's sound :: s=$(systemctl --user is-active pipewire-pulse.service); [ "$s" = active ] || { echo "pipewire-pulse.service is $s"; exit 1; }
 # The volume keys (volume.cpp) read `wpctl get-volume`'s "Volume: 0.50"
 # (" [MUTED]" after it when muted) and set it the same way. With the TV
 # asleep there is no output to ask, so this fails then: wake the TV first.
@@ -506,6 +520,7 @@ tailscale
 area: Original Xbox and Switch games
 log: xemu and Eden are installed at their pinned revisions :: grep -E '^(app|runtime) ' /usr/share/cabinetos/flatpaks.list | while read -r _ ref br c; do [ "$(flatpak info --system --show-commit "$ref" "$br" 2>&1)" = "$c" ] || { echo "$ref is not at $c"; exit 1; }; done
 tv: An Original Xbox or Switch game starts and plays, with sound
+log: A program started as an emulator cannot look a name up :: out=$(bwrap --dev-bind / / --unshare-net --tmpfs /run/systemd/resolve -- getent hosts github.com 2>&1) && { echo "it resolved: $out"; exit 1; }; exit 0
 flatpak
 flatpak-*
 bubblewrap

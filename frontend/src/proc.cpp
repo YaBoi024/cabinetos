@@ -202,7 +202,7 @@ int findDescendant(int root, const std::string& name) {
         for (size_t i = 0; i < links.size(); ++i) {
             if (std::find(frontier.begin(), frontier.end(), links[i].second) == frontier.end())
                 continue;
-            if (names[i] == name) return links[i].first;
+            if (name.empty() || names[i] == name) return links[i].first;
             next.push_back(links[i].first);
         }
         frontier = std::move(next);

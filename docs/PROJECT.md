@@ -19598,21 +19598,7 @@ and Japan's Monster Hunter 4, not listed.
   but as ciphertext that only key slot 0x0D opens (`http_c.cpp:2262-2266`),
   which the blob would supply; with the blob off it cannot be used. Whether
   shipping it that way is acceptable is his call.
-- **The network.** The emulated 3DS reaches the real network for a game: its
-  sockets are the host's (`core/hle/service/soc/soc_u.cpp:1823`), its HTTP
-  service makes real requests (`http_c.cpp`), and its Wi-Fi reports
-  connected as soon as a game asks (`core/hle/service/ac/ac.cpp:41-56,
-  122-127`). No setting turns this off (none in `common/settings.h`; the
-  libretro options have none). That breaks "The console connects only to
-  fixed places the code chooses ... Never to an address found in the data"
-  (CONTRIBUTING.md): a game's servers are in the game. PPSSPP's own
-  `ppsspp_enable_wlan` is off by default, and Vita3K's `http-enable` was
-  listed to turn off (question 49); Azahar has no such switch. **Upstream
-  first, on his go:** ask Azahar for an option that gives games no network
-  (a small ask; their PR #2024 added a build switch for the keys the same
-  way). The fallback, written on the issue in full as the rule says: a
-  source patch in the arm that makes the emulated Wi-Fi report no
-  connection.
+- **The network:** moved to docs/decisions/2026-10-20-3ds-games-get-no-network.md (2026-10-26).
 
 #### The New 3DS's extras, gyro and the microphone
 
@@ -19727,7 +19713,7 @@ no console code. The core is upstream's own, with a stable tag to pin, and
 on the labels the 3DS is further along than the Vita or Xbox 360 were (87.5%
 of rated titles, 21 of the 25 best-sellers). The conditions: (1) it builds in
 `cabinetos-builder` at 2126.2, with its key blob off; (2) games get no
-network, by an upstream option (asked on his go) or the recorded patch;
+network (docs/decisions/2026-10-20-3ds-games-get-no-network.md);
 (3) the hand test passes on Vulkan, frame pacing included
 (azahar-emu/azahar#2093), or OpenGL wins by measurement; (4) he accepts
 that only decrypted cartridge dumps play, `.cia` files and encrypted dumps
@@ -19767,18 +19753,7 @@ it out, with nothing redecided:
   on #524's branch, about 15 minutes), with the patch applied, the revision
   read back as `219d743`, its 32 options as listed, and a 62 MB core that
   needs only glibc and the C++ runtime.
-- **Games get no network, condition (2), by the recorded fallback**, a
-  patch in the arm, with no upstream option asked for yet (that waits on
-  his go). Reading the source for it found more doors than the Wi-Fi: the
-  patch reports no connection (`ac.cpp`: status, Wi-Fi status, connect),
-  and fails every call that reaches the host's network, as a 3DS with no
-  access point does: a socket, the four name lookups (`soc_u.cpp`), an HTTP
-  request (`http_c.cpp`, `MakeRequest`), and SOC's lookup of the console's
-  own address, which opens a TCP connection to 8.8.8.8 to find it
-  (`GetDefaultInterfaceInfo`). The rest of the network code is not reached
-  by the libretro build (the multiplayer rooms are off, the update-server
-  download has no caller in the core, Artic Base needs an `articbase://`
-  path).
+- **Games get no network, condition (2):** moved to docs/decisions/2026-10-20-3ds-games-get-no-network.md (2026-10-26).
 - **The refusal:** `frontend/src/ncch.cpp` reads the file before the core
   does, by its bytes: an NCSD's first partition's NCCH header, a `.cxi`'s
   own, or the same header in a Z3DS file's first zstd frame; NoCrypto clear

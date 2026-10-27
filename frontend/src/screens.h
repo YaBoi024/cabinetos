@@ -42,6 +42,20 @@
 
 namespace screens {
 
+// WHICH KINDS OF CONTROLLER ARE ON, as the top bar's battery row shows them:
+// a Wii Remote (W1 to W4) and any other (P1 to P4, a stream's included). The
+// focused game's line reads them (drawFocusedLine): "Needs a controller" on a
+// game that is not a Wii game while only Remotes are on, "Needs a Wii Remote"
+// on a Wii game that needs one while none is.
+struct ControllersOn {
+    bool remote = false;
+    bool other = false;
+};
+// The two notes, and the toasts a press on Play gets in their place
+// (App::refuseStartWithoutController): the same words in both places.
+inline const std::string kNeedsController = "Needs a controller";
+inline const std::string kNeedsRemote = "Needs a Wii Remote";
+
 // Everything a screen needs to draw itself. References, because the app owns
 // all of it and a screen outlives none of it.
 struct Ctx {
@@ -50,6 +64,8 @@ struct Ctx {
     ui::ImageCache& images;
     float sc = 1.0f;                       // device pixels per design point
     std::vector<design::Card>* cards = nullptr;
+    // Which controllers are on now (App::controllersOn).
+    ControllersOn on = {};
 };
 
 // One keypress, already translated out of SDL so a screen never sees an event.

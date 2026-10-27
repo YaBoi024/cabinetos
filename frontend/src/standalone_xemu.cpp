@@ -381,6 +381,8 @@ bool Run::startXemu(const Emulator& e, const std::string& romPath, const std::st
     storage::makeDirs(mesaCache + "/mesa_shader_cache");
     const std::vector<std::string> args = {
         "flatpak", "run",
+        // No network (#557), as for every emulator (Run::start).
+        "--unshare=network",
         "--cwd=" + dir,
         "--filesystem=" + dir,
         "--filesystem=" + gameDir,

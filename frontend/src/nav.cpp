@@ -214,7 +214,7 @@ void App::applyTabContentFade(bool gameUp) {
 // frosted half goes after presentScene, below, because glass reads
 // the scene through itself.
 void App::drawScreen(float sc) {
-    screens::Ctx ctx{renderer, text, images, sc, &cards};
+    screens::Ctx ctx{renderer, text, images, sc, &cards, controllersOn()};
     switch (here()) {
         case Screen::Library: libraryScreen.draw(ctx); break;
         case Screen::Grid: gridScreen.draw(ctx); break;
@@ -251,7 +251,7 @@ void App::drawScreen(float sc) {
 
 void App::drawScreenGlass(bool gameUp, float sc) {
     if (!gameUp && here() != Screen::Home) {
-        screens::Ctx ctx{renderer, text, images, sc, &cards};
+        screens::Ctx ctx{renderer, text, images, sc, &cards, controllersOn()};
         switch (here()) {
             case Screen::Library: libraryScreen.drawGlass(ctx); break;
             case Screen::Grid: gridScreen.drawGlass(ctx); break;

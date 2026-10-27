@@ -3,6 +3,7 @@
 
 #include "ps2.h"
 
+#include "netblock.h"
 #include "rumble.h"
 #include "storage.h"
 
@@ -74,7 +75,12 @@ bool resolve(T& fn, const char* name) {
 } // namespace
 
 bool ps2::load(const std::string& soPath) {
-    if (gHandle) return true;
+    // Loaded once and kept (ps2::unload), but every game is a new one to the
+    // network block's log.
+    if (gHandle) {
+        netblock::addEmulator(gHandle, soPath);
+        return true;
+    }
 
     // RTLD_LOCAL for the same reason every libretro core gets it: PCSX2 brings
     // its own copies of fmt, imgui, zlib and a dozen more, and letting those
@@ -86,6 +92,8 @@ bool ps2::load(const std::string& soPath) {
         gError = "could not open " + soPath + ": " + (why ? why : "no reason given");
         return false;
     }
+    // Before cps2_start, so every thread PCSX2 starts carries the mark.
+    netblock::addEmulator(gHandle, soPath);
 
     const bool ok =
         resolve(gApi.start, "cps2_start") &&
@@ -118,6 +126,7 @@ bool ps2::load(const std::string& soPath) {
 
     if (!ok) {
         dlclose(gHandle);
+        netblock::dropUnloaded();
         gHandle = nullptr;
         return false;
     }

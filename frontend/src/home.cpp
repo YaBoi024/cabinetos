@@ -124,7 +124,7 @@ void App::activateHome() {
     //
     // Home promises one action from cold to playing, and this is it.
     if (haveResume() && focusRow == RowRecent && focusSlot == 0) {
-        if (refuseRemoteStart(cards[heroIndex].id)) return;
+        if (refuseStartWithoutController(cards[heroIndex].id)) return;
         sound::play(sound::Cue::Activate);   // #389
         // Set only when the press counts (#484): refused because another
         // game is downloading, it cleared that game's Resume.
@@ -356,7 +356,7 @@ void App::drawHome(float dt, float sc) {
             screens::drawFocusedLine(
                 renderer, text, sc, fc,
                 /*tags=*/design::hasTwin(cards, indices, static_cast<int>(at(slot))),
-                /*system=*/true, /*reason=*/false, titleX, headerBaseline, room, 0.60f);
+                /*system=*/true, controllersOn(), titleX, headerBaseline, room, 0.60f);
         }
 
         const float shelfTop =

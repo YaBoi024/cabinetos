@@ -12,6 +12,7 @@
 #include "catalog.h"
 #include "favorites.h"
 #include "storage.h"
+#include "wii.h"
 
 using namespace design;   // NOLINT: Card and colorForTitle (card.h)
 
@@ -65,6 +66,8 @@ int appendGame(Library& lib, const romm::Game& g) {
     c.coverLarge = g.coverLargePath;
     c.platform = g.platformName;
     c.platformId = g.platformId;
+    c.wii = g.platformSlug == "wii";
+    c.needsRemote = c.wii && wii::padDevice(wii::codeFromTitleId(g.titleId)) == 0;
     c.tagLabel = g.tagLabel;
     c.art = colorForTitle(c.title);
     c.unavailable = greyedReason(g);

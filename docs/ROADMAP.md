@@ -120,4 +120,6 @@ in-game features (#76 to #80).
 Kept here so nobody proposes them again: Atari Jaguar and ColecoVision (their
 number-pad controllers), HDMI-CEC (shelved 2026-09-24), static IP, screen
 recording (encoding cost on integrated graphics, and clips would compete with
-the game cache).
+the game cache), and an Options level in the pause menu (2026-10-25: the
+setting rows stay on its top level, changed with Left and Right; worth another
+look only when a system has three or more).

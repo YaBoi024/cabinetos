@@ -390,7 +390,7 @@ void pumpStateLoad(StateLoad& load, GameSession& sess,
 // A member of the App (app.h), moved out of apply in batch (e).
 
 void App::playFromState(const screens::Result& res) {
-    if (refuseRemoteStart(detailScreen.game().romId)) return;
+    if (refuseStartWithoutController(detailScreen.game().romId)) return;
     sound::play(sound::Cue::Activate);
     std::fprintf(stderr, "[detail] play from state %d\n", res.value);
     // Negative: one of this console's own states, by its file.

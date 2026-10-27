@@ -372,9 +372,10 @@ bool prepareEden(const Emulator& e, const std::string& saveDir, const std::strin
         // NO INTERNET, as far as a game can tell. Nintendo's online services do
         // not answer an emulator, so nothing is lost. It did NOT save
         // Shredder's Revenge, whose Epic online layer quits on a call Eden
-        // only stubs (bsd EventFd); nor did cutting the sandbox off the
-        // network, which made it hang instead and was taken out
-        // (2026-09-28).
+        // only stubs (bsd EventFd). The sandbox has no network either (#557,
+        // Run::start); on 2026-09-28 that made Shredder's Revenge hang, and
+        // on 2026-10-26, with the Eden pinned then, it quit by itself at
+        // 28 s as it does with a network.
         {"Network", "airplane_mode", "true"},
         // VSYNC ON (#209, MMagTech 2026-10-04): 2 is Fifo, Eden's own
         // default. #209 first set 0 (Immediate) on the reasoning that

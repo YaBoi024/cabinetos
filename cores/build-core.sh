@@ -855,9 +855,9 @@ if [ "$CORE" = ppsspp ]; then
 fi
 
 if [ "$CORE" = azahar ]; then
-    # Each replacement in these patches is literal and must match exactly
+    # Each replacement in this patch is literal and must match exactly
     # once, or the build stops: a patch that matches nothing is a green build
-    # without it, with games online or every game in the first game's folders.
+    # without it, with every game in the first game's folders.
     patch_once() {
         FROM="$2" TO="$3" perl -0pi -e '
             my $n = () = /\Q$ENV{FROM}\E/g;
@@ -868,66 +868,6 @@ if [ "$CORE" = azahar ]; then
             exit 1
         }
     }
-
-    # GAMES GET NO NETWORK. The emulated 3DS reaches the real network for a
-    # game: its sockets are the host's, its HTTP service makes real requests,
-    # and its Wi-Fi says connected the moment a game asks. A game's servers
-    # are addresses in the game, and the console connects only to fixed places
-    # the code chooses (CONTRIBUTING.md, "The rules"). Azahar has no switch
-    # for it, so this is the fallback docs/PROJECT.md question 50 records,
-    # until Azahar has an option of its own (tracked on #537, asked for as
-    # azahar-emu/azahar#2695): the emulated 3DS has no
-    # connection. Its Wi-Fi reports none, and so that a game which never asks
-    # gets no further, every door to the host's network fails the way it does
-    # on a 3DS with no access point: a socket, a name lookup, an HTTP request,
-    # and the lookup SOC makes of the console's own address, which opens a
-    # connection to 8.8.8.8 to find it. Local play between 3DSes goes through
-    # the multiplayer rooms, which ENABLE_LIBRETRO leaves out.
-    AC=src/core/hle/service/ac/ac.cpp
-    patch_once "$AC" 'rb.Push<u32>(static_cast<u32>(Status::STATUS_INTERNET));' \
-        'rb.Push<u32>(static_cast<u32>(Status::STATUS_DISCONNECTED)); // cabinetos: no network'
-    patch_once "$AC" 'rb.Push<u32>(static_cast<u32>(WifiStatus::STATUS_CONNECTED_SLOT1));' \
-        'rb.Push<u32>(static_cast<u32>(WifiStatus::STATUS_DISCONNECTED)); // cabinetos: no network'
-    patch_once "$AC" 'ac->ac_connected = true;' \
-        'ac->ac_connected = false; // cabinetos: no network'
-    SOC=src/core/hle/service/soc/soc_u.cpp
-    patch_once "$SOC" 'u64 ret = static_cast<u64>(::socket(domain, type, protocol));' \
-        'LOG_WARNING(Service_SOC, "cabinetos: a game asked for a socket; games get no network");
-    errno = ENETDOWN;
-    u64 ret = static_cast<u64>(SOCKET_ERROR_VALUE);'
-    patch_once "$SOC" '    struct hostent* result =
-        ::gethostbyaddr(reinterpret_cast<char*>(&platform_addr), platform_addr_len, type);' \
-        '    (void)platform_addr, (void)platform_addr_len, (void)type;
-    struct hostent* result = nullptr; // cabinetos: no network
-    errno = ENETDOWN;'
-    patch_once "$SOC" 'struct hostent* result = ::gethostbyname(reinterpret_cast<char*>(host_name.data()));' \
-        'struct hostent* result = nullptr; // cabinetos: no network
-    errno = ENETDOWN;'
-    patch_once "$SOC" 'ret = getaddrinfo(node_data, service_data, &hints, &out);' \
-        'ret = EAI_FAIL; // cabinetos: no network
-        (void)hints;'
-    patch_once "$SOC" 'ret = getaddrinfo(node_data, service_data, nullptr, &out);' \
-        'ret = EAI_FAIL; // cabinetos: no network
-        (void)node_data, (void)service_data;'
-    patch_once "$SOC" 's32 ret = getnameinfo(reinterpret_cast<sockaddr*>(&sa), sa_len, host_data, hostlen, serv_data,
-                          servlen, flags);' \
-        's32 ret = EAI_FAIL; // cabinetos: no network
-    (void)sa, (void)sa_len, (void)host_data, (void)serv_data, (void)flags;'
-    patch_once "$SOC" 'std::optional<SOC_U::InterfaceInfo> SOC_U::GetDefaultInterfaceInfo() {' \
-        'std::optional<SOC_U::InterfaceInfo> SOC_U::GetDefaultInterfaceInfo() {
-    return std::nullopt; // cabinetos: no network'
-    HTTP=src/core/hle/service/http/http_c.cpp
-    patch_once "$HTTP" '    if (url_info.is_https) {
-        MakeRequestSSL(request, url_info, pending_headers);
-    } else {
-        MakeRequestNonSSL(request, url_info, pending_headers);
-    }' \
-        '    // cabinetos: no network. Ends as a request that could not connect does.
-    (void)request, (void)pending_headers;
-    LOG_WARNING(Service_HTTP, "cabinetos: a game asked for {}; games get no network", url);
-    state = RequestState::Completed;
-    FinishTransfer();'
-    echo "patched: games get no network (Wi-Fi off, sockets, lookups and HTTP refused)"
 
     # EACH GAME SETS ITS OWN FOLDERS. Azahar's bug, not ours, tracked on
     # #534 (reported as azahar-emu/azahar#2694); drop this patch when

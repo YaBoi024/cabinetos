@@ -90,7 +90,7 @@ bool takeHomeHold();
 
 // True for a press made by a Wii Remote: its buttons reach the menus as
 // presses from a pad id no real pad has (start). A Remote starts only Wii
-// games (App::refuseRemoteStart, launch.cpp).
+// games (App::refuseStartWithoutController, launch.cpp).
 bool isRemote(uint32_t padId);
 
 // EACH REMOTE THAT IS ON, out of a Wii game, for the battery row on Home

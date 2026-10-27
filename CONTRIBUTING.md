@@ -202,6 +202,7 @@ with 0 when it passes, and CI runs every one ("What CI checks"):
 | `--fightstick-test` | which fight sticks are known, and where a game's buttons go on one: every count of buttons in both arcade cores' orders, and no layout for any other pad |
 | `--arcade-settings-test` | holding Start in an arcade game: a hold of about a second presses MAME 2003-Plus's menu key once, a tap or a shorter hold presses nothing, a second hold closes it, player 1's left stick click never reaches MAME, and nothing changes on FinalBurn Neo or any other core |
 | `--controls-test` | an arcade game's Controls: every state a person can reach by every press, from the default, on a pad and on the fight stick (each press a swap or a move, two buttons never on one, nothing lost, every refused press changing nothing), which buttons are rows and what they are called, a trigger's pull following its button, and the file written, read back after a hand edit, and deleted by Reset |
+| `--netblock-test` | that no emulator reaches the network (`netblock.cpp`): the program's own `socket`, lookups and `pthread_create` are what every library reaches; code standing in for an emulator is refused an IPv4, IPv6 or raw socket and every lookup, and so is curl inside its call, on curl's own lookup thread; a Unix socket, and the console's own sockets and lookups, even from inside the emulator's call, are left alone |
 | `--battery-test` | how a controller's battery reading becomes the row in the top bar |
 | `--volume-test` | the volume keys' rules |
 | `--playtime-test` | time played: the clock and what is reported to RomM |
@@ -216,7 +217,7 @@ under load, against the stand-in server `tools/racemock.py <port>` only
 (start it, then `--romm-race-test 127.0.0.1:<port> 30`; it exits 0 when
 nothing went out wrong); do not point it at a real RomM.
 
-**Every flag is in `frontend/src/cli.cpp`**, 109 of them plus
+**Every flag is in `frontend/src/cli.cpp`**, 110 of them plus
 `--check-option-tables` in `main.cpp`; there is no `--help`.
 `frontend/README.md` holds the build recipe and the storage tree. What it
 said about running and the flags in September 2026 is history, in

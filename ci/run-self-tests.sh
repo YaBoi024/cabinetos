@@ -41,6 +41,7 @@ TESTS=(
     --fightstick-test
     --arcade-settings-test
     --controls-test
+    --netblock-test
     --battery-test
     --volume-test
     --playtime-test

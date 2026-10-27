@@ -16,6 +16,15 @@ PKGS     := sdl3 sdl3-image egl glesv2 freetype2 libjpeg libpng libcurl json-c l
 CXXFLAGS += $(shell pkg-config --cflags $(PKGS))
 LIBS     := $(shell pkg-config --libs $(PKGS)) -lpthread -ldl
 
+# NO EMULATOR REACHES THE NETWORK (src/netblock.cpp, #557). The program's own
+# versions of these are exported, so every library's call reaches them before
+# the C library's. Without this line they serve only the console's own code
+# and every emulator reaches the network: the log says so at a game's start,
+# and --netblock-test fails.
+NETBLOCK := socket getaddrinfo gethostbyname gethostbyname_r gethostbyname2 \
+            gethostbyname2_r gethostbyaddr gethostbyaddr_r getnameinfo pthread_create
+LIBS     += $(foreach f,$(NETBLOCK),-Wl,--export-dynamic-symbol=$(f))
+
 SRC      := $(wildcard src/*.cpp)
 OBJ      := $(SRC:.cpp=.o)
 

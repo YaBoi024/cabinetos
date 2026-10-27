@@ -127,7 +127,7 @@ of the finished `.so` and fails the build if it does not match.
 | DraStic FreeBIOS | DS BIOS replacement inside melonDS | BSD 2-clause | bundled in the fork above | `66b5d2634cd0` |
 | vecx | Vectrex | GPL v3; **the Vectrex system ROM inside it**, Smith Engineering's non-commercial permission (above) | [libretro/libretro-vecx](https://github.com/libretro/libretro-vecx) | `8f671cc9d737` |
 | mGBA | Game Boy Advance | MPL 2.0 | [libretro/mgba](https://github.com/libretro/mgba) | `e31759b24e7a` |
-| Azahar | Nintendo 3DS | GPL v3: most of its files are GPL v2 or later, and some it is built from are GPL v3 or later (`src/core/core.cpp` among them), though the repository's licence file is the GPL v2's. **Modified**: games get no network (the patch is in `cores/build-core.sh`), and built without Azahar's compiled-in blob of the 3DS's keys | [azahar-emu/azahar](https://github.com/azahar-emu/azahar) | `219d743a1e69` (release 2126.2) |
+| Azahar | Nintendo 3DS | GPL v3: most of its files are GPL v2 or later, and some it is built from are GPL v3 or later (`src/core/core.cpp` among them), though the repository's licence file is the GPL v2's. **Modified**: each game sets its own folders (the patch is in `cores/build-core.sh`), and built without Azahar's compiled-in blob of the 3DS's keys | [azahar-emu/azahar](https://github.com/azahar-emu/azahar) | `219d743a1e69` (release 2126.2) |
 
 **Not carried from Cabinet:** `gw-libretro` (Game & Watch) and `vemulator`
 (Dreamcast VMU minigames) were iOS-only in Cabinet by decision and are not built

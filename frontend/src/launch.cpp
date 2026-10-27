@@ -379,25 +379,49 @@ void App::showWhyUnplayable(int romId) {
     }
 }
 
-// A WII REMOTE STARTS ONLY WII GAMES (MMagTech, 2026-10-24;
-// docs/decisions/2026-10-24-wii-remote-outside-wii-games.md). Its buttons
-// drive the menus, so with only a Remote on, a player started a game it
-// cannot play and could not leave it (a Discord report, 2026-10-23). Asked
-// first by each press that starts a game (Play, Play from a state, Home's
-// Resume), never by launchById, so nothing that starts a game without a
-// press is touched. True when it refused: a toast where the press was made.
-bool App::refuseRemoteStart(int romId) {
-    if (!lastPressFromRemote) return false;
+// A GAME STARTS ONLY WITH A CONTROLLER THAT PLAYS IT (MMagTech, 2026-10-24
+// and 2026-10-25; docs/decisions/2026-10-24-wii-remote-outside-wii-games.md).
+// A WII REMOTE STARTS ONLY WII GAMES: its buttons drive the menus, so with
+// only a Remote on, a player started a game it cannot play and could not
+// leave it (a Discord report, 2026-10-23). AND A WII GAME THAT NEEDS A REMOTE
+// STARTS ONLY WHILE ONE IS ON: started with a pad, nothing could play it, and
+// a Remote turned on after the start is not seen (#590). Both say so on the
+// game's line first (screens::drawFocusedLine); this is for a player who did
+// not read it. Asked first by each press that starts a game (Play, Play from
+// a state, Home's Resume), never by launchById, so nothing that starts a game
+// without a press is touched. True when it refused: a toast where the press
+// was made.
+bool App::refuseStartWithoutController(int romId) {
     for (const auto& g : games) {
         if (g.id != romId) continue;
-        if (g.platformSlug == "wii") return false;
-        std::fprintf(stderr, "[launch] a Wii Remote cannot start %s (%s)\n", g.name.c_str(),
-                     g.platformName.c_str());
-        menuNotice.say("This Remote only plays Wii games", Tone::Info);
+        const bool wiiGame = g.platformSlug == "wii";
+        const std::string* why = nullptr;
+        if (lastPressFromRemote && !wiiGame)
+            why = &screens::kNeedsController;
+        else if (wiiGame && !controllersOn().remote && catalog::playable(g) &&
+                 wii::padDevice(wii::codeFromTitleId(g.titleId)) == 0)
+            why = &screens::kNeedsRemote;
+        if (!why) return false;
+        std::fprintf(stderr, "[launch] %s (%s): %s\n", g.name.c_str(), g.platformName.c_str(),
+                     why->c_str());
+        menuNotice.say(*why, Tone::Info);
         sound::play(sound::Cue::Edge);
         return true;
     }
     return false;
+}
+
+// WHICH CONTROLLERS ARE ON, as the top bar's battery row shows them
+// (settleBatteryRow reads the same lists): Remotes are W's, every other pad a
+// P, and during a stream the stream's pads are the controllers and the
+// Remotes are not shown. While only Remotes are on, every game that is not a
+// Wii game says "Needs a controller" on its line, before Play refuses it
+// above; while no Remote is on, a Wii game that needs one says "Needs a Wii
+// Remote", before it starts with nothing to play it (screens::drawFocusedLine;
+// MMagTech, 2026-10-25). Each note goes as the controller it asks for comes on.
+screens::ControllersOn App::controllersOn() const {
+    const bool stream = players::streaming();
+    return {!stream && !wiiremote::batteries().empty(), stream || !players::held().empty()};
 }
 
 // A LAUNCH THAT DOES NOT START A GAME TAKES WHAT ITS PRESS ASKED FOR WITH

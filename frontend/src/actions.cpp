@@ -102,7 +102,7 @@ void App::apply(const screens::Result& res) {
             openDetailSoon(res.value);
             break;
         case screens::Action::Play:
-            if (refuseRemoteStart(res.value)) break;
+            if (refuseStartWithoutController(res.value)) break;
             sound::play(sound::Cue::Activate);
             launchById(res.value);
             break;

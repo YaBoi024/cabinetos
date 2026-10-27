@@ -83,7 +83,7 @@ void App::handleEvent(const SDL_Event& e) {
         default:
             break;
     }
-    // WHO PRESSED, for a press that starts a game (refuseRemoteStart).
+    // WHO PRESSED, for a press that starts a game (refuseStartWithoutController).
     if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN)
         lastPressFromRemote = wiiremote::isRemote(e.gbutton.which);
     else if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_DOWN)

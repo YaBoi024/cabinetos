@@ -333,6 +333,23 @@ then `YDOTOOL_SOCKET=/tmp/ydotool.sock ydotool key 108:1 108:0` (Down; Up
   status` shows the HDMI sink before and after. If it is already broken,
   `systemctl --user restart wireplumber` brings the sink back.
 
+- **A PROGRAM RESTART PUTS SDL ON ITS PULSEAUDIO ROUTE, AND STOPPING
+  PIPEWIRE-PULSE UNDER IT LEAVES NO SOUND AT ALL.** SDL 3.4.18 takes its
+  PipeWire route only if PipeWire shows a sound output the instant SDL
+  starts (`PIPEWIRE_PREFERRED_Init`); otherwise it falls back to PulseAudio,
+  which starts pipewire-pulse through its socket. A session start remakes
+  the TV's output (below), so after `systemctl restart cabinetos-session` or
+  a loop deploy the console's program came up on the PulseAudio route (2 of
+  2, 2026-10-25, #228, "Sound can die until a restart"); after a reboot it
+  took the PipeWire route. On the PulseAudio route pipewire-pulse is the
+  program's only way to PipeWire: stopping it left no stream and no sound
+  until the program was restarted. Read the route before judging any sound
+  test across a restart: the console's stream in `pw-dump` has
+  `node.loop.name` `SDLAudioP` and a number on the PipeWire route,
+  `data-loop.0` on the PulseAudio one. Never stop pipewire-pulse under a
+  running console. Since `build_files/sound-backup-output.sh` pipewire-pulse
+  runs from login; which route a restart takes then is not measured yet.
+
 - **gamescope crashes on its way out when the app is stopped**
   (`wl_display_destroy`, SIGSEGV or SIGABRT). It is every session stop, not
   the thing being tested; look at what stopped the app. A crash while the

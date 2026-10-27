@@ -362,6 +362,15 @@ done
 /ctx/built-in-speaker.sh
 
 # ---------------------------------------------------------------------------
+# A backup sound output while the TV's is gone (#228).
+# ---------------------------------------------------------------------------
+#
+# Starts pipewire-pulse at every login of the console's user, so PipeWire's
+# Dummy Output catches the console's sound while the TV sleeps, and fails the
+# build if a PipeWire update moved the unit or that output's default.
+/ctx/sound-backup-output.sh
+
+# ---------------------------------------------------------------------------
 # The console itself is NOT installed here, as of 2026-09-23.
 # ---------------------------------------------------------------------------
 #
@@ -508,6 +517,16 @@ for unit in cabinetos-flatpak-setup.service cabinetos-flatpak-setup.timer; do
 done
 
 check_present "emulator flatpak manifest" /usr/share/cabinetos/flatpaks.list || failed=1
+
+# NO EMULATOR REACHES THE NETWORK (#557): every emulator in the image is
+# started under bwrap with no network (frontend/src/standalone.cpp). Without
+# it no PS3, Xbox 360, Wii U or Vita game starts.
+if command -v bwrap >/dev/null 2>&1; then
+    log "  ok: bwrap ($(command -v bwrap))"
+else
+    log "  MISSING: bwrap, which every emulator in the image is started under"
+    failed=1
+fi
 
 # SYSTEM UPDATE, docs/SETTINGS.md, System. The root half is a script that runs
 # these; every one is in the base today and none is something we install, so

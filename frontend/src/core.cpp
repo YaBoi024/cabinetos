@@ -1,6 +1,7 @@
 #include "core.h"
 #include "core_state.h"
 #include "cpus.h"
+#include "netblock.h"
 #include "ps2.h"
 
 #include <dlfcn.h>
@@ -315,6 +316,8 @@ bool Core::load(const std::string& soPath) {
         error_ = why ? why : "dlopen failed and gave no reason";
         return false;
     }
+    // Before retro_init, so every thread the core starts carries the mark.
+    netblock::addEmulator(handle_, soPath);
 
     g.api_version = reinterpret_cast<unsigned (*)(void)>(symbol("retro_api_version"));
     g.get_system_info =
@@ -414,6 +417,7 @@ void Core::unload() {
     }
     if (g.deinit) g.deinit();
     dlclose(handle_);
+    netblock::dropUnloaded();
     handle_ = nullptr;
     g = {};
     // The name and version go with the core: a later game on another path

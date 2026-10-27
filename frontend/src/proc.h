@@ -70,7 +70,8 @@ int spawn(const std::vector<std::string>& args, const std::string& logPath);
 // three processes deep (the sandbox, its init, then the program), and a signal
 // to either sandbox process is ignored: measured 2026-09-28, SIGTERM to
 // `flatpak ps`'s own child-pid left Eden running, and the same signal to Eden
-// closed it in 0.8 s.
+// closed it in 0.8 s. An empty `name` is `root`'s first child, whatever it
+// calls itself: bwrap's one child is the program it was given.
 int findDescendant(int root, const std::string& name);
 
 // Whitespace off both ends. Every one of these tools newline-terminates
