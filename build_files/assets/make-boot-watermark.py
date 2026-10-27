@@ -47,12 +47,22 @@ font = ImageFont.truetype(font_path, int(28 * SS))
 text = "CabinetOS"
 bb = font.getbbox(text)
 tw, th = bb[2] - bb[0], bb[3] - bb[1]
+# FORK (handheld): a smaller second line under the name.
+sub_font = ImageFont.truetype(font_path, int(15 * SS))
+sub_text = "Handheld"
+sbb = sub_font.getbbox(sub_text)
+sw, sh = sbb[2] - sbb[0], sbb[3] - sbb[1]
+line_gap = int(3 * SS)
+block_h = th + line_gap + sh
 gap = int(9 * SS)
-W = ic.width + gap + tw + 2 * SS
+W = ic.width + gap + max(tw, sw) + 2 * SS
 canvas = Image.new("RGBA", (W, H * SS), (0, 0, 0, 0))
 canvas.alpha_composite(ic, (0, (H * SS - ic.height) // 2))
 d = ImageDraw.Draw(canvas)
-d.text((ic.width + gap - bb[0], (H * SS - th) // 2 - bb[1]), text, font=font, fill=(255, 255, 255, 255))
+top = (H * SS - block_h) // 2
+d.text((ic.width + gap - bb[0], top - bb[1]), text, font=font, fill=(255, 255, 255, 255))
+d.text((ic.width + gap - sbb[0], top + th + line_gap - sbb[1]), sub_text, font=sub_font,
+       fill=(255, 255, 255, 190))
 final = canvas.resize((W // SS, H), Image.LANCZOS)
 final.save(out)
 print(out, final.size)

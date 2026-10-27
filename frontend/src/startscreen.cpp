@@ -193,7 +193,16 @@ void drawStartup(ui::Renderer& r, ui::TextRenderer& t, const char* detail, float
     float y = oy + kIconBottom * s + 56.0f;
     t.draw(r, kWordmark, (ui::kCanvasWidth - ww) * 0.5f,
            y + t.ascent(markStyle, sc), markStyle, Color::white(0.94f * alpha), sc);
-    y += t.lineHeight(markStyle, sc) + 16.0f;
+    y += t.lineHeight(markStyle, sc) + 2.0f;
+    // FORK (handheld): the fork's name, a smaller line under the wordmark.
+    {
+        const char* kSub = "Handheld";
+        const ui::TextStyle subStyle = ui::TextStyle::Title2;
+        const float sw = t.measure(kSub, subStyle, sc);
+        t.draw(r, kSub, (ui::kCanvasWidth - sw) * 0.5f, y + t.ascent(subStyle, sc), subStyle,
+               Color::white(0.62f * alpha), sc);
+        y += t.lineHeight(subStyle, sc) + 14.0f;
+    }
 
     if (detail) {
         const float dw = t.measure(detail, ui::TextStyle::Body, sc);

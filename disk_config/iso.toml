@@ -76,12 +76,12 @@ while read -r name type ro tran bytes; do
 done < <(lsblk -dnbo NAME,TYPE,RO,TRAN,SIZE)
 
 if [ ${#names[@]} -eq 0 ]; then
-  off "CabinetOS found no drive to install on. Switching off."
+  off "CabinetOS Handheld found no drive to install on. Switching off."
 fi
 
 pick=0
 if [ ${#names[@]} -gt 1 ]; then
-  printf '\\n  CabinetOS can be installed on:\\n\\n'
+  printf '\\n  CabinetOS Handheld can be installed on:\\n\\n'
   for i in "${!names[@]}"; do printf '    %d  %s\\n' $((i + 1)) "${labels[$i]}"; done
   while :; do
     printf '\\n  Which drive? '
@@ -150,7 +150,7 @@ bootc switch --mutate-in-place --enforce-container-sigpolicy --transport registr
 # installer finds itself by. bootc-image-builder's default is
 # "Container-Installer-x86_64". Letters, digits, "-" and "_" only.
 [customizations.iso]
-volume_id = "CabinetOS"
+volume_id = "CabinetOS-Handheld"
 
 # The installer's screens. bootc-image-builder always enables Users, Services,
 # Security, Network, Payloads, Runtime and Storage, and a module in `disable`

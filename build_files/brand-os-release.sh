@@ -41,12 +41,12 @@ set_field() {
     }
 }
 
-set_field NAME "CabinetOS"
-set_field PRETTY_NAME "CabinetOS${VERSION:+ ${VERSION}}"
+set_field NAME "CabinetOS Handheld"
+set_field PRETTY_NAME "CabinetOS Handheld${VERSION:+ ${VERSION}}"
 if [[ -n "${VERSION}" ]]; then
     set_field VERSION "${VERSION}"
 fi
-set_field BOOTLOADER_NAME "CabinetOS${VERSION:+ ${VERSION}}"
+set_field BOOTLOADER_NAME "CabinetOS Handheld${VERSION:+ ${VERSION}}"
 set_field DEFAULT_HOSTNAME "cabinetos"
 set_field HOME_URL "${REPO}"
 set_field DOCUMENTATION_URL "${REPO}"
