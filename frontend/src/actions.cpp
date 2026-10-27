@@ -107,7 +107,7 @@ void App::apply(const screens::Result& res) {
             launchById(res.value);
             break;
         case screens::Action::PlayTogether:   // FORK (handheld): playtogetherflow.cpp
-            if (refuseRemoteStart(res.value)) break;
+            if (refuseStartWithoutController(res.value)) break;
             pressPlayTogether(res.value);
             break;
         case screens::Action::PlayState:
