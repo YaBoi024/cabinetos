@@ -31,7 +31,9 @@ float App::settleBatteryRow(float sc, float dt) {
             if (r.segments == 0) r = battery::sdl(h.gp);
         }
         row.push_back({"pad:" + (h.key.empty() ? std::to_string(h.player) : h.key),
-                       "P" + std::to_string(h.player + 1), r});
+                       h.dir == battery::systemDir() ? std::string("Deck")   // FORK (handheld)
+                                                     : "P" + std::to_string(h.player + 1),
+                       r});
     }
     if (!players::streaming())
         for (const wiiremote::Battery& b : wiiremote::batteries()) {
@@ -40,11 +42,13 @@ float App::settleBatteryRow(float sc, float dt) {
                 r.segments = battery::segmentsOfWii(static_cast<uint8_t>(b.byte));
             row.push_back({"wii:" + b.address, "W" + std::to_string(b.light), r});
         }
+    // FORK (handheld): the label centred above its battery; the bolt beside the battery.
     auto widthOf = [&](const BatteryEntry& e) {
-        float w = text.measure(e.label, ls, sc);
-        if (e.r.segments > 0) w += kLabelGap + kBodyW + 1.0f + kNubW;
-        if (e.r.segments > 0 && e.r.charging) w += kBoltGap + kBoltW;
-        return w;
+        if (e.r.segments <= 0) return text.measure(e.label, ls, sc);
+        const float labelW = text.measure(e.label, kRowLabel, sc);
+        const float group = std::max(labelW, kBatteryW);
+        if (!e.r.charging) return group;
+        return std::max(group, (group - kBatteryW) * 0.5f + kBatteryW + kBoltGap + kBoltW);
     };
     constexpr float kFade = 0.2f, kSlide = 0.25f;
     {
@@ -170,30 +174,38 @@ void App::drawBatteryRow(float& leftOfChip, float rowW, float sc) {
                 return c;
             };
             const ui::Color grey = faded(ui::Color::white(0.62f));
-            text.draw(renderer, e.label, x, base, ls, grey, sc);
-            if (e.r.segments > 0) {
-                const float gx = x + text.measure(e.label, ls, sc) + kLabelGap;
-                ui::Rect body{gx, cy - kBodyH * 0.5f, kBodyW, kBodyH, 5.0f,
-                              ui::Color::white(0.0f)};
-                body.border = 2.5f;
-                body.borderColor = grey;
-                renderer.draw(body);
-                renderer.draw(ui::Rect{gx + kBodyW + 1.0f, cy - kNubH * 0.5f, kNubW,
-                                       kNubH, 1.5f, grey});
-                const ui::Color fill = faded(e.r.segments >= 3   ? kBatteryGreen
-                                             : e.r.segments == 2 ? kBatteryAmber
-                                                                 : kBatteryRed);
-                const float sw = (kBodyW - kInset * 2.0f - kSegGap * 3.0f) / 4.0f;
-                for (int i = 0; i < std::min(e.r.segments, 4); ++i)
-                    renderer.draw(ui::Rect{gx + kInset + static_cast<float>(i) * (sw + kSegGap),
-                                           cy - kBodyH * 0.5f + kInset, sw,
-                                           kBodyH - kInset * 2.0f, 1.0f, fill});
-                if (e.r.charging) {
-                    ui::Rect bolt{gx + kBodyW + 1.0f + kNubW + kBoltGap,
-                                  cy - kBoltH * 0.5f, kBoltW, kBoltH, 0.0f, grey};
-                    bolt.shape = ui::Rect::Shape::Bolt;
-                    renderer.draw(bolt);
-                }
+            if (e.r.segments <= 0) {   // no reading: the label alone, centred in the bar
+                text.draw(renderer, e.label, x, base, ls, grey, sc);
+                continue;
+            }
+            // The label above, the battery below, the pair centred in the bar.
+            const float labelH = text.lineHeight(kRowLabel, sc);
+            const float stackH = labelH + kLabelAbove + kBodyH;
+            const float top = barTop + (barHeight - stackH) * 0.5f;
+            const float labelW = text.measure(e.label, kRowLabel, sc);
+            const float group = std::max(labelW, kBatteryW);
+            const float gx = x + (group - kBatteryW) * 0.5f;
+            const float by = top + labelH + kLabelAbove;   // the battery's top
+            text.draw(renderer, e.label, x + (group - labelW) * 0.5f,
+                      top + text.ascent(kRowLabel, sc), kRowLabel, grey, sc);
+            ui::Rect body{gx, by, kBodyW, kBodyH, 5.0f, ui::Color::white(0.0f)};
+            body.border = 2.5f;
+            body.borderColor = grey;
+            renderer.draw(body);
+            renderer.draw(ui::Rect{gx + kBodyW + 1.0f, by + (kBodyH - kNubH) * 0.5f, kNubW,
+                                   kNubH, 1.5f, grey});
+            const ui::Color fill = faded(e.r.segments >= 3   ? kBatteryGreen
+                                         : e.r.segments == 2 ? kBatteryAmber
+                                                             : kBatteryRed);
+            const float sw = (kBodyW - kInset * 2.0f - kSegGap * 3.0f) / 4.0f;
+            for (int i = 0; i < std::min(e.r.segments, 4); ++i)
+                renderer.draw(ui::Rect{gx + kInset + static_cast<float>(i) * (sw + kSegGap),
+                                       by + kInset, sw, kBodyH - kInset * 2.0f, 1.0f, fill});
+            if (e.r.charging) {
+                ui::Rect bolt{gx + kBatteryW + kBoltGap, by + (kBodyH - kBoltH) * 0.5f, kBoltW,
+                              kBoltH, 0.0f, grey};
+                bolt.shape = ui::Rect::Shape::Bolt;
+                renderer.draw(bolt);
             }
         }
         leftOfChip = rowLeft - 10.0f;

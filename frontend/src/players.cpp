@@ -208,8 +208,7 @@ void light() {
     }
 }
 
-// FORK (handheld): a handheld's own controls must not hold player 1 against a
-// pad that is plugged in. The pad you picked up is player 1, as on a TV.
+// FORK (handheld): the handheld's own controls (the Deck's).
 bool isBuiltIn(SDL_Gamepad* gp) {
     if (SDL_GetGamepadVendor(gp) == 0x28de && SDL_GetGamepadProduct(gp) == 0x1205)
         return true;
@@ -217,16 +216,28 @@ bool isBuiltIn(SDL_Gamepad* gp) {
     return n && std::strcmp(n, "Steam Deck Controller") == 0;
 }
 
-// A pad that has just been seated moves up past any built-in pad above it.
-// Seats::swap refuses during a game, so a game in progress keeps its numbers.
-void putAheadOfBuiltIn(SDL_JoystickID id) {
-    for (;;) {
-        const int p = gSeats.playerOf(id);
-        if (p <= 0) return;
-        auto above = gOpen.find(gSeats.idOf(p - 1));
-        if (above == gOpen.end() || !isBuiltIn(above->second)) return;
-        if (!gSeats.swap(p - 1, p)) return;
+// FORK (handheld): WHO IS PLAYER ONE ON A HANDHELD. The handheld's own controls
+// take the first seat, as the first pad on. When a game starts, if the two
+// first seats are the handheld's own controls and one other pad, whichever of
+// the two was pressed last is player one: pick up the 8BitDo and play with it,
+// and it is player one; leave it on the table and the Deck is.
+std::mutex gPressLock;
+std::map<SDL_JoystickID, Uint64> gPressedAt;   // SDL_GetTicks of a pad's last button press
+
+void putLastPressedFirst() {
+    if (gStreaming) return;
+    const uint32_t first = gSeats.idOf(0), second = gSeats.idOf(1);
+    if (!first || !second) return;
+    auto a = gOpen.find(first), b = gOpen.find(second);
+    if (a == gOpen.end() || b == gOpen.end()) return;
+    if (isBuiltIn(a->second) == isBuiltIn(b->second)) return;
+    Uint64 at1 = 0, at2 = 0;
+    {
+        std::lock_guard<std::mutex> lk(gPressLock);
+        if (auto it = gPressedAt.find(first); it != gPressedAt.end()) at1 = it->second;
+        if (auto it = gPressedAt.find(second); it != gPressedAt.end()) at2 = it->second;
     }
+    if (at2 > at1) gSeats.swap(0, 1);
 }
 void changed(const char* what, SDL_JoystickID id) {
     ++gGeneration;
@@ -277,7 +288,6 @@ void added(SDL_JoystickID id) {
     gDir[id] = battery::deviceDir(SDL_GetGamepadPath(gp));
     if (isBuiltIn(gp)) gDir[id] = battery::systemDir();   // FORK: the handheld's own battery
     (remote ? gRemote : gSeats).add(id, keyOf(gp));
-    if (!remote && !isBuiltIn(gp)) putAheadOfBuiltIn(id);
     std::fprintf(stderr, "[players] pad %u is %s%s%s%s\n", static_cast<unsigned>(id),
                  nameOf(gp).c_str(), addressOf(gp).empty() ? "" : " over Bluetooth ",
                  addressOf(gp).c_str(), remote ? ", through a stream" : "");
@@ -310,6 +320,7 @@ void removed(SDL_JoystickID id) {
 
 void setInGame(bool on) {
     if (gSeats.inGame() == on) return;
+    if (on) putLastPressedFirst();   // FORK (handheld): before the game keeps the numbers
     gSeats.setInGame(on);
     gRemote.setInGame(on);
     changed(on ? "game started" : "game ended", 0);
@@ -328,6 +339,11 @@ void setStreaming(bool on) {
 }
 
 bool streaming() { return gStreaming; }
+
+void pressed(SDL_JoystickID id) {   // FORK (handheld): the event filter's thread
+    std::lock_guard<std::mutex> lk(gPressLock);
+    gPressedAt[id] = SDL_GetTicks();
+}
 
 bool setAside(SDL_JoystickID id) {
     std::lock_guard<std::mutex> lk(gIsRemoteLock);

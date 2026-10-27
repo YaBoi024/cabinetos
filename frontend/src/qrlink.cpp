@@ -17,6 +17,8 @@ void QrLinkScreen::open() {
     // THE LAST CODE'S PICTURE GOES TOO (#485, SETTINGS-06 and HOME-12): kept,
     // a new link whose code would not encode was drawn beside the old QR.
     qr_.set(qr::Code{});
+    forkQr_.set(qr::Code{});   // FORK (handheld): no second code unless asked for
+    forkUrl_.clear();
     baked_.reset();
     busy_ = true;
     appear_.retarget(0.0f, 0.0f);
@@ -45,6 +47,15 @@ void QrLinkScreen::setBaked(wikiqr::Which which) {
     busy_ = false;
     baked_ = which;
     qr_.set(wikiqr::qrCode(which));
+}
+
+void QrLinkScreen::setBakedWithFork(wikiqr::Which which, const std::string& forkUrl) {
+    setBaked(which);
+    std::string err;
+    const qr::Code c = qr::encode(forkUrl, &err);
+    forkQr_.set(c);   // an invalid code leaves no picture: the screen shows the one code
+    if (!c.valid()) return;
+    forkUrl_ = forkUrl.substr(forkUrl.find("//") == std::string::npos ? 0 : forkUrl.find("//") + 2);
 }
 
 void QrLinkScreen::setText(std::string title, std::vector<std::string> lines,
@@ -125,6 +136,15 @@ void QrLinkScreen::draw(Ctx& c) {
     // background creates, and the address was touching the panel's bottom edge.
     if (!code_.empty()) {
         y += 30.0f;
+        // FORK (handheld): with two codes, each address is named: the original's
+        // first (the line below), then this fork's.
+        const bool two = !forkUrl_.empty() && forkQr_.valid();
+        if (two) {
+            c.text.draw(c.r, "Original CabinetOS", kInset,
+                        y + c.text.ascent(ui::TextStyle::Body, c.sc), ui::TextStyle::Body,
+                        ui::Color::white(0.72f * a), c.sc);
+            y += c.text.lineHeight(ui::TextStyle::Body, c.sc);
+        }
         if (!url_.empty()) {
             // THE WHOLE LINK, code and all, as first run shows it. It was
             // shown without `?user_code=`, and typed into a browser that
@@ -134,6 +154,16 @@ void QrLinkScreen::draw(Ctx& c) {
             if (shown.rfind("http://", 0) == 0) shown = shown.substr(7);
             c.text.draw(c.r, shown, kInset,
                         y + c.text.ascent(ui::TextStyle::Body, c.sc),
+                        ui::TextStyle::Body, ui::palette::kScreenCyan, c.sc);
+            y += c.text.lineHeight(ui::TextStyle::Body, c.sc);
+        }
+        if (two) {
+            y += 28.0f;
+            c.text.draw(c.r, "CabinetOS Handheld", kInset,
+                        y + c.text.ascent(ui::TextStyle::Body, c.sc), ui::TextStyle::Body,
+                        ui::Color::white(0.72f * a), c.sc);
+            y += c.text.lineHeight(ui::TextStyle::Body, c.sc);
+            c.text.draw(c.r, forkUrl_, kInset, y + c.text.ascent(ui::TextStyle::Body, c.sc),
                         ui::TextStyle::Body, ui::palette::kScreenCyan, c.sc);
             y += c.text.lineHeight(ui::TextStyle::Body, c.sc);
         }
@@ -186,6 +216,33 @@ void QrLinkScreen::draw(Ctx& c) {
     // the shortcut past typing them. Bigger than it was, because it no longer
     // has to leave room around itself inside something else — and a code that
     // is photographed from a sofa cannot be too large.
+    // FORK (handheld): two codes one above the other, a label under each. The
+    // original's, exactly as it was drawn (the cabinet over its middle), on top;
+    // this fork's GitHub page below it.
+    if (forkQr_.valid() && qr_.valid()) {
+        constexpr float kCode = 400.0f;      // each code's square
+        constexpr float kLabelGap = 8.0f;    // from the code to its label
+        constexpr float kBlockGap = 18.0f;   // from one label to the next code
+        const float labelH = c.text.lineHeight(ui::TextStyle::Body, c.sc);
+        const float block = kCode + kLabelGap + labelH;
+        const float top = (ui::kCanvasHeight - (2.0f * block + kBlockGap)) * 0.5f;
+        const float x = kPanelX + (kPanelW - kCode) * 0.5f;
+        const char* const names[2] = {"Original CabinetOS", "CabinetOS Handheld"};
+        for (int i = 0; i < 2; ++i) {
+            const float qy2 = top + static_cast<float>(i) * (block + kBlockGap);
+            if (i == 0) {
+                qr_.draw(c.r, x, qy2, kCode);
+                if (baked_) wikiqr::drawPatch(*baked_, c.r, x, qy2, kCode, 1.0f);
+            } else {
+                forkQr_.draw(c.r, x, qy2, kCode);
+            }
+            const float w = c.text.measure(names[i], ui::TextStyle::Body, c.sc);
+            c.text.draw(c.r, names[i], x + (kCode - w) * 0.5f,
+                        qy2 + kCode + kLabelGap + c.text.ascent(ui::TextStyle::Body, c.sc),
+                        ui::TextStyle::Body, ui::Color::white(0.85f * a), c.sc);
+        }
+        return;
+    }
     const float side = 560.0f;
     const float qx = kPanelX + (kPanelW - side) * 0.5f;
     const float qy = kPanelY + (kPanelH - side) * 0.5f;

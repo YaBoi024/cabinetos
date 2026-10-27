@@ -146,6 +146,8 @@ std::optional<int> App::startDisplay() {
         [](void*, SDL_Event* e) -> bool {
             switch (e->type) {
                 case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+                    players::pressed(e->gbutton.which);   // FORK (handheld): players.h
+                    return !players::setAside(e->gbutton.which);
                 case SDL_EVENT_GAMEPAD_BUTTON_UP: return !players::setAside(e->gbutton.which);
                 case SDL_EVENT_GAMEPAD_AXIS_MOTION: return !players::setAside(e->gaxis.which);
                 case SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN:

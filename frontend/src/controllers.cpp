@@ -360,8 +360,12 @@ void App::noticeLowBattery(float dt) {
                 if (h.stream || h.key.empty()) continue;
                 battery::Reading r = battery::kernel(h.dir);
                 if (r.segments == 0) r = battery::sdl(h.gp);
-                warn(h.key, "P" + std::to_string(h.player + 1), r.low() && !r.charging,
-                     r.segments >= 2);
+                // FORK (handheld): the Deck's own controls carry the machine's battery,
+                // and it is the Deck's, not "P1"'s.
+                const std::string who = h.dir == battery::systemDir()
+                                            ? std::string("Deck")
+                                            : "P" + std::to_string(h.player + 1);
+                warn(h.key, who, r.low() && !r.charging, r.segments >= 2);
             }
             if (!players::streaming())
                 for (const wiiremote::Battery& b : wiiremote::batteries())

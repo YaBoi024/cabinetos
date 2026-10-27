@@ -30,6 +30,10 @@ constexpr const char* kInput = "/dev/input";
 constexpr const char* kSink = "@DEFAULT_AUDIO_SINK@";
 
 std::once_flag gStarted;
+// FORK (handheld): the last level a key press left, read by the frame thread.
+std::atomic<int> gPercent{0};
+std::atomic<bool> gMuted{false};
+std::atomic<unsigned> gGeneration{0};
 // A volume key was used this run: the start's reset stops putting full back.
 std::atomic<bool> gPressed{false};
 
@@ -100,7 +104,14 @@ void apply(int steps) {
                      proc::trimmed(r.err).c_str());
         return;
     }
-    std::fprintf(stderr, "[volume] %s: %s\n", change(steps).c_str(), level().c_str());
+    const std::string now = level();
+    std::fprintf(stderr, "[volume] %s: %s\n", change(steps).c_str(), now.c_str());
+    // FORK (handheld): "0.50" or "0.50 [MUTED]", kept for the bar on screen.
+    if (!now.empty()) {
+        gPercent = static_cast<int>(std::strtod(now.c_str(), nullptr) * 100.0 + 0.5);
+        gMuted = now.find("MUTED") != std::string::npos;
+        ++gGeneration;
+    }
 }
 
 // The kernel's list of the keys a device can send, from sysfs, which anyone
@@ -242,6 +253,10 @@ void run() {
 }
 
 }  // namespace
+
+unsigned generation() { return gGeneration; }
+int percent() { return gPercent; }
+bool muted() { return gMuted; }
 
 void start() {
     std::call_once(gStarted, [] { std::thread(run).detach(); });

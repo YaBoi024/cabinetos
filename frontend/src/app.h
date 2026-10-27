@@ -60,6 +60,7 @@
 #include "image.h"
 #include "job.h"
 #include "keyboard.h"
+#include "levelbar.h"
 #include "libraryscreen.h"
 #include "look.h"
 #include "manualview.h"
@@ -2174,6 +2175,12 @@ struct App {
     // controllers.cpp
     bool interceptControllers(const SDL_Event& e);
     void noticeLowBattery(float dt);
+    void tickLevelBars(float dt);   // FORK (handheld): levelbar.cpp
+    void drawLevelBar(float sc);    // FORK (handheld): levelbar.cpp
+    levelbar::Bar levelBar;
+    unsigned volumeBarSeen = 0;
+    int backlightSeen = -1;
+    float backlightLook = 0.0f;
     void followPads();
     void pumpPadWindow();
     // drivesflow.cpp

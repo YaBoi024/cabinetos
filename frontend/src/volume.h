@@ -32,6 +32,12 @@ namespace volume {
 // One press, in wpctl's percent.
 inline constexpr int kStepPercent = 5;
 
+// FORK (handheld): the level after the last key press, for the bar on screen
+// (levelbar.h). generation() moves with each press; percent() is 0 to 100.
+unsigned generation();
+int percent();
+bool muted();
+
 // Starts the thread: the reset to full (unless a built-in screen), then the
 // keys, for the rest of the run. Idempotent.
 void start();

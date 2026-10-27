@@ -121,6 +121,13 @@ void run() {
     }
     char buf[8192];
     for (;;) {
+        // FORK (handheld): the Deck's own battery changes its charging state without
+        // always telling udev, so it is also read every ten seconds.
+        pollfd pfd{fd, POLLIN, 0};
+        if (::poll(&pfd, 1, 10000) == 0) {
+            scan();
+            continue;
+        }
         const ssize_t n = ::recv(fd, buf, sizeof buf - 1, 0);
         if (n <= 0) continue;
         buf[n] = '\0';

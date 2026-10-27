@@ -99,6 +99,9 @@ bool swap(int a, int b);
 void setStreaming(bool on);
 bool streaming();
 bool setAside(SDL_JoystickID id);
+// FORK (handheld): a pad's button went down. Called from the event filter; a
+// game starting makes the last-pressed of the Deck and one other pad player one.
+void pressed(SDL_JoystickID id);
 
 // The pad a game hears as `player`, or null.
 SDL_Gamepad* gamepad(int player);

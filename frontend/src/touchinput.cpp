@@ -38,18 +38,18 @@ namespace {
 
 // All in canvas points (1920 x 1080), so the same on any display.
 constexpr float kTapSlop = 28.0f;      // moving further than this is a drag, not a tap
-constexpr float kFirstStep = 70.0f;    // the drag distance of the first focus step
-constexpr float kStep = 150.0f;        // and of each one after it
+constexpr float kFirstStep = 35.0f;    // the drag distance of the first focus step
+constexpr float kStep = 140.0f;        // and of each one after it
 constexpr float kEdge = 56.0f;         // a drag that begins this close to the left edge is Back
 constexpr float kBackTravel = 220.0f;  // and goes this far across
 constexpr uint64_t kTapMaxMs = 600;    // a touch held longer than this is not a tap
 // A flick: lift the finger while it is still moving fast and the focus runs on.
-constexpr float kFlingMinSpeed = 450.0f;   // canvas points a second below which there is none
-constexpr float kFlingPerStep = 300.0f;    // and one more step for each of these above that
-constexpr int kFlingMaxSteps = 10;         // however fast
-constexpr float kFlingFirstGap = 0.05f;    // seconds to the first step after the lift
-constexpr float kFlingSlowing = 1.2f;      // each gap is this much longer than the last
-constexpr uint64_t kFlingMaxAgeMs = 80;    // the finger must still have been moving this recently
+constexpr float kFlingMinSpeed = 120.0f;   // canvas points a second below which there is none
+constexpr float kFlingPerStep = 200.0f;    // and one more step for each of these above that
+constexpr int kFlingMaxSteps = 12;         // however fast
+constexpr float kFlingFirstGap = 0.04f;    // seconds to the first step after the lift
+constexpr float kFlingSlowing = 1.18f;      // each gap is this much longer than the last
+constexpr uint64_t kFlingMaxAgeMs = 120;    // the finger must still have been moving this recently
 
 struct Finger {
     bool down = false;
@@ -293,8 +293,11 @@ bool App::handleTouch(const SDL_Event& e) {
             const float past = std::fabs(travel) - kFirstStep;
             const int count = past < 0.0f ? 0 : 1 + static_cast<int>(past / kStep);
             const int want = travel < 0.0f ? -count : count;
-            const Nav forward = gFinger.axis == 1 ? Nav::Right : Nav::Down;
-            const Nav backward = gFinger.axis == 1 ? Nav::Left : Nav::Up;
+            // FORK (handheld): on Home the shelf follows the finger sideways, so a drag
+            // to the right brings the covers to the right, and the focus goes Left.
+            const bool shelf = gFinger.axis == 1 && here() == Screen::Home;
+            const Nav forward = gFinger.axis == 1 ? (shelf ? Nav::Left : Nav::Right) : Nav::Down;
+            const Nav backward = gFinger.axis == 1 ? (shelf ? Nav::Right : Nav::Left) : Nav::Up;
             while (gFinger.stepped < want) {
                 stepFocus(*this, owner, forward);
                 ++gFinger.stepped;
@@ -326,11 +329,14 @@ bool App::handleTouch(const SDL_Event& e) {
                         const float fast = std::fabs(speed);
                         if (fast >= kFlingMinSpeed) {
                             const int steps = std::min(
-                                kFlingMaxSteps, static_cast<int>((fast - kFlingMinSpeed) / kFlingPerStep) + 1);
+                                kFlingMaxSteps, static_cast<int>((fast - kFlingMinSpeed) / kFlingPerStep) + 4);
                             const bool forward = speed > 0.0f;
                             gFling.on = true;
                             gFling.left = steps;
-                            gFling.nav = gFinger.axis == 1 ? (forward ? Nav::Right : Nav::Left)
+                            const bool shelf = gFinger.axis == 1 && here() == Screen::Home;
+                            const Nav right = shelf ? Nav::Left : Nav::Right;   // see the drag above
+                            const Nav left = shelf ? Nav::Right : Nav::Left;
+                            gFling.nav = gFinger.axis == 1 ? (forward ? right : left)
                                                            : (forward ? Nav::Down : Nav::Up);
                             gFling.gap = kFlingFirstGap;
                             gFling.wait = kFlingFirstGap;

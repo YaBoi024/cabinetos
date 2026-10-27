@@ -164,6 +164,7 @@ void App::runFrameLoop() {
         }
         askReadyWhenFree();
         noticeLowBattery(dt);
+	tickLevelBars(dt);   // FORK (handheld): levelbar.cpp
         sayUpdatedTo();
         sayStartProblem();
         noticeGalleryHook(dt);
@@ -259,6 +260,7 @@ void App::runFrameLoop() {
         }
 
         drawNotice(sc);
+	drawLevelBar(sc);   // FORK (handheld): levelbar.cpp
 
         drawRaToast(sc);
 
