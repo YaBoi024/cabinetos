@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <fstream>
 #include <map>
+#include <memory>
 #include <random>
 #include <mutex>
 #include <thread>
@@ -26,7 +27,9 @@ struct Live {
     std::atomic<State> state{State::Off};
     std::atomic<bool> cancel{false};
     std::thread connector;
-    netplay::Session session;
+    // A new one for every game: the old one's buttons, fingerprints and
+    // listening door must not reach the next.
+    std::unique_ptr<netplay::Session> session;
     std::string why;   // set by the connector before state becomes Playing/Off
     std::atomic<bool> connectFailed{false};
     std::atomic<bool> together{false};   // the game on screen was started to be played together
@@ -123,13 +126,13 @@ void connect(Request r, netplay::Identity me) {
     std::string why;
     using Clock = std::chrono::steady_clock;
     if (r.host) {
-        why = l.session.listen("0.0.0.0", static_cast<uint16_t>(r.port));
+        why = l.session->listen("0.0.0.0", static_cast<uint16_t>(r.port));
         if (why.empty()) {
             std::fprintf(stderr, "[netplay] hosting on port %u (code %d)\n",
-                         static_cast<unsigned>(l.session.port()), r.code);
+                         static_cast<unsigned>(l.session->port()), r.code);
             const auto stop = Clock::now() + std::chrono::seconds(300);
             for (;;) {
-                why = l.session.accept(static_cast<uint16_t>(r.code), me, r.delay, 500);
+                why = l.session->accept(static_cast<uint16_t>(r.code), me, r.delay, 500);
                 if (why.empty() || l.cancel || Clock::now() > stop) break;
                 if (why == "nobody joined") continue;
                 // Somebody knocked and was turned away (a wrong code, a
@@ -137,14 +140,14 @@ void connect(Request r, netplay::Identity me) {
                 std::fprintf(stderr, "[netplay] turned a joiner away: %s\n", why.c_str());
                 say(why == "wrong code" ? "Someone tried the wrong code"
                                         : "Someone tried to join: " + why);
-                why = l.session.listen("0.0.0.0", static_cast<uint16_t>(r.port));
+                why = l.session->listen("0.0.0.0", static_cast<uint16_t>(r.port));
                 if (!why.empty()) break;
             }
         }
     } else {
         const auto stop = Clock::now() + std::chrono::seconds(120);
         for (;;) {
-            why = l.session.join(r.address, static_cast<uint16_t>(r.port),
+            why = l.session->join(r.address, static_cast<uint16_t>(r.port),
                                  static_cast<uint16_t>(r.code), me, 3000);
             if (why.empty() || why.find("the host said no") == 0 || l.cancel ||
                 Clock::now() > stop)
@@ -163,7 +166,7 @@ void fail(const std::string& message) {
     Live& l = live();
     std::fprintf(stderr, "[netplay] %s\n", message.c_str());
     say(message);
-    l.session.leave();
+    l.session->leave();
     l.state = State::Off;
     pending() = {};
 }
@@ -212,6 +215,7 @@ void begin(cab::Core& core, const std::string& romPath, int romId) {
     l.late = false;
     l.saidWaiting = false;
     l.delay = r.delay;
+    l.session = std::make_unique<netplay::Session>();
     l.state = State::Connecting;
     {
         std::lock_guard<std::mutex> g(l.lock);
@@ -254,8 +258,8 @@ int step(cab::Core& core, int maxFrames) {
     if (l.state != State::Playing) return 0;
     if (l.connector.joinable()) {
         l.connector.join();
-        l.delay = l.session.delay();
-        l.self = l.session.localPlayer();
+        l.delay = l.session->delay();
+        l.self = l.session->localPlayer();
         std::fprintf(stderr, "[netplay] connected, player %d, delay %d frames\n", l.self + 1,
                      l.delay);
         {
@@ -271,14 +275,14 @@ int step(cab::Core& core, int maxFrames) {
         const uint32_t f = l.frame;
         // Our buttons for f + d go out once, whether or not frame f can run yet.
         if (l.sentUpTo <= f) {
-            l.session.sendInputs(f + d, l.local);
+            l.session->sendInputs(f + d, l.local);
             l.sent[f + d] = l.local;
             l.sentUpTo = f + 1;
         }
         netplaywire::Pad mine, theirs;
         if (f >= d) {
             mine = l.sent[f];
-            const netplay::Wait w = l.session.remoteInputs(f, theirs, 0);
+            const netplay::Wait w = l.session->remoteInputs(f, theirs, 0);
             if (w == netplay::Wait::Gone) {
                 fail("The other player left");
                 return ran;
@@ -309,12 +313,12 @@ int step(cab::Core& core, int maxFrames) {
         // session with a message instead of letting the two games drift.
         if (l.frame % 60 == 0) {
             const uint64_t v = core.frameDigest();
-            l.session.sendDigest(f, v);
+            l.session->sendDigest(f, v);
             l.mine[f] = v;
         }
         for (auto it = l.mine.begin(); it != l.mine.end();) {
             uint64_t theirDigest = 0;
-            const netplay::Wait w = l.session.remoteDigest(it->first, theirDigest, 0);
+            const netplay::Wait w = l.session->remoteDigest(it->first, theirDigest, 0);
             if (w == netplay::Wait::Late) break;
             if (w == netplay::Wait::Gone) break;   // the input path reports it
             if (theirDigest != it->second) {
@@ -339,7 +343,8 @@ void stop() {
     Live& l = live();
     l.cancel = true;
     if (l.connector.joinable()) l.connector.join();
-    if (l.state == State::Playing) l.session.leave();
+    if (l.session) l.session->leave();
+    l.session.reset();
     l.state = State::Off;
     l.sent.clear();
     l.mine.clear();
