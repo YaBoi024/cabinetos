@@ -53,8 +53,9 @@ void App::finishExit() {
         uploader.sendPlay();
         playedJustNow(session.romId);
     }
-    // FORK (handheld): what a game played together saved is not the player's.
-    if (!netplaylive::blankSave(session.romId)) syncSave(session, uploader);
+    // A game played together writes its battery into its own folder and has no
+    // save tag, so this keeps the shared saved game and uploads nothing.
+    syncSave(session, uploader);
     // The disc in the drive, kept for this person's next Play (#162);
     // GameCube changes its own discs, so the core is asked.
     if (!session.discs.empty()) {

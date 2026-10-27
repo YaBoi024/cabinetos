@@ -55,3 +55,8 @@ frontend/src/actions.cpp
 frontend/src/screens.h
 frontend/src/tailscale.cpp
 frontend/src/tailscale.h
+frontend/src/core.h
+frontend/src/core_memory.cpp
+frontend/src/dolphinprep.cpp
+frontend/src/dolphinprep.h
+frontend/src/playtogetherflow.cpp

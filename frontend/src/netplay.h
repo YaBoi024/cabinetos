@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <map>
 #include <string>
+#include <vector>
 
 #include "netplaywire.h"
 
@@ -25,9 +26,21 @@ namespace netplay {
 // What each side is running. All must be equal for a session to start.
 struct Identity {
     std::string core, coreVersion, gameHash;
+    // A fingerprint of the shared saved game this side holds ("" for none).
+    // Not required to match: when it differs, the host's saved game is sent.
+    std::string saveHash;
 };
 
 enum class Wait { Got, Late, Gone };
+
+// Ask accept() to choose the input delay itself.
+constexpr int kAutoDelay = -1;
+
+// Frames of delay that keep the other side's buttons from arriving late: the
+// one-way trip, a margin for jitter, and a few milliseconds for the two
+// consoles' refreshes not lining up, over the length of a frame. At least 1 and
+// at most 8; a link that needs more is too slow to play well and is logged.
+int chooseDelay(double rttMs, double rttVarMs, double fps);
 
 class Session {
 public:
@@ -39,7 +52,13 @@ public:
     // Host: open a port (0 picks a free one; port() says which), then accept.
     // Each returns "" on success, or a plain reason.
     std::string listen(const std::string& bindAddress, uint16_t port);
-    std::string accept(uint16_t code, const Identity& me, int delay, int timeoutMs);
+    // `delay` is in frames; kAutoDelay picks it from the round trip the kernel
+    // measured while the joiner connected (chooseDelay), for a core running at `fps`.
+    //
+    // `savePack` is the host's shared saved game (netplaysave.h), sent to the joiner
+    // when the two fingerprints differ.
+    std::string accept(uint16_t code, const Identity& me, int delay, int timeoutMs,
+                       double fps = 60.0, const std::vector<uint8_t>* savePack = nullptr);
     uint16_t port() const { return port_; }
 
     // Joiner: connect to a host and pass the handshake.
@@ -47,6 +66,22 @@ public:
                      const Identity& me, int timeoutMs);
 
     int delay() const { return delay_; }
+    // The connection's smoothed round trip in milliseconds, as the kernel sees it
+    // now (it keeps measuring from the acknowledgements of the buttons); -1 if unknown.
+    double rttMs() const;
+    double rttVarMs() const;
+
+    // The host's saved game, as the joiner received it: synced() says the host
+    // sent one (possibly empty, meaning the host has none), receivedSave() is it.
+    // On the host, sentSave() says it was sent.
+    bool synced() const { return synced_; }
+    bool sentSave() const { return sentSave_; }
+    const std::vector<uint8_t>& receivedSave() const { return received_; }
+
+    // Ask the other side to send its buttons at least `frames` ahead (1 to 8),
+    // and the newest such ask from them (0 when there is none new).
+    void sendLead(int frames);
+    int takeLead();
     int localPlayer() const { return host_ ? 0 : 1; }
 
     // Our buttons for `frame`, and a fingerprint of a frame we have played.
@@ -79,6 +114,10 @@ private:
     netplaywire::Parser parser_;
     std::map<uint32_t, netplaywire::Pad> inputs_;
     std::map<uint32_t, uint64_t> digests_;
+    bool synced_ = false;
+    bool sentSave_ = false;
+    std::vector<uint8_t> received_;
+    int peerLead_ = 0;
 };
 
 // --netplay-session-test: both ends in one process over 127.0.0.1. 0 when all pass.

@@ -481,9 +481,10 @@ void App::pumpLaunch() {
     restoreBeforeLoad(c);
     if (!loadLaunchedGame(c)) return;
     setUpLoadedGame(c);
-    // FORK (handheld): a game played together starts blank (netplaylive.h).
-    if (!netplaylive::blankSave(launchJob.romId))
-        restoreBatterySave(c.core, session, c.saveDir, c.user, launchJob.saves);
+    // FORK (handheld): a game played together reads the battery from its own
+    // folder (prepareSaveDirAndDiscs) and asks the server for nothing.
+    restoreBatterySave(c.core, session, c.saveDir, c.user,
+                       netplaylive::playingTogether(launchJob.romId) ? SaveFetch{} : launchJob.saves);
     // The fetched saves are written; a card can be megabytes, so not kept.
     launchJob.saves = SaveFetch{};
     launchJob.miiSaves = SaveFetch{};
@@ -638,8 +639,14 @@ void App::prepareSaveDirAndDiscs(LaunchContext& c) {
     // memory stick land in the same place as the battery snapshot this
     // frontend takes — which is the whole of what "two save directories"
     // and "one flat pile" cost.
+    //
+    // FORK (handheld): a game played together has a folder of its own beside
+    // this one (netplaylive.h), so the player's solo saves are never read or
+    // changed by it, and nothing in it is uploaded.
+    const bool together = netplaylive::playingTogether(launchJob.romId);
     c.saveDir = storage::savesDir(
-        c.user, launchJob.platformFsSlug, launchJob.romId, launchJob.coreName);
+        c.user, launchJob.platformFsSlug, launchJob.romId,
+        together ? launchJob.coreName + "-together" : launchJob.coreName);
     storage::makeDirs(c.saveDir);
 
     // A DIRECTORY save comes down BEFORE the game is loaded, unlike the
@@ -661,7 +668,7 @@ void App::prepareSaveDirAndDiscs(LaunchContext& c) {
                          "off its file, so its region and save folder are unknown; saves "
                          "stay on this console\n");
     }
-    if (c.dirSub && c.launchTag && launchJob.saves.asked)
+    if (c.dirSub && c.launchTag && launchJob.saves.asked && !together)
         restoreDirSave(launchJob.saves, c.launchTag, c.saveDir + "/" + c.dirSub,
                        launchJob.title, oldGameCubeCard);
 
@@ -744,7 +751,8 @@ void App::restoreBeforeLoad(LaunchContext& c) {
                                        launchJob.coreName, stem);
     }
     // Before the core loads: it reads Dolphin.ini on startup.
-    if (launchJob.platformSlug == "ngc") writeDolphinConfig(c.saveDir);
+    if (launchJob.platformSlug == "ngc")
+        writeDolphinConfig(c.saveDir, netplaylive::playingTogether(launchJob.romId));
     // This person's Miis into every Wii game but the Mii Channel, whose
     // own are the master copy (#275).
     if (launchJob.platformSlug == "wii" && launchJob.coreName == "dolphin" &&
@@ -780,8 +788,9 @@ void App::restoreBeforeLoad(LaunchContext& c) {
                        ? dolphinReadablePath(launchJob.romPath, launchJob.romId)
                        : launchJob.romPath;
 
-    // FORK (handheld): none for a game played together (netplaylive.h).
-    if (netplaylive::blankSave(launchJob.romId)) saveSpecs.clear();
+    // FORK (handheld): none from the server for a game played together
+    // (netplaylive.h); the core reads what its own folder holds.
+    if (netplaylive::playingTogether(launchJob.romId)) saveSpecs.clear();
     c.restored = restoreFileSaves(saveSpecs, launchJob.fsStem, c.saveDir, c.launchTag,
                                   launchJob.saves);
 }
@@ -819,7 +828,9 @@ bool App::loadLaunchedGame(LaunchContext& c) {
                          : std::string("Couldn't start this game"));
         return false;
     }
-    netplaylive::begin(c.core, launchJob.romPath, launchJob.romId);   // FORK (handheld): a no-op unless asked for
+    // FORK (handheld): a no-op unless asked for.
+    netplaylive::begin(c.core, launchJob.romPath, launchJob.romId, c.saveDir,
+                       c.dirSub ? c.dirSub : "");
     return true;
 }
 
@@ -849,10 +860,11 @@ void App::setUpLoadedGame(LaunchContext& c) {
     session.stateDir = storage::statesDir(
         c.user, launchJob.platformFsSlug, launchJob.romId, launchJob.coreName);
     session.fileSaves = std::move(c.restored);
-    if (c.launchTag) session.saveTag = c.launchTag;
+    // FORK (handheld): no tag, so nothing of a game played together is uploaded.
+    if (c.launchTag && !netplaylive::playingTogether(launchJob.romId)) session.saveTag = c.launchTag;
     // FORK (handheld): no save states and no rewind in a game played together.
     session.snapshots = catalog::snapshotsAllowed(launchJob.coreName.c_str()) &&
-                        !netplaylive::blankSave(launchJob.romId);
+                        !netplaylive::playingTogether(launchJob.romId);
     // A Vectrex game's screen sheet (#224), read and uploaded here behind the
     // curtain; any other game drops the last one's.
     vectrexsheets::prepare(launchJob.platformSlug, launchJob.md5, launchJob.title,
@@ -895,7 +907,7 @@ void App::setUpLoadedGame(LaunchContext& c) {
     // The baseline for a directory save, taken AFTER the restore above and
     // BEFORE the game has had a chance to write anything. What changes
     // between here and the quit is what this game saved. See GameSession.
-    if (c.dirSub) {
+    if (c.dirSub && !netplaylive::playingTogether(launchJob.romId)) {
         session.dirSaveRoot = c.saveDir + "/" + c.dirSub;
         session.dirSaveCore = launchJob.coreName;
         session.dirSavePlatform = launchJob.platformSlug;

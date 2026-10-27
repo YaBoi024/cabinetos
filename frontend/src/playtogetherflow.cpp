@@ -41,7 +41,7 @@ int gRom = 0;                          // the game whose page asked
 void App::pressPlayTogether(int romId) {
     gRom = romId;
     sound::play(sound::Cue::Activate);
-    askChoice("Play together", "Two players, each on their own console.\nSaves are not used.",
+    askChoice("Play together", "Two players, each on their own console.\nSaves made together are kept apart\nfrom your own; the host's copy is used.",
               {"Host a game", "Join a game", "Cancel"}, 0, [&](int i) {
         if (i == 0) {
             // ---- HOST ----------------------------------------------------

@@ -94,11 +94,23 @@ std::vector<uint8_t> encode(const Message& m) {
             put16(body, m.version);
             put16(body, m.code);
             put8(body, m.players);
-            ok = putText(body, m.core) && putText(body, m.coreVersion) && putText(body, m.gameHash);
+            ok = putText(body, m.core) && putText(body, m.coreVersion) &&
+                 putText(body, m.gameHash) && putText(body, m.saveHash);
             break;
         case Type::Accept:
             put8(body, m.delay);
             put8(body, m.players);
+            put8(body, m.sync);
+            put32(body, m.saveSize);
+            break;
+        case Type::Lead:
+            put8(body, m.lead);
+            break;
+        case Type::Save:
+            if (m.saveBytes.empty() || m.saveBytes.size() > kMaxSaveChunk) { ok = false; break; }
+            put32(body, m.saveSize);
+            put32(body, m.saveOffset);
+            body.insert(body.end(), m.saveBytes.begin(), m.saveBytes.end());
             break;
         case Type::Refuse:
             ok = putText(body, m.reason);
@@ -157,12 +169,36 @@ bool Parser::next(Message& out) {
             m.core = r.text();
             m.coreVersion = r.text();
             m.gameHash = r.text();
+            m.saveHash = r.text();
             break;
         case static_cast<uint8_t>(Type::Accept):
             m.type = Type::Accept;
             m.delay = r.u8();
             m.players = r.u8();
+            m.sync = r.u8();
+            m.saveSize = r.u32();
+            if (m.sync > 1 || m.saveSize > kMaxSave || (m.sync == 0 && m.saveSize != 0)) r.ok = false;
             break;
+        case static_cast<uint8_t>(Type::Lead):
+            m.type = Type::Lead;
+            m.lead = r.u8();
+            if (m.lead < 1 || m.lead > kMaxLead) r.ok = false;
+            break;
+        case static_cast<uint8_t>(Type::Save): {
+            m.type = Type::Save;
+            m.saveSize = r.u32();
+            m.saveOffset = r.u32();
+            const size_t n = r.left;
+            if (n < 1 || n > kMaxSaveChunk || m.saveSize > kMaxSave ||
+                static_cast<uint64_t>(m.saveOffset) + n > m.saveSize) {
+                r.ok = false;
+                break;
+            }
+            m.saveBytes.assign(r.p, r.p + n);
+            r.p += n;
+            r.left = 0;
+            break;
+        }
         case static_cast<uint8_t>(Type::Refuse):
             m.type = Type::Refuse;
             m.reason = r.text();
@@ -209,10 +245,21 @@ int test() {
     hello.core = "snes9x";
     hello.coreVersion = "Snes9x 1.63 890b5d4";
     hello.gameHash = "0123456789abcdef0123456789abcdef";
+    hello.saveHash = "00ff00ff00ff00ff";
     Message accept;
     accept.type = Type::Accept;
     accept.delay = 3;
     accept.players = 2;
+    accept.sync = 1;
+    accept.saveSize = 296960;
+    Message lead;
+    lead.type = Type::Lead;
+    lead.lead = 4;
+    Message save;
+    save.type = Type::Save;
+    save.saveSize = 1000;
+    save.saveOffset = 600;
+    save.saveBytes.assign(400, 0x5A);
     Message refuse;
     refuse.type = Type::Refuse;
     refuse.reason = "different game file";
@@ -228,7 +275,7 @@ int test() {
     bye.type = Type::Bye;
 
     // Every message comes back as it went in, fed whole and fed a byte at a time.
-    for (const Message* m : {&hello, &accept, &refuse, &inputs, &digest, &bye}) {
+    for (const Message* m : {&hello, &accept, &refuse, &inputs, &digest, &bye, &lead, &save}) {
         const std::vector<uint8_t> bytes = encode(*m);
         Parser whole;
         whole.feed(bytes.data(), bytes.size());
@@ -239,9 +286,18 @@ int test() {
                 case Type::Hello:
                     got = back.version == m->version && back.code == m->code &&
                           back.players == m->players && back.core == m->core &&
-                          back.coreVersion == m->coreVersion && back.gameHash == m->gameHash;
+                          back.coreVersion == m->coreVersion && back.gameHash == m->gameHash &&
+                          back.saveHash == m->saveHash;
                     break;
-                case Type::Accept: got = back.delay == m->delay && back.players == m->players; break;
+                case Type::Accept:
+                    got = back.delay == m->delay && back.players == m->players &&
+                          back.sync == m->sync && back.saveSize == m->saveSize;
+                    break;
+                case Type::Lead: got = back.lead == m->lead; break;
+                case Type::Save:
+                    got = back.saveSize == m->saveSize && back.saveOffset == m->saveOffset &&
+                          back.saveBytes == m->saveBytes;
+                    break;
                 case Type::Refuse: got = back.reason == m->reason; break;
                 case Type::Inputs: got = back.frame == m->frame && back.pad == m->pad; break;
                 case Type::Digest: got = back.frame == m->frame && back.digest == m->digest; break;
@@ -294,6 +350,33 @@ int test() {
         std::vector<uint8_t> big = {0x00, 0x66, 0x03, 0x65};   // a text of 101
         big.resize(2 + 0x66, 'a');
         fails(big, "a text over the limit fails");
+    }
+    {
+        Message bad0 = lead;
+        bad0.lead = 0;
+        Message bad9 = lead;
+        bad9.lead = kMaxLead + 1;
+        Parser p0, p9;
+        const std::vector<uint8_t> b0 = encode(bad0), b9 = encode(bad9);
+        p0.feed(b0.data(), b0.size());
+        p9.feed(b9.data(), b9.size());
+        Message x;
+        check(!p0.next(x) && p0.failed() && !p9.next(x) && p9.failed(),
+              "a Lead of 0 or past the limit fails");
+    }
+    {
+        Message past = save;
+        past.saveOffset = 700;   // 700 + 400 is beyond the 1000 bytes
+        Message empty = save;
+        empty.saveBytes.clear();
+        Message huge = save;
+        huge.saveBytes.assign(kMaxSaveChunk + 1, 1);
+        Parser p;
+        const std::vector<uint8_t> b = encode(past);
+        p.feed(b.data(), b.size());
+        Message x;
+        check(!p.next(x) && p.failed(), "a piece of a save that runs past its end fails");
+        check(encode(empty).empty() && encode(huge).empty(), "an empty or oversize piece is not sent");
     }
     {
         Message tooLong = refuse;

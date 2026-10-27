@@ -170,6 +170,21 @@ bool Core::memoryRegion(unsigned id, std::vector<uint8_t>& out) const {
     return true;
 }
 
+uint64_t Core::ramDigest() const {
+    size_t n = 0;
+    const uint8_t* p = memoryPointer(RETRO_MEMORY_SYSTEM_RAM, &n);
+    if (!p || n < 8) return 0;
+    // Eight bytes at a time: an N64's 8 MB is about a millisecond.
+    uint64_t h = 1469598103934665603ull;
+    for (size_t i = 0; i + 8 <= n; i += 8) {
+        uint64_t w;
+        std::memcpy(&w, p + i, sizeof w);
+        h = (h ^ w) * 1099511628211ull;
+        h ^= h >> 29;
+    }
+    return h ? h : 1;
+}
+
 const retro_memory_map* Core::memoryMap() const {
     return (gameLoaded_ && !gIsPs2 && gMemMap.num_descriptors > 0) ? &gMemMap : nullptr;
 }

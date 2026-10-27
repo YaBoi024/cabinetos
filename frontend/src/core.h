@@ -497,6 +497,11 @@ public:
     // A hash of the current picture, for determinism checks. Cheap, and it
     // catches a divergence that audio alone would not.
     uint64_t frameDigest() const;
+    // FORK (handheld): a hash of the console's main memory, for Play together
+    // on the systems drawn by the graphics card (netplaylive.cpp), whose picture
+    // can differ between two machines while the game does not. 0 when the core
+    // does not expose it.
+    uint64_t ramDigest() const;
 
     // THE GAME'S OWN PICTURE, AS RGBA, THE WAY UP IT IS SHOWN: for the
     // picture a save state carries (#99). Read from the game's frame, never

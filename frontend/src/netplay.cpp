@@ -10,7 +10,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cerrno>
+#include <cmath>
 #include <chrono>
 #include <cstdio>
 #include <cstring>
@@ -124,9 +126,49 @@ std::string Session::listen(const std::string& bindAddress, uint16_t port) {
     return {};
 }
 
-std::string Session::accept(uint16_t code, const Identity& me, int delay, int timeoutMs) {
+int chooseDelay(double rttMs, double rttVarMs, double fps) {
+    if (fps < 1.0) fps = 60.0;
+    const double frameMs = 1000.0 / fps;
+    const double needMs = rttMs / 2.0 + 2.0 * rttVarMs + 4.0;
+    int frames = static_cast<int>(std::ceil(needMs / frameMs));
+    if (frames < 1) frames = 1;
+    if (frames > 8) frames = 8;
+    return frames;
+}
+
+double Session::rttMs() const {
+    if (fd_ < 0) return -1.0;
+    tcp_info info{};
+    socklen_t len = sizeof info;
+    if (::getsockopt(fd_, IPPROTO_TCP, TCP_INFO, &info, &len) != 0) return -1.0;
+    return info.tcpi_rtt / 1000.0;
+}
+
+double Session::rttVarMs() const {
+    if (fd_ < 0) return 0.0;
+    tcp_info info{};
+    socklen_t len = sizeof info;
+    if (::getsockopt(fd_, IPPROTO_TCP, TCP_INFO, &info, &len) != 0) return 0.0;
+    return info.tcpi_rttvar / 1000.0;
+}
+
+void Session::sendLead(int frames) {
+    netplaywire::Message m;
+    m.type = netplaywire::Type::Lead;
+    m.lead = static_cast<uint8_t>(std::max(1, std::min(frames, netplaywire::kMaxLead)));
+    sendAll(netplaywire::encode(m));
+}
+
+int Session::takeLead() {
+    const int v = peerLead_;
+    peerLead_ = 0;
+    return v;
+}
+
+std::string Session::accept(uint16_t code, const Identity& me, int delay, int timeoutMs,
+                            double fps, const std::vector<uint8_t>* savePack) {
     if (listenFd_ < 0) return fail("not listening");
-    if (delay < 0 || delay > kMaxDelay) return fail("bad delay");
+    if (delay != kAutoDelay && (delay < 0 || delay > kMaxDelay)) return fail("bad delay");
     pollfd p{listenFd_, POLLIN, 0};
     if (::poll(&p, 1, timeoutMs) <= 0) return fail("nobody joined");
     fd_ = ::accept4(listenFd_, nullptr, nullptr, SOCK_CLOEXEC);
@@ -136,7 +178,7 @@ std::string Session::accept(uint16_t code, const Identity& me, int delay, int ti
     if (fd_ < 0) return fail(std::string("accept failed: ") + std::strerror(errno));
     noDelay(fd_);
     host_ = true;
-    delay_ = delay;
+    delay_ = delay == kAutoDelay ? 1 : delay;   // chosen below, once the joiner has passed
     gone_ = false;
 
     netplaywire::Message hello;
@@ -162,13 +204,53 @@ std::string Session::accept(uint16_t code, const Identity& me, int delay, int ti
         close_();
         return fail(why);
     }
+    if (delay == kAutoDelay) {
+        // The kernel timed the connection while the joiner knocked.
+        tcp_info info{};
+        socklen_t len = sizeof info;
+        double rtt = 0.0, var = 0.0;
+        if (::getsockopt(fd_, IPPROTO_TCP, TCP_INFO, &info, &len) == 0) {
+            rtt = info.tcpi_rtt / 1000.0;
+            var = info.tcpi_rttvar / 1000.0;
+        }
+        delay_ = chooseDelay(rtt, var, fps);
+        std::fprintf(stderr, "[netplay] round trip %.1f ms (+/- %.1f), %d frames of delay\n", rtt,
+                     var, delay_);
+    }
+    // Different saved games: the host's is the one both play on.
+    const bool sync = hello.saveHash != me.saveHash;
+    const std::vector<uint8_t> noSave;
+    const std::vector<uint8_t>& pack = savePack ? *savePack : noSave;
     netplaywire::Message yes;
     yes.type = netplaywire::Type::Accept;
-    yes.delay = static_cast<uint8_t>(delay);
+    yes.delay = static_cast<uint8_t>(delay_);
     yes.players = 2;
+    yes.sync = sync ? 1 : 0;
+    yes.saveSize = sync ? static_cast<uint32_t>(pack.size()) : 0;
+    if (pack.size() > netplaywire::kMaxSave) {
+        close_();
+        return fail("the saved game is too big to share");
+    }
     if (!sendAll(netplaywire::encode(yes))) {
         close_();
         return fail("could not answer the joiner");
+    }
+    if (sync) {
+        for (size_t at = 0; at < pack.size(); at += netplaywire::kMaxSaveChunk) {
+            netplaywire::Message piece;
+            piece.type = netplaywire::Type::Save;
+            piece.saveSize = static_cast<uint32_t>(pack.size());
+            piece.saveOffset = static_cast<uint32_t>(at);
+            const size_t n = std::min(netplaywire::kMaxSaveChunk, pack.size() - at);
+            piece.saveBytes.assign(pack.begin() + static_cast<long>(at),
+                                   pack.begin() + static_cast<long>(at + n));
+            if (!sendAll(netplaywire::encode(piece))) {
+                close_();
+                return fail("could not send the saved game");
+            }
+        }
+        sentSave_ = true;
+        std::fprintf(stderr, "[netplay] sent the host's saved game (%zu bytes)\n", pack.size());
     }
     return {};
 }
@@ -210,6 +292,7 @@ std::string Session::join(const std::string& address, uint16_t port, uint16_t co
     hello.core = me.core;
     hello.coreVersion = me.coreVersion;
     hello.gameHash = me.gameHash;
+    hello.saveHash = me.saveHash;
     const std::vector<uint8_t> bytes = netplaywire::encode(hello);
     if (bytes.empty() || !sendAll(bytes)) {
         close_();
@@ -231,6 +314,27 @@ std::string Session::join(const std::string& address, uint16_t port, uint16_t co
         return fail("the host's answer makes no sense");
     }
     delay_ = answer.delay;
+    synced_ = false;
+    received_.clear();
+    if (answer.sync) {
+        // The host's saved game follows, in pieces, in order.
+        received_.reserve(answer.saveSize);
+        while (received_.size() < answer.saveSize) {
+            netplaywire::Message piece;
+            if (!readMessage(piece, 30000)) {
+                const std::string why = error_;
+                close_();
+                return fail("the saved game did not arrive: " + why);
+            }
+            if (piece.type != netplaywire::Type::Save || piece.saveSize != answer.saveSize ||
+                piece.saveOffset != received_.size()) {
+                close_();
+                return fail("the saved game arrived out of order");
+            }
+            received_.insert(received_.end(), piece.saveBytes.begin(), piece.saveBytes.end());
+        }
+        synced_ = true;
+    }
     return {};
 }
 
@@ -272,6 +376,9 @@ void Session::drain() {
                         return;
                     }
                     digests_[m.frame] = m.digest;
+                    break;
+                case netplaywire::Type::Lead:
+                    peerLead_ = m.lead;
                     break;
                 case netplaywire::Type::Bye:
                 case netplaywire::Type::Refuse:
@@ -418,7 +525,13 @@ int test() {
         std::fprintf(stderr, "[session] %-58s %s\n", what, ok ? "ok" : "FAIL");
         if (!ok) ++bad;
     };
-    const Identity id{"snes9x", "Snes9x 1.63", "00ff00ff00ff00ff"};
+    const Identity id{"snes9x", "Snes9x 1.63", "00ff00ff00ff00ff", ""};
+
+    check(chooseDelay(0, 0, 60) == 1, "no round trip: 1 frame of delay");
+    check(chooseDelay(20, 2, 60) == 2, "20 ms round trip at 60 Hz: 2 frames");
+    check(chooseDelay(60, 5, 60) == 3, "60 ms round trip at 60 Hz: 3 frames");
+    check(chooseDelay(20, 2, 50) == 1, "20 ms round trip at 50 Hz: 1 frame");
+    check(chooseDelay(900, 50, 60) == 8, "a very slow link is held at 8 frames");
 
     // A host and a joiner, each on a thread. Returns the host's and the joiner's answers.
     struct Pair {
@@ -443,6 +556,63 @@ int test() {
         check(p.hostErr.empty() && p.joinErr.empty() && p.join.delay() == 3 &&
                   p.host.localPlayer() == 0 && p.join.localPlayer() == 1,
               "the right code and the same game connect");
+    }
+    {
+        Pair p;
+        connect(p, 4821, 4821, id, id, kAutoDelay);
+        check(p.hostErr.empty() && p.joinErr.empty() && p.join.delay() >= 1 &&
+                  p.join.delay() <= 8 && p.join.delay() == p.host.delay(),
+              "an automatic delay is chosen, and both sides agree on it");
+    }
+    {
+        // Two saved games that differ: the host's is sent, whole, in pieces.
+        Pair p;
+        Identity hostId = id, joinId = id;
+        hostId.saveHash = "aaaaaaaaaaaaaaaa";
+        joinId.saveHash = "bbbbbbbbbbbbbbbb";
+        std::vector<uint8_t> big(300000);
+        for (size_t i = 0; i < big.size(); ++i) big[i] = static_cast<uint8_t>(i * 31 + i / 251);
+        p.host.listen("127.0.0.1", 0);
+        std::thread t([&] { p.joinErr = p.join.join("127.0.0.1", p.host.port(), 4821, joinId, 3000); });
+        p.hostErr = p.host.accept(4821, hostId, 2, 3000, 60.0, &big);
+        t.join();
+        check(p.hostErr.empty() && p.joinErr.empty() && p.host.sentSave() && p.join.synced() &&
+                  p.join.receivedSave() == big,
+              "a different saved game is sent to the joiner, byte for byte");
+    }
+    {
+        // The same saved game on both sides: nothing is sent.
+        Pair p;
+        Identity hostId = id, joinId = id;
+        hostId.saveHash = joinId.saveHash = "cccccccccccccccc";
+        std::vector<uint8_t> pack(1000, 7);
+        p.host.listen("127.0.0.1", 0);
+        std::thread t([&] { p.joinErr = p.join.join("127.0.0.1", p.host.port(), 4821, joinId, 3000); });
+        p.hostErr = p.host.accept(4821, hostId, 2, 3000, 60.0, &pack);
+        t.join();
+        check(p.hostErr.empty() && p.joinErr.empty() && !p.host.sentSave() && !p.join.synced(),
+              "the same saved game on both sides sends nothing");
+    }
+    {
+        // The host has none and the joiner has one: the joiner is told to have none.
+        Pair p;
+        Identity joinId = id;
+        joinId.saveHash = "dddddddddddddddd";
+        p.host.listen("127.0.0.1", 0);
+        std::thread t([&] { p.joinErr = p.join.join("127.0.0.1", p.host.port(), 4821, joinId, 3000); });
+        p.hostErr = p.host.accept(4821, id, 2, 3000, 60.0, nullptr);
+        t.join();
+        check(p.hostErr.empty() && p.joinErr.empty() && p.join.synced() &&
+                  p.join.receivedSave().empty(),
+              "a host with no saved game tells the joiner to start with none");
+        p.host.sendLead(5);
+        int got = 0;
+        for (int i = 0; i < 100 && !got; ++i) {
+            netplaywire::Pad pad;
+            p.join.remoteInputs(1, pad, 5);   // reads what has arrived
+            got = p.join.takeLead();
+        }
+        check(got == 5, "a Lead request reaches the other side");
     }
     {
         Pair p;

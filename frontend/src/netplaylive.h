@@ -25,7 +25,7 @@ struct Request {
     std::string address = "127.0.0.1";
     int port = 55435;
     int code = 4821;
-    int delay = 2;
+    int delay = -1;   // frames; -1 lets the host choose from the round trip (netplay::kAutoDelay)
     int romId = 0;   // the game it was asked for; 0 from the command line, for any
 };
 
@@ -34,11 +34,12 @@ struct Request {
 Request& pending();
 
 // Whether this game was started to be played together, from the press on its
-// page until it closes, even after the session itself has ended. Its saves are
-// neither read nor written (launch.cpp, play.cpp): both consoles start from a
-// blank save, and what the game plays never reaches RomM or replaces the
-// player's own.
-bool blankSave(int romId);
+// page until it closes, even after the session itself has ended. It runs in a
+// save folder of its own (launch.cpp) that is never uploaded, so what it
+// saves is neither the player's solo save nor reaches RomM; the shared saved
+// game in that folder is made the same on both consoles when they connect
+// (netplaysave.h).
+bool playingTogether(int romId);
 
 // Which games can be played together: the systems whose controller ports are
 // the way to play two at once and whose cores hold still from one run to the
@@ -56,7 +57,10 @@ std::string connecting();
 
 // A game has just loaded: if a session was asked for, start connecting (on a
 // thread of its own, so the screen never freezes).
-void begin(cab::Core& core, const std::string& romPath, int romId);
+// `saveDir` is the game's together folder and `cardRoot` the GameCube card
+// folder inside it ("" for any other system).
+void begin(cab::Core& core, const std::string& romPath, int romId, const std::string& saveDir,
+           const std::string& cardRoot);
 
 // True from begin() until the session ends or fails. While true the game is
 // stepped by step() and the pads by setLocal().
