@@ -50,6 +50,7 @@ struct Card {
     // stat() on the filesystem, and twelve covers on screen at sixty frames a
     // second is seven hundred stats a second to draw a dot.
     bool kept = false;
+    bool together = false;   // FORK (handheld): can Play together (netplaylive.h)
     // WHY THIS GAME CANNOT BE PLAYED HERE, when its platform can: a Wii game
     // that needs a Wii Remote nobody has paired. Empty for every playable
     // game. Such a card shows greyed, and the line that names it says why

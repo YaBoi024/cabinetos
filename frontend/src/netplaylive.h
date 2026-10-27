@@ -69,8 +69,15 @@ void setLocal(const cab::PadState& pad);
 // Returns how many were run.
 int step(cab::Core& core, int maxFrames);
 
-// What to tell the player when it changes, else "". Said once per change.
-std::string takeMessage();
+// What to tell the player when it changes, in the console's notice pill
+// (notice.h). `mood` picks the dot: Busy while waiting, Done once connected,
+// Problem when it ended badly. Said once per change; text is "" when none.
+enum class Mood { Info, Busy, Done, Problem };
+struct Message {
+    std::string text;
+    Mood mood = Mood::Info;
+};
+Message takeMessage();
 
 // The game is closing, or the player left.
 void stop();

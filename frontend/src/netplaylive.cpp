@@ -36,6 +36,7 @@ struct Live {
 
     std::mutex lock;
     std::string message;   // waiting to be taken
+    Mood mood = Mood::Info;
 
     netplaywire::Pad local;   // latest buttons, main thread only
     int delay = 0;
@@ -56,10 +57,11 @@ Live& live() {
     return l;
 }
 
-void say(const std::string& m) {
+void say(const std::string& m, Mood mood = Mood::Info) {
     Live& l = live();
     std::lock_guard<std::mutex> g(l.lock);
     l.message = m;
+    l.mood = mood;
 }
 
 // A hash of the start of the file and its size: enough to tell two different
@@ -139,7 +141,8 @@ void connect(Request r, netplay::Identity me) {
                 // different game). The door closed behind them: open it again.
                 std::fprintf(stderr, "[netplay] turned a joiner away: %s\n", why.c_str());
                 say(why == "wrong code" ? "Someone tried the wrong code"
-                                        : "Someone tried to join: " + why);
+                                        : "Someone tried to join: " + why,
+                    Mood::Problem);
                 why = l.session->listen("0.0.0.0", static_cast<uint16_t>(r.port));
                 if (!why.empty()) break;
             }
@@ -165,7 +168,7 @@ void connect(Request r, netplay::Identity me) {
 void fail(const std::string& message) {
     Live& l = live();
     std::fprintf(stderr, "[netplay] %s\n", message.c_str());
-    say(message);
+    say(message, Mood::Problem);
     l.session->leave();
     l.state = State::Off;
     pending() = {};
@@ -191,7 +194,7 @@ void begin(cab::Core& core, const std::string& romPath, int romId) {
     if (!supportsCore(core.coreName())) {
         std::fprintf(stderr, "[netplay] no Play together for the core \"%s\"\n",
                      core.coreName().c_str());
-        say("Play together isn't ready for this system yet");
+        say("Play together isn't ready for this system yet", Mood::Problem);
         pending() = {};
         return;
     }
@@ -200,7 +203,7 @@ void begin(cab::Core& core, const std::string& romPath, int romId) {
     me.coreVersion = core.coreVersion();
     me.gameHash = hashOfFile(romPath);
     if (me.gameHash.empty()) {
-        say("Can't read the game for Play together");
+        say("Can't read the game for Play together", Mood::Problem);
         pending() = {};
         return;
     }
@@ -226,6 +229,7 @@ void begin(cab::Core& core, const std::string& romPath, int romId) {
             std::snprintf(line, sizeof line, "Joining player 1\xE2\x80\xA6");
         waitingLine = line;
         l.message = line;
+        l.mood = Mood::Busy;
     }
     l.connector = std::thread(connect, r, me);
 }
@@ -242,7 +246,7 @@ bool active() {
             std::lock_guard<std::mutex> g(l.lock);
             waitingLine.clear();
         }
-        say("Play together: " + l.why);
+        say("Play together: " + l.why, Mood::Problem);
         pending() = {};
     }
     return false;
@@ -266,7 +270,7 @@ int step(cab::Core& core, int maxFrames) {
             std::lock_guard<std::mutex> g(l.lock);
             waitingLine.clear();
         }
-        say("Connected: you are player " + std::to_string(l.self + 1));
+        say("Connected as player " + std::to_string(l.self + 1), Mood::Done);
     }
     core.setPlayers(2);
     const uint32_t d = static_cast<uint32_t>(l.delay);
@@ -294,7 +298,7 @@ int step(cab::Core& core, int maxFrames) {
                     l.lateSince = now;
                 } else if (!l.saidWaiting && now - l.lateSince > std::chrono::seconds(1)) {
                     l.saidWaiting = true;
-                    say("Waiting for the other player");
+                    say("Waiting for the other player", Mood::Busy);
                 } else if (now - l.lateSince > std::chrono::seconds(20)) {
                     fail("Lost the other player");
                     return ran;
@@ -331,11 +335,12 @@ int step(cab::Core& core, int maxFrames) {
     return ran;
 }
 
-std::string takeMessage() {
+Message takeMessage() {
     Live& l = live();
     std::lock_guard<std::mutex> g(l.lock);
-    std::string m;
-    m.swap(l.message);
+    Message m;
+    m.text.swap(l.message);
+    m.mood = l.mood;
     return m;
 }
 

@@ -328,7 +328,10 @@ void DetailScreen::draw(Ctx& c) {
     // open space where the shelf would be. (The cover grew only when there
     // was a shelf, first, and MMagTech: a game without saves and states
     // should look like one with them.)
-    const float rowsH = 2.0f * rowH + design::kDetailRowGap;
+    // FORK (handheld): three rows on a game that has Play together, so the
+    // shelf below is placed for the rows there are.
+    const float nRows = static_cast<float>(std::max<size_t>(2, rows_.size()));
+    const float rowsH = nRows * rowH + (nRows - 1.0f) * design::kDetailRowGap;
     const float shelfH = design::kStateShelfGap + calloutLH + design::kDetailRowGap + cardH_ +
               design::kDetailRowGap * 0.75f + calloutLH;
     const float colH = headToRows + rowsH + shelfH;

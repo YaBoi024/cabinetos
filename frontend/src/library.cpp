@@ -13,6 +13,7 @@
 #include "favorites.h"
 #include "storage.h"
 #include "wii.h"
+#include "netplaylive.h"
 
 using namespace design;   // NOLINT: Card and colorForTitle (card.h)
 
@@ -55,6 +56,7 @@ int appendGame(Library& lib, const romm::Game& g) {
         c.cover = g.coverPath;
         c.coverLarge = g.coverLargePath;
         c.unavailable = greyedReason(g);
+    	c.together = c.unavailable.empty() && netplaylive::supportsPlatform(g.platformSlug);
         if (i < lib.games.size()) lib.games[i] = g;
         return it->second;
     }
@@ -71,6 +73,7 @@ int appendGame(Library& lib, const romm::Game& g) {
     c.tagLabel = g.tagLabel;
     c.art = colorForTitle(c.title);
     c.unavailable = greyedReason(g);
+    c.together = c.unavailable.empty() && netplaylive::supportsPlatform(g.platformSlug);
     const int idx = static_cast<int>(lib.cards.size());
     lib.cards.push_back(std::move(c));
     lib.games.push_back(g);

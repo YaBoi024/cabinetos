@@ -98,8 +98,12 @@ void App::runFrameLoop() {
             static float sinceWaiting = 99.0f;
             sinceWaiting += dt;
             const std::string waiting = netplaylive::connecting();
-            if (const std::string said = netplaylive::takeMessage(); !said.empty()) {
-                menuNotice.say(said, waiting.empty() ? Tone::Info : Tone::Busy);
+            if (const netplaylive::Message said = netplaylive::takeMessage(); !said.text.empty()) {
+                using M = netplaylive::Mood;
+                menuNotice.say(said.text, said.mood == M::Busy      ? Tone::Busy
+                                          : said.mood == M::Done    ? Tone::Done
+                                          : said.mood == M::Problem ? Tone::Problem
+                                                                    : Tone::Info);
                 sinceWaiting = 0.0f;
             } else if (!waiting.empty() && sinceWaiting > 12.0f) {
                 menuNotice.say(waiting, Tone::Busy);
