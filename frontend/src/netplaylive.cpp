@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -185,6 +186,8 @@ void begin(cab::Core& core, const std::string& romPath, int romId) {
     }
     l.together = true;
     if (!supportsCore(core.coreName())) {
+        std::fprintf(stderr, "[netplay] no Play together for the core \"%s\"\n",
+                     core.coreName().c_str());
         say("Play together isn't ready for this system yet");
         pending() = {};
         return;
@@ -361,9 +364,16 @@ bool supportsPlatform(const std::string& slug) {
 }
 
 bool supportsCore(const std::string& coreName) {
-    for (const char* s : {"fceumm", "snes9x", "genesis_plus_gx", "beetle_pce_fast", "fbneo",
-                          "mame2003", "stella", "prosystem", "picodrive", "pcsx_rearmed"})
-        if (coreName.find(s) != std::string::npos) return true;
+    // The core's own name for itself ("Snes9x", "PCSX-ReARMed", "Genesis Plus
+    // GX"), which is not its file's: capitals, spaces and dashes are ignored.
+    std::string n;
+    for (char c : coreName)
+        if (std::isalnum(static_cast<unsigned char>(c)))
+            n += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (const char* s : {"fceumm", "snes9x", "genesisplusgx", "beetlepcefast", "finalburnneo",
+                          "fbneo", "mame2003", "stella", "prosystem", "picodrive",
+                          "pcsxrearmed"})
+        if (n.find(s) != std::string::npos) return true;
     return false;
 }
 
