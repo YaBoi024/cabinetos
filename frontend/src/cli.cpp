@@ -23,6 +23,7 @@
 #include "idle.h"
 #include "launch.h"
 #include "netplay.h"
+#include "netplaylive.h"
 #include "netplaywire.h"
 #include "netblock.h"
 #include "samenames.h"
@@ -124,6 +125,22 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             netplayPort = SDL_atoi(argv[++i]);
         } else if (SDL_strcmp(argv[i], "--netplay-address") == 0 && i + 1 < argc) {
             netplayAddress = argv[++i];
+        } else if (SDL_strcmp(argv[i], "--play-host") == 0 && i + 1 < argc) {
+            // FORK (handheld): Play together from the command line, with
+            // --launch (netplaylive.h). The port to listen on.
+            netplaylive::pending().wanted = true;
+            netplaylive::pending().host = true;
+            netplaylive::pending().port = SDL_atoi(argv[++i]);
+        } else if (SDL_strcmp(argv[i], "--play-join") == 0 && i + 1 < argc) {
+            netplaylive::pending().wanted = true;
+            netplaylive::pending().host = false;
+            netplaylive::pending().address = argv[++i];   // the host's address
+        } else if (SDL_strcmp(argv[i], "--play-port") == 0 && i + 1 < argc) {
+            netplaylive::pending().port = SDL_atoi(argv[++i]);
+        } else if (SDL_strcmp(argv[i], "--play-code") == 0 && i + 1 < argc) {
+            netplaylive::pending().code = SDL_atoi(argv[++i]);
+        } else if (SDL_strcmp(argv[i], "--play-delay") == 0 && i + 1 < argc) {
+            netplaylive::pending().delay = SDL_atoi(argv[++i]);
         } else if (SDL_strcmp(argv[i], "--netplay-test") == 0) {
             netplayTest = true;   // FORK (handheld): coretests.cpp
         } else if (SDL_strcmp(argv[i], "--speed-test") == 0) {

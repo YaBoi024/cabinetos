@@ -36,6 +36,9 @@ struct GameDetail {
     // thing `catalog::coverageFor` distinguishes, finally said out loud.
     bool playable = true;
     std::string reason;
+    // FORK (handheld): the game can be played with a friend on another
+    // console (netplaylive.h, supportsPlatform): its page gets a Play together row.
+    bool together = false;
     // Kept means downloaded deliberately: it is not part of the cache and
     // eviction may never take it. Unlike the cache, this IS visible — the cache
     // is invisible by decision, a kept game is a promise the person made.

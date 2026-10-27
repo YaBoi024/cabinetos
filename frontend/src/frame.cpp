@@ -9,6 +9,7 @@
 #include <algorithm>
 
 #include "core.h"
+#include "netplaylive.h"
 #include "powerprofile.h"
 #include "storage.h"
 
@@ -23,8 +24,15 @@ void App::runFrameLoop() {
     while (running) {
         batteryRowBefore = batteryRowNow;   // settleBatteryRow (PLAY-07)
         batteryRowNow = false;
-        // Full speed while any game runs, balanced on Home (powerprofile.h).
-        powerprofile::update(playing || standaloneRun.active());
+        // FORK (handheld): full speed for a heavy game, the battery-biased profile
+        // for Home and for a light one (powerprofile.h). A program run on its
+        // own and a core that is not running yet are heavy, as upstream treats all.
+        powerprofile::update(
+            standaloneRun.active() ? powerprofile::Tier::Heavy
+            : playing ? (cab::Core::shared().running()
+                             ? powerprofile::tierForCore(cab::Core::shared().coreName())
+                             : powerprofile::Tier::Heavy)
+                      : powerprofile::Tier::Home);
         // RetroAchievements' network answers, on this thread (achievements.h).
         ra::pump();
         SDL_Event e;
@@ -71,7 +79,8 @@ void App::runFrameLoop() {
         // (players.h). The pause menu is still the game, over an emulator of
         // its own too.
         players::setInGame(playing || standaloneRun.active());
-        if (playing) cab::Core::shared().setPlayers(players::count());
+        if (playing && !netplaylive::active())
+            cab::Core::shared().setPlayers(players::count());
         if (here() == Screen::Settings && players::generation() != settingsPadsSeen)
             buildSettings();
 
@@ -83,6 +92,19 @@ void App::runFrameLoop() {
             cab::Core& core = cab::Core::shared();
             const bool rewinding = readGameInput(core);
             runGameFrame(core, dt, rewinding);
+            // FORK (handheld): what Play together has to say (netplaylive.h).
+            // The line about waiting for a friend is kept up (a Busy notice
+            // lasts 15 seconds) until the other console is in.
+            static float sinceWaiting = 99.0f;
+            sinceWaiting += dt;
+            const std::string waiting = netplaylive::connecting();
+            if (const std::string said = netplaylive::takeMessage(); !said.empty()) {
+                menuNotice.say(said, waiting.empty() ? Tone::Info : Tone::Busy);
+                sinceWaiting = 0.0f;
+            } else if (!waiting.empty() && sinceWaiting > 12.0f) {
+                menuNotice.say(waiting, Tone::Busy);
+                sinceWaiting = 0.0f;
+            }
             // A CORE THAT MOVED ITS SOUND RATE MID-GAME (#220): the speaker
             // is set to it again, as at the launch (openSoundAndPace), or
             // the sound would play at the old rate's speed.
@@ -160,6 +182,7 @@ void App::runFrameLoop() {
             pollReport();
             pollTailscale();
             pollRemotePlay();
+            pollPlayTogether();   // FORK (handheld): playtogetherflow.cpp
             pollUpdate();
         }
         askReadyWhenFree();

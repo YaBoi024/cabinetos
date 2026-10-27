@@ -35,3 +35,23 @@ frontend/src/grid.h
 frontend/src/grid.cpp
 frontend/src/settings.h
 frontend/src/settings.cpp
+# Files the fork's power and Play together changes edit
+frontend/src/powerprofile.cpp
+frontend/src/powerprofile.h
+frontend/src/frame.cpp
+frontend/src/startup.cpp
+frontend/src/settingsflow.cpp
+frontend/src/settingsids.h
+frontend/src/searchscreen.cpp
+frontend/src/searchscreen.h
+frontend/src/play.cpp
+frontend/src/pace.cpp
+frontend/src/launch.cpp
+frontend/src/cli.cpp
+frontend/src/detail.cpp
+frontend/src/detailscreen.cpp
+frontend/src/detailscreen.h
+frontend/src/actions.cpp
+frontend/src/screens.h
+frontend/src/tailscale.cpp
+frontend/src/tailscale.h

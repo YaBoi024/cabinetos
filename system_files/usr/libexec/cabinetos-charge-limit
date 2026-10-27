@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+#
+# FORK (handheld): the Steam Deck's battery charge limit.
+#
+#   cabinetos-charge-limit <percent>    80, 90 or 100 (100 is no limit)
+#
+# Run only by cabinetos-charge-limit@.service (the percent is the instance
+# name), which the console starts through 68-cabinetos-charge.rules. The Deck's
+# controller holds the battery at the level written to
+# max_battery_charge_level on its steamdeck_hwmon device; 0 means no limit.
+# Measured on an OLED: 0 at start, and 80 reads back as 80.
+#
+# A machine without that device is left alone, with exit 0: the setting is not
+# shown there either (frontend/src/chargelimit.cpp).
+set -euo pipefail
+
+percent="${1:-}"
+case "${percent}" in
+    80|90) value="${percent}" ;;
+    100) value=0 ;;
+    *) echo "cabinetos-charge-limit: 80, 90 or 100, not '${percent}'" >&2; exit 2 ;;
+esac
+
+for dir in /sys/class/hwmon/hwmon*; do
+    [ "$(cat "${dir}/name" 2>/dev/null)" = "steamdeck_hwmon" ] || continue
+    [ -e "${dir}/max_battery_charge_level" ] || continue
+    echo "${value}" > "${dir}/max_battery_charge_level"
+    echo "charge limit: ${percent}% (wrote ${value} to ${dir})"
+    exit 0
+done
+echo "no steamdeck_hwmon charge limit here; nothing to do"

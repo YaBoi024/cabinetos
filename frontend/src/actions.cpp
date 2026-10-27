@@ -106,6 +106,10 @@ void App::apply(const screens::Result& res) {
             sound::play(sound::Cue::Activate);
             launchById(res.value);
             break;
+        case screens::Action::PlayTogether:   // FORK (handheld): playtogetherflow.cpp
+            if (refuseRemoteStart(res.value)) break;
+            pressPlayTogether(res.value);
+            break;
         case screens::Action::PlayState:
             playFromState(res);
             break;

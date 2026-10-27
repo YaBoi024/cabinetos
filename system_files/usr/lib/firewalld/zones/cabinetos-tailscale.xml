@@ -11,6 +11,10 @@
   (video, control, sound), 48002 and 48010. Not 47990, Sunshine's web page,
   which answers the console alone anyway.
 
+  FORK (handheld): TCP 55435 is Play together (netplaylive.h). Nothing
+  listens on it unless a player is hosting a game, and the host refuses
+  anything that does not start with the code on its screen.
+
   NetworkManager is told to leave tailscale0 alone
   (NetworkManager/conf.d/50-cabinetos-tailscale.conf), so it never moves the
   interface back into its own zone.
@@ -22,6 +26,7 @@
   <port protocol="tcp" port="47984"/>
   <port protocol="tcp" port="47989"/>
   <port protocol="tcp" port="48010"/>
+  <port protocol="tcp" port="55435"/>
   <port protocol="udp" port="47998-48000"/>
   <port protocol="udp" port="48002"/>
   <port protocol="udp" port="48010"/>

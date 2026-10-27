@@ -11,6 +11,7 @@
 #include "catalog.h"
 #include "controls.h"
 #include "core.h"
+#include "netplaylive.h"
 #include "disc.h"
 #include "discs.h"
 #include "dolphinprep.h"
@@ -480,7 +481,9 @@ void App::pumpLaunch() {
     restoreBeforeLoad(c);
     if (!loadLaunchedGame(c)) return;
     setUpLoadedGame(c);
-    restoreBatterySave(c.core, session, c.saveDir, c.user, launchJob.saves);
+    // FORK (handheld): a game played together starts blank (netplaylive.h).
+    if (!netplaylive::blankSave(launchJob.romId))
+        restoreBatterySave(c.core, session, c.saveDir, c.user, launchJob.saves);
     // The fetched saves are written; a card can be megabytes, so not kept.
     launchJob.saves = SaveFetch{};
     launchJob.miiSaves = SaveFetch{};
@@ -777,6 +780,8 @@ void App::restoreBeforeLoad(LaunchContext& c) {
                        ? dolphinReadablePath(launchJob.romPath, launchJob.romId)
                        : launchJob.romPath;
 
+    // FORK (handheld): none for a game played together (netplaylive.h).
+    if (netplaylive::blankSave(launchJob.romId)) saveSpecs.clear();
     c.restored = restoreFileSaves(saveSpecs, launchJob.fsStem, c.saveDir, c.launchTag,
                                   launchJob.saves);
 }
@@ -814,6 +819,7 @@ bool App::loadLaunchedGame(LaunchContext& c) {
                          : std::string("Couldn't start this game"));
         return false;
     }
+    netplaylive::begin(c.core, launchJob.romPath, launchJob.romId);   // FORK (handheld): a no-op unless asked for
     return true;
 }
 
@@ -844,7 +850,9 @@ void App::setUpLoadedGame(LaunchContext& c) {
         c.user, launchJob.platformFsSlug, launchJob.romId, launchJob.coreName);
     session.fileSaves = std::move(c.restored);
     if (c.launchTag) session.saveTag = c.launchTag;
-    session.snapshots = catalog::snapshotsAllowed(launchJob.coreName.c_str());
+    // FORK (handheld): no save states and no rewind in a game played together.
+    session.snapshots = catalog::snapshotsAllowed(launchJob.coreName.c_str()) &&
+                        !netplaylive::blankSave(launchJob.romId);
     // A Vectrex game's screen sheet (#224), read and uploaded here behind the
     // curtain; any other game drops the last one's.
     vectrexsheets::prepare(launchJob.platformSlug, launchJob.md5, launchJob.title,

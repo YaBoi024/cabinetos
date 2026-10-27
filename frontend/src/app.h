@@ -2164,6 +2164,9 @@ struct App {
     void pollRemotePlay();
     void pressPairedDevices();
     void pressRemotePlay();
+    // playtogetherflow.cpp (FORK (handheld))
+    void pressPlayTogether(int romId);
+    void pollPlayTogether();
     // tailscaleflow.cpp
     void startTailscaleAtBoot();
     void pollTailscale();

@@ -1,0 +1,17 @@
+// The Steam Deck's battery charge limit, set from Settings. /usr/libexec/
+// cabinetos-charge-limit; frontend/src/chargelimit.cpp.
+//
+// `subject.local`, as in 67-cabinetos-pads.rules: the console on its own seat,
+// not an SSH session.
+polkit.addRule(function(action, subject) {
+    if (action.id != "org.freedesktop.systemd1.manage-units" ||
+        subject.user != "cabinet" || !subject.local) {
+        return polkit.Result.NOT_HANDLED;
+    }
+    var unit = action.lookup("unit");
+    if (action.lookup("verb") == "start" && unit &&
+        /^cabinetos-charge-limit@(80|90|100)\.service$/.test(unit)) {
+        return polkit.Result.YES;
+    }
+    return polkit.Result.NOT_HANDLED;
+});

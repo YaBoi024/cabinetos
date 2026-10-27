@@ -1,0 +1,6 @@
+[Unit]
+Description=CabinetOS: the Steam Deck battery charge limit (%i%%)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/cabinetos-charge-limit %i

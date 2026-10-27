@@ -33,6 +33,7 @@
 #include "dolphinprep.h"
 #include "fileio.h"
 #include "firstrun.h"
+#include "idlesleep.h"
 #include "offline_sync.h"
 #include "overlaywin.h"
 #include "prefs.h"
@@ -439,6 +440,26 @@ void App::idleFrame(float dt, bool playingNow, double blankAfter) {
         idleShown = lvl;
     }
     dimLayer.tick(dt);
+    // FORK (handheld): sleep when idle on battery (idlesleep.h). Only with no game
+    // loaded, only when the screen has already had its turn to go out, and asked
+    // once per stretch of idleness: a press (idleFor back under 5 s) arms it again.
+    {
+        static bool sleepAsked = false;
+        static double nextLook = 0.0;
+        const double after = idlesleep::seconds();
+        const double quiet = idleWatch.idleFor(t);
+        if (quiet < 5.0) sleepAsked = false;
+        if (after > 0.0 && !sleepAsked && !playing && !standaloneRun.active() &&
+            quiet >= std::max(after, blankAfter) && t >= nextLook) {
+            nextLook = t + 5.0;   // the supply files are not read every frame
+            if (idlesleep::onBattery() && power::canRest()) {
+                sleepAsked = true;
+                std::fprintf(stderr, "[idle] sleeping after %.0fs without input, on battery\n",
+                             quiet);
+                power::act(power::Action::Rest);
+            }
+        }
+    }
     const idle::Offset o = idle::pixelShift(t, renderer.scale(), shiftEvery);
     if (o.dx != shiftShown.dx || o.dy != shiftShown.dy) {
         std::fprintf(stderr, "[idle] pixel shift %+d,%+d px\n", o.dx, o.dy);

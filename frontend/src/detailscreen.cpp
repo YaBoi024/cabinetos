@@ -46,6 +46,8 @@ void DetailScreen::rebuildRows() {
         // The primary action first, and reachable without travelling through
         // the secondary ones.
         rows_.push_back({Action::Play, "Play", saveWhen_});
+        // FORK (handheld): right under Play, for the systems that can (netplaylive.h).
+        if (game_.together) rows_.push_back({Action::PlayTogether, "Play together", ""});
         // DOWNLOAD IS THE DELIBERATE ONE. The cache is invisible — pressing
         // Play fetches the game if it is not here and says nothing about it —
         // so this row is not "is it cached", it is "put this game on the

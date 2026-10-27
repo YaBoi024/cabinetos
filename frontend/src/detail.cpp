@@ -13,6 +13,7 @@
 
 #include "cache.h"
 #include "catalog.h"
+#include "netplaylive.h"
 #include "favorites.h"
 #include "manual.h"
 #include "saves.h"
@@ -353,6 +354,7 @@ void App::openDetail(int cardIndex) {
         raReadable = !cov.core || ra::coreReadable(cov.core);
         d.playable = cov.support == catalog::Support::Playable;
         d.reason = cov.reason ? cov.reason : "Not playable on this console";
+        d.together = d.playable && netplaylive::supportsPlatform(g.platformSlug);   // FORK (handheld)
         detailManualPath = pdfManual(g.manualPath) ? g.manualPath : std::string();
         detailManualTitle = g.name.empty() ? g.fsName : g.name;
         break;

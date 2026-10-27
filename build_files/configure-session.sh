@@ -21,6 +21,15 @@ systemctl enable cabinetos-session.service
 log "enabling cabinetos-saved-services.service"
 systemctl enable cabinetos-saved-services.service
 
+# FORK (handheld): the bazzite-deck base ships tuned MASKED (seen on an OLED:
+# `systemctl is-enabled tuned` says masked, and the console's every profile
+# switch failed with "The name is not activatable"). Without it the profile
+# switch in frontend/src/powerprofile.cpp never takes effect and the battery
+# profiles Bazzite ships are never used. Unmask and enable it.
+log "unmasking and enabling tuned.service"
+systemctl unmask tuned.service
+systemctl enable tuned.service
+
 group_end
 
 group_start "Closing the remaining routes to a desktop"

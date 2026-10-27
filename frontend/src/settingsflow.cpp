@@ -8,6 +8,8 @@
 #include <cstdio>
 #include <utility>
 
+#include "chargelimit.h"
+#include "idlesleep.h"
 #include "prefs.h"
 #include "quality.h"
 #include "rumble.h"
@@ -263,12 +265,35 @@ void App::buildSettings() {
             r.choice = screenOffIndex;
             return r;
         }(),
+        // FORK (handheld): sleep after the screen has gone out, on battery only.
+        [] {
+            Row r{K::Choice, SetSleepAfter, "Sleep when idle on battery",
+                  "Never while plugged in", ""};
+            for (int i = 0; i < idlesleep::kCount; ++i)
+                r.choices.push_back(idlesleep::kChoices[i].name);
+            r.choice = idlesleep::index();
+            return r;
+        }(),
+        // FORK (handheld): only where the Steam Deck's charge limit exists
+        // (removed below on other machines).
+        [] {
+            Row r{K::Choice, SetChargeLimit, "Battery charge limit",
+                  "Stops charging at this level", ""};
+            for (int i = 0; i < chargelimit::kCount; ++i)
+                r.choices.push_back(chargelimit::kChoices[i].name);
+            r.choice = chargelimit::savedIndex();
+            return r;
+        }(),
     }});
     {
         // APPEARANCE AND COLOUR, under the picture rows: both are how the
         // menus look. #129 and #75, 2026-09-27. Colour is the signed-in
         // person's; the account chip above already says who that is.
         auto& rows = cats.back().rows;
+        if (!chargelimit::available())
+            rows.erase(std::remove_if(rows.begin(), rows.end(),
+                                      [](const Row& r) { return r.id == SetChargeLimit; }),
+                       rows.end());
         if (!ra::signedIn())
             rows.erase(std::remove_if(rows.begin(), rows.end(),
                                       [](const Row& r) { return r.id == SetAchievementSound; }),
@@ -511,6 +536,9 @@ void App::darkHoursPanel(int focus) {
 void App::readScreenOffAtStart() {
     screenOffIndex = savedScreenOff();
     std::fprintf(stderr, "[idle] screen off after %s\n", kScreenOff[screenOffIndex].name);
+    // FORK (handheld): the sleep choice, and the charge limit written again.
+    idlesleep::load();
+    chargelimit::applySaved();
 }
 
 void App::closeDownloadsOffSettings() {
@@ -630,6 +658,16 @@ void App::applySettingChoice(const screens::Result& res) {
             screenOffIndex = i;
             prefs::set("screen_off_after", kScreenOff[i].word);
         }
+        sound::play(sound::Cue::Move);
+    }
+    if (res.value == SetSleepAfter) {
+        const int i = settingsScreen.choiceOf(SetSleepAfter);
+        if (i >= 0 && i < idlesleep::kCount) idlesleep::set(i);
+        sound::play(sound::Cue::Move);
+    }
+    if (res.value == SetChargeLimit) {
+        const int i = settingsScreen.choiceOf(SetChargeLimit);
+        if (i >= 0 && i < chargelimit::kCount) chargelimit::set(i);
         sound::play(sound::Cue::Move);
     }
     if (res.value == SetPictureQuality) {

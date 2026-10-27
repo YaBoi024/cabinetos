@@ -26,10 +26,24 @@
 
 #pragma once
 
+#include <string>
+
 namespace powerprofile {
 
-// Once a frame: is a game running? Acts only when the answer changes.
-void update(bool gameRunning);
+// FORK (handheld): three tiers instead of two, so a Game Boy game does not run
+// the processor as hard as a GameCube one. Home and Light both ask for
+// Bazzite's battery-biased balanced profile (falling back to plain `balanced`
+// where the base lacks it); Heavy asks for the full-speed one.
+enum class Tier { Home, Light, Heavy };
+
+// The tier for a game from a libretro core's own name (core.h coreName(), the
+// library_name the core reports). An emulator run as its own program is always
+// Heavy (the caller says so, not this). Unknown names are Light: a core the
+// list does not know has never been measured as heavy.
+Tier tierForCore(const std::string& libraryName);
+
+// Once a frame: what is running? Acts only when the answer changes.
+void update(Tier tier);
 
 // Now, on this thread, and waits for tuned: for handing the screen to Steam
 // (#223), where the frontend quits straight after and a worker would be cut
