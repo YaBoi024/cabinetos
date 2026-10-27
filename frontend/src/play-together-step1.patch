@@ -1,0 +1,566 @@
+diff --git a/docs/ARCHITECTURE.md b/docs/ARCHITECTURE.md
+index a424a8d..1eb1e13 100644
+--- a/docs/ARCHITECTURE.md
++++ b/docs/ARCHITECTURE.md
+@@ -482,6 +482,7 @@ The area named is the one in `ci/base-watch.txt` whose checks a change asks for.
+ | Games on Bazzite's own tuned profile | tuned's `switch_profile` and the names `balanced-battery-bazzite`, `balanced` and `throughput-performance-bazzite` (`powerprofile.cpp`); the `bazzite-deck` base ships tuned masked, which `build_files/configure-session.sh` undoes | `log:` (Power) |
+ | The Steam Deck's charge limit (fork) | `max_battery_charge_level` on the `steamdeck_hwmon` hwmon device, written by `/usr/libexec/cabinetos-charge-limit` through `68-cabinetos-charge.rules` (`chargelimit.cpp`) | `log:` (Power) |
+ | Sleep when idle on battery (fork) | A `Mains` entry under `/sys/class/power_supply` with `online` (`idlesleep.cpp`), logind's Suspend (`power.h`) | `log:` (Power) |
++| Play together (fork) | A TCP port of its own to the other console, over Tailscale (`netplaylive.cpp`, `netplay.cpp`); the lockstep replaces `runFor` in `pace.cpp` while a session is on | `log:` (`[netplay]`) |
+ | Picture quality's Auto | amdgpu's `pp_dpm_sclk`, cpufreq's and the topology's files (`gpu.cpp`, `cpus.cpp`) | `log:` (Kernel and startup) |
+ | Controller drivers loaded at boot | The kernel's module names, and its list of pads that wait for their own driver (`system_files/usr/lib/modules-load.d/cabinetos-controllers.conf`) | `log:` No service failed to start (Kernel and startup); `series:` Controllers lists the list's changes, for when the file can go |
+ | A real Wii Remote kept for the bridge | 92-viia.rules (`ublue-os-udev-rules`) opening every hidraw node before ours closes the Remote's; `/dev/uhid`'s grant; `HID_NAME` in a node's uevent; SDL's Wii driver switched off by its hint (`startup.cpp`) | `log:` and `tv:` (Controllers) |
+diff --git a/frontend/src/cli.cpp b/frontend/src/cli.cpp
+index 4143b1a..098205d 100644
+--- a/frontend/src/cli.cpp
++++ b/frontend/src/cli.cpp
+@@ -23,6 +23,7 @@
+ #include "idle.h"
+ #include "launch.h"
+ #include "netplay.h"
++#include "netplaylive.h"
+ #include "netplaywire.h"
+ #include "samenames.h"
+ #include "storage.h"
+@@ -123,6 +124,22 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
+             netplayPort = SDL_atoi(argv[++i]);
+         } else if (SDL_strcmp(argv[i], "--netplay-address") == 0 && i + 1 < argc) {
+             netplayAddress = argv[++i];
++        } else if (SDL_strcmp(argv[i], "--play-host") == 0 && i + 1 < argc) {
++            // FORK (handheld): Play together from the command line, with
++            // --launch (netplaylive.h). The port to listen on.
++            netplaylive::pending().wanted = true;
++            netplaylive::pending().host = true;
++            netplaylive::pending().port = SDL_atoi(argv[++i]);
++        } else if (SDL_strcmp(argv[i], "--play-join") == 0 && i + 1 < argc) {
++            netplaylive::pending().wanted = true;
++            netplaylive::pending().host = false;
++            netplaylive::pending().address = argv[++i];   // the host's address
++        } else if (SDL_strcmp(argv[i], "--play-port") == 0 && i + 1 < argc) {
++            netplaylive::pending().port = SDL_atoi(argv[++i]);
++        } else if (SDL_strcmp(argv[i], "--play-code") == 0 && i + 1 < argc) {
++            netplaylive::pending().code = SDL_atoi(argv[++i]);
++        } else if (SDL_strcmp(argv[i], "--play-delay") == 0 && i + 1 < argc) {
++            netplaylive::pending().delay = SDL_atoi(argv[++i]);
+         } else if (SDL_strcmp(argv[i], "--netplay-test") == 0) {
+             netplayTest = true;   // FORK (handheld): coretests.cpp
+         } else if (SDL_strcmp(argv[i], "--speed-test") == 0) {
+diff --git a/frontend/src/frame.cpp b/frontend/src/frame.cpp
+index 36e2b10..5fc8d0e 100644
+--- a/frontend/src/frame.cpp
++++ b/frontend/src/frame.cpp
+@@ -9,6 +9,7 @@
+ #include <algorithm>
+ 
+ #include "core.h"
++#include "netplaylive.h"
+ #include "powerprofile.h"
+ #include "storage.h"
+ 
+@@ -78,7 +79,8 @@ void App::runFrameLoop() {
+         // (players.h). The pause menu is still the game, over an emulator of
+         // its own too.
+         players::setInGame(playing || standaloneRun.active());
+-        if (playing) cab::Core::shared().setPlayers(players::count());
++        if (playing && !netplaylive::active())
++            cab::Core::shared().setPlayers(players::count());
+         if (here() == Screen::Settings && players::generation() != settingsPadsSeen)
+             buildSettings();
+ 
+@@ -90,6 +92,9 @@ void App::runFrameLoop() {
+             cab::Core& core = cab::Core::shared();
+             const bool rewinding = readGameInput(core);
+             runGameFrame(core, dt, rewinding);
++            // FORK (handheld): what Play together has to say (netplaylive.h).
++            if (const std::string said = netplaylive::takeMessage(); !said.empty())
++                menuNotice.say(said, Tone::Info);
+             // A CORE THAT MOVED ITS SOUND RATE MID-GAME (#220): the speaker
+             // is set to it again, as at the launch (openSoundAndPace), or
+             // the sound would play at the old rate's speed.
+diff --git a/frontend/src/launch.cpp b/frontend/src/launch.cpp
+index e06a7c2..2088e0d 100644
+--- a/frontend/src/launch.cpp
++++ b/frontend/src/launch.cpp
+@@ -11,6 +11,7 @@
+ #include "catalog.h"
+ #include "controls.h"
+ #include "core.h"
++#include "netplaylive.h"
+ #include "disc.h"
+ #include "discs.h"
+ #include "dolphinprep.h"
+@@ -790,6 +791,7 @@ bool App::loadLaunchedGame(LaunchContext& c) {
+                          : std::string("Couldn't start this game"));
+         return false;
+     }
++    netplaylive::begin(c.core, launchJob.romPath);   // FORK (handheld): a no-op unless asked for
+     return true;
+ }
+ 
+diff --git a/frontend/src/netplaylive.cpp b/frontend/src/netplaylive.cpp
+new file mode 100644
+index 0000000..a951e61
+--- /dev/null
++++ b/frontend/src/netplaylive.cpp
+@@ -0,0 +1,302 @@
++// FORK (handheld): see netplaylive.h.
++
++#include "netplaylive.h"
++
++#include <algorithm>
++#include <atomic>
++#include <chrono>
++#include <cstdint>
++#include <cstdio>
++#include <fstream>
++#include <map>
++#include <mutex>
++#include <thread>
++#include <vector>
++
++#include "netplay.h"
++
++namespace netplaylive {
++namespace {
++
++enum class State { Off, Connecting, Playing };
++
++struct Live {
++    std::atomic<State> state{State::Off};
++    std::atomic<bool> cancel{false};
++    std::thread connector;
++    netplay::Session session;
++    std::string why;   // set by the connector before state becomes Playing/Off
++    std::atomic<bool> connectFailed{false};
++
++    std::mutex lock;
++    std::string message;   // waiting to be taken
++
++    netplaywire::Pad local;   // latest buttons, main thread only
++    int delay = 0;
++    int self = 0;
++    uint32_t frame = 0;
++    uint32_t sentUpTo = 0;    // buttons sent for frames < sentUpTo
++    std::map<uint32_t, netplaywire::Pad> sent;     // what we sent, by frame
++    std::map<uint32_t, uint64_t> mine;              // our digests, to compare
++    std::chrono::steady_clock::time_point lateSince{};
++    bool late = false;
++    bool saidWaiting = false;
++};
++
++Live& live() {
++    static Live l;
++    return l;
++}
++
++void say(const std::string& m) {
++    Live& l = live();
++    std::lock_guard<std::mutex> g(l.lock);
++    l.message = m;
++}
++
++// A hash of the start of the file and its size: enough to tell two different
++// games apart without reading a whole disc image.
++std::string hashOfFile(const std::string& path) {
++    std::ifstream f(path, std::ios::binary);
++    if (!f) return {};
++    constexpr uint64_t kBasis = 1469598103934665603ull;
++    uint64_t h = kBasis;
++    std::vector<char> buf(1 << 20);
++    for (int i = 0; i < 8 && f; ++i) {
++        f.read(buf.data(), static_cast<std::streamsize>(buf.size()));
++        const std::streamsize n = f.gcount();
++        for (std::streamsize k = 0; k < n; ++k) {
++            h ^= static_cast<uint8_t>(buf[static_cast<size_t>(k)]);
++            h *= 1099511628211ull;
++        }
++    }
++    f.clear();
++    f.seekg(0, std::ios::end);
++    const auto size = static_cast<uint64_t>(f.tellg());
++    h ^= size;
++    h *= 1099511628211ull;
++    char out[40];
++    std::snprintf(out, sizeof out, "%016llx-%llu", static_cast<unsigned long long>(h),
++                  static_cast<unsigned long long>(size));
++    return out;
++}
++
++netplaywire::Pad toWire(const cab::PadState& s) {
++    auto axis = [](float v) {
++        return static_cast<int16_t>(std::clamp(v, -1.0f, 1.0f) * 32767.0f);
++    };
++    auto trig = [](float v) {
++        return static_cast<uint8_t>(std::clamp(v, 0.0f, 1.0f) * 255.0f);
++    };
++    netplaywire::Pad p;
++    p.buttons = static_cast<uint16_t>(s.buttons & 0xFFFF);
++    p.leftX = axis(s.leftX);
++    p.leftY = axis(s.leftY);
++    p.rightX = axis(s.rightX);
++    p.rightY = axis(s.rightY);
++    p.leftTrigger = trig(s.leftTrigger);
++    p.rightTrigger = trig(s.rightTrigger);
++    return p;
++}
++
++// Both sides turn the wire form into the core's the same way, their own
++// buttons as well as the other's, so the core sees identical numbers.
++cab::PadState toCore(const netplaywire::Pad& p) {
++    cab::PadState s;
++    s.buttons = p.buttons;
++    s.leftX = static_cast<float>(p.leftX) / 32767.0f;
++    s.leftY = static_cast<float>(p.leftY) / 32767.0f;
++    s.rightX = static_cast<float>(p.rightX) / 32767.0f;
++    s.rightY = static_cast<float>(p.rightY) / 32767.0f;
++    s.leftTrigger = static_cast<float>(p.leftTrigger) / 255.0f;
++    s.rightTrigger = static_cast<float>(p.rightTrigger) / 255.0f;
++    return s;
++}
++
++void connect(Request r, netplay::Identity me) {
++    Live& l = live();
++    std::string why;
++    using Clock = std::chrono::steady_clock;
++    if (r.host) {
++        why = l.session.listen("0.0.0.0", static_cast<uint16_t>(r.port));
++        if (why.empty()) {
++            std::fprintf(stderr, "[netplay] hosting on port %u (code %d)\n",
++                         static_cast<unsigned>(l.session.port()), r.code);
++            const auto stop = Clock::now() + std::chrono::seconds(300);
++            for (;;) {
++                why = l.session.accept(static_cast<uint16_t>(r.code), me, r.delay, 500);
++                if (why.empty() || why != "nobody joined" || l.cancel || Clock::now() > stop) break;
++            }
++        }
++    } else {
++        const auto stop = Clock::now() + std::chrono::seconds(120);
++        for (;;) {
++            why = l.session.join(r.address, static_cast<uint16_t>(r.port),
++                                 static_cast<uint16_t>(r.code), me, 3000);
++            if (why.empty() || why.find("the host said no") == 0 || l.cancel ||
++                Clock::now() > stop)
++                break;
++            std::this_thread::sleep_for(std::chrono::milliseconds(500));
++        }
++    }
++    if (!why.empty()) {
++        l.why = why;
++        l.connectFailed = true;
++    }
++    l.state = why.empty() ? State::Playing : State::Off;
++}
++
++void fail(const std::string& message) {
++    Live& l = live();
++    std::fprintf(stderr, "[netplay] %s\n", message.c_str());
++    say(message);
++    l.session.leave();
++    l.state = State::Off;
++}
++
++}  // namespace
++
++Request& pending() {
++    static Request r;
++    return r;
++}
++
++void begin(cab::Core& core, const std::string& romPath) {
++    Live& l = live();
++    const Request r = pending();
++    if (!r.wanted || l.state != State::Off) return;
++    netplay::Identity me;
++    me.core = core.coreName();
++    me.coreVersion = core.coreVersion();
++    me.gameHash = hashOfFile(romPath);
++    if (me.gameHash.empty()) {
++        say("Can't read the game for Play together");
++        return;
++    }
++    if (l.connector.joinable()) l.connector.join();
++    l.cancel = false;
++    l.connectFailed = false;
++    l.local = {};
++    l.sent.clear();
++    l.mine.clear();
++    l.frame = 0;
++    l.sentUpTo = 0;
++    l.late = false;
++    l.saidWaiting = false;
++    l.delay = r.delay;
++    l.state = State::Connecting;
++    say(r.host ? "Waiting for player 2" : "Joining player 1");
++    l.connector = std::thread(connect, r, me);
++}
++
++bool active() {
++    Live& l = live();
++    if (l.state == State::Connecting) return true;
++    if (l.state == State::Playing) return true;
++    // The connector gave up: tell the player once, from the main thread.
++    if (l.connectFailed.exchange(false)) {
++        if (l.connector.joinable()) l.connector.join();
++        std::fprintf(stderr, "[netplay] %s\n", l.why.c_str());
++        say("Play together: " + l.why);
++    }
++    return false;
++}
++
++void setLocal(const cab::PadState& pad) {
++    live().local = toWire(pad);
++}
++
++int step(cab::Core& core, int maxFrames) {
++    Live& l = live();
++    if (l.state == State::Connecting) return 0;
++    if (l.state != State::Playing) return 0;
++    if (l.connector.joinable()) {
++        l.connector.join();
++        l.delay = l.session.delay();
++        l.self = l.session.localPlayer();
++        std::fprintf(stderr, "[netplay] connected, player %d, delay %d frames\n", l.self + 1,
++                     l.delay);
++        say("Connected: you are player " + std::to_string(l.self + 1));
++    }
++    core.setPlayers(2);
++    const uint32_t d = static_cast<uint32_t>(l.delay);
++    int ran = 0;
++    for (int i = 0; i < maxFrames; ++i) {
++        const uint32_t f = l.frame;
++        // Our buttons for f + d go out once, whether or not frame f can run yet.
++        if (l.sentUpTo <= f) {
++            l.session.sendInputs(f + d, l.local);
++            l.sent[f + d] = l.local;
++            l.sentUpTo = f + 1;
++        }
++        netplaywire::Pad mine, theirs;
++        if (f >= d) {
++            mine = l.sent[f];
++            const netplay::Wait w = l.session.remoteInputs(f, theirs, 0);
++            if (w == netplay::Wait::Gone) {
++                fail("The other player left");
++                return ran;
++            }
++            if (w == netplay::Wait::Late) {
++                const auto now = std::chrono::steady_clock::now();
++                if (!l.late) {
++                    l.late = true;
++                    l.lateSince = now;
++                } else if (!l.saidWaiting && now - l.lateSince > std::chrono::seconds(1)) {
++                    l.saidWaiting = true;
++                    say("Waiting for the other player");
++                } else if (now - l.lateSince > std::chrono::seconds(20)) {
++                    fail("Lost the other player");
++                    return ran;
++                }
++                return ran;
++            }
++            l.sent.erase(l.sent.begin(), l.sent.find(f));
++        }
++        l.late = false;
++        l.saidWaiting = false;
++        core.setPad(0, toCore(l.self == 0 ? mine : theirs));
++        core.setPad(1, toCore(l.self == 0 ? theirs : mine));
++        ran += core.runFrame();
++        ++l.frame;
++        // A fingerprint of the picture each second. A mismatch ends the
++        // session with a message instead of letting the two games drift.
++        if (l.frame % 60 == 0) {
++            const uint64_t v = core.frameDigest();
++            l.session.sendDigest(f, v);
++            l.mine[f] = v;
++        }
++        for (auto it = l.mine.begin(); it != l.mine.end();) {
++            uint64_t theirDigest = 0;
++            const netplay::Wait w = l.session.remoteDigest(it->first, theirDigest, 0);
++            if (w == netplay::Wait::Late) break;
++            if (w == netplay::Wait::Gone) break;   // the input path reports it
++            if (theirDigest != it->second) {
++                fail("The two games have drifted apart");
++                return ran;
++            }
++            it = l.mine.erase(it);
++        }
++    }
++    return ran;
++}
++
++std::string takeMessage() {
++    Live& l = live();
++    std::lock_guard<std::mutex> g(l.lock);
++    std::string m;
++    m.swap(l.message);
++    return m;
++}
++
++void stop() {
++    Live& l = live();
++    l.cancel = true;
++    if (l.connector.joinable()) l.connector.join();
++    if (l.state == State::Playing) l.session.leave();
++    l.state = State::Off;
++    l.sent.clear();
++    l.mine.clear();
++}
++
++}  // namespace netplaylive
+diff --git a/frontend/src/netplaylive.h b/frontend/src/netplaylive.h
+new file mode 100644
+index 0000000..0593ada
+--- /dev/null
++++ b/frontend/src/netplaylive.h
+@@ -0,0 +1,55 @@
++// FORK (handheld): netplay in the real player (NETPLAY-PLAN.md, phase 2). The
++// scripted loop in netplayrun.cpp proved two consoles stay in step; this is
++// the same lockstep driven by real controllers on the real screen.
++//
++// One copy hosts and one joins; the host is player 1 and the joiner player 2,
++// and each plays with its own first controller. A frame is run only when both
++// players' buttons for it are in hand, so a late or paused side makes the
++// other wait, never drift. While a session is on, rewind, fast forward and the
++// pause redraw frames are off (play.cpp, pace.cpp).
++//
++// Step one starts it from the command line (--play-host, --play-join with
++// --launch); the screens come after.
++
++#pragma once
++
++#include <string>
++
++#include "core.h"
++
++namespace netplaylive {
++
++struct Request {
++    bool wanted = false;
++    bool host = false;
++    std::string address = "127.0.0.1";
++    int port = 55435;
++    int code = 4821;
++    int delay = 2;
++};
++
++// Filled in from the command line; read once a game has loaded.
++Request& pending();
++
++// A game has just loaded: if a session was asked for, start connecting (on a
++// thread of its own, so the screen never freezes).
++void begin(cab::Core& core, const std::string& romPath);
++
++// True from begin() until the session ends or fails. While true the game is
++// stepped by step() and the pads by setLocal().
++bool active();
++
++// Player one's buttons as read this refresh. Only the latest matters.
++void setLocal(const cab::PadState& pad);
++
++// Run up to maxFrames game frames, as many as both players' buttons allow.
++// Returns how many were run.
++int step(cab::Core& core, int maxFrames);
++
++// What to tell the player when it changes, else "". Said once per change.
++std::string takeMessage();
++
++// The game is closing, or the player left.
++void stop();
++
++}  // namespace netplaylive
+diff --git a/frontend/src/pace.cpp b/frontend/src/pace.cpp
+index 7f1ab4c..f818a9c 100644
+--- a/frontend/src/pace.cpp
++++ b/frontend/src/pace.cpp
+@@ -10,6 +10,7 @@
+ #include <cstdio>
+ 
+ #include "core.h"
++#include "netplaylive.h"
+ #include "ps2.h"
+ #include "rumble.h"
+ 
+@@ -127,7 +128,7 @@ void App::runGameFrame(cab::Core& core, float dt, bool rewinding) {
+         const uint64_t every = static_cast<uint64_t>(
+             std::max(1.0, std::round(core.avInfo().fps * 0.5)));
+         auto snapshot = [&] {
+-            if (rewindAvailable != 1 || session.discInserting ||
++            if (rewindAvailable != 1 || session.discInserting || netplaylive::active() ||
+                 core.framesRun() < rewindLastFrame + every)
+                 return false;
+             rewindLastFrame = core.framesRun();
+@@ -154,7 +155,10 @@ void App::runGameFrame(cab::Core& core, float dt, bool rewinding) {
+                 ran = 1;
+                 --runs;
+             }
+-            if (!locked) ran += core.runFor(dt);
++            // FORK (handheld): in a Play together session the frames run only
++            // when both players' buttons are in (netplaylive.h).
++            if (netplaylive::active()) ran += netplaylive::step(core, due);
++            else if (!locked) ran += core.runFor(dt);
+             else for (int i = 0; i < runs; ++i) ran += core.runFrame();
+             core.setAfterFrame(nullptr);
+         }
+diff --git a/frontend/src/play.cpp b/frontend/src/play.cpp
+index a4b05f9..2d9b6da 100644
+--- a/frontend/src/play.cpp
++++ b/frontend/src/play.cpp
+@@ -12,6 +12,7 @@
+ #include "arcadesettings.h"
+ #include "controls.h"
+ #include "core.h"
++#include "netplaylive.h"
+ #include "discs.h"
+ #include "fightstick.h"
+ #include "ps2.h"
+@@ -99,6 +100,7 @@ void App::finishExit() {
+     curtain.from = curtain.to = 1.0f;
+     curtain.elapsed = curtain.duration;
+     curtain.retarget(0.0f, kCurtainUp);
++    netplaylive::stop();   // FORK (handheld)
+     cab::Core::shared().unloadGame();
+     vectrexsheets::release();
+     closePs2Window();
+@@ -469,6 +471,12 @@ bool App::readGameInput(cab::Core& core) {
+             core.setKey(arcadesettings::kMenuKey,
+                         arcadesettings::step(arcadeHold, session.core, st.buttons,
+                                              core.framesRun()));
++        // FORK (handheld): in a Play together session the first pad is player
++        // one's or two's buttons, sent and stepped in lockstep (netplaylive.h).
++        if (netplaylive::active()) {
++            if (p == 0) netplaylive::setLocal(st);
++            continue;
++        }
+         core.setPad(p, st);
+     }
+ 
+@@ -507,6 +515,8 @@ bool App::readGameInput(cab::Core& core) {
+     } else if (!fastForward) {
+         fastForwardSaid = false;
+     }
++    // FORK (handheld): nothing that changes the machine's speed in a session.
++    if (netplaylive::active()) fastForward = rewinding = false;
+     if (fastForward != (core.speed() > 1.0))
+         std::fprintf(stderr, "[shortcuts] fast forward %s\n", fastForward ? "on" : "off");
+     core.setSpeed(fastForward && !rewinding ? kFastForward : 1.0);
+diff --git a/system_files/usr/lib/firewalld/zones/cabinetos-tailscale.xml b/system_files/usr/lib/firewalld/zones/cabinetos-tailscale.xml
+index 8e27738..5d097d5 100644
+--- a/system_files/usr/lib/firewalld/zones/cabinetos-tailscale.xml
++++ b/system_files/usr/lib/firewalld/zones/cabinetos-tailscale.xml
+@@ -11,6 +11,10 @@
+   (video, control, sound), 48002 and 48010. Not 47990, Sunshine's web page,
+   which answers the console alone anyway.
+ 
++  FORK (handheld): TCP 55435 is Play together (netplaylive.h). Nothing
++  listens on it unless a player is hosting a game, and the host refuses
++  anything that does not start with the code on its screen.
++
+   NetworkManager is told to leave tailscale0 alone
+   (NetworkManager/conf.d/50-cabinetos-tailscale.conf), so it never moves the
+   interface back into its own zone.
+@@ -22,6 +26,7 @@
+   <port protocol="tcp" port="47984"/>
+   <port protocol="tcp" port="47989"/>
+   <port protocol="tcp" port="48010"/>
++  <port protocol="tcp" port="55435"/>
+   <port protocol="udp" port="47998-48000"/>
+   <port protocol="udp" port="48002"/>
+   <port protocol="udp" port="48010"/>
