@@ -40,6 +40,7 @@ TESTS=(
     --players-test
     --fightstick-test
     --arcade-settings-test
+    --screen-view-test
     --controls-test
     --netblock-test
     --battery-test

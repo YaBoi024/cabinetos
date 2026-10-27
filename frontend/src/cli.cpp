@@ -27,6 +27,7 @@
 #include "netplaywire.h"
 #include "netblock.h"
 #include "samenames.h"
+#include "screenview.h"
 #include "storage.h"
 #include "update.h"
 #include "xboxhdd.h"
@@ -318,6 +319,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             return fightstick::test();
         } else if (SDL_strcmp(argv[i], "--arcade-settings-test") == 0) {
             return arcadesettings::test();
+        } else if (SDL_strcmp(argv[i], "--screen-view-test") == 0) {
+            return screenview::test();
         } else if (SDL_strcmp(argv[i], "--controls-test") == 0) {
             return controls::test();
         } else if (SDL_strcmp(argv[i], "--netblock-test") == 0) {

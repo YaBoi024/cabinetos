@@ -4,6 +4,17 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.10.27.3 {#v2026-10-27-3}
+
+- **New:** in a DS or 3DS game, click **L3** (press the left stick in) for
+  the top screen alone, as big as the TV allows, again for the bottom screen
+  alone, and again for both. With the bottom screen alone, the right stick
+  and R3 touch it as before. Every game starts with both screens.
+- **Changed:** on the DS, closing the lid is now holding **R2**, for the few
+  games that ask for it. L3 used to close it, which put the game to sleep
+  with a white screen. R2 no longer swaps the screens, and on the 3DS
+  holding L3 no longer swaps them either: L3 shows one screen instead.
+
 ## 2026.10.27 {#v2026-10-27}
 
 - **Fixed:** leaving a Wii game such as Mario Kart Wii could freeze the

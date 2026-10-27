@@ -465,6 +465,14 @@ bool App::readGameInput(cab::Core& core) {
             else if (layout)
                 fightstick::apply(*layout, st);
         }
+        // A DS OR 3DS GAME'S SCREENS (screenview.h): player 1's L3, as the
+        // game is about to hear it, shows both, the top alone or the bottom
+        // alone, at once. The DS's lid moves to R2.
+        if (p == 0)
+            if (const std::optional<screenview::View> v =
+                    screenview::step(screenPress, session.core, st.buttons, core.framesRun()))
+                for (const auto& kv : screenview::coreOptions(session.core, *v))
+                    core.setOptionLive(kv.first, kv.second);
         // HOLDING START IN AN ARCADE GAME (#577, arcadesettings.h): player
         // 1's buttons as the game is about to hear them, so a hold kept from
         // the game above does not count.

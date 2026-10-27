@@ -138,10 +138,11 @@ downloads anything new into the console's shared BIOS folder.
 - **`.cia` files do not show on the console.** One inside an archive says
   *3DS CIA files can't be played*.
 - **Updates and DLC do not play yet**: they come as `.cia` files.
-- **The two screens side by side**, the top screen on the left.
+- **The two screens side by side**, the top screen on the left. Click L3 for
+  the top screen alone, again for the bottom screen alone, and again for
+  both. Every game starts with both.
 - **Touch screen:** the right stick moves a pointer on the touch screen and
   pressing it (R3) touches. The right stick is the New 3DS's C-stick too.
-  Hold L3 to swap the two screens.
 - **Save states and fast forward, no rewind.** A 3DS state may not load
   after an update changes the emulator: *Couldn't load that state*. Saves
   are not affected.

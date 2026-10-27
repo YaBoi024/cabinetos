@@ -32,7 +32,9 @@ void App::openHowTo() {
     // game, so "In a game" stays short (MMagTech, 2026-10-25, #577).
     cats.push_back({"Systems",
                     {line("Arcade game settings", "Hold Start"),
-                     line("DS touch screen", "Right stick moves, R3 touches"),
+                     line("DS and 3DS screens", "Click L3"),
+                     line("DS and 3DS touch screen", "Right stick moves, R3 touches"),
+                     line("DS lid", "Hold R2"),
                      line("PS1 analog button", "L1 + R1 + Select")},
                     ""});
     {

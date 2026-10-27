@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CabinetOS controls</title>
+<!-- The one-page printable controls guide, made into controls.pdf beside it.
+     Its rows follow the wiki's Buttons and shortcuts page (navigation.md):
+     a control that changes there changes here, and the PDF is made again.
+     To make the PDF: print this file to PDF from a browser, paper Letter,
+     no margins, background graphics on. It must come out as one page. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  @page { size: 8.5in 11in; margin: 0; }
+
+  :root {
+    --ink: #1f1636;
+    --dim: #5d5476;
+    --faint: #8a81a3;
+    --purple: #3a2268;
+    --deep: #120c26;
+    --key: #2a1a4f;
+    --cyan: #58e8f6;
+    --pink: #ff7ac7;
+    --amber: #ffc457;
+    --blue: #2484d6;
+    --line: #e4def0;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    background: #fff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body {
+    color: var(--ink);
+    font-family: "Noto Sans", sans-serif;
+    font-size: 12.5px;
+    line-height: 1.4;
+  }
+
+  .page {
+    width: 816px;
+    height: 1056px;
+    padding: 36px 44px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: hidden;
+  }
+
+  /* The header: the site's purple with its pink and cyan glows. */
+  .head {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    height: 82px;
+    padding: 0 26px 0 20px;
+    border-radius: 20px;
+    overflow: hidden;
+    color: #fff;
+  }
+  /* An SVG with solid stops: WebKit's PDF drops see-through gradients. */
+  .head .glow { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+  .head > :not(.glow) { position: relative; z-index: 1; }
+  .head .mark { height: 54px; width: auto; flex: none; }
+  .head .brand { font-size: 13px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.8; }
+  .head h1 { margin: -4px 0 0; font-size: 36px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.1; }
+  .head .where { margin-left: auto; text-align: right; font-size: 12px; line-height: 1.5; opacity: 0.85; }
+  .head .where b { display: block; font-size: 13px; opacity: 1; color: var(--cyan); font-weight: 700; }
+
+  .pad { display: block; margin: 2px auto 0; }
+  .pad text { font-family: "Noto Sans", sans-serif; fill: var(--ink); }
+  .pad .name { font-size: 12.5px; font-weight: 700; }
+  .pad .note { font-size: 11px; fill: var(--dim); }
+  .pad .lead { stroke: #a79ec2; stroke-width: 1; fill: none; }
+  .pad .dot { fill: #a79ec2; }
+
+  .row { display: flex; gap: 12px; }
+  .card {
+    flex: 1;
+    border-radius: 16px;
+    padding: 12px 16px 13px;
+    border: 1.5px solid var(--line);
+  }
+  .card h2 {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0 0 7px;
+    font-size: 15px;
+    font-weight: 800;
+  }
+  .card h2 .tag {
+    display: inline-block;
+    padding: 1px 9px 2px;
+    border-radius: 999px;
+    color: var(--ink);
+  }
+  .card h2 small { font-size: 11px; font-weight: 500; color: var(--dim); }
+
+  .menus { background: #effcfe; border-color: #bdeff5; }
+  .menus h2 .tag { background: var(--cyan); }
+  .shortcuts { background: #fff8e9; border-color: #ffe2a3; }
+  .shortcuts h2 .tag { background: var(--amber); }
+  .systems { background: #eef5fd; border-color: #c4dcf4; }
+  .systems h2 .tag { background: #9cc8f2; }
+  .keyboard { background: #f5f1fc; border-color: #ddd3f0; }
+  .keyboard h2 .tag { background: #d6c8f3; }
+
+  /* Rows of keys and what they do. */
+  .list { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; row-gap: 4px; align-items: center; }
+  .list .keys { display: flex; align-items: center; gap: 3px; white-space: nowrap; color: var(--dim); font-size: 11px; }
+  .foot { margin-top: 7px; font-size: 11px; color: var(--dim); line-height: 1.4; }
+
+  .k {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 21px;
+    height: 19px;
+    padding: 0 6px;
+    border-radius: 6px;
+    background: var(--key);
+    color: #fff;
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .k.face { width: 19px; min-width: 19px; padding: 0; border-radius: 50%; }
+  .k.stick { background: linear-gradient(180deg, #ff9bd6, #ff5fb8); color: var(--deep); }
+  .k.home { background: var(--amber); color: var(--deep); }
+  .k.arrow { font-size: 11px; }
+
+  /* The pause menu: the one control everyone needs. */
+  .pause {
+    flex: 1.45;
+    border-radius: 16px;
+    padding: 14px 18px 14px;
+    background: linear-gradient(135deg, #fff1e0, #ffe3f3 45%, #ffd3ec);
+    border: 1.5px solid #ffb3df;
+  }
+  .pause .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #a3307a; }
+  .pause .big { display: flex; align-items: center; gap: 10px; margin: 2px 0 6px; }
+  .pause .big h2 { margin: 0; font-size: 26px; font-weight: 800; line-height: 1.1; }
+  .pause .big .k { height: 30px; min-width: 38px; border-radius: 15px; font-size: 15px; }
+  .pause .big .plus { font-size: 20px; font-weight: 800; color: #a3307a; }
+  .pause p { margin: 0 0 4px; }
+  .pause .others { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; row-gap: 2px; margin-top: 6px; font-size: 11.5px; }
+  .pause .others span:nth-child(odd) { color: var(--dim); }
+
+  .names { flex: 1; background: #fbfaff; }
+  .names h2 .tag { background: #ece6f8; }
+  .names table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .names th { font-size: 10.5px; font-weight: 600; color: var(--dim); padding: 0 0 4px; text-align: center; }
+  .names th:first-child, .names td:first-child { text-align: left; }
+  .names td { text-align: center; padding: 8px 0; border-top: 1px solid var(--line); font-weight: 700; }
+  .names td:first-child { font-weight: 500; color: var(--dim); font-size: 11.5px; }
+  .names .pos { display: block; margin: 0 auto 2px; }
+  .names .ps { display: block; margin: 0 auto; }
+
+  .bottom {
+    display: flex;
+    justify-content: space-between;
+    margin-top: auto;
+    font-size: 11px;
+    color: var(--faint);
+  }
+  .bottom b { color: var(--purple); font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="head">
+    <svg class="glow" viewBox="0 0 728 82" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <radialGradient id="headPink" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stop-color="#c94f9c"/>
+          <stop offset="1" stop-color="#26174c"/>
+        </radialGradient>
+        <radialGradient id="headCyan" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stop-color="#2f8fae"/>
+          <stop offset="1" stop-color="#26174c"/>
+        </radialGradient>
+      </defs>
+      <rect width="728" height="82" fill="#26174c"/>
+      <ellipse cx="90" cy="0" rx="260" ry="90" fill="url(#headPink)"/>
+      <ellipse cx="700" cy="90" rx="300" ry="90" fill="url(#headCyan)"/>
+    </svg>
+    <svg class="mark" viewBox="160 146 280 338" role="img" aria-label="CabinetOS">
+      <defs>
+        <linearGradient id="marquee" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#f68cb8"/>
+          <stop offset="1" stop-color="#fbc27a"/>
+        </linearGradient>
+        <linearGradient id="screen" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffd36a"/>
+          <stop offset="0.55" stop-color="#f99a4c"/>
+          <stop offset="1" stop-color="#ef5f38"/>
+        </linearGradient>
+      </defs>
+      <rect x="175" y="150" width="250" height="330" rx="20" fill="#f4efe0"/>
+      <rect x="193" y="168" width="214" height="34" fill="url(#marquee)"/>
+      <rect x="193" y="213" width="214" height="159" fill="url(#screen)"/>
+      <rect x="165" y="390" width="270" height="48" rx="10" fill="#dad4c3"/>
+      <circle cx="221" cy="414" r="11" fill="#3d3548"/>
+      <circle cx="293" cy="414" r="11" fill="#e8395a"/>
+      <circle cx="331" cy="414" r="11" fill="#f5b82e"/>
+      <rect x="371" y="405" width="31" height="18" rx="5" fill="#fbe7cc"/>
+    </svg>
+    <div>
+      <div class="brand">CabinetOS</div>
+      <h1>Controls</h1>
+    </div>
+    <div class="where"><b>cabinetos.mmagtech.com/wiki</b>Everything else is in the wiki</div>
+  </header>
+
+  <svg class="pad" viewBox="0 0 728 238" width="728" height="238" role="img" aria-label="A controller with every button named">
+    <defs>
+      <linearGradient id="body" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#f1ecfb"/>
+        <stop offset="1" stop-color="#fde7f4"/>
+      </linearGradient>
+      <linearGradient id="stick" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#ff9bd6"/>
+        <stop offset="1" stop-color="#ff5fb8"/>
+      </linearGradient>
+    </defs>
+
+    <rect x="268" y="2" width="58" height="26" rx="10" fill="#d8cfee" stroke="#3a2268" stroke-width="1.5"/>
+    <text x="297" y="19" text-anchor="middle" class="name" font-size="11">L2</text>
+    <rect x="402" y="2" width="58" height="26" rx="10" fill="#d8cfee" stroke="#3a2268" stroke-width="1.5"/>
+    <text x="431" y="19" text-anchor="middle" class="name" font-size="11">R2</text>
+    <rect x="252" y="21" width="86" height="30" rx="13" fill="#e9e3f7" stroke="#3a2268" stroke-width="1.5"/>
+    <text x="297" y="35" text-anchor="middle" class="name" font-size="11">L1</text>
+    <rect x="390" y="21" width="86" height="30" rx="13" fill="#e9e3f7" stroke="#3a2268" stroke-width="1.5"/>
+    <text x="431" y="35" text-anchor="middle" class="name" font-size="11">R1</text>
+
+    <path transform="translate(112,-41) scale(0.84)" vector-effect="non-scaling-stroke"
+          fill="url(#body)" stroke="#3a2268" stroke-width="2"
+          d="M190,110 C220,92 260,90 300,96 C340,90 380,92 410,110
+             C450,125 470,170 485,230 C497,280 490,318 462,322
+             C438,326 420,305 405,280 C395,262 380,252 360,252 L240,252
+             C220,252 205,262 195,280 C180,305 162,326 138,322
+             C110,318 103,280 115,230 C130,170 150,125 190,110 Z"/>
+
+    <circle cx="280" cy="85" r="23" fill="url(#stick)" stroke="#3a2268" stroke-width="1.5"/>
+    <circle cx="280" cy="85" r="15" fill="#ffc6e6"/>
+    <text x="280" y="89" text-anchor="middle" class="name" font-size="11">L3</text>
+
+    <circle cx="416" cy="135" r="23" fill="url(#stick)" stroke="#3a2268" stroke-width="1.5"/>
+    <circle cx="416" cy="135" r="15" fill="#ffc6e6"/>
+    <text x="416" y="139" text-anchor="middle" class="name" font-size="11">R3</text>
+
+    <rect x="294" y="124" width="36" height="14" rx="3" fill="#3a2268"/>
+    <rect x="305" y="113" width="14" height="36" rx="3" fill="#3a2268"/>
+
+    <circle cx="448" cy="66" r="10.5" fill="#2a1a4f"/>
+    <text x="448" y="70" text-anchor="middle" font-size="11" font-weight="700" style="fill:#fff">Y</text>
+    <circle cx="429" cy="85" r="10.5" fill="#2a1a4f"/>
+    <text x="429" y="89" text-anchor="middle" font-size="11" font-weight="700" style="fill:#fff">X</text>
+    <circle cx="467" cy="85" r="10.5" fill="#2a1a4f"/>
+    <text x="467" y="89" text-anchor="middle" font-size="11" font-weight="700" style="fill:#fff">B</text>
+    <circle cx="448" cy="104" r="10.5" fill="#2a1a4f"/>
+    <text x="448" y="108" text-anchor="middle" font-size="11" font-weight="700" style="fill:#fff">A</text>
+
+    <rect x="331" y="84" width="18" height="8" rx="4" fill="#3a2268"/>
+    <rect x="379" y="84" width="18" height="8" rx="4" fill="#3a2268"/>
+    <circle cx="364" cy="62" r="9" fill="#ffc457" stroke="#3a2268" stroke-width="1.5"/>
+
+    <path class="lead" d="M364,22 V51"/>
+    <text x="364" y="16" text-anchor="middle" class="name">Home</text>
+
+    <path class="lead" d="M340,94 V190"/>
+    <circle class="dot" cx="340" cy="94" r="2"/>
+    <text x="340" y="205" text-anchor="middle" class="name">Select</text>
+    <path class="lead" d="M388,94 V190"/>
+    <circle class="dot" cx="388" cy="94" r="2"/>
+    <text x="388" y="205" text-anchor="middle" class="name">Start</text>
+
+    <path class="lead" d="M256,85 H196"/>
+    <circle class="dot" cx="256" cy="85" r="2"/>
+    <text x="190" y="82" text-anchor="end" class="name">Left stick</text>
+    <text x="190" y="96" text-anchor="end" class="note">Press it in: L3</text>
+
+    <path class="lead" d="M293,131 H196"/>
+    <circle class="dot" cx="293" cy="131" r="2"/>
+    <text x="190" y="135" text-anchor="end" class="name">D-pad</text>
+
+    <path class="lead" d="M479,85 H540"/>
+    <circle class="dot" cx="479" cy="85" r="2"/>
+    <text x="546" y="82" text-anchor="start" class="name">Face buttons</text>
+    <text x="546" y="96" text-anchor="start" class="note">Named by position</text>
+
+    <path class="lead" d="M440,135 H540"/>
+    <circle class="dot" cx="440" cy="135" r="2"/>
+    <text x="546" y="131" text-anchor="start" class="name">Right stick</text>
+    <text x="546" y="145" text-anchor="start" class="note">Press it in: R3</text>
+  </svg>
+
+  <div class="row">
+    <section class="pause">
+      <div class="eyebrow">In any game</div>
+      <div class="big">
+        <h2>Pause menu</h2>
+        <span class="k stick">L3</span><span class="plus">+</span><span class="k stick">R3</span>
+      </div>
+      <p>Press both sticks in together. Every game, every system.</p>
+      <p>Save and load states, take a screenshot, or <b>Exit to Home</b> to leave the game. <span class="k face">B</span> goes back to the game.</p>
+      <div class="others">
+        <span>Wii Remote</span><span>Hold HOME</span>
+        <span>Remote Play</span><span>Hold Select</span>
+        <span>8BitDo Arcade Stick</span><span>Tap Home</span>
+        <span>The PC's power button</span><span>Power menu: Sleep, Restart, Power off</span>
+      </div>
+    </section>
+
+    <section class="card names">
+      <h2><span class="tag">Buttons go by position</span></h2>
+      <table>
+        <tr>
+          <th></th>
+          <th><svg class="pos" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="3.5" r="3" fill="#d6cfe6"/><circle cx="3.5" cy="10" r="3" fill="#d6cfe6"/><circle cx="16.5" cy="10" r="3" fill="#d6cfe6"/><circle cx="10" cy="16.5" r="3" fill="#ff5fb8"/></svg>Bottom</th>
+          <th><svg class="pos" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="3.5" r="3" fill="#d6cfe6"/><circle cx="3.5" cy="10" r="3" fill="#d6cfe6"/><circle cx="16.5" cy="10" r="3" fill="#ff5fb8"/><circle cx="10" cy="16.5" r="3" fill="#d6cfe6"/></svg>Right</th>
+          <th><svg class="pos" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="3.5" r="3" fill="#d6cfe6"/><circle cx="3.5" cy="10" r="3" fill="#ff5fb8"/><circle cx="16.5" cy="10" r="3" fill="#d6cfe6"/><circle cx="10" cy="16.5" r="3" fill="#d6cfe6"/></svg>Left</th>
+          <th><svg class="pos" width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="3.5" r="3" fill="#ff5fb8"/><circle cx="3.5" cy="10" r="3" fill="#d6cfe6"/><circle cx="16.5" cy="10" r="3" fill="#d6cfe6"/><circle cx="10" cy="16.5" r="3" fill="#d6cfe6"/></svg>Top</th>
+        </tr>
+        <tr><td>Xbox, this guide</td><td>A</td><td>B</td><td>X</td><td>Y</td></tr>
+        <tr>
+          <td>PlayStation</td>
+          <td><svg class="ps" width="13" height="13" viewBox="0 0 12 12"><path d="M2 2 L10 10 M10 2 L2 10" stroke="#1f1636" stroke-width="2" stroke-linecap="round"/></svg></td>
+          <td><svg class="ps" width="13" height="13" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.3" fill="none" stroke="#1f1636" stroke-width="1.8"/></svg></td>
+          <td><svg class="ps" width="13" height="13" viewBox="0 0 12 12"><rect x="2" y="2" width="8" height="8" fill="none" stroke="#1f1636" stroke-width="1.8"/></svg></td>
+          <td><svg class="ps" width="13" height="13" viewBox="0 0 12 12"><path d="M6 1.6 L10.6 10 L1.4 10 Z" fill="none" stroke="#1f1636" stroke-width="1.7" stroke-linejoin="round"/></svg></td>
+        </tr>
+        <tr><td>Nintendo</td><td>B</td><td>A</td><td>Y</td><td>X</td></tr>
+      </table>
+    </section>
+  </div>
+
+  <div class="row">
+    <section class="card menus">
+      <h2><span class="tag">Menus</span></h2>
+      <div class="list">
+        <span class="keys"><span class="k face">A</span></span><span>Select</span>
+        <span class="keys"><span class="k face">B</span></span><span>Back</span>
+        <span class="keys"><span class="k">L1</span><span class="k">R1</span></span><span>Home, Library, Search, Settings</span>
+        <span class="keys"><span class="k">L2</span><span class="k">R2</span></span><span>Jump a letter. In Collections, the next person</span>
+        <span class="keys"><span class="k">R1</span></span><span>On a game's page: its manual</span>
+        <span class="keys"><span class="k">Start</span></span><span>On Home: the Power menu</span>
+        <span class="keys"><span class="k arrow"><svg width="9" height="11" viewBox="0 0 9 11"><path d="M4.5 10 V1.8 M1.2 4.8 L4.5 1.5 L7.8 4.8" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span><span>From the top row: the top bar. <span class="k face">A</span> on your name switches person</span>
+      </div>
+      <div class="foot">When the screen has dimmed, the first press only wakes it.</div>
+    </section>
+
+    <section class="card shortcuts">
+      <h2><span class="tag">Shortcuts</span><small>Turn on in Settings, Controllers</small></h2>
+      <div class="list">
+        <span class="keys">Tap <span class="k home">Home</span></span><span>Pause menu</span>
+        <span class="keys"><span class="k home">Home</span>+<span class="k">R1</span></span><span>Save state</span>
+        <span class="keys"><span class="k home">Home</span>+<span class="k">L1</span></span><span>Load the newest state</span>
+        <span class="keys"><span class="k home">Home</span>+ hold <span class="k">R2</span></span><span>Fast forward</span>
+        <span class="keys"><span class="k home">Home</span>+ hold <span class="k">L2</span></span><span>Rewind</span>
+        <span class="keys"><span class="k home">Home</span>+<span class="k face">X</span></span><span>Screenshot</span>
+      </div>
+      <div class="foot">Home does nothing? <b>Shortcuts use</b>, in the same list, picks another button. Switch, PS3, Xbox, Xbox 360, Wii U and Vita games: tap only. 3DS: no rewind.</div>
+    </section>
+  </div>
+
+  <div class="row">
+    <section class="card systems" style="flex: 1.8">
+      <h2><span class="tag">On some systems</span></h2>
+      <div class="list">
+        <span class="keys"><b>Arcade</b></span><span>Hold <span class="k">Start</span> a second: the game's own settings</span>
+        <span class="keys"><b>DS, 3DS</b></span><span>Right stick moves a pointer, <span class="k stick">R3</span> touches</span>
+        <span class="keys"><b>DS, 3DS</b></span><span>Click <span class="k stick">L3</span>: top screen, bottom screen, both</span>
+        <span class="keys"><b>DS</b></span><span>Hold <span class="k">R2</span> to close the lid</span>
+        <span class="keys"><b>PS1</b></span><span><span class="k">L1</span> + <span class="k">R1</span> + <span class="k">Select</span>: the ANALOG button</span>
+        <span class="keys"><b>PS Vita</b></span><span>Hold <span class="k stick">L3</span> for touch dots. Sticks move them, <span class="k">L2</span> <span class="k">R2</span> touch</span>
+        <span class="keys"><b>Wii</b></span><span>Short press of HOME: the game's own HOME menu</span>
+      </div>
+    </section>
+
+    <section class="card keyboard">
+      <h2><span class="tag">On-screen keyboard</span></h2>
+      <div class="list">
+        <span class="keys"><span class="k face">A</span></span><span>Type the key</span>
+        <span class="keys"><span class="k face">X</span></span><span>Delete</span>
+        <span class="keys"><span class="k face">Y</span></span><span>Shift, one letter</span>
+        <span class="keys"><span class="k">Start</span></span><span>Done</span>
+        <span class="keys"><span class="k face">B</span></span><span>Cancel</span>
+      </div>
+    </section>
+  </div>
+
+  <div class="bottom">
+    <span><b>CabinetOS</b> controls, October 2026</span>
+    <span>The wiki's <b>Buttons and shortcuts</b> page has the rest</span>
+  </div>
+
+</div>
+</body>
+</html>

@@ -9,6 +9,7 @@
 
 #include "catalog.h"
 #include "quality.h"
+#include "screenview.h"
 #include "storage.h"
 #include "sysopts.h"
 #include "vectrexsheets.h"
@@ -69,6 +70,10 @@ int run(const std::string& dir) {
                 for (const auto& kv : catalog::optionOverrides(core, vk, above))
                     fromCatalog.emplace(kv.first, kv.second);
         for (const auto& kv : fromCatalog) sets.push_back({kv, "catalog"});
+        // And a DS or 3DS game's screens, every view (screenview.h).
+        for (int v = 0; v < screenview::kViewCount; ++v)
+            for (const auto& kv : screenview::coreOptions(core, static_cast<screenview::View>(v)))
+                sets.push_back({kv, "screen view"});
         for (const std::string& slug : slugs) {
             for (int l = 0; l < quality::kLevelCount; ++l)
                 for (bool vk : {true, false})
