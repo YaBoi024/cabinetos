@@ -103,7 +103,17 @@ Result SearchScreen::key(Nav n) {
     return {};
 }
 
+bool SearchScreen::tapAt(float x, float y, Result* out) {
+    const int id = taps_.at(x, y);
+    if (id < 0 || id >= static_cast<int>(results_.size())) return false;
+    slot_ = id;
+    focused_ = true;
+    *out = key(Nav::Activate);
+    return true;
+}
+
 void SearchScreen::draw(Ctx& c) {
+    taps_.clear();
     if (!c.cards) return;
     const float top = design::kContentTop;
     const float headingH = c.text.lineHeight(ui::TextStyle::Title3, c.sc) + 12.0f;
@@ -201,6 +211,7 @@ void SearchScreen::draw(Ctx& c) {
             if (bx + cw < -pitch) continue;
             if (bx > ui::kCanvasWidth + pitch) break;
 
+            taps_.add(static_cast<int>(i), bx, coversTop, cw, ch);
             design::Card& card = (*c.cards)[static_cast<size_t>(idx)];
             card.focus.retarget(isFocused ? 1.0f : 0.0f, design::kFocusDuration);
             const float f = card.focus.value();

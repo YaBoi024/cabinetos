@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "screens.h"
+#include "tapspots.h"
 
 namespace screens {
 
@@ -80,6 +81,12 @@ public:
     Result key(Nav n);
     void draw(Ctx& c);
 
+    // FORK (handheld): a finger on a result. True when it was on one, with what
+    // pressing that would do in `out`. Works while the keyboard is up, and
+    // moves focus to the result as a press of Up into the results does. See
+    // tapspots.h.
+    bool tapAt(float x, float y, Result* out);
+
     int focusedCard() const {
         return (slot_ >= 0 && slot_ < static_cast<int>(results_.size())) ? results_[slot_] : -1;
     }
@@ -100,6 +107,7 @@ private:
     float resultsBottom_ = ui::kCanvasHeight;
     bool keysUp_ = true;
     design::Animated scroll_;
+    TapSpots taps_;   // FORK (handheld)
 };
 
 }  // namespace screens

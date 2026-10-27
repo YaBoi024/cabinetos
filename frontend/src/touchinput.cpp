@@ -152,7 +152,8 @@ bool tapScreen(App& a, App::InputOwner owner, float x, float y) {
     // An empty Home says "Press A to open the Library": a tap is that A.
     if (a.here() == App::Screen::Home && a.homeEmpty()) return false;
     const bool ours = a.here() == App::Screen::Home || a.here() == App::Screen::Library ||
-                      a.here() == App::Screen::Grid || a.here() == App::Screen::Settings;
+                      a.here() == App::Screen::Grid || a.here() == App::Screen::Settings ||
+                      a.here() == App::Screen::Search;
     if (!ours) return false;
     // Nothing takes a press behind a curtain (navigate() says the same).
     if (a.switchPendingId || a.leaving != App::Leave::None ||
@@ -167,6 +168,7 @@ bool tapScreen(App& a, App::InputOwner owner, float x, float y) {
         case App::Screen::Library: hit = a.libraryScreen.tapAt(x, y, &res); break;
         case App::Screen::Grid: hit = a.gridScreen.tapAt(x, y, &res); break;
         case App::Screen::Settings: hit = a.settingsScreen.tapAt(x, y, &res); break;
+        case App::Screen::Search: hit = a.searchScreen.tapAt(x, y, &res); break;
         default: return false;
     }
     if (!hit) return true;
@@ -354,6 +356,17 @@ bool App::handleTouch(const SDL_Event& e) {
                 if (hit) {
                     keyboardResult(res);
                     return true;
+                }
+                // FORK (handheld): the results above the docked keyboard on Search are
+                // tapped even while the keyboard has the input.
+                if (here() == Screen::Search && !switchPendingId && leaving == Leave::None &&
+                    !(arriving && !arriveLifting)) {
+                    screens::Result found;
+                    if (searchScreen.tapAt(x, y, &found)) {
+                        barFocused = false;
+                        apply(found);
+                        return true;
+                    }
                 }
                 if (owner == InputOwner::Keyboard) return true;
             }
