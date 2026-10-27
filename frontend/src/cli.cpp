@@ -22,11 +22,9 @@
 #include "firstrun.h"
 #include "idle.h"
 #include "launch.h"
-<<<<<<< HEAD
 #include "netplay.h"
 #include "netplaywire.h"
 #include "netblock.h"
->>>>>>> upstream/main
 #include "samenames.h"
 #include "storage.h"
 #include "update.h"
