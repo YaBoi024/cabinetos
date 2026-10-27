@@ -185,6 +185,11 @@ struct App {
     bool evictTest = false;
     // Proves a restored state is genuinely identical, not merely accepted.
     bool stateTest = false;
+    // FORK (handheld): per-frame digests of a scripted two-player run (coretests.cpp).
+    bool netplayTest = false;
+    int netplayRole = 0;                 // 1 host, 2 join (netplayrun.h)
+    int netplayPort = 0;
+    const char* netplayAddress = nullptr;
     // What one emulated frame costs, run back to back with no clock (#147).
     bool speedTest = false;
     bool audioProbe = false;
@@ -2175,8 +2180,9 @@ struct App {
     // controllers.cpp
     bool interceptControllers(const SDL_Event& e);
     void noticeLowBattery(float dt);
-    void tickLevelBars(float dt);   // FORK (handheld): levelbar.cpp
-    void drawLevelBar(float sc);    // FORK (handheld): levelbar.cpp
+    // FORK (handheld): the volume and brightness bar (levelbar.cpp).
+    void tickLevelBars(float dt);
+    void drawLevelBar(float sc);
     levelbar::Bar levelBar;
     unsigned volumeBarSeen = 0;
     int backlightSeen = -1;

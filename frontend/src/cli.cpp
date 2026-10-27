@@ -22,6 +22,8 @@
 #include "firstrun.h"
 #include "idle.h"
 #include "launch.h"
+#include "netplay.h"
+#include "netplaywire.h"
 #include "samenames.h"
 #include "storage.h"
 #include "update.h"
@@ -113,6 +115,16 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             audioProbe = true;
         } else if (SDL_strcmp(argv[i], "--state-test") == 0) {
             stateTest = true;
+        } else if (SDL_strcmp(argv[i], "--netplay-host") == 0 && i + 1 < argc) {
+            netplayRole = 1;   // FORK (handheld): netplayrun.h
+            netplayPort = SDL_atoi(argv[++i]);
+        } else if (SDL_strcmp(argv[i], "--netplay-join") == 0 && i + 1 < argc) {
+            netplayRole = 2;
+            netplayPort = SDL_atoi(argv[++i]);
+        } else if (SDL_strcmp(argv[i], "--netplay-address") == 0 && i + 1 < argc) {
+            netplayAddress = argv[++i];
+        } else if (SDL_strcmp(argv[i], "--netplay-test") == 0) {
+            netplayTest = true;   // FORK (handheld): coretests.cpp
         } else if (SDL_strcmp(argv[i], "--speed-test") == 0) {
             speedTest = true;
         } else if (SDL_strcmp(argv[i], "--core") == 0 && i + 1 < argc) {
@@ -280,6 +292,10 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             accountsTestMode = true;
         } else if (SDL_strcmp(argv[i], "--players-test") == 0) {
             playersTestMode = true;
+        } else if (SDL_strcmp(argv[i], "--netplay-session-test") == 0) {
+            return netplay::test();   // FORK (handheld): netplay.h
+        } else if (SDL_strcmp(argv[i], "--netplay-wire-test") == 0) {
+            return netplaywire::test();   // FORK (handheld): netplaywire.h
         } else if (SDL_strcmp(argv[i], "--fightstick-test") == 0) {
             return fightstick::test();
         } else if (SDL_strcmp(argv[i], "--arcade-settings-test") == 0) {
