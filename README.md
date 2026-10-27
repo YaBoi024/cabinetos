@@ -82,6 +82,8 @@ from the [Universal Blue image template](https://github.com/ublue-os/image-templ
 
 ## Tested hardware
 - Steam Deck OLED: tested
+  Working: audio, touchscreen, gyro...
+  Haven't worked on touchpads or L4, R4, L5 and R5
 - Steam Deck LCD: not tested yet. Reports welcome.
 - Other handhelds: untested. Reports welcome.
 
