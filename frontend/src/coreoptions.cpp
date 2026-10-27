@@ -163,19 +163,11 @@ std::map<std::string, std::string> optionOverrides(const std::string& core, bool
     // enough to aim the pointer at; Large Screen draws it at a quarter of the
     // top screen's scale. Decided 2026-10-20. The controls are the core's own,
     // with no override: the right stick is the touch pointer and the New 3DS
-    // C-stick at once, R3 touches, L3 swaps the screens (#374's rule, as on
-    // the DS). quality.cpp's levels are sized for this layout.
-    //
-    // L3 SWAPS THE SCREENS ONLY WHILE IT IS HELD ("Hold", not the core's
-    // "Toggle"). A stick click reaches the core on its own before L3 + R3 is
-    // caught as the pause menu (play.cpp), so with Toggle the L3 that lands a
-    // frame before R3 left the screens swapped behind the menu. Side by side,
-    // a swap only trades the screens' sides, so holding it costs nothing.
-    if (coreName == "azahar")
-        return {
-            {"citra_layout_option", "side_by_side"},
-            {"citra_swap_screen_mode", "Hold"},
-        };
+    // C-stick at once, R3 touches (#374's rule, as on the DS). L3, the
+    // core's swap, shows one screen alone instead and never reaches it
+    // (screenview.h), which draws this layout as "both". quality.cpp's levels
+    // are sized for this layout.
+    if (coreName == "azahar") return {{"citra_layout_option", "side_by_side"}};
 
     // Beetle Saturn, and this one also decides where the save is. "libretro"
     // hands the Saturn's backup RAM to the frontend through SAVE_RAM, which

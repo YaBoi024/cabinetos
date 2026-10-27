@@ -76,6 +76,7 @@
 #include "rewind.h"
 #include "romm.h"
 #include "screens.h"
+#include "screenview.h"
 #include "searchscreen.h"
 #include "server.h"
 #include "settings.h"
@@ -1013,6 +1014,9 @@ struct App {
     // hold, which opens MAME 2003-Plus's own menu. FinalBurn Neo counts its
     // own.
     arcadesettings::Hold arcadeHold;
+    // A DS OR 3DS GAME'S SCREENS (screenview.h): player 1's L3, and which
+    // screens show.
+    screenview::Press screenPress;
     // FAST FORWARD (#77): the shortcut button and ZR, held. Fast while held,
     // normal on release, the sound discarded meanwhile. About 4x, a fixed top
     // speed rather than a setting. ONLY WHERE STATES ARE (MMagTech,

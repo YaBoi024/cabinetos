@@ -35,6 +35,7 @@ from a blank PC to playing.
 ## Reference
 
 - [Buttons and shortcuts](navigation.md): every screen, and the in-game shortcuts.
+- [Controls guide](controls.pdf): one page to print, every button on it.
 - [Systems, formats and BIOS](systems.md): what plays, which files, which BIOS.
 - [When something is wrong](troubleshooting.md): messages, and making a diagnostic report.
 - [What's new](changelog.md): every update, newest first.

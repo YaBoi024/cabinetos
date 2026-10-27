@@ -1,6 +1,7 @@
 # Buttons and shortcuts
 
-The essentials are on the console too: Settings, About, **How to**.
+The essentials are on the console too: Settings, About, **How to**. To print,
+the [one-page controls guide (PDF)](controls.pdf).
 
 Buttons are named by position, Xbox style: **A** is the bottom face button
 (Cross on PlayStation, B on Nintendo), **B** the right one, **X** the left one,
@@ -65,8 +66,8 @@ The Home (Guide) button is never passed to a game.
 | System | Button | Does |
 |---|---|---|
 | Arcade | Hold **Start** for a second | The game's own settings, see [Arcade](systems.md#arcade) |
-| Nintendo DS | Right stick, **R3** | The right stick moves a pointer on the touch screen; **R3** (press the stick) touches |
-| Nintendo 3DS | Right stick, **R3**, **L3** | The right stick moves a pointer on the touch screen, and is the C-stick too; **R3** touches; hold **L3** to swap the two screens |
+| Nintendo DS | Right stick, **R3**, **L3**, **R2** | The right stick moves a pointer on the touch screen; **R3** (press the stick) touches; click **L3** for the top screen alone, again for the bottom screen alone, and again for both; hold **R2** to close the lid, for the few games that ask for it |
+| Nintendo 3DS | Right stick, **R3**, **L3** | The right stick moves a pointer on the touch screen, and is the C-stick too; **R3** touches; click **L3** for the top screen alone, again for the bottom screen alone, and again for both |
 | PlayStation (PS1) | **L1 + R1 + Select** | The DualShock's ANALOG button, for the few games that need it pressed |
 | PlayStation Vita | Hold **L3**, the sticks, **L2**, **R2** | Hold L3 for half a second to show two dots on the touch screen, and again to hide them. With them showing, the left stick moves the white dot and **L2** touches with it (hold to drag); the right stick brings a red dot that **R2** touches with. A quick click of L3 is still the game's |
 
