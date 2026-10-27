@@ -151,9 +151,11 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
 # build.sh put in place, 250 MB. os-release is branded first, WITHOUT the
 # version, so the initramfs's copy names CabinetOS and is the same in every
 # image (#511: with the version in it, every update downloaded this layer).
+# FORK (handheld): brand-os-release.sh is run with bash, because the file lost its
+# executable bit when it was copied in by hand (exit 126, Permission denied).
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=tmpfs,dst=/tmp \
-    /ctx/brand-os-release.sh && \
+    bash /ctx/brand-os-release.sh && \
     /ctx/boot-splash.sh
 
 # THE VERSION, IN A LAYER OF ITS OWN, LAST but for the lint. It changes with
@@ -165,7 +167,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
 ARG CABINETOS_VERSION=dev
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     printf '%s\n' "${CABINETOS_VERSION}" > /usr/share/cabinetos/version && \
-    /ctx/brand-os-release.sh "${CABINETOS_VERSION}"
+    bash /ctx/brand-os-release.sh "${CABINETOS_VERSION}"
 
 # ---------------------------------------------------------------------------
 # Lint
