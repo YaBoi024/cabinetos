@@ -25,7 +25,7 @@ struct Request {
     std::string address = "127.0.0.1";
     int port = 55435;
     int code = 4821;
-    int delay = -1;   // frames; -1 lets the host choose from the round trip (netplay::kAutoDelay)
+    int delay = 2;   // frames at the start; the game raises it by itself if it has to wait (netplaylive.cpp, look)
     int romId = 0;   // the game it was asked for; 0 from the command line, for any
 };
 

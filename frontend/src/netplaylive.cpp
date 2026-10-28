@@ -69,10 +69,8 @@ struct Live {
     std::chrono::steady_clock::time_point lateSince{};
     bool late = false;
     bool saidWaiting = false;
-    // For the [netplay] line every 600 frames: refreshes that had to wait for
-    // the other side's buttons, and the longest wait.
+    // For the [netplay] line every 600 frames: waits for the other side's buttons.
     uint32_t heldTicks = 0;
-    double longestHoldMs = 0.0;
 };
 
 // Whether a drift ends the session. CABINETOS_NETPLAY_DRIFT=log keeps playing
@@ -82,9 +80,6 @@ bool driftEnds() {
     return !(e && std::strcmp(e, "log") == 0);
 }
 
-// A packet often lands a few milliseconds after the check. Waiting this long
-// for it costs less than giving up the whole refresh and trying on the next.
-constexpr int kShortWaitMs = 3;
 
 std::string waitingLine;   // main thread and connector; guarded by Live::lock
 
@@ -271,7 +266,6 @@ void begin(cab::Core& core, const std::string& romPath, int romId, const std::st
     l.lead = l.need = l.stallBoost = 0;
     l.stalls = 0;
     l.heldTicks = 0;
-    l.longestHoldMs = 0.0;
     l.late = false;
     l.saidWaiting = false;
     l.delay = r.delay;
@@ -315,16 +309,22 @@ void setLocal(const cab::PadState& pad) {
 
 namespace {
 
-// Once a second: what we ask of the other side, from the round trip and from
-// whether the game had to wait for their buttons.
+// A single wait is a one-frame hitch, as it always was; the delay, which is
+// felt on every button, is raised only when waits are frequent.
+constexpr uint32_t kStallsToRaise = 6;   // waits in one second
+
+// Once a second: what we ask of the other side. The delay stays at the 2
+// frames every session was first played at, which felt right on a good link,
+// and goes up only when the game really had to wait for the other side's
+// buttons (a frame each second it did), and back down one frame at a time
+// after ten quiet seconds. The round trip is logged to explain a rise, but it
+// does not choose the delay: a figure worked out from it came out higher than
+// 2 on links that played perfectly at 2, and the delay could be seen.
 void look(Live& l) {
     const auto now = std::chrono::steady_clock::now();
     if (now - l.lastLook < std::chrono::seconds(1)) return;
     l.lastLook = now;
-    const double rtt = l.session->rttMs();
-    const int fromRtt =
-        rtt >= 0.0 ? netplay::chooseDelay(rtt, l.session->rttVarMs(), l.fps) : l.need;
-    if (l.stalls > 0) {
+    if (l.stalls >= kStallsToRaise) {
         l.stallBoost = std::min(netplaywire::kMaxLead, std::max(l.stallBoost, l.need) + 1);
         l.lastStall = now;
     } else if (l.stallBoost > 0 && now - l.lastStall > std::chrono::seconds(10)) {
@@ -332,11 +332,13 @@ void look(Live& l) {
         l.lastStall = now - std::chrono::seconds(6);
     }
     l.stalls = 0;
-    int want = std::clamp(std::max(fromRtt, l.stallBoost), 2, netplaywire::kMaxLead);
+    int want = std::clamp(l.stallBoost, l.delay, netplaywire::kMaxLead);
     if (want < l.need) want = l.need - 1;   // down gently: each step down drops a frame of buttons
     if (want == l.need) return;
-    std::fprintf(stderr, "[netplay] asking for %d frames of delay (was %d; round trip %.1f ms)\n",
-                 want, l.need, rtt);
+    std::fprintf(stderr,
+                 "[netplay] asking for %d frames of delay (was %d; the game waited; round trip "
+                 "%.1f ms)\n",
+                 want, l.need, l.session->rttMs());
     if (want >= 4 && l.need < 4 && now - l.lastSlowSay > std::chrono::seconds(30)) {
         l.lastSlowSay = now;
         say("The connection is slow, so there's a little more delay", Mood::Info);
@@ -433,15 +435,7 @@ int step(cab::Core& core, int maxFrames) {
         netplaywire::Pad mine, theirs;
         if (f >= d) {
             mine = l.sent[f];
-            netplay::Wait w = l.session->remoteInputs(f, theirs, 0);
-            if (w == netplay::Wait::Late) {
-                const auto t0 = std::chrono::steady_clock::now();
-                w = l.session->remoteInputs(f, theirs, kShortWaitMs);
-                const double ms = std::chrono::duration<double, std::milli>(
-                                      std::chrono::steady_clock::now() - t0).count();
-                ++l.heldTicks;
-                if (ms > l.longestHoldMs) l.longestHoldMs = ms;
-            }
+            const netplay::Wait w = l.session->remoteInputs(f, theirs, 0);
             if (w == netplay::Wait::Gone) {
                 if (l.session->sentSave() && l.frame < 120)
                     fail("Sent your saved game. Start Play together again", Mood::Done);
@@ -455,6 +449,7 @@ int step(cab::Core& core, int maxFrames) {
                     l.late = true;
                     l.lateSince = now;
                     ++l.stalls;
+                    ++l.heldTicks;
                 } else if (!l.saidWaiting && now - l.lateSince > std::chrono::seconds(1)) {
                     l.saidWaiting = true;
                     say("Waiting for the other player", Mood::Busy);
@@ -475,11 +470,9 @@ int step(cab::Core& core, int maxFrames) {
         if (l.frame % 600 == 0) {
             std::fprintf(stderr,
                          "[netplay] %u frames: round trip %.1f ms, asking %d, sending %d ahead, "
-                         "waited on the other side %u times (longest %.1f ms)\n",
-                         l.frame, l.session->rttMs(), l.need, l.lead, l.heldTicks,
-                         l.longestHoldMs);
+                         "waited on the other side %u times\n",
+                         l.frame, l.session->rttMs(), l.need, l.lead, l.heldTicks);
             l.heldTicks = 0;
-            l.longestHoldMs = 0.0;
         }
         // A fingerprint each second: of the console's memory for N64 and
         // GameCube, of the picture for the rest. A mismatch ends the session
