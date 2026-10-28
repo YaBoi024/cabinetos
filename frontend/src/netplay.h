@@ -38,7 +38,7 @@ constexpr int kAutoDelay = -1;
 
 // Frames of delay that keep the other side's buttons from arriving late: the
 // one-way trip, a margin for jitter, and a few milliseconds for the two
-// consoles' refreshes not lining up, over the length of a frame. At least 1 and
+// consoles' refreshes not lining up, over the length of a frame. At least 2 and
 // at most 8; a link that needs more is too slow to play well and is logged.
 int chooseDelay(double rttMs, double rttVarMs, double fps);
 

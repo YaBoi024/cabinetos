@@ -131,7 +131,10 @@ int chooseDelay(double rttMs, double rttVarMs, double fps) {
     const double frameMs = 1000.0 / fps;
     const double needMs = rttMs / 2.0 + 2.0 * rttVarMs + 4.0;
     int frames = static_cast<int>(std::ceil(needMs / frameMs));
-    if (frames < 1) frames = 1;
+    // Never below 2: that is the delay every session was played at, flawless,
+    // before it was chosen from the round trip. One frame stalls whenever the
+    // two screens' refreshes fall apart.
+    if (frames < 2) frames = 2;
     if (frames > 8) frames = 8;
     return frames;
 }
@@ -527,10 +530,10 @@ int test() {
     };
     const Identity id{"snes9x", "Snes9x 1.63", "00ff00ff00ff00ff", ""};
 
-    check(chooseDelay(0, 0, 60) == 1, "no round trip: 1 frame of delay");
+    check(chooseDelay(0, 0, 60) == 2, "no round trip: 2 frames, the least");
     check(chooseDelay(20, 2, 60) == 2, "20 ms round trip at 60 Hz: 2 frames");
     check(chooseDelay(60, 5, 60) == 3, "60 ms round trip at 60 Hz: 3 frames");
-    check(chooseDelay(20, 2, 50) == 1, "20 ms round trip at 50 Hz: 1 frame");
+    check(chooseDelay(20, 2, 50) == 2, "20 ms round trip at 50 Hz: 2 frames, the least");
     check(chooseDelay(900, 50, 60) == 8, "a very slow link is held at 8 frames");
 
     // A host and a joiner, each on a thread. Returns the host's and the joiner's answers.
@@ -560,7 +563,7 @@ int test() {
     {
         Pair p;
         connect(p, 4821, 4821, id, id, kAutoDelay);
-        check(p.hostErr.empty() && p.joinErr.empty() && p.join.delay() >= 1 &&
+        check(p.hostErr.empty() && p.joinErr.empty() && p.join.delay() >= 2 &&
                   p.join.delay() <= 8 && p.join.delay() == p.host.delay(),
               "an automatic delay is chosen, and both sides agree on it");
     }

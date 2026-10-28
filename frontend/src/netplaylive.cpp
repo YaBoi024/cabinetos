@@ -332,7 +332,7 @@ void look(Live& l) {
         l.lastStall = now - std::chrono::seconds(6);
     }
     l.stalls = 0;
-    int want = std::clamp(std::max(fromRtt, l.stallBoost), 1, netplaywire::kMaxLead);
+    int want = std::clamp(std::max(fromRtt, l.stallBoost), 2, netplaywire::kMaxLead);
     if (want < l.need) want = l.need - 1;   // down gently: each step down drops a frame of buttons
     if (want == l.need) return;
     std::fprintf(stderr, "[netplay] asking for %d frames of delay (was %d; round trip %.1f ms)\n",
@@ -401,6 +401,8 @@ int step(cab::Core& core, int maxFrames) {
             std::lock_guard<std::mutex> g(l.lock);
             waitingLine.clear();
         }
+        std::fprintf(stderr, "[netplay] drift check compares the %s\n",
+                     l.ramCheck && core.ramDigest() != 0 ? "console's memory" : "picture");
         if (!takeSavedGame(l, core)) return 0;
         std::string hello = "Connected as player " + std::to_string(l.self + 1);
         if (l.session->synced() && !l.session->receivedSave().empty())
@@ -484,6 +486,9 @@ int step(cab::Core& core, int maxFrames) {
         // with a message instead of letting the two games drift.
         if (l.frame % 60 == 0) {
             const uint64_t v = digestOf(l, core);
+            if (!driftEnds())
+                std::fprintf(stderr, "[netplay] fingerprint at frame %u: %016llx\n", f,
+                             static_cast<unsigned long long>(v));
             l.session->sendDigest(f, v);
             l.mine[f] = v;
         }
@@ -493,6 +498,9 @@ int step(cab::Core& core, int maxFrames) {
             if (w == netplay::Wait::Late) break;
             if (w == netplay::Wait::Gone) break;   // the input path reports it
             if (theirDigest != it->second) {
+                std::fprintf(stderr, "[netplay] fingerprint at frame %u: mine %016llx, theirs %016llx\n",
+                             it->first, static_cast<unsigned long long>(it->second),
+                             static_cast<unsigned long long>(theirDigest));
                 if (driftEnds()) {
                     fail("The two games have drifted apart");
                     return ran;
