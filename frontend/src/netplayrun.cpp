@@ -110,6 +110,13 @@ int run(cab::Core& core, const Options& o) {
                 break;
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
+        // Joined; now the host begins the game.
+        while (why.empty()) {
+            why = s.awaitStart(500);
+            if (why != netplay::kNotYet || std::chrono::steady_clock::now() > stop) break;
+            why.clear();
+        }
+        if (why == netplay::kNotYet) why = "the host did not start the game";
     }
     if (!why.empty()) {
         std::fprintf(stderr, "[netplay] %s: %s\n", role, why.c_str());
@@ -125,7 +132,7 @@ int run(cab::Core& core, const Options& o) {
     auto compare = [&](bool last) -> std::string {
         for (auto it = mine.begin(); it != mine.end();) {
             uint64_t theirs = 0;
-            const netplay::Wait w = s.remoteDigest(it->first, theirs, last ? 10000 : 0);
+            const netplay::Wait w = s.remoteDigest(it->first, 1 - self, theirs, last ? 10000 : 0);
             if (w == netplay::Wait::Late) break;
             if (w == netplay::Wait::Gone) return last ? "the other side left before the end" : std::string();
             if (theirs != it->second) return "DRIFT at frame " + std::to_string(it->first);
@@ -141,7 +148,7 @@ int run(cab::Core& core, const Options& o) {
         netplaywire::Pad local, remote;
         if (f >= d) {
             local = scripted(frame - static_cast<uint32_t>(d), self);
-            if (s.remoteInputs(frame, remote, 10000) != netplay::Wait::Got) {
+            if (s.remoteInputs(frame, 1 - self, remote, 10000) != netplay::Wait::Got) {
                 std::fprintf(stderr, "[netplay] %s: no buttons for frame %d (%s)\n", role, f,
                              s.error().empty() ? "the other side stopped" : s.error().c_str());
                 s.leave();

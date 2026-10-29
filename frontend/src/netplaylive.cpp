@@ -3,6 +3,7 @@
 #include "netplaylive.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cctype>
 #include <chrono>
@@ -44,6 +45,12 @@ struct Live {
     netplaywire::Pad local;   // latest buttons, main thread only
     int delay = 0;
     int self = 0;
+    int players = 2;          // how many play, once the game has begun
+    // The lobby, for a host that waits for more than one friend: Start pressed
+    // (set on the main thread, read by the connector) and the last press seen.
+    std::atomic<bool> startNow{false};
+    bool startHeld = false;
+    std::atomic<bool> hosting{false};
     uint32_t frame = 0;
     uint32_t nextSend = 0;    // the first frame whose buttons have not been sent
     double fps = 60.0;
@@ -154,6 +161,26 @@ cab::PadState toCore(const netplaywire::Pad& p) {
     return s;
 }
 
+// What to keep on screen while the lobby fills.
+void lobbyLine(const Request& r, int here) {
+    Live& l = live();
+    char line[128];
+    if (r.host && r.players > 2)
+        std::snprintf(line, sizeof line, "%d of %d here \xC2\xB7 press Start to begin \xC2\xB7 code %04d",
+                      here, r.players, r.code);
+    else if (r.host)
+        std::snprintf(line, sizeof line, "Waiting for player 2 \xC2\xB7 code %04d", r.code);
+    else if (here > 1)
+        std::snprintf(line, sizeof line, "In the game \xC2\xB7 %d here \xC2\xB7 waiting for the host to start",
+                      here);
+    else
+        std::snprintf(line, sizeof line, "Joining player 1\xE2\x80\xA6");
+    std::lock_guard<std::mutex> g(l.lock);
+    waitingLine = line;
+    l.message = line;
+    l.mood = Mood::Busy;
+}
+
 void connect(Request r, netplay::Identity me, double fps) {
     Live& l = live();
     std::string why;
@@ -161,21 +188,40 @@ void connect(Request r, netplay::Identity me, double fps) {
     if (r.host) {
         why = l.session->listen("0.0.0.0", static_cast<uint16_t>(r.port));
         if (why.empty()) {
-            std::fprintf(stderr, "[netplay] hosting on port %u (code %d)\n",
-                         static_cast<unsigned>(l.session->port()), r.code);
+            std::fprintf(stderr, "[netplay] hosting on port %u (code %d), up to %d players\n",
+                         static_cast<unsigned>(l.session->port()), r.code, r.players);
             const auto stop = Clock::now() + std::chrono::seconds(300);
+            int shown = 1;
             for (;;) {
-                why = l.session->accept(static_cast<uint16_t>(r.code), me, r.delay, 500, fps, &l.pack);
-                if (why.empty() || l.cancel || Clock::now() > stop) break;
-                if (why == "nobody joined") continue;
-                // Somebody knocked and was turned away (a wrong code, a
-                // different game). The door closed behind them: open it again.
-                std::fprintf(stderr, "[netplay] turned a joiner away: %s\n", why.c_str());
-                say(why == "wrong code" ? "Someone tried the wrong code"
-                                        : "Someone tried to join: " + why,
-                    Mood::Problem);
-                why = l.session->listen("0.0.0.0", static_cast<uint16_t>(r.port));
-                if (!why.empty()) break;
+                // The door stays open while friends gather: a wrong code or a
+                // different game is turned away and the next one is let in.
+                why = l.session->admit(static_cast<uint16_t>(r.code), me, 500, r.players, fps,
+                                       &l.pack);
+                if (l.cancel || Clock::now() > stop) {
+                    if (!l.cancel) why = "nobody started the game";
+                    break;
+                }
+                if (!why.empty() && why != netplay::kNobodyJoined) {
+                    std::fprintf(stderr, "[netplay] turned a joiner away: %s\n", why.c_str());
+                    say(why == "wrong code" ? "Someone tried the wrong code"
+                                            : "Someone tried to join: " + why,
+                        Mood::Problem);
+                }
+                const int here = l.session->here();   // also drops anyone who left
+                if (here != shown) {
+                    shown = here;
+                    lobbyLine(r, here);
+                }
+                if (here < 2) {
+                    l.startNow = false;   // a Start pressed with nobody here does not count
+                    continue;
+                }
+                // Start with the game full, or when the host presses Start.
+                // Two players start as soon as the friend is in.
+                if (here >= r.players || r.players <= 2 || l.startNow.exchange(false)) {
+                    why = l.session->start(r.delay);
+                    break;
+                }
             }
         }
     } else {
@@ -187,6 +233,24 @@ void connect(Request r, netplay::Identity me, double fps) {
                 Clock::now() > stop)
                 break;
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        }
+        // In: now wait, in the host's lobby, for the game to begin.
+        if (why.empty()) {
+            const auto wait = Clock::now() + std::chrono::seconds(300);
+            int shown = 0;
+            for (;;) {
+                why = l.session->awaitStart(500);
+                if (why != netplay::kNotYet) break;
+                if (l.cancel) break;
+                if (Clock::now() > wait) {
+                    why = "the host did not start the game";
+                    break;
+                }
+                if (const int here = l.session->lobbySize(); here != shown) {
+                    shown = here;
+                    lobbyLine(r, here);
+                }
+            }
         }
     }
     if (!why.empty()) {
@@ -215,7 +279,7 @@ Request& pending() {
 void begin(cab::Core& core, const std::string& romPath, int romId, const std::string& saveDir,
            const std::string& cardRoot) {
     Live& l = live();
-    const Request r = pending();
+    Request r = pending();
     if (!r.wanted || l.state != State::Off) return;
     // Asked for on another game's page and never started: not this one's.
     if (r.romId != 0 && r.romId != romId) {
@@ -230,6 +294,8 @@ void begin(cab::Core& core, const std::string& romPath, int romId, const std::st
         pending() = {};
         return;
     }
+    // The most this system can take; a joiner's own count is the host's.
+    r.players = std::clamp(r.players, 2, std::min(maxPlayersForCore(core.coreName()), netplaywire::kMaxPlayers));
     netplay::Identity me;
     me.core = core.coreName();
     me.coreVersion = core.coreVersion();
@@ -271,17 +337,11 @@ void begin(cab::Core& core, const std::string& romPath, int romId, const std::st
     l.delay = r.delay;
     l.session = std::make_unique<netplay::Session>();
     l.state = State::Connecting;
-    {
-        std::lock_guard<std::mutex> g(l.lock);
-        char line[96];
-        if (r.host)
-            std::snprintf(line, sizeof line, "Waiting for player 2 \xC2\xB7 code %04d", r.code);
-        else
-            std::snprintf(line, sizeof line, "Joining player 1\xE2\x80\xA6");
-        waitingLine = line;
-        l.message = line;
-        l.mood = Mood::Busy;
-    }
+    l.startNow = false;
+    l.startHeld = false;
+    l.hosting = r.host && r.players > 2;
+    l.players = 2;
+    lobbyLine(r, 1);
     l.connector = std::thread(connect, r, me, l.fps);
 }
 
@@ -304,7 +364,13 @@ bool active() {
 }
 
 void setLocal(const cab::PadState& pad) {
-    live().local = toWire(pad);
+    Live& l = live();
+    l.local = toWire(pad);
+    // The host's Start, pressed while friends gather, begins the game. Only a
+    // fresh press counts: a Start held from the menu does not.
+    const bool start = (pad.buttons & cab::bit(cab::Start)) != 0;
+    if (l.hosting && l.state == State::Connecting && start && !l.startHeld) l.startNow = true;
+    l.startHeld = start;
 }
 
 namespace {
@@ -394,11 +460,12 @@ int step(cab::Core& core, int maxFrames) {
         l.connector.join();
         l.delay = l.session->delay();
         l.self = l.session->localPlayer();
+        l.players = l.session->players();
         l.lead = l.need = l.delay;
         l.nextSend = static_cast<uint32_t>(l.delay);
         l.lastLook = l.lastStall = std::chrono::steady_clock::now();
-        std::fprintf(stderr, "[netplay] connected, player %d, delay %d frames\n", l.self + 1,
-                     l.delay);
+        std::fprintf(stderr, "[netplay] connected, player %d of %d, delay %d frames\n", l.self + 1,
+                     l.players, l.delay);
         {
             std::lock_guard<std::mutex> g(l.lock);
             waitingLine.clear();
@@ -411,7 +478,7 @@ int step(cab::Core& core, int maxFrames) {
             hello += " \xC2\xB7 on the host's saved game";
         say(hello, Mood::Done);
     }
-    core.setPlayers(2);
+    core.setPlayers(l.players);
     look(l);
     const uint32_t d = static_cast<uint32_t>(l.delay);   // the first frames, played with no buttons
     int ran = 0;
@@ -432,41 +499,55 @@ int step(cab::Core& core, int maxFrames) {
             l.sent[l.nextSend] = l.local;
             ++l.nextSend;
         }
-        netplaywire::Pad mine, theirs;
+        // Everyone's buttons for this frame, by player: ours as we sent them
+        // `delay` frames ago, the others' as they came. A player who has left
+        // is still, for everyone from the same frame.
+        std::array<netplaywire::Pad, netplaywire::kMaxPlayers> pads{};
         if (f >= d) {
-            mine = l.sent[f];
-            const netplay::Wait w = l.session->remoteInputs(f, theirs, 0);
-            if (w == netplay::Wait::Gone) {
-                if (l.session->sentSave() && l.frame < 120)
-                    fail("Sent your saved game. Start Play together again", Mood::Done);
-                else
-                    fail("The other player left");
-                return ran;
-            }
-            if (w == netplay::Wait::Late) {
-                const auto now = std::chrono::steady_clock::now();
-                if (!l.late) {
-                    l.late = true;
-                    l.lateSince = now;
-                    ++l.stalls;
-                    ++l.heldTicks;
-                } else if (!l.saidWaiting && now - l.lateSince > std::chrono::seconds(1)) {
-                    l.saidWaiting = true;
-                    say("Waiting for the other player", Mood::Busy);
-                } else if (now - l.lateSince > std::chrono::seconds(20)) {
-                    fail("Lost the other player");
+            pads[static_cast<size_t>(l.self)] = l.sent[f];
+            for (int slot = 0; slot < l.players; ++slot) {
+                if (slot == l.self) continue;
+                const netplay::Wait w =
+                    l.session->remoteInputs(f, slot, pads[static_cast<size_t>(slot)], 0);
+                if (w == netplay::Wait::Gone) {
+                    if (l.session->sentSave() && l.frame < 120)
+                        fail("Sent your saved game. Start Play together again", Mood::Done);
+                    else if (l.players <= 2)
+                        fail("The other player left");
+                    else
+                        fail(l.self == 0 ? "Everyone else left" : "The host left");
                     return ran;
                 }
-                return ran;
+                if (w == netplay::Wait::Late) {
+                    const auto now = std::chrono::steady_clock::now();
+                    if (!l.late) {
+                        l.late = true;
+                        l.lateSince = now;
+                        ++l.stalls;
+                        ++l.heldTicks;
+                    } else if (!l.saidWaiting && now - l.lateSince > std::chrono::seconds(1)) {
+                        l.saidWaiting = true;
+                        say(l.players <= 2 ? "Waiting for the other player" : "Waiting for a player",
+                            Mood::Busy);
+                    } else if (now - l.lateSince > std::chrono::seconds(20)) {
+                        fail(l.players <= 2 ? "Lost the other player" : "Lost a player's connection");
+                        return ran;
+                    }
+                    return ran;
+                }
             }
             l.sent.erase(l.sent.begin(), l.sent.find(f));
         }
         l.late = false;
         l.saidWaiting = false;
-        core.setPad(0, toCore(l.self == 0 ? mine : theirs));
-        core.setPad(1, toCore(l.self == 0 ? theirs : mine));
+        for (int slot = 0; slot < l.players; ++slot)
+            core.setPad(slot, toCore(pads[static_cast<size_t>(slot)]));
         ran += core.runFrame();
         ++l.frame;
+        for (int gone; (gone = l.session->takeLeft()) >= 0;) {
+            std::fprintf(stderr, "[netplay] player %d left\n", gone + 1);
+            say("Player " + std::to_string(gone + 1) + " left", Mood::Info);
+        }
         if (l.frame % 600 == 0) {
             std::fprintf(stderr,
                          "[netplay] %u frames: round trip %.1f ms, asking %d, sending %d ahead, "
@@ -485,22 +566,31 @@ int step(cab::Core& core, int maxFrames) {
             l.session->sendDigest(f, v);
             l.mine[f] = v;
         }
+        // Every other player's fingerprint, oldest frame first. One still on its
+        // way waits for the next frame; a player who has left has none owed.
         for (auto it = l.mine.begin(); it != l.mine.end();) {
-            uint64_t theirDigest = 0;
-            const netplay::Wait w = l.session->remoteDigest(it->first, theirDigest, 0);
-            if (w == netplay::Wait::Late) break;
-            if (w == netplay::Wait::Gone) break;   // the input path reports it
-            if (theirDigest != it->second) {
-                std::fprintf(stderr, "[netplay] fingerprint at frame %u: mine %016llx, theirs %016llx\n",
-                             it->first, static_cast<unsigned long long>(it->second),
-                             static_cast<unsigned long long>(theirDigest));
-                if (driftEnds()) {
-                    fail("The two games have drifted apart");
-                    return ran;
+            bool owed = false, gone = false;
+            for (int slot = 0; slot < l.players && !owed && !gone; ++slot) {
+                if (slot == l.self) continue;
+                uint64_t theirDigest = 0;
+                const netplay::Wait w = l.session->remoteDigest(it->first, slot, theirDigest, 0);
+                if (w == netplay::Wait::Late) owed = true;
+                else if (w == netplay::Wait::Gone) gone = true;   // the input path reports it
+                else if (w == netplay::Wait::Got && theirDigest != it->second) {
+                    std::fprintf(stderr,
+                                 "[netplay] fingerprint at frame %u: mine %016llx, player %d's "
+                                 "%016llx\n",
+                                 it->first, static_cast<unsigned long long>(it->second), slot + 1,
+                                 static_cast<unsigned long long>(theirDigest));
+                    if (driftEnds()) {
+                        fail("The games have drifted apart");
+                        return ran;
+                    }
+                    std::fprintf(stderr, "[netplay] the games differ at frame %u (playing on: "
+                                 "CABINETOS_NETPLAY_DRIFT=log)\n", it->first);
                 }
-                std::fprintf(stderr, "[netplay] the two games differ at frame %u (playing on: "
-                             "CABINETOS_NETPLAY_DRIFT=log)\n", it->first);
             }
+            if (owed || gone) break;
             it = l.mine.erase(it);
         }
     }
@@ -531,6 +621,8 @@ void stop() {
     }
     pending() = {};
     l.together = false;
+    l.hosting = false;
+    l.startNow = false;
 }
 
 bool playingTogether(int romId) {
@@ -558,6 +650,25 @@ bool supportsCore(const std::string& coreName) {
                           "pcsxrearmed", "mupen64plus", "dolphin"})
         if (n.find(s) != std::string::npos) return true;
     return false;
+}
+
+int maxPlayersForPlatform(const std::string& slug) {
+    // The systems whose cores give every player a port of their own with no
+    // setting to change. Others (a SNES or Genesis multitap) need a core option
+    // and stay at two until it is set for them.
+    for (const char* s : {"n64", "ngc", "arcade"})
+        if (slug == s) return 4;
+    return 2;
+}
+
+int maxPlayersForCore(const std::string& coreName) {
+    std::string n;
+    for (char c : coreName)
+        if (std::isalnum(static_cast<unsigned char>(c)))
+            n += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    for (const char* s : {"mupen64plus", "dolphin", "finalburnneo", "fbneo", "mame2003"})
+        if (n.find(s) != std::string::npos) return 4;
+    return 2;
 }
 
 int newCode() {

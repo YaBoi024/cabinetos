@@ -98,10 +98,21 @@ std::vector<uint8_t> encode(const Message& m) {
                  putText(body, m.gameHash) && putText(body, m.saveHash);
             break;
         case Type::Accept:
-            put8(body, m.delay);
             put8(body, m.players);
             put8(body, m.sync);
             put32(body, m.saveSize);
+            break;
+        case Type::Start:
+            put8(body, m.players);
+            put8(body, m.player);
+            put8(body, m.delay);
+            break;
+        case Type::Roster:
+            put8(body, m.players);
+            break;
+        case Type::Left:
+            put8(body, m.player);
+            put32(body, m.frame);
             break;
         case Type::Lead:
             put8(body, m.lead);
@@ -116,10 +127,12 @@ std::vector<uint8_t> encode(const Message& m) {
             ok = putText(body, m.reason);
             break;
         case Type::Inputs:
+            put8(body, m.player);
             put32(body, m.frame);
             putPad(body, m.pad);
             break;
         case Type::Digest:
+            put8(body, m.player);
             put32(body, m.frame);
             put64(body, m.digest);
             break;
@@ -173,11 +186,31 @@ bool Parser::next(Message& out) {
             break;
         case static_cast<uint8_t>(Type::Accept):
             m.type = Type::Accept;
-            m.delay = r.u8();
             m.players = r.u8();
             m.sync = r.u8();
             m.saveSize = r.u32();
+            if (m.players < 2 || m.players > kMaxPlayers) r.ok = false;
             if (m.sync > 1 || m.saveSize > kMaxSave || (m.sync == 0 && m.saveSize != 0)) r.ok = false;
+            break;
+        case static_cast<uint8_t>(Type::Start):
+            m.type = Type::Start;
+            m.players = r.u8();
+            m.player = r.u8();
+            m.delay = r.u8();
+            // Two to the most; a guest is never slot 0, which is the host's.
+            if (m.players < 2 || m.players > kMaxPlayers || m.player < 1 || m.player >= m.players)
+                r.ok = false;
+            break;
+        case static_cast<uint8_t>(Type::Roster):
+            m.type = Type::Roster;
+            m.players = r.u8();
+            if (m.players < 1 || m.players > kMaxPlayers) r.ok = false;
+            break;
+        case static_cast<uint8_t>(Type::Left):
+            m.type = Type::Left;
+            m.player = r.u8();
+            m.frame = r.u32();
+            if (m.player < 1 || m.player >= kMaxPlayers) r.ok = false;   // the host's leaving is Bye
             break;
         case static_cast<uint8_t>(Type::Lead):
             m.type = Type::Lead;
@@ -205,13 +238,17 @@ bool Parser::next(Message& out) {
             break;
         case static_cast<uint8_t>(Type::Inputs):
             m.type = Type::Inputs;
+            m.player = r.u8();
             m.frame = r.u32();
             m.pad = getPad(r);
+            if (m.player >= kMaxPlayers) r.ok = false;
             break;
         case static_cast<uint8_t>(Type::Digest):
             m.type = Type::Digest;
+            m.player = r.u8();
             m.frame = r.u32();
             m.digest = r.u64();
+            if (m.player >= kMaxPlayers) r.ok = false;
             break;
         case static_cast<uint8_t>(Type::Bye):
             m.type = Type::Bye;
@@ -241,17 +278,28 @@ int test() {
     Message hello;
     hello.type = Type::Hello;
     hello.code = 4821;
-    hello.players = 2;
+    hello.players = 1;
     hello.core = "snes9x";
     hello.coreVersion = "Snes9x 1.63 890b5d4";
     hello.gameHash = "0123456789abcdef0123456789abcdef";
     hello.saveHash = "00ff00ff00ff00ff";
     Message accept;
     accept.type = Type::Accept;
-    accept.delay = 3;
-    accept.players = 2;
+    accept.players = 4;
     accept.sync = 1;
     accept.saveSize = 296960;
+    Message start;
+    start.type = Type::Start;
+    start.players = 4;
+    start.player = 2;
+    start.delay = 3;
+    Message roster;
+    roster.type = Type::Roster;
+    roster.players = 3;
+    Message left;
+    left.type = Type::Left;
+    left.player = 2;
+    left.frame = 500;
     Message lead;
     lead.type = Type::Lead;
     lead.lead = 4;
@@ -265,17 +313,20 @@ int test() {
     refuse.reason = "different game file";
     Message inputs;
     inputs.type = Type::Inputs;
+    inputs.player = 3;
     inputs.frame = 123456;
     inputs.pad = {0xA5C3, -32767, 32767, -1, 0, 255, 7};
     Message digest;
     digest.type = Type::Digest;
+    digest.player = 2;
     digest.frame = 60;
     digest.digest = 0x24a27075b447a290ull;
     Message bye;
     bye.type = Type::Bye;
 
     // Every message comes back as it went in, fed whole and fed a byte at a time.
-    for (const Message* m : {&hello, &accept, &refuse, &inputs, &digest, &bye, &lead, &save}) {
+    for (const Message* m : {&hello, &accept, &refuse, &inputs, &digest, &bye, &lead, &save, &start,
+                             &roster, &left}) {
         const std::vector<uint8_t> bytes = encode(*m);
         Parser whole;
         whole.feed(bytes.data(), bytes.size());
@@ -290,17 +341,28 @@ int test() {
                           back.saveHash == m->saveHash;
                     break;
                 case Type::Accept:
-                    got = back.delay == m->delay && back.players == m->players &&
-                          back.sync == m->sync && back.saveSize == m->saveSize;
+                    got = back.players == m->players && back.sync == m->sync &&
+                          back.saveSize == m->saveSize;
                     break;
+                case Type::Start:
+                    got = back.players == m->players && back.player == m->player &&
+                          back.delay == m->delay;
+                    break;
+                case Type::Roster: got = back.players == m->players; break;
+                case Type::Left: got = back.player == m->player && back.frame == m->frame; break;
                 case Type::Lead: got = back.lead == m->lead; break;
                 case Type::Save:
                     got = back.saveSize == m->saveSize && back.saveOffset == m->saveOffset &&
                           back.saveBytes == m->saveBytes;
                     break;
                 case Type::Refuse: got = back.reason == m->reason; break;
-                case Type::Inputs: got = back.frame == m->frame && back.pad == m->pad; break;
-                case Type::Digest: got = back.frame == m->frame && back.digest == m->digest; break;
+                case Type::Inputs:
+                    got = back.player == m->player && back.frame == m->frame && back.pad == m->pad;
+                    break;
+                case Type::Digest:
+                    got = back.player == m->player && back.frame == m->frame &&
+                          back.digest == m->digest;
+                    break;
                 case Type::Bye: break;
             }
         }
@@ -342,9 +404,9 @@ int test() {
     fails({0x00, 0x00}, "a length of zero fails");
     fails({0x02, 0x01, 0x01}, "a length over the limit fails");
     fails({0x00, 0x02, 0x63, 0x00}, "an unknown type fails");
-    fails({0x00, 0x04, 0x02, 0x03, 0x02, 0x09}, "extra bytes after an Accept fail");
+    fails({0x00, 0x08, 0x02, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x09}, "extra bytes after an Accept fail");
     fails({0x00, 0x02, 0x02, 0x03}, "a short Accept fails");
-    fails({0x00, 0x05, 0x04, 0x00, 0x00, 0x00, 0x01}, "a short Inputs fails");
+    fails({0x00, 0x06, 0x04, 0x01, 0x00, 0x00, 0x00, 0x01}, "a short Inputs fails");
     fails({0x00, 0x03, 0x03, 0x09, 'x'}, "a text longer than its message fails");
     {
         std::vector<uint8_t> big = {0x00, 0x66, 0x03, 0x65};   // a text of 101
@@ -377,6 +439,44 @@ int test() {
         Message x;
         check(!p.next(x) && p.failed(), "a piece of a save that runs past its end fails");
         check(encode(empty).empty() && encode(huge).empty(), "an empty or oversize piece is not sent");
+    }
+    {
+        // Slots and counts that cannot be right.
+        auto bad = [&](Message m, const char* what) {
+            const std::vector<uint8_t> b = encode(m);
+            Parser p;
+            p.feed(b.data(), b.size());
+            Message x;
+            check(!b.empty() && !p.next(x) && p.failed(), what);
+        };
+        Message m = start;
+        m.player = 0;
+        bad(m, "a Start that makes a guest the host's slot fails");
+        m = start;
+        m.player = m.players;
+        bad(m, "a Start with a slot past the players fails");
+        m = start;
+        m.players = 1;
+        m.player = 1;
+        bad(m, "a Start for one player fails");
+        m = start;
+        m.players = kMaxPlayers + 1;
+        bad(m, "a Start for more than the most fails");
+        m = roster;
+        m.players = 0;
+        bad(m, "a Roster of nobody fails");
+        m = left;
+        m.player = 0;
+        bad(m, "a Left for the host fails (that is Bye)");
+        m = inputs;
+        m.player = kMaxPlayers;
+        bad(m, "Inputs for a slot past the most fail");
+        m = digest;
+        m.player = kMaxPlayers;
+        bad(m, "a Digest for a slot past the most fails");
+        m = accept;
+        m.players = 1;
+        bad(m, "an Accept for one player fails");
     }
     {
         Message tooLong = refuse;

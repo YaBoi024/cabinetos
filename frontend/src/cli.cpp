@@ -142,6 +142,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             netplaylive::pending().code = SDL_atoi(argv[++i]);
         } else if (SDL_strcmp(argv[i], "--play-delay") == 0 && i + 1 < argc) {
             netplaylive::pending().delay = SDL_atoi(argv[++i]);
+        } else if (SDL_strcmp(argv[i], "--play-players") == 0 && i + 1 < argc) {
+            netplaylive::pending().players = SDL_atoi(argv[++i]);   // host: most players, 2 to 4
         } else if (SDL_strcmp(argv[i], "--netplay-test") == 0) {
             netplayTest = true;   // FORK (handheld): coretests.cpp
         } else if (SDL_strcmp(argv[i], "--speed-test") == 0) {

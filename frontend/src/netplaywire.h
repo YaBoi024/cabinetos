@@ -16,12 +16,13 @@
 
 namespace netplaywire {
 
-constexpr uint16_t kVersion = 2;
+constexpr uint16_t kVersion = 3;
 constexpr size_t kMaxMessage = 512;   // the type byte and the body
 constexpr size_t kMaxText = 100;      // a name, a version or a reason
 constexpr size_t kMaxSaveChunk = 400; // bytes of a saved game in one message
 constexpr uint32_t kMaxSave = 16u * 1024 * 1024;   // a saved game, whole
 constexpr int kMaxLead = 8;           // frames
+constexpr int kMaxPlayers = 8;        // slots in one session: the host is 0, guests 1 and up
 
 enum class Type : uint8_t {
     Hello = 1,    // joiner to host, first: the code and what it is running
@@ -32,6 +33,9 @@ enum class Type : uint8_t {
     Bye = 6,      // leaving
     Lead = 7,     // either way: "send your buttons at least this many frames ahead"
     Save = 8,     // host to joiner after Accept: a piece of the saved game they will share
+    Start = 9,    // host to each guest, once, when the host begins: how many play, and which one you are
+    Roster = 10,  // host to guests while they wait: how many are here
+    Left = 11,    // host to guests: a player has gone, their buttons are neutral from `frame` on
 };
 
 // One player's controller for one frame. Sticks are -32767..32767, triggers 0..255.
@@ -48,11 +52,13 @@ struct Message {
     uint16_t version = kVersion;
     uint16_t code = 0;            // the four digits on the host's screen
     std::string core, coreVersion, gameHash;   // gameHash: a hash of the game file
-    // Hello, Accept
+    // Hello (1: one player from this console), Accept (the most the host allows),
+    // Start (how many play), Roster (how many are here, the host included)
     uint8_t players = 2;
     std::string saveHash;         // a fingerprint of the shared saved game this side holds, "" for none
-    // Accept
+    // Start
     uint8_t delay = 0;            // frames
+    // Accept
     uint8_t sync = 0;             // 1: the host's saved game follows, as Save messages
     uint32_t saveSize = 0;        // its size in bytes, when sync is 1
     // Lead
@@ -62,7 +68,9 @@ struct Message {
     std::vector<uint8_t> saveBytes;
     // Refuse
     std::string reason;
-    // Inputs, Digest
+    // Inputs, Digest, Start, Left: the slot concerned (0 is the host)
+    uint8_t player = 0;
+    // Inputs, Digest, Left
     uint32_t frame = 0;
     Pad pad;
     uint64_t digest = 0;

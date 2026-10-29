@@ -2,11 +2,13 @@
 // scripted loop in netplayrun.cpp proved two consoles stay in step; this is
 // the same lockstep driven by real controllers on the real screen.
 //
-// One copy hosts and one joins; the host is player 1 and the joiner player 2,
-// and each plays with its own first controller. A frame is run only when both
-// players' buttons for it are in hand, so a late or paused side makes the
-// other wait, never drift. While a session is on, rewind, fast forward and the
-// pause redraw frames are off (play.cpp, pace.cpp).
+// One copy hosts and the others join; the host is player 1 and the joiners
+// players 2, 3 and 4 in the order they came, and each plays with its own first
+// controller. A frame is run only when every player's buttons for it are in
+// hand, so a late or paused side makes the others wait, never drift. A player
+// who leaves does not end the game for the rest: their controller goes still.
+// While a session is on, rewind, fast forward and the pause redraw frames are
+// off (play.cpp, pace.cpp).
 //
 // Step one starts it from the command line (--play-host, --play-join with
 // --launch); the screens come after.
@@ -27,6 +29,10 @@ struct Request {
     int code = 4821;
     int delay = 2;   // frames at the start; the game raises it by itself if it has to wait (netplaylive.cpp, look)
     int romId = 0;   // the game it was asked for; 0 from the command line, for any
+    // The most players, the host included, for a host: 2 starts the game as soon
+    // as one friend is in; more waits in a lobby until the host presses Start
+    // (or the game is full). Cut down to what the game's system can take.
+    int players = 2;
 };
 
 // Filled in by the game page's "Play together" (playtogetherflow.cpp) or from
@@ -48,11 +54,17 @@ bool supportsPlatform(const std::string& platformSlug);
 // The same, by the core's own name; the last check, once the core is loaded.
 bool supportsCore(const std::string& coreName);
 
+// The most players one game can have on this system, 2 to 4: the systems whose
+// cores give every player a port of their own. RomM's platform slug, or the
+// core's own name once it is loaded.
+int maxPlayersForPlatform(const std::string& platformSlug);
+int maxPlayersForCore(const std::string& coreName);
+
 // Four digits for the host's screen, 1000 to 9999.
 int newCode();
 
 // The line to keep on screen while connecting ("Waiting for player 2 \xC2\xB7
-// code 4821"), else "".
+// code 4821", or "2 of 4 here \xC2\xB7 press Start \xC2\xB7 code 4821"), else "".
 std::string connecting();
 
 // A game has just loaded: if a session was asked for, start connecting (on a
@@ -66,7 +78,9 @@ void begin(cab::Core& core, const std::string& romPath, int romId, const std::st
 // stepped by step() and the pads by setLocal().
 bool active();
 
-// Player one's buttons as read this refresh. Only the latest matters.
+// This console's first controller as read this refresh. Only the latest
+// matters. While a host with friends in the lobby is waiting, a press of Start
+// begins the game.
 void setLocal(const cab::PadState& pad);
 
 // Run up to maxFrames game frames, as many as both players' buttons allow.

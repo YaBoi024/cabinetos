@@ -38,34 +38,66 @@ int gRom = 0;                          // the game whose page asked
 
 }  // namespace
 
+// The most players the game's system can take together, 2 to 4.
+int App::playTogetherMost(int romId) {
+    if (const auto it = lib.byRomId.find(romId); it != lib.byRomId.end())
+        return netplaylive::maxPlayersForPlatform(lib.games[static_cast<size_t>(it->second)].platformSlug);
+    return 2;
+}
+
+// The host's code screen, then the game. `players` is the most that can join
+// in, the host included: 2 starts when the friend is in, more waits for Start.
+void App::hostPlayTogether(int players) {
+    const int code = netplaylive::newCode();
+    const tailscale::Status ts = tailscale::last();
+    char line[96];
+    std::snprintf(line, sizeof line, "Your code: %04d", code);
+    std::string detail = line;
+    detail += ts.state == "Running" && !ts.name.empty()
+                  ? "\nOn Tailscale as " + ts.name
+                  : "\nTailscale is off: turn on Remote Play in Settings";
+    detail += players > 2 ? "\nYour friends pick this game, then Join." : "\nYour friend picks this game, then Join.";
+    askChoice("Host a game", detail, {"Start", "Back"}, 0, [&, code, players](int k) {
+        if (k != 0) { pressPlayTogether(gRom); return; }
+        netplaylive::Request& r = netplaylive::pending();
+        r = {};
+        r.wanted = true;
+        r.host = true;
+        r.code = code;
+        r.romId = gRom;
+        r.players = players;
+        std::fprintf(stderr, "[netplay] hosting game %d from its page, up to %d players\n", gRom,
+                     players);
+        if (!launchById(gRom)) netplaylive::pending() = {};
+    });
+    choiceBack = [&]() { pressPlayTogether(gRom); };
+}
+
 void App::pressPlayTogether(int romId) {
     gRom = romId;
     sound::play(sound::Cue::Activate);
-    askChoice("Play together", "Two players, each on their own console.\nSaves made together are kept apart\nfrom your own; the host's copy is used.",
+    const int most = playTogetherMost(romId);
+    askChoice("Play together",
+              most > 2 ? "Up to four players, each on their own console.\nSaves made together are kept apart\nfrom your own; the host's copy is used."
+                       : "Two players, each on their own console.\nSaves made together are kept apart\nfrom your own; the host's copy is used.",
               {"Host a game", "Join a game", "Cancel"}, 0, [&](int i) {
         if (i == 0) {
             // ---- HOST ----------------------------------------------------
-            const int code = netplaylive::newCode();
-            const tailscale::Status ts = tailscale::last();
-            char line[96];
-            std::snprintf(line, sizeof line, "Your code: %04d", code);
-            std::string detail = line;
-            detail += ts.state == "Running" && !ts.name.empty()
-                          ? "\nOn Tailscale as " + ts.name
-                          : "\nTailscale is off: turn on Remote Play in Settings";
-            detail += "\nYour friend picks this game, then Join.";
-            askChoice("Host a game", detail, {"Start", "Back"}, 0, [&, code](int k) {
-                if (k != 0) { pressPlayTogether(gRom); return; }
-                netplaylive::Request& r = netplaylive::pending();
-                r = {};
-                r.wanted = true;
-                r.host = true;
-                r.code = code;
-                r.romId = gRom;
-                std::fprintf(stderr, "[netplay] hosting game %d from its page\n", gRom);
-                if (!launchById(gRom)) netplaylive::pending() = {};
-            });
-            choiceBack = [&]() { pressPlayTogether(gRom); };
+            if (playTogetherMost(gRom) > 2) {
+                // More than two can play: how many, then the code.
+                const int top = playTogetherMost(gRom);
+                std::vector<std::string> opts;
+                for (int n = 2; n <= top; ++n) opts.push_back(std::to_string(n) + " players");
+                opts.push_back("Back");
+                askChoice("Host a game", "How many can play?\nThe game starts when you press Start,\nor when it is full.",
+                          opts, top - 2, [&, top](int k) {
+                    if (k < 0 || k > top - 2) { pressPlayTogether(gRom); return; }
+                    hostPlayTogether(k + 2);
+                });
+                choiceBack = [&]() { pressPlayTogether(gRom); };
+                return;
+            }
+            hostPlayTogether(2);
         } else if (i == 1) {
             // ---- JOIN: the list first ------------------------------------
             gShown.clear();
