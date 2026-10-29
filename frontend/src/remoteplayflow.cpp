@@ -115,6 +115,7 @@ void App::startRemotePlayAtBoot() {
 }
 
 void App::pollRemotePlay() {
+    if (here() == Screen::Friend) refreshFriend();   // FORK (handheld)
     if (rpSaidAt != 0 || rpWant || here() == Screen::Settings) {
         const int64_t now = std::time(nullptr);
         // Remote Play: systemd's answer, as Developer access's. ONLY WHILE

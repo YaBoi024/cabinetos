@@ -354,9 +354,11 @@ void pressed(SDL_JoystickID id) {   // FORK (handheld): the event filter's threa
 bool sharing() {
     static const bool on = [] {
         const char* e = std::getenv("CABINETOS_STREAM_SHARE");
-        const bool v = e && std::strcmp(e, "1") == 0;
-        if (v) std::fprintf(stderr, "[players] sharing the game with a stream: the console's "
-                            "pads stay, a device's pad is the next player\n");
+        const bool v = !(e && std::strcmp(e, "0") == 0);
+        std::fprintf(stderr, v ? "[players] sharing the game with a stream: the console's "
+                                 "pads stay, a device's pad is the next player\n"
+                               : "[players] a stream takes over: the console's pads are set "
+                                 "aside (CABINETOS_STREAM_SHARE=0)\n");
         return v;
     }();
     return on;

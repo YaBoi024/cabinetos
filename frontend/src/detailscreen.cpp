@@ -46,8 +46,6 @@ void DetailScreen::rebuildRows() {
         // The primary action first, and reachable without travelling through
         // the secondary ones.
         rows_.push_back({Action::Play, "Play", saveWhen_});
-        // FORK (handheld): right under Play, for the systems that can (netplaylive.h).
-        if (game_.together) rows_.push_back({Action::PlayTogether, "Play together", ""});
         // DOWNLOAD IS THE DELIBERATE ONE. The cache is invisible — pressing
         // Play fetches the game if it is not here and says nothing about it —
         // so this row is not "is it cached", it is "put this game on the
@@ -328,10 +326,7 @@ void DetailScreen::draw(Ctx& c) {
     // open space where the shelf would be. (The cover grew only when there
     // was a shelf, first, and MMagTech: a game without saves and states
     // should look like one with them.)
-    // FORK (handheld): three rows on a game that has Play together, so the
-    // shelf below is placed for the rows there are.
-    const float nRows = static_cast<float>(std::max<size_t>(2, rows_.size()));
-    const float rowsH = nRows * rowH + (nRows - 1.0f) * design::kDetailRowGap;
+    const float rowsH = 2.0f * rowH + design::kDetailRowGap;
     const float shelfH = design::kStateShelfGap + calloutLH + design::kDetailRowGap + cardH_ +
               design::kDetailRowGap * 0.75f + calloutLH;
     const float colH = headToRows + rowsH + shelfH;

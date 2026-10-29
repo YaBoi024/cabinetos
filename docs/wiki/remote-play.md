@@ -15,6 +15,18 @@ turn it on.
 Settings, **Remote Play**, **Streaming** (the PIN, if one is set). The row then
 reads *Moonlight app · CabinetOS*: CabinetOS is the name Moonlight shows.
 
+## Play with a friend
+
+Settings, **Play with a friend** (Streaming must be on) shows the steps and a
+code to scan that opens Moonlight's download page. Your friend installs
+Moonlight, adds your console by the address the page shows (your Wi-Fi address
+at home, the Tailscale address away from home), and types the four digits it
+asks for on your TV. Then start a game: your friend joins as the next player.
+
+Two consoles can play together this way: one streams, the other runs
+Moonlight and connects as above. Joining from a console is not built into
+CabinetOS yet.
+
 ## Pair a device
 
 1. Install Moonlight on the device, on the same network as the console.
@@ -29,15 +41,18 @@ not open while a game is being played on the TV.
 
 ## While a device is streaming
 
-- The device takes over the players, and a game being played on the TV pauses.
-- The console keeps playing its own sound. The device's volume is set on the
-  device.
+- The device joins the game as the next player. The console's own controls
+  stay as they are, and the game keeps playing. A one-player game cannot be
+  played from a device.
+- The console keeps playing its own sound, and the device plays it too. The
+  device's volume is set on the device.
 - **Hold Select** on the device's controller for the console's
   [pause menu](pause-menu.md), in every game.
-- The Remote Play section in Settings is greyed, marked *In use*.
 - Wii games that need a Wii Remote cannot be played from a device.
-- The quality (resolution, frame rate, codec) is set in Moonlight, not on the
-  console.
+- Nothing needs setting in Moonlight. While a device is connected, the
+  console lowers the picture quality of games it plays itself (PlayStation 2
+  and the heavier systems) so the stream keeps up. It takes effect from the
+  next game you start, and goes back when the device leaves.
 
 ## Away from home: Tailscale
 

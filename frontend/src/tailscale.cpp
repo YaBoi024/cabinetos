@@ -4,7 +4,6 @@
 
 #include <json-c/json.h>
 
-#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -115,48 +114,6 @@ void watch(bool on) {
         gWatching = true;
     }
     gThread = std::thread(loop);
-}
-
-bool peers(std::vector<Peer>* out, std::string* why) {
-    out->clear();
-    const proc::Result r = proc::run({"tailscale", "status", "--json"}, 5);
-    json_object* o = r.out.empty() ? nullptr : json_tokener_parse(r.out.c_str());
-    if (!o) {
-        if (why) *why = "Tailscale isn't running";
-        return false;
-    }
-    const std::string state = str(o, "BackendState");
-    if (state != "Running") {
-        json_object_put(o);
-        if (why) *why = "Tailscale isn't signed in";
-        return false;
-    }
-    json_object* all = nullptr;
-    if (json_object_object_get_ex(o, "Peer", &all) && all &&
-        json_object_is_type(all, json_type_object)) {
-        json_object_object_foreach(all, key, peer) {
-            (void)key;
-            Peer p;
-            p.name = str(peer, "HostName");
-            json_object* on = nullptr;
-            p.online = json_object_object_get_ex(peer, "Online", &on) && json_object_get_boolean(on);
-            json_object* ips = nullptr;
-            if (json_object_object_get_ex(peer, "TailscaleIPs", &ips) &&
-                json_object_is_type(ips, json_type_array))
-                for (size_t i = 0; i < json_object_array_length(ips); ++i) {
-                    const char* ip = json_object_get_string(json_object_array_get_idx(ips, i));
-                    if (ip && std::string(ip).find(':') == std::string::npos) {
-                        p.address = ip;
-                        break;
-                    }
-                }
-            if (!p.name.empty() && !p.address.empty()) out->push_back(std::move(p));
-        }
-    }
-    json_object_put(o);
-    std::stable_sort(out->begin(), out->end(),
-                     [](const Peer& a, const Peer& b) { return a.online && !b.online; });
-    return true;
 }
 
 void join() {

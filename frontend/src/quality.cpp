@@ -11,6 +11,7 @@
 #include "core.h"
 #include "gpu.h"
 #include "prefs.h"
+#include "remoteplay.h"
 #include "storage.h"
 
 namespace quality {
@@ -168,6 +169,12 @@ void setGameChoice(int romId, std::optional<Level> l) {
 }
 
 Level forGame(int romId) {
+    // FORK (handheld): WHILE A STREAM IS OPEN THE GAME RUNS AT PERFORMANCE, its
+    // own choice or not. The picture is drawn and encoded for the friend by the
+    // same chip, and a heavy game (PS2, GameCube) that falls behind clips its
+    // sound. Decided when the game starts: a friend who joins later does not
+    // change a game already running.
+    if (remoteplay::sessionOpen()) return Level::Performance;
     if (const std::optional<Level> own = gameChoice(romId)) return *own;
     return console();
 }
@@ -379,7 +386,9 @@ std::string vita3k(Level l) {
 void logApplied(const std::string& who, int romId, Level l) {
     const bool own = gameChoice(romId).has_value();
     std::fprintf(stderr, "[quality] %s: %s (%s)\n", who.c_str(), levelName(l),
-                 own ? "this game's own choice" : "console setting");
+                 remoteplay::sessionOpen() ? "a stream is open"
+                 : own                     ? "this game's own choice"
+                                           : "console setting");
 }
 
 }  // namespace quality

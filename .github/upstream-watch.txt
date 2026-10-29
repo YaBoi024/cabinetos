@@ -40,7 +40,7 @@ frontend/src/grid.h
 frontend/src/grid.cpp
 frontend/src/settings.h
 frontend/src/settings.cpp
-# Files the fork's power and Play together changes edit
+# Files the fork's power and streaming changes edit
 frontend/src/powerprofile.cpp
 frontend/src/powerprofile.h
 frontend/src/frame.cpp
@@ -65,4 +65,3 @@ frontend/src/romm_types.h
 frontend/src/screens.h
 frontend/src/tailscale.cpp
 frontend/src/tailscale.h
-frontend/src/playtogetherflow.cpp

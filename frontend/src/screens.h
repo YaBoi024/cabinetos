@@ -78,7 +78,6 @@ enum class Action {
     OpenTile,          // value is the tile index within the visible switcher tab
     OpenGame,          // value is a card index
     Play,              // value is a rom id
-    PlayTogether,      // value is a rom id; FORK (handheld): playtogetherflow.cpp
     Download,          // value is a rom id — fetch it AND keep it
     RemoveDownload,    // value is a rom id — release the keep AND delete the game
     PlayState,         // value is a RomM state id — play, starting from that state

@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "core.h"
-#include "netplayrun.h"
 
 std::optional<int> coreTest(cab::Core& core, const CoreTestOptions& o) {
     const bool audioProbe = o.audioProbe;
@@ -132,72 +131,6 @@ std::optional<int> coreTest(cab::Core& core, const CoreTestOptions& o) {
         // and a measurement has nothing to save.
         std::fflush(stderr);
         std::_Exit(0);
-    }
-
-    if (o.netplayRole != 0) {
-        netplayrun::Options run;
-        run.host = o.netplayRole == 1;
-        run.port = o.netplayPort;
-        if (o.netplayAddress) run.address = o.netplayAddress;
-        if (o.romPath) run.romPath = o.romPath;
-        return netplayrun::run(core, run);
-    }
-
-    if (o.netplayTest) {
-        // FORK (handheld), NETPLAY PHASE 0: is the core deterministic from a cold
-        // boot? Two players' buttons come from a fixed script, one frame at a time
-        // (runFrame, the way lockstep will step), and every frame's picture and
-        // sound are digested. Run it twice as two processes (tools/netplay-determinism.sh)
-        // and compare the files: a core whose lines match can be kept in step by
-        // sending only buttons; the first line that differs is where it parts.
-        const char* framesEnv = SDL_getenv("CABINETOS_NETPLAY_FRAMES");
-        const int frames = framesEnv ? SDL_atoi(framesEnv) : 1200;
-        FILE* out = nullptr;
-        if (const char* path = SDL_getenv("CABINETOS_DIGEST_OUT")) out = std::fopen(path, "w");
-        auto mix = [](uint64_t& h, const void* p, size_t n) {
-            const auto* b = static_cast<const uint8_t*>(p);
-            for (size_t i = 0; i < n; ++i) {
-                h ^= b[i];
-                h *= 1099511628211ull;
-            }
-        };
-        // Both players press something new every 6 frames, from a fixed sequence.
-        // Select, Start and the stick clicks are left out: they pause or reset games.
-        constexpr uint32_t kMask = 0x3FF3;
-        uint32_t rng = 0x9E3779B9u;
-        cab::PadState pads[2];
-        core.drainAudio();
-        uint64_t all = 1469598103934665603ull;
-        uint64_t lastVideo = 0;
-        int moving = 0;
-        for (int i = 0; i < frames; ++i) {
-            if (i % 6 == 0) {
-                for (cab::PadState& pad : pads) {
-                    rng ^= rng << 13;
-                    rng ^= rng >> 17;
-                    rng ^= rng << 5;
-                    pad.buttons = rng & kMask;
-                }
-            }
-            core.setPad(0, pads[0]);
-            core.setPad(1, pads[1]);
-            core.runFrame();
-            const uint64_t v = core.frameDigest();
-            const std::vector<int16_t>& audio = core.drainAudio();
-            uint64_t a = 1469598103934665603ull;
-            mix(a, audio.data(), audio.size() * sizeof(int16_t));
-            if (v != lastVideo) ++moving;
-            lastVideo = v;
-            mix(all, &v, sizeof(v));
-            mix(all, &a, sizeof(a));
-            if (out)
-                std::fprintf(out, "%d %016llx %016llx\n", i, static_cast<unsigned long long>(v),
-                             static_cast<unsigned long long>(a));
-        }
-        if (out) std::fclose(out);
-        std::fprintf(stderr, "[netplay] %d frames, picture changed on %d, digest %016llx\n",
-                     frames, moving, static_cast<unsigned long long>(all));
-        return 0;
     }
 
     if (stateTest) {

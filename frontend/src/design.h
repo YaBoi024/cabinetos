@@ -204,14 +204,6 @@ constexpr float kKeptMarkSize = 22.0f;
 constexpr float kKeptMarkInset = 12.0f;
 constexpr float kKeptMarkRing = 3.0f;
 
-// FORK (handheld): THE TWO-PLAYERS MARK on a cover that can Play together
-// (netplaylive.h): two small people in a dark pill, in the cover's top left
-// corner, opposite the kept dot. Drawn from the renderer's rounded rectangles
-// like the dot, so no font or picture can go missing. Its height; the rest is
-// in proportion (screenparts.cpp, drawTogetherMark).
-constexpr float kTogetherMarkHeight = 26.0f;
-constexpr float kTogetherMarkInset = 12.0f;
-
 // THE FAVOURITE MARK beside a game's title (#267): the capitals' height times
 // this, and how much it grows when focused (a small target grows more than a
 // full-width row, or the growth cannot be seen).

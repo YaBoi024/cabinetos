@@ -10,7 +10,6 @@
 #include <cstdio>
 
 #include "core.h"
-#include "netplaylive.h"
 #include "ps2.h"
 #include "rumble.h"
 
@@ -128,7 +127,7 @@ void App::runGameFrame(cab::Core& core, float dt, bool rewinding) {
         const uint64_t every = static_cast<uint64_t>(
             std::max(1.0, std::round(core.avInfo().fps * 0.5)));
         auto snapshot = [&] {
-            if (rewindAvailable != 1 || session.discInserting || netplaylive::active() ||
+            if (rewindAvailable != 1 || session.discInserting ||
                 core.framesRun() < rewindLastFrame + every)
                 return false;
             rewindLastFrame = core.framesRun();
@@ -155,10 +154,7 @@ void App::runGameFrame(cab::Core& core, float dt, bool rewinding) {
                 ran = 1;
                 --runs;
             }
-            // FORK (handheld): in a Play together session the frames run only
-            // when both players' buttons are in (netplaylive.h).
-            if (netplaylive::active()) ran += netplaylive::step(core, due);
-            else if (!locked) ran += core.runFor(dt);
+            if (!locked) ran += core.runFor(dt);
             else for (int i = 0; i < runs; ++i) ran += core.runFrame();
             core.setAfterFrame(nullptr);
         }

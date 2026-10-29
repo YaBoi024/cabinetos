@@ -11,8 +11,6 @@
 
 #include <json-c/json.h>
 
-#include <algorithm>
-#include <cctype>
 #include <ctime>
 
 namespace romm {
@@ -51,38 +49,6 @@ std::vector<std::string> jstrs(json_object* o, const char* key) {
 }
 
 namespace {
-
-// FORK (handheld): the most players RomM's `player_count` allows: "1" is 1,
-// "2" is 2, "1-4" is 4, "2+" is 2; 0 when it holds no number.
-int mostPlayers(const std::string& s) {
-    int best = 0, now = 0;
-    bool inNumber = false;
-    for (const char c : s) {
-        if (c >= '0' && c <= '9') {
-            now = std::min(now * 10 + (c - '0'), 99);
-            inNumber = true;
-        } else {
-            if (inNumber) best = std::max(best, now);
-            now = 0;
-            inNumber = false;
-        }
-    }
-    if (inNumber) best = std::max(best, now);
-    return best;
-}
-
-// FORK (handheld): whether any of RomM's game modes ("Single player",
-// "Multiplayer", "Co-operative", "Split screen") says more than one can play.
-bool hasMultiplayerMode(const std::vector<std::string>& modes) {
-    for (std::string m : modes) {
-        std::transform(m.begin(), m.end(), m.begin(),
-                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        if (m.find("multiplayer") != std::string::npos || m.find("co-op") != std::string::npos ||
-            m.find("cooperative") != std::string::npos || m.find("split") != std::string::npos)
-            return true;
-    }
-    return false;
-}
 
 bool parseGame(json_object* o, Game* g) {
     g->id = static_cast<int>(jint(o, "id"));
@@ -126,13 +92,6 @@ bool parseGame(json_object* o, Game* g) {
     g->revision = jstr(o, "revision");
     g->tags = jstrs(o, "tags");
     g->tagLabel = tagLabel(*g);
-    if (json_object* meta = nullptr;
-        json_object_object_get_ex(o, "metadatum", &meta) && meta &&
-        json_object_get_type(meta) == json_type_object) {
-        g->hasMeta = true;
-        g->multiplayer = mostPlayers(jstr(meta, "player_count")) >= 2 ||
-                         hasMultiplayerMode(jstrs(meta, "game_modes"));
-    }
     return true;
 }
 

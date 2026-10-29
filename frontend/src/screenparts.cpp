@@ -116,23 +116,6 @@ void drawKeptMark(Ctx& c, const Card& card, float x, float y, float w, float rad
     c.r.draw(ui::Rect{mx, my, d, d, d * 0.5f, ui::palette::kScreenCyan});
 }
 
-// FORK (handheld): two small people in a dark pill, top left, on a game that can
-// Play together. White on the same dark ring the kept dot has, so it reads on
-// pale artwork too.
-static void drawTogetherMark(Ctx& c, const Card& card, float x, float y) {
-    if (!card.together || !card.unavailable.empty()) return;
-    const float H = design::kTogetherMarkHeight;
-    const float px = x + design::kTogetherMarkInset;
-    const float py = y + design::kTogetherMarkInset;
-    c.r.draw(ui::Rect{px, py, H * 1.85f, H, H * 0.5f, ui::Color::black(0.55f)});
-    const ui::Color ink = ui::Color::white(0.92f);
-    for (const float centre : {0.65f, 1.20f}) {
-        const float cx = px + H * centre;
-        c.r.draw(ui::Rect{cx - H * 0.15f, py + H * 0.18f, H * 0.30f, H * 0.30f, H * 0.15f, ink});
-        c.r.draw(ui::Rect{cx - H * 0.25f, py + H * 0.52f, H * 0.50f, H * 0.30f, H * 0.15f, ink});
-    }
-}
-
 void drawCover(Ctx& c, const Card& card, float x, float y, float w, float h,
                float radius, float f, bool rim, bool large) {
     ui::Rect panel{x, y, w, h, radius, card.art};
@@ -156,7 +139,6 @@ void drawCover(Ctx& c, const Card& card, float x, float y, float w, float h,
     // bright as a playable game and a coverless kept game had no dot
     // (#398, HOME-08).
     drawKeptMark(c, card, x, y, w, radius);
-    drawTogetherMark(c, card, x, y);   // FORK (handheld)
     // GREYED: a game this console cannot play until a controller is paired.
     // Held back whether focused or not, so focus lands on it and it still
     // reads as unavailable; its name says why.

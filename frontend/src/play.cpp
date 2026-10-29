@@ -12,7 +12,6 @@
 #include "arcadesettings.h"
 #include "controls.h"
 #include "core.h"
-#include "netplaylive.h"
 #include "discs.h"
 #include "fightstick.h"
 #include "ps2.h"
@@ -102,7 +101,6 @@ void App::finishExit() {
     curtain.from = curtain.to = 1.0f;
     curtain.elapsed = curtain.duration;
     curtain.retarget(0.0f, kCurtainUp);
-    netplaylive::stop();   // FORK (handheld)
     cab::Core::shared().unloadGame();
     vectrexsheets::release();
     closePs2Window();
@@ -481,12 +479,6 @@ bool App::readGameInput(cab::Core& core) {
             core.setKey(arcadesettings::kMenuKey,
                         arcadesettings::step(arcadeHold, session.core, st.buttons,
                                              core.framesRun()));
-        // FORK (handheld): in a Play together session the first pad is player
-        // one's or two's buttons, sent and stepped in lockstep (netplaylive.h).
-        if (netplaylive::active()) {
-            if (p == 0) netplaylive::setLocal(st);
-            continue;
-        }
         core.setPad(p, st);
     }
 
@@ -525,8 +517,6 @@ bool App::readGameInput(cab::Core& core) {
     } else if (!fastForward) {
         fastForwardSaid = false;
     }
-    // FORK (handheld): nothing that changes the machine's speed in a session.
-    if (netplaylive::active()) fastForward = rewinding = false;
     if (fastForward != (core.speed() > 1.0))
         std::fprintf(stderr, "[shortcuts] fast forward %s\n", fastForward ? "on" : "off");
     core.setSpeed(fastForward && !rewinding ? kFastForward : 1.0);

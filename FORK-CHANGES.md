@@ -29,6 +29,18 @@ upstream. When a sync conflicts, use it to decide which side to keep.
   silent virtual one for the whole stream unless the device's Moonlight asked otherwise, so the Deck
   went quiet and its volume keys set the device's volume. Now the output is never moved.
   `cores/sunshine-patches/0002-keep-the-consoles-sound-on.patch`
+- **A device that streams joins as the next player.** The Deck's own controls stay player 1 and the
+  game keeps running; before, the game paused and the Deck's controls were set aside until the
+  device left. For the old behaviour, start the console with `CABINETOS_STREAM_SHARE=0`.
+  `frontend/src/players.cpp`, `players.h`, `pausemenu.cpp`
+- **Play together is gone; streaming is the one way.** The old Play together screens and code are
+  removed. Settings, Remote Play, **Play with a friend** walks a guest through installing Moonlight,
+  adding the console (Wi-Fi or Tailscale address) and the PIN.
+  `frontend/src/friendflow.cpp` (new), `settingsflow.cpp`, `settingsids.h`, `app.h`, `nav.cpp`,
+  `backdrop.cpp`, `tailscaleflow.cpp`, `remoteplayflow.cpp`
+- **Heavy games drop to Performance while a stream is open.** `frontend/src/quality.cpp`
+- **`tools/moonlight-pin.sh`** prints the flatpaks.list lines to pin Moonlight (not added to the
+  list yet).
 - **A connected controller becomes player 1.** The Deck's own controls step back to player 2, so
   one-player systems like Game Boy Advance work with an external controller.
   `frontend/src/players.cpp`

@@ -186,11 +186,6 @@ struct App {
     bool evictTest = false;
     // Proves a restored state is genuinely identical, not merely accepted.
     bool stateTest = false;
-    // FORK (handheld): per-frame digests of a scripted two-player run (coretests.cpp).
-    bool netplayTest = false;
-    int netplayRole = 0;                 // 1 host, 2 join (netplayrun.h)
-    int netplayPort = 0;
-    const char* netplayAddress = nullptr;
     // What one emulated frame costs, run back to back with no clock (#147).
     bool speedTest = false;
     bool audioProbe = false;
@@ -611,7 +606,7 @@ struct App {
     // is what makes quitting a game return to the launch screen and backing out
     // again return to the browsing.
     enum class Screen { Home, Library, Grid, Detail, Search, AddAccount, TailscaleSignIn, Report,
-                        HowTo, Settings, WhatsNew };
+                        HowTo, Settings, WhatsNew, Friend };
     std::vector<Screen> stack{Screen::Home};
     // Which screen last set the room, so a change of screen can be told apart
     // from focus moving within one. See the backdrop block in the frame loop.
@@ -643,6 +638,7 @@ struct App {
     // approve on a phone. The one line is the constraint that matters: the
     // account has to be the one the phone uses, or the two never meet.
     screens::QrLinkScreen tsSignInScreen;
+    screens::QrLinkScreen friendScreen;   // FORK (handheld): friendflow.cpp
     // THE DIAGNOSTIC REPORT (#195): the same screen again, the link this time
     // a download of the report. Its lines are set when it is made.
     screens::QrLinkScreen reportScreen;
@@ -2168,11 +2164,9 @@ struct App {
     void pollRemotePlay();
     void pressPairedDevices();
     void pressRemotePlay();
-    // playtogetherflow.cpp (FORK (handheld))
-    void pressPlayTogether(int romId);
-    int playTogetherMost(int romId);
-    void hostPlayTogether(int players);
-    void pollPlayTogether();
+    // friendflow.cpp (FORK (handheld))
+    void pressFriend();
+    void refreshFriend();
     // tailscaleflow.cpp
     void startTailscaleAtBoot();
     void pollTailscale();

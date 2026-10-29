@@ -717,16 +717,11 @@ std::optional<int> App::startDeveloperLaunch() {
         }
         playing = true;
 
-        // --audio-probe, --speed-test, --state-test and --netplay-test, with the game loaded
+        // --audio-probe, --speed-test and --state-test, with the game loaded
         // (coretests.cpp). --speed-test leaves the process from inside.
         if (const std::optional<int> rc = coreTest(core, {.audioProbe = audioProbe,
                                                           .speedTest = speedTest,
-                                                          .stateTest = stateTest,
-                                                          .netplayTest = netplayTest,
-                                                          .netplayRole = netplayRole,
-                                                          .netplayPort = netplayPort,
-                                                          .netplayAddress = netplayAddress,
-                                                          .romPath = romPath}))
+                                                          .stateTest = stateTest}))
             return *rc;
 
         // Audio: SDL owns the device thread and we push from the frame loop.

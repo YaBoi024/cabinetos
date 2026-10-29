@@ -19,7 +19,8 @@
 //
 // THE LEVEL FOR A GAME is the game's own choice if the player made one in its
 // pause menu, otherwise the console's. A game's choice survives a change of
-// the console's (MMagTech, 2026-10-02).
+// the console's (MMagTech, 2026-10-02). FORK (handheld): Performance while a
+// stream is open (remoteplay::sessionOpen), whatever either says.
 
 #pragma once
 

@@ -24,7 +24,6 @@
 
 #include <cstdint>
 #include <string>
-#include <vector>
 
 namespace tailscale {
 
@@ -74,17 +73,6 @@ bool loginRunning();
 // The login command's result: true while it runs or once it succeeded; false
 // with the reason when it failed.
 bool loginFailed(std::string* why);
-
-// FORK (handheld): THE OTHER DEVICES ON THE PLAYER'S TAILSCALE, for Play together's
-// Join list (playtogetherflow.cpp). `tailscale status --json` with its peers,
-// this console left out, the online ones first. Blocks for a moment; run on a
-// worker. `why` says what went wrong when it returns false.
-struct Peer {
-    std::string name;      // its name on the player's Tailscale
-    std::string address;   // its Tailscale IPv4 address
-    bool online = false;
-};
-bool peers(std::vector<Peer>* out, std::string* why);
 
 // Whether tailscaled answers now, asked directly rather than from last():
 // for a worker that has just started it. Blocks for a moment.
