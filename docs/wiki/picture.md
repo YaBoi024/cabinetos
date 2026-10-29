@@ -104,8 +104,9 @@ Each person has their own colour, and the console changes when they sign in.
 
 ## Screen off
 
-**Turn off screen after**: 10, 15 or 30 minutes. In the menus the screen dims
-after 5 minutes and turns off at the time chosen; the first press after that
+**Dim screen after**: 2, 3 or 5 minutes. **Turn off screen after**: 10, 15 or
+30 minutes. In the menus the screen dims at the first time and turns off at the
+second; the first press after that
 only wakes it. A game being played dims after 20 minutes and never turns the
 screen off. The picture also moves by a pixel or two every few minutes, to be
 kind to OLED TVs.

@@ -254,12 +254,20 @@ void App::buildSettings() {
             r.choice = static_cast<int>(sound::chimeLevel());
             return r;
         }(),
+        // FORK (handheld): the dim, before the screen goes out.
+        [] {
+            Row r{K::Choice, SetDimAfter, "Dim screen after", "Then the screen turns off", ""};
+            for (int i = 0; i < idle::kDimCount; ++i) r.choices.push_back(idle::kDimChoices[i].name);
+            r.choice = idle::dimIndex();
+            return r;
+        }(),
         // Here, not under System: it is about the screen, and it is where a
         // person looks for it. MMagTech, 2026-09-24.
         [&] {
             // A FACT THE ROW CANNOT OTHERWISE SHOW, not an explanation:
-            // the dim is fixed and nothing else on screen says when.
-            Row r{K::Choice, SetScreenOff, "Turn off screen after", "Dims after 5 minutes",
+            // the screen dims first (the row above), and nothing else on
+            // screen says so.
+            Row r{K::Choice, SetScreenOff, "Turn off screen after", "After it has dimmed",
                   ""};
             for (int i = 0; i < kScreenOffCount; ++i) r.choices.push_back(kScreenOff[i].name);
             r.choice = screenOffIndex;
@@ -658,6 +666,11 @@ void App::applySettingChoice(const screens::Result& res) {
             screenOffIndex = i;
             prefs::set("screen_off_after", kScreenOff[i].word);
         }
+        sound::play(sound::Cue::Move);
+    }
+    if (res.value == SetDimAfter) {
+        const int i = settingsScreen.choiceOf(SetDimAfter);
+        if (i >= 0 && i < idle::kDimCount) idle::setDimIndex(i);
         sound::play(sound::Cue::Move);
     }
     if (res.value == SetSleepAfter) {

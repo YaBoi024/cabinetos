@@ -21,7 +21,8 @@ Every other cover opens the game's page.
 
 ![The Library](../media/library.webp)
 
-- **Platforms**: one tile per system on your server, with the number of games.
+- **Platforms**: one tile per system on your server that has games, with the
+  number of games. A system with no games has no tile until one is added.
 - **Collections**: your RomM collections and smart collections, your
   Favorites first, then A to Z. Below them, other accounts' public
   collections, under "From" and the account's name. Another account's

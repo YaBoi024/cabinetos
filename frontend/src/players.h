@@ -99,6 +99,13 @@ bool swap(int a, int b);
 void setStreaming(bool on);
 bool streaming();
 bool setAside(SDL_JoystickID id);
+// FORK (handheld): SHARING THE GAME WITH A STREAM, off unless the console is
+// started with CABINETOS_STREAM_SHARE=1 (a test of a friend playing player 2
+// from Moonlight while the Deck's own controls stay player 1). A pad that
+// arrives through a stream is then seated after the console's own, like any
+// other pad, and nothing is set aside: no takeover, and the game is not
+// paused when a device connects (pausemenu.cpp, remotePlayHandover).
+bool sharing();
 // FORK (handheld): a pad's button went down. Called from the event filter; a
 // game starting makes the last-pressed of the Deck and one other pad player one.
 void pressed(SDL_JoystickID id);

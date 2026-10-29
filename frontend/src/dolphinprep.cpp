@@ -125,7 +125,7 @@ std::string dolphinReadablePath(const std::string& romPath, int romId) {
 // MemoryCardSize is not written: Dolphin refuses it from Dolphin.ini
 // (ConfigLoaders/BaseConfigLoader.cpp, s_setting_disallowed), so the 2 once
 // written here never did anything; every card was the default 2043 blocks.
-void writeDolphinConfig(const std::string& saveDir, bool together) {
+void writeDolphinConfig(const std::string& saveDir) {
     const std::string dir = saveDir + "/User/Config";
     const std::string path = dir + "/Dolphin.ini";
     std::string ini;
@@ -139,17 +139,6 @@ void writeDolphinConfig(const std::string& saveDir, bool together) {
     // A GAME ON SEVERAL DISCS ASKS FOR THE NEXT ONE BY NAME, and Dolphin puts
     // it in from the list the console hands over (#162): no menu for it.
     ini += "AutoDiscChange = True\n";
-    // FORK (handheld): PLAY TOGETHER RUNS IN LOCKSTEP, so both consoles must
-    // compute the same game. Dolphin's own netplay asks the same of its
-    // players: the emulation on one thread, so timing between threads cannot
-    // differ, and the clock fixed at power on, so a game that seeds its
-    // randomness from the date starts both consoles alike. The date the
-    // game sees is then always 1 January 2020.
-    if (together) {
-        ini += "CPUThread = False\n";
-        ini += "EnableCustomRTC = True\n";
-        ini += "CustomRTCValue = 1577836800\n";
-    }
     if (!cab::writeBytes(path, std::vector<uint8_t>(ini.begin(), ini.end()))) {
         // Said out loud. Dolphin's defaults are the same folder, so saves
         // still sync; only a card from before would not be read in.

@@ -37,6 +37,29 @@ Offset pixelShift(double seconds, float scale, double everySeconds) {
     return Offset{(col - n) * px, (row - n) * px};
 }
 
+namespace {
+int gDim = -1;   // read from the settings on first use
+}  // namespace
+
+int dimIndex() {
+    if (gDim < 0) {
+        const std::string w = prefs::get("dim_after", "5m");
+        gDim = kDimCount - 1;
+        for (int i = 0; i < kDimCount; ++i)
+            if (w == kDimChoices[i].word) gDim = i;
+        std::fprintf(stderr, "[idle] dim after %s\n", kDimChoices[gDim].name);
+    }
+    return gDim;
+}
+
+void setDimIndex(int i) {
+    if (i < 0 || i >= kDimCount) return;
+    gDim = i;
+    prefs::set("dim_after", kDimChoices[i].word);
+}
+
+double dimSeconds() { return kDimChoices[dimIndex()].seconds; }
+
 const char* name(Level l) {
     switch (l) {
         case Level::Awake: return "awake";
@@ -67,7 +90,7 @@ Level Watch::update(double now, bool playing) {
         if (idle >= kGameDimAfter) want = Level::Dim;
     } else if (blankAfter_ > 0.0) {
         if (idle >= blankAfter_) want = Level::Blank;
-        else if (idle >= kMenuDimAfter) want = Level::Dim;
+        else if (idle >= dimAfter_) want = Level::Dim;
     }
     // Only ever deepen on a timer. Coming back up is input()'s job, so pausing
     // or unpausing a game cannot light a dark screen by itself.

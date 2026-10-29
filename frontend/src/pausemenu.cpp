@@ -4,6 +4,7 @@
 
 #include "app.h"
 
+#include <cstdio>
 #include <utility>
 
 #include "controls.h"
@@ -298,6 +299,18 @@ void App::toggleOverlay(SDL_JoystickID opener) {
 
 void App::remotePlayHandover() {
     const bool on = rpWant && remoteplay::streaming();
+    // FORK (handheld): sharing the game (players.h): a device connecting is
+    // somebody there, and that is all. No takeover, no pause, nothing greyed.
+    if (players::sharing()) {
+        static bool saidSo = false;
+        if (on) idleWatch.input(clockSeconds());
+        if (on != saidSo) {
+            saidSo = on;
+            std::fprintf(stderr, "[players] a device %s; the console's pads %s\n",
+                         on ? "is streaming" : "stopped streaming", "stay");
+        }
+        return;
+    }
     if (on == players::streaming()) return;
     players::setStreaming(on);
     // A DEVICE ARRIVING COUNTS AS SOMEBODY THERE (#294): the idle timer

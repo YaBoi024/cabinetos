@@ -407,7 +407,7 @@ from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
   - **The screen during a stream (#294).** A stream started while the TV is
     dark lights it, and counts as somebody arriving: the dim lifts and the
     timer starts again. Nothing else changes while a device streams: the
-    screen dims at 5 minutes without a press (on the device too) and goes
+    screen dims after "Dim screen after" without a press (on the device too) and goes
     off at "Turn off screen after". **When it goes off, the stream ends
     first**, as Quit in Moonlight would end it, whether a device is still
     connected or left without quitting; joining again starts a new stream
@@ -493,8 +493,11 @@ from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
   RetroAchievements. Console-wide, in `config/settings.json`, like Interface
   sounds. Each step plays the chime at that level. **Built on
   `retroachievements`, judged on the TV 2026-10-06.**
+- **Dim screen after** (fork): 2, 3 or 5 minutes (5 to start), in the menus
+  and over a paused game. A game being played still dims at 20 minutes.
+  Saved in `config/settings.json`.
 - **Turn off screen after:** 10 min, 15 min (to start), 30 min. The screen
-  always dims at 5 minutes. Saved in `config/settings.json`. **Built, #71.**
+  dims first, at "Dim screen after". Saved in `config/settings.json`. **Built, #71.**
   Under Display and Sound, not System: it is about the screen. MMagTech,
   2026-09-24, on the TV, which also **dropped Never and 1 hour** (on an OLED
   a lit menu is burn-in; half an hour is long enough) and **the dim at a

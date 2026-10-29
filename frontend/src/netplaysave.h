@@ -5,10 +5,9 @@
 // says when they are not.
 //
 // What counts as the shared saved game: the battery files this frontend
-// writes at the top of the folder (.srm, and .rtc for a clock), and for a
-// GameCube game the .gci files in its memory card folder (`cardRoot`, given
-// relative to the folder, "" for none). Nothing else in the folder is part of
-// it: configuration and shader caches stay each console's own.
+// writes at the top of the folder (.srm, and .rtc for a clock). Nothing else
+// in the folder is part of it: configuration and shader caches stay each
+// console's own.
 //
 // The host's saved game is the one both play on. When the two fingerprints
 // differ, the host's files are sent (netplay.h) and `unpack` puts them in the
@@ -27,27 +26,25 @@
 namespace netplaysave {
 
 // A short fingerprint of the shared saved game in `dir`, "" when there is none.
-std::string fingerprint(const std::string& dir, const std::string& cardRoot);
+std::string fingerprint(const std::string& dir);
 
 // Every file of it in one piece, for sending. Empty when there is none.
-std::vector<uint8_t> pack(const std::string& dir, const std::string& cardRoot);
+std::vector<uint8_t> pack(const std::string& dir);
 
 // Whether `dir` holds a battery file (.srm) of the shared saved game.
 bool hasBattery(const std::string& dir);
 
 // What a blob held, for the caller to put into a running game: the battery
-// file's name ("" for none), and whether it held memory card files, which a
-// game that has already started will not read again.
+// file's name ("" for none).
 struct Unpacked {
     std::string battery;
-    bool card = false;
 };
 
 // Replaces the shared saved game in `dir` with `blob` (from the other side's
 // pack). An empty blob replaces it with none. False, with the reason, when
 // the blob is not something pack would have made; nothing is changed then.
-bool unpack(const std::string& dir, const std::string& cardRoot, const std::vector<uint8_t>& blob,
-            std::string* why, Unpacked* what = nullptr);
+bool unpack(const std::string& dir, const std::vector<uint8_t>& blob, std::string* why,
+            Unpacked* what = nullptr);
 
 // --netplay-save-test: every case, in a folder under /tmp. 0 when all pass.
 int test();

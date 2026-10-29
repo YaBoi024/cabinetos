@@ -62,6 +62,11 @@ Offset pixelShift(double seconds, float scale, double everySeconds = kShiftEvery
 // whatever the choice. It was a third of the choice for a day, which gave
 // times like 3 min 20 s; MMagTech: "the numbers seem weirdly determined". One
 // rule a person can predict, and an early dim is the better burn-in guard.
+//
+// FORK (handheld): THE DIM HAS A CHOICE OF ITS OWN, "Dim screen after": 2, 3 or
+// 5 minutes, 5 to start. A handheld in the hand wants the panel down sooner
+// than a television across the room. Still one rule a person can read off a
+// row, and still always earlier than the blank (10 minutes at the soonest).
 constexpr double kMenuDimAfter = 5 * 60.0;
 constexpr double kMenuBlankAfter = 15 * 60.0;   // the starting value
 
@@ -80,6 +85,17 @@ constexpr float kWakeFadeSeconds = 0.25f;  // coming back answers the press
 
 enum class Level { Awake, Dim, Blank };
 
+// FORK (handheld): the choices for the dim in the menus, saved as the word in
+// config/settings.json. A saved word this list does not know is 5 minutes.
+struct DimChoice { const char* name; const char* word; double seconds; };
+static constexpr DimChoice kDimChoices[] = {
+    {"2 minutes", "2m", 2 * 60.0}, {"3 minutes", "3m", 3 * 60.0}, {"5 minutes", "5m", 5 * 60.0},
+};
+constexpr int kDimCount = sizeof kDimChoices / sizeof kDimChoices[0];
+int dimIndex();
+void setDimIndex(int i);   // remembers it and saves it
+double dimSeconds();
+
 const char* name(Level l);
 
 class Watch {
@@ -90,6 +106,8 @@ public:
     void setEnabled(bool on) { enabled_ = on; }
     // Seconds before the screen goes out on a menu; 0 is never.
     void setBlankAfter(double seconds) { blankAfter_ = seconds; }
+    // Seconds before the screen dims on a menu (kDimChoices).
+    void setDimAfter(double seconds) { dimAfter_ = seconds; }
 
     // Somebody touched something. Returns TRUE when this press did nothing but
     // wake the screen, so the menus can swallow it: the first press on a dark
@@ -107,6 +125,7 @@ private:
     bool enabled_ = true;
     double scale_ = 1.0;
     double blankAfter_ = kMenuBlankAfter;
+    double dimAfter_ = kMenuDimAfter;
     double last_ = 0.0;
     bool started_ = false;
     Level level_ = Level::Awake;

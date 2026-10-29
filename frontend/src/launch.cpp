@@ -751,8 +751,7 @@ void App::restoreBeforeLoad(LaunchContext& c) {
                                        launchJob.coreName, stem);
     }
     // Before the core loads: it reads Dolphin.ini on startup.
-    if (launchJob.platformSlug == "ngc")
-        writeDolphinConfig(c.saveDir, netplaylive::playingTogether(launchJob.romId));
+    if (launchJob.platformSlug == "ngc") writeDolphinConfig(c.saveDir);
     // This person's Miis into every Wii game but the Mii Channel, whose
     // own are the master copy (#275).
     if (launchJob.platformSlug == "wii" && launchJob.coreName == "dolphin" &&
@@ -829,8 +828,7 @@ bool App::loadLaunchedGame(LaunchContext& c) {
         return false;
     }
     // FORK (handheld): a no-op unless asked for.
-    netplaylive::begin(c.core, launchJob.romPath, launchJob.romId, c.saveDir,
-                       c.dirSub ? c.dirSub : "");
+    netplaylive::begin(c.core, launchJob.romPath, launchJob.romId, c.saveDir);
     return true;
 }
 

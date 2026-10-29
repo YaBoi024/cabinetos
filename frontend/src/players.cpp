@@ -230,6 +230,12 @@ void putLastPressedFirst() {
     if (!first || !second) return;
     auto a = gOpen.find(first), b = gOpen.find(second);
     if (a == gOpen.end() || b == gOpen.end()) return;
+    {
+        // A pad through a stream (sharing the game) never takes player 1 from
+        // the console's own, whoever pressed last.
+        std::lock_guard<std::mutex> lk(gIsRemoteLock);
+        if (gIsRemote[first] || gIsRemote[second]) return;
+    }
     if (isBuiltIn(a->second) == isBuiltIn(b->second)) return;
     Uint64 at1 = 0, at2 = 0;
     {
@@ -287,7 +293,7 @@ void added(SDL_JoystickID id) {
     }
     gDir[id] = battery::deviceDir(SDL_GetGamepadPath(gp));
     if (isBuiltIn(gp)) gDir[id] = battery::systemDir();   // FORK: the handheld's own battery
-    (remote ? gRemote : gSeats).add(id, keyOf(gp));
+    (remote && !sharing() ? gRemote : gSeats).add(id, keyOf(gp));
     std::fprintf(stderr, "[players] pad %u is %s%s%s%s\n", static_cast<unsigned>(id),
                  nameOf(gp).c_str(), addressOf(gp).empty() ? "" : " over Bluetooth ",
                  addressOf(gp).c_str(), remote ? ", through a stream" : "");
@@ -345,7 +351,19 @@ void pressed(SDL_JoystickID id) {   // FORK (handheld): the event filter's threa
     gPressedAt[id] = SDL_GetTicks();
 }
 
+bool sharing() {
+    static const bool on = [] {
+        const char* e = std::getenv("CABINETOS_STREAM_SHARE");
+        const bool v = e && std::strcmp(e, "1") == 0;
+        if (v) std::fprintf(stderr, "[players] sharing the game with a stream: the console's "
+                            "pads stay, a device's pad is the next player\n");
+        return v;
+    }();
+    return on;
+}
+
 bool setAside(SDL_JoystickID id) {
+    if (sharing()) return false;
     std::lock_guard<std::mutex> lk(gIsRemoteLock);
     auto it = gIsRemote.find(id);
     return it != gIsRemote.end() && it->second != gStreaming;

@@ -22,6 +22,8 @@ system_files/usr/share/cabinetos/flatpaks.list
 system_files/usr/lib/udev/rules.d/
 # Frontend input and audio code
 frontend/src/players.cpp
+frontend/src/players.h
+frontend/src/pausemenu.cpp
 frontend/src/input.cpp
 frontend/src/volume.cpp
 frontend/src/standalone_eden.cpp
@@ -31,6 +33,7 @@ frontend/src/app.h
 frontend/src/touchinput.cpp
 frontend/src/libraryscreen.h
 frontend/src/libraryscreen.cpp
+frontend/src/library.cpp
 frontend/src/grid.h
 frontend/src/grid.cpp
 frontend/src/settings.h
@@ -40,6 +43,8 @@ frontend/src/powerprofile.cpp
 frontend/src/powerprofile.h
 frontend/src/frame.cpp
 frontend/src/startup.cpp
+frontend/src/idle.h
+frontend/src/idle.cpp
 frontend/src/settingsflow.cpp
 frontend/src/settingsids.h
 frontend/src/searchscreen.cpp
@@ -52,11 +57,10 @@ frontend/src/detail.cpp
 frontend/src/detailscreen.cpp
 frontend/src/detailscreen.h
 frontend/src/actions.cpp
+frontend/src/library.cpp
+frontend/src/romm_library.cpp
+frontend/src/romm_types.h
 frontend/src/screens.h
 frontend/src/tailscale.cpp
 frontend/src/tailscale.h
-frontend/src/core.h
-frontend/src/core_memory.cpp
-frontend/src/dolphinprep.cpp
-frontend/src/dolphinprep.h
 frontend/src/playtogetherflow.cpp

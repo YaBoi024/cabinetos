@@ -10,6 +10,4 @@
 void shareDolphinCache(const std::string& saveDir);
 void clearDolphinCheats();
 std::string dolphinReadablePath(const std::string& romPath, int romId);
-// `together`: a game of Play together (netplaylive.h), which both consoles
-// must run exactly alike: one emulation thread and the same clock at power on.
-void writeDolphinConfig(const std::string& saveDir, bool together = false);
+void writeDolphinConfig(const std::string& saveDir);

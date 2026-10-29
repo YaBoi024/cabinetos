@@ -54,8 +54,8 @@ bool supportsPlatform(const std::string& platformSlug);
 // The same, by the core's own name; the last check, once the core is loaded.
 bool supportsCore(const std::string& coreName);
 
-// The most players one game can have on this system, 2 to 4: the systems whose
-// cores give every player a port of their own. RomM's platform slug, or the
+// The most players one game can have on this system, 2 to 4. Two for every
+// system that can be played together so far. RomM's platform slug, or the
 // core's own name once it is loaded.
 int maxPlayersForPlatform(const std::string& platformSlug);
 int maxPlayersForCore(const std::string& coreName);
@@ -69,10 +69,8 @@ std::string connecting();
 
 // A game has just loaded: if a session was asked for, start connecting (on a
 // thread of its own, so the screen never freezes).
-// `saveDir` is the game's together folder and `cardRoot` the GameCube card
-// folder inside it ("" for any other system).
-void begin(cab::Core& core, const std::string& romPath, int romId, const std::string& saveDir,
-           const std::string& cardRoot);
+// `saveDir` is the game's together folder.
+void begin(cab::Core& core, const std::string& romPath, int romId, const std::string& saveDir);
 
 // True from begin() until the session ends or fails. While true the game is
 // stepped by step() and the pads by setLocal().

@@ -141,6 +141,14 @@ struct Game {
     std::string revision;
     std::vector<std::string> tags;
     std::string tagLabel;
+    // FORK (handheld): RomM's `metadatum` on the same record, for the Play
+    // together mark on a cover: whether the record carried one at all, and
+    // whether it says two or more can play (`player_count` of 2 or more, or a
+    // game mode of multiplayer, co-op or split screen). A record with none
+    // (an older server, a list that leaves it out) is not told apart from a
+    // multiplayer game, so the mark never vanishes for want of the data.
+    bool hasMeta = false;
+    bool multiplayer = false;
 };
 
 // RomM's four fields as one line, in RomM's order on its folder structure

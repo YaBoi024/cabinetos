@@ -407,6 +407,7 @@ double App::clockSeconds() { return SDL_GetTicksNS() / 1e9; }
 void App::idleFrame(float dt, bool playingNow, double blankAfter) {
     const double t = clockSeconds();
     idleWatch.setBlankAfter(blankAfter);
+    idleWatch.setDimAfter(idle::dimSeconds());   // FORK (handheld)
     const idle::Level lvl = idleWatch.update(t, playingNow);
     if (lvl != idleShown) {
         std::fprintf(stderr, "[idle] %s -> %s after %.0fs without input\n",

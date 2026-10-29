@@ -66,11 +66,10 @@ struct Live {
     uint32_t stalls = 0;      // waits begun since the last look
     std::chrono::steady_clock::time_point lastLook{}, lastStall{}, lastSlowSay{};
 
-    // The shared saved game (netplaysave.h): the folder, the GameCube card
-    // folder in it, and the host's copy to send.
-    std::string saveDir, cardRoot;
+    // The shared saved game (netplaysave.h): the folder, and the host's copy
+    // to send.
+    std::string saveDir;
     std::vector<uint8_t> pack;
-    bool ramCheck = false;    // fingerprint the console's memory, not the picture
     std::map<uint32_t, netplaywire::Pad> sent;     // what we sent, by frame
     std::map<uint32_t, uint64_t> mine;              // our digests, to compare
     std::chrono::steady_clock::time_point lateSince{};
@@ -276,8 +275,7 @@ Request& pending() {
     return r;
 }
 
-void begin(cab::Core& core, const std::string& romPath, int romId, const std::string& saveDir,
-           const std::string& cardRoot) {
+void begin(cab::Core& core, const std::string& romPath, int romId, const std::string& saveDir) {
     Live& l = live();
     Request r = pending();
     if (!r.wanted || l.state != State::Off) return;
@@ -306,19 +304,9 @@ void begin(cab::Core& core, const std::string& romPath, int romId, const std::st
         return;
     }
     l.saveDir = saveDir;
-    l.cardRoot = cardRoot;
-    me.saveHash = netplaysave::fingerprint(saveDir, cardRoot);
-    l.pack = r.host ? netplaysave::pack(saveDir, cardRoot) : std::vector<uint8_t>{};
+    me.saveHash = netplaysave::fingerprint(saveDir);
+    l.pack = r.host ? netplaysave::pack(saveDir) : std::vector<uint8_t>{};
     l.fps = core.avInfo().fps > 1.0 ? core.avInfo().fps : 60.0;
-    {
-        std::string n;
-        for (char c : core.coreName())
-            if (std::isalnum(static_cast<unsigned char>(c)))
-                n += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-        // The two systems drawn by the graphics card: the picture can differ
-        // between two machines while the game does not.
-        l.ramCheck = n.find("mupen64plus") != std::string::npos || n.find("dolphin") != std::string::npos;
-    }
     std::fprintf(stderr, "[netplay] shared saved game: %s\n",
                  me.saveHash.empty() ? "none yet" : me.saveHash.c_str());
     if (l.connector.joinable()) l.connector.join();
@@ -413,28 +401,21 @@ void look(Live& l) {
     l.session->sendLead(want);
 }
 
-uint64_t digestOf(const Live& l, cab::Core& core) {
-    if (l.ramCheck)
-        if (const uint64_t v = core.ramDigest(); v != 0) return v;
-    return core.frameDigest();
-}
-
 // Just connected: the joiner takes the host's saved game, if the host sent
 // one. False when the session has to end (said on screen) because the game
-// already running cannot take it in: a memory card, which a GameCube reads
-// only at power on, or a battery the host does not have.
+// already running cannot take it in: a battery the host does not have.
 bool takeSavedGame(Live& l, cab::Core& core) {
     if (!l.session->synced()) return true;
     const bool hadBattery = netplaysave::hasBattery(l.saveDir);
     netplaysave::Unpacked got;
     std::string why;
-    if (!netplaysave::unpack(l.saveDir, l.cardRoot, l.session->receivedSave(), &why, &got)) {
+    if (!netplaysave::unpack(l.saveDir, l.session->receivedSave(), &why, &got)) {
         fail("Couldn't use the host's saved game: " + why);
         return false;
     }
     std::fprintf(stderr, "[netplay] took the host's saved game (%zu bytes)\n",
                  l.session->receivedSave().size());
-    if (got.card || (got.battery.empty() && hadBattery)) {
+    if (got.battery.empty() && hadBattery) {
         fail("Copied the host's saved game. Start Play together again", Mood::Done);
         return false;
     }
@@ -470,8 +451,6 @@ int step(cab::Core& core, int maxFrames) {
             std::lock_guard<std::mutex> g(l.lock);
             waitingLine.clear();
         }
-        std::fprintf(stderr, "[netplay] drift check compares the %s\n",
-                     l.ramCheck && core.ramDigest() != 0 ? "console's memory" : "picture");
         if (!takeSavedGame(l, core)) return 0;
         std::string hello = "Connected as player " + std::to_string(l.self + 1);
         if (l.session->synced() && !l.session->receivedSave().empty())
@@ -555,11 +534,10 @@ int step(cab::Core& core, int maxFrames) {
                          l.frame, l.session->rttMs(), l.need, l.lead, l.heldTicks);
             l.heldTicks = 0;
         }
-        // A fingerprint each second: of the console's memory for N64 and
-        // GameCube, of the picture for the rest. A mismatch ends the session
-        // with a message instead of letting the two games drift.
+        // A fingerprint of the picture each second. A mismatch ends the
+        // session with a message instead of letting the two games drift.
         if (l.frame % 60 == 0) {
-            const uint64_t v = digestOf(l, core);
+            const uint64_t v = core.frameDigest();
             if (!driftEnds())
                 std::fprintf(stderr, "[netplay] fingerprint at frame %u: %016llx\n", f,
                              static_cast<unsigned long long>(v));
@@ -631,9 +609,7 @@ bool playingTogether(int romId) {
 }
 
 bool supportsPlatform(const std::string& slug) {
-    for (const char* s : {"nes", "snes", "genesis", "sms", "segacd", "sega32", "tg16",
-                          "turbografx-cd", "arcade", "atari2600", "atari7800", "psx", "n64",
-                          "ngc"})
+    for (const char* s : {"snes", "genesis", "psx"})
         if (slug == s) return true;
     return false;
 }
@@ -645,31 +621,19 @@ bool supportsCore(const std::string& coreName) {
     for (char c : coreName)
         if (std::isalnum(static_cast<unsigned char>(c)))
             n += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    for (const char* s : {"fceumm", "snes9x", "genesisplusgx", "beetlepcefast", "finalburnneo",
-                          "fbneo", "mame2003", "stella", "prosystem", "picodrive",
-                          "pcsxrearmed", "mupen64plus", "dolphin"})
+    for (const char* s : {"snes9x", "genesisplusgx", "picodrive", "pcsxrearmed"})
         if (n.find(s) != std::string::npos) return true;
     return false;
 }
 
-int maxPlayersForPlatform(const std::string& slug) {
-    // The systems whose cores give every player a port of their own with no
-    // setting to change. Others (a SNES or Genesis multitap) need a core option
-    // and stay at two until it is set for them.
-    for (const char* s : {"n64", "ngc", "arcade"})
-        if (slug == s) return 4;
-    return 2;
-}
+// Two on every system that can be played together now. A system whose core
+// gives every player a port of its own with no setting to change can be given
+// more here, one at a time, once it has been played; a SNES or Genesis
+// multitap needs a core option first. The lobby and the "How many can play?"
+// question already follow what these return.
+int maxPlayersForPlatform(const std::string&) { return 2; }
 
-int maxPlayersForCore(const std::string& coreName) {
-    std::string n;
-    for (char c : coreName)
-        if (std::isalnum(static_cast<unsigned char>(c)))
-            n += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-    for (const char* s : {"mupen64plus", "dolphin", "finalburnneo", "fbneo", "mame2003"})
-        if (n.find(s) != std::string::npos) return 4;
-    return 2;
-}
+int maxPlayersForCore(const std::string&) { return 2; }
 
 int newCode() {
     static std::mt19937 rng{std::random_device{}()};
