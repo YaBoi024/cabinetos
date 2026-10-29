@@ -1,0 +1,19 @@
+diff --git a/src/audio.cpp b/src/audio.cpp
+index 28a3d81..7d2560c 100644
+--- a/src/audio.cpp
++++ b/src/audio.cpp
+@@ -192,8 +192,12 @@ namespace audio {
+       sink = &config::audio.sink;
+     }
+ 
+-    // Prefer the virtual sink if host playback is disabled or there's no other sink
+-    if (ref->sink.null && (!config.flags[config_t::HOST_AUDIO] || sink->empty())) {
++    // CabinetOS: the console keeps its own sound while a device streams, whatever the client
++    // asked for. Left to the client, the console is silent unless the person turns on its
++    // option to play on the host, and a console has nothing to set. The virtual sink is only
++    // for a console with no sink of its own. The default sink is never moved, so the
++    // console's volume keys still set the console's sound.
++    if (ref->sink.null && sink->empty()) {
+       auto &null = *ref->sink.null;
+       switch (stream.channelCount) {
+         case 2:

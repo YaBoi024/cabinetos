@@ -30,6 +30,8 @@ not open while a game is being played on the TV.
 ## While a device is streaming
 
 - The device takes over the players, and a game being played on the TV pauses.
+- The console keeps playing its own sound. The device's volume is set on the
+  device.
 - **Hold Select** on the device's controller for the console's
   [pause menu](pause-menu.md), in every game.
 - The Remote Play section in Settings is greyed, marked *In use*.

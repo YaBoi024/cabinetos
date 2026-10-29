@@ -25,6 +25,10 @@ upstream. When a sync conflicts, use it to decide which side to keep.
 - **Sound follows the dock.** Audio moves to the TV (tested over HDMI) when you dock the Deck, and back
   to the built-in speakers when you undock.
   `system_files/usr/lib/systemd/system/cabinetos-session.service.d/10-audio.conf`
+- **The Deck keeps its sound while a device streams.** Sunshine used to move the Deck's output to a
+  silent virtual one for the whole stream unless the device's Moonlight asked otherwise, so the Deck
+  went quiet and its volume keys set the device's volume. Now the output is never moved.
+  `cores/sunshine-patches/0002-keep-the-consoles-sound-on.patch`
 - **A connected controller becomes player 1.** The Deck's own controls step back to player 2, so
   one-player systems like Game Boy Advance work with an external controller.
   `frontend/src/players.cpp`

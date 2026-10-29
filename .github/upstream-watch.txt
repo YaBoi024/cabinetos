@@ -18,6 +18,8 @@ system_files/usr/libexec/cabinetos-update
 system_files/usr/bin/cabinetos-session
 system_files/usr/share/polkit-1/rules.d/
 system_files/usr/share/wireplumber/
+cores/build-sunshine.sh
+cores/sunshine-patches/
 system_files/usr/share/cabinetos/flatpaks.list
 system_files/usr/lib/udev/rules.d/
 # Frontend input and audio code
