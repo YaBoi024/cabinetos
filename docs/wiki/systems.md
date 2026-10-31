@@ -8,7 +8,7 @@ and keys. CabinetOS ships none of them.
 
 - **One Library tile per RomM platform.** The console matches RomM's platform
   slug (the left column below). The tile's name is RomM's own name for the
-  platform.
+  platform. Every arcade folder is one tile, **Arcade** ([Arcade](arcade.md)).
 - **A platform the console cannot play gets no tile.** Its games still show in
   Search and in collections.
 - **A tile whose emulator is still being set up is greyed**, with *Emulator not
@@ -29,8 +29,9 @@ downloads anything new into the console's shared BIOS folder.
   names given are the usual ones.
 - Offline, the console uses what it already has.
 - When a required BIOS is missing, the game does not start and the screen says
-  so, for example *No Sega Saturn BIOS on your server*. For Switch, PS3 and
-  Xbox it says *keys*, *firmware* or *BIOS*.
+  so, for example *No Sega Saturn BIOS on the server*. For Switch, PS3 and
+  Xbox it says *keys*, *firmware* or *BIOS*. For an arcade game it names the
+  folder the BIOS goes in, for example *No Naomi BIOS on the server*.
 
 ## File formats in short
 
@@ -54,7 +55,7 @@ downloads anything new into the console's shared BIOS folder.
 | System | RomM slug | Emulator | Formats | BIOS, firmware or keys |
 |---|---|---|---|---|
 | 3DO | `3do` | Opera | iso, bin, chd, cue | **Required:** `panafz10.bin` (1 MB, any name) |
-| Arcade | `arcade` | FinalBurn Neo or MAME 2003-Plus | zip (also 7z for FinalBurn Neo) | None. See [Arcade](#arcade) |
+| Arcade | `arcade`, `mame`, `mame-advmame`, `fbneo`, `fba`, `cps1`, `cps2`, `cps3`, `neogeomvs`, `neogeoaes`, `naomi`, `naomi2`, `naomigd`, `atomiswave`, `gaelco`, `stv`, `model2`, `model3` | FinalBurn Neo, MAME 2003-Plus, MAME 0.289, Flycast, sm2-emu, Supermodel | zip, 7z | Naomi and Atomiswave: their BIOS zips. See [Arcade](arcade.md) |
 | Atari 2600 | `atari2600` | Stella 2014 | a26, bin | None |
 | Atari 7800 | `atari7800` | ProSystem | a78, bin | None |
 | Dreamcast | `dc` | Flycast | chd, cdi, gdi, cue, m3u | Optional: `dc_boot.bin` (2 MB, any name). Without it Flycast uses its own. |
@@ -88,36 +89,6 @@ downloads anything new into the console's shared BIOS folder.
 | Virtual Boy | `virtualboy` | Beetle VB | vb, vboy | None |
 | Xbox | `xbox` | xemu | iso, xiso | **Required:** the MCPX boot ROM (512 bytes, for example `mcpx_1.0.bin`) and a flash BIOS (256 KB, 512 KB or 1 MB), recognised by contents, any names |
 | Xbox 360 | `xbox360` | Xenia | iso, xex, zar, LIVE and CON packages | None |
-
-## Arcade
-
-- **One arcade folder just works.** Name it `arcade`, or anything else RomM
-  maps to its arcade platform (`mame`, `fbneo`, `cps`). Each game runs in
-  FinalBurn Neo if FinalBurn Neo has its set, otherwise in MAME 2003-Plus if
-  that has it. A game neither has shows greyed: *Not supported on this
-  console*.
-- **Two folders let you choose the emulator yourself.** A folder named after
-  an emulator runs every game in it with that emulator: `FBNEO`, `fbneo`,
-  `fba` or `FinalBurn Neo` for FinalBurn Neo; `MAME2003`, `mame2003plus` or
-  `MAME 2003-Plus` for MAME 2003-Plus. Capitals, spaces, dashes, underscores,
-  dots and `+` do not matter. Map the folder to RomM's arcade platform if RomM
-  does not do it by itself. Each folder is its own tile.
-- **FinalBurn Neo:** non-merged sets for FinalBurn Neo 1.0.0.03, with any BIOS
-  inside each game's zip.
-- **MAME 2003-Plus:** MAME 0.78 sets.
-- The zip must keep its set name, for example `sf2.zip`. The set name is
-  what picks the emulator in an `arcade` folder.
-- Saves belong to the emulator the game ran in.
-- **Hold Start for a second for the game's own settings.** In a MAME
-  2003-Plus game this opens MAME's menu, where **Dip Switches** has the
-  difficulty, the lives and the rest. Up and down move, left and right
-  change a setting; on a pad the right face button chooses and the bottom
-  one goes back. Hold Start again, or choose **Return to Game**, to play on.
-  In a FinalBurn Neo game it opens the board's own test menu, where the
-  board has one (CPS2 and Neo Geo games and Cave shooters among them).
-  Some FinalBurn Neo games have none, Final Fight among them: holding Start
-  does nothing there, and the game plays as the board was set at the
-  factory. What you change is kept on this console, for you.
 
 ## Wii and Wii U
 

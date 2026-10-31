@@ -14,29 +14,33 @@ from a blank PC to playing.
 5. [Wi-Fi and network](network.md)
 6. [Drives and storage](drives.md): extra drives, downloads, space.
 
-## Play
+## Playing
 
 - [The library](library.md): Home, the Library, Search and a game's page.
 - [The pause menu](pause-menu.md)
-- [Games on several discs](discs.md): one folder in RomM, Insert or Insert and restart.
 - [Saves, states and sync](saves.md)
 - [Players and accounts](players.md): everyone their own, and the PIN.
 - [Screenshots](screenshots.md)
 - [Achievements](achievements.md)
+- [Remote Play](remote-play.md): play from a phone, tablet or computer.
+- [Steam](steam.md)
+
+## Systems
+
+- [Systems, formats and BIOS](systems.md): what plays, which files, which BIOS.
+- [Arcade](arcade.md): arcade folders in RomM, and what each arcade game gets.
+- [Games on several discs](discs.md): one folder in RomM, Insert or Insert and restart.
 
 ## Settings
 
-- [Picture and colours](picture.md): picture levels, screen looks, colours, dark hours.
-- [Remote Play](remote-play.md): play from a phone, tablet or computer.
-- [Steam](steam.md)
+- [Display and Sound](picture.md): picture levels, screen looks, colours, dark hours, sound.
 - [Updates](updates.md)
 - [File access](file-access.md): copy files to and from the console.
 
-## Reference
+## Help
 
 - [Buttons and shortcuts](navigation.md): every screen, and the in-game shortcuts.
 - [Controls guide](controls.pdf): one page to print, every button on it.
-- [Systems, formats and BIOS](systems.md): what plays, which files, which BIOS.
 - [When something is wrong](troubleshooting.md): messages, and making a diagnostic report.
 - [What's new](changelog.md): every update, newest first.
 

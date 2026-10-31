@@ -38,12 +38,13 @@ downloads a whole new image and boots into it.
   how a console is recovered by hand: docs/WORKING.md, "Machines".)
 - **The frontend is one C++20 program** (SDL3, EGL with OpenGL ES 3, and a UI
   layer of its own, no toolkit). It draws every screen, and it hosts the
-  emulators: 23 libretro cores and PCSX2 (PlayStation 2, built as a library)
+  emulators: 24 libretro cores and PCSX2 (PlayStation 2, built as a library)
   run inside its process.
-- **Six emulators run as separate programs**, started and stopped by the
+- **Seven emulators run as separate programs**, started and stopped by the
   frontend like a game: Eden (Switch) and xemu (Xbox) from Flathub, and RPCS3
-  (PlayStation 3), Xenia Edge (Xbox 360), Cemu (Wii U) and Vita3K
-  (PlayStation Vita) built into the image. Steam's Big Picture is a seventh,
+  (PlayStation 3), Xenia Edge (Xbox 360), Cemu (Wii U), Vita3K (PlayStation
+  Vita), sm2-emu (Sega Model 2) and Supermodel (Sega Model 3) built into the
+  image. Steam's Big Picture is a seventh,
   an optional entry that hands the screen over and comes back.
 - **Everything comes from RomM:** games, covers, firmware, saves and save
   states. The console keeps a cache of downloaded games and its own
@@ -101,18 +102,25 @@ folder by itself (`--core-dir` points it anywhere else; with neither, it
 uses the image's `/usr/lib/cabinetos/cores`). The script then checks the
 core's options against `cores/options/<core>.txt` and prints any
 difference; for a new core, that printed list (from `tools/core-options.c`)
-is what the file is made from. **PCSX2, Cemu and Sunshine** (Remote Play's
-streaming host) each have a script beside it, `cores/build-pcsx2.sh`,
-`cores/build-cemu.sh` and `cores/build-sunshine.sh`, which builds its own
-container from `cores/<name>-builder/` the first time. Each script's header
-says how to run it.
+is what the file is made from. **PCSX2, Cemu, sm2-emu, Supermodel and
+Sunshine** (Remote Play's streaming host) each have a script beside it,
+`cores/build-pcsx2.sh`, `cores/build-cemu.sh`, `cores/build-sm2emu.sh`,
+`cores/build-supermodel.sh` and `cores/build-sunshine.sh`, which builds its
+own container from
+`cores/<name>-builder/` the first time. **MAME 0.289** is
+the one core not built: `cores/fetch-mame.sh cores/build` fetches
+libretro's own build, checks it against its pins, and adds its plugins and
+its catalogue (docs/decisions/2026-10-28-prebuilt-mame-core.md). Each
+script's header says how to run it.
 
 **The whole image** is normally built only by CI (`build.yml`). On a Linux
 box it is `ci/stage-image-payload.sh` with no arguments, which collects and
 checks your local builds into `image_payload/`, then `just build`. It needs
 every piece built first: the frontend, the Wii bridge, all 23 cores,
-PCSX2, Cemu and Sunshine under `cores/build/`, the two arcade cores' set
-lists (`cores/arcade-sets.sh`) and PPSSPP's and Dolphin's files in
+MAME 0.289, PCSX2, Cemu, sm2-emu, Supermodel and Sunshine under `cores/build/`,
+the arcade emulators' catalogues (`cores/arcade-sets.sh`, sm2-emu's into
+`cores/build/sm2emu/` and Supermodel's into `cores/build/supermodel/`) and
+PPSSPP's and Dolphin's files in
 `cores/system/`. That path is not walked
 through here; read the Justfile's `build` recipe first.
 
@@ -185,6 +193,7 @@ leave a console's screen alone:
 | `--network` | the link, the Wi-Fi radio, and whether this session may save a Wi-Fi network (`--network-scan` adds the networks in range) |
 | `--storage` | the storage root, each drive's free space, floors and evictable games, and who kept what |
 | `--core-options` | every option every core in the core folder declares, and what the console answers it |
+| `--arcade-changes <old> <new>` | every arcade set whose emulator differs between two folders of catalogues, or whose files changed in the emulator that keeps it (CI runs it, `ci/list-arcade-changes.sh`) |
 
 `--launch <id>` and `--download <id>` press Play and Download for a game by
 its RomM id once Home is up, and `--unkeep <id>` removes its download
@@ -199,11 +208,14 @@ with 0 when it passes, and CI runs every one ("What CI checks"):
 | `--first-run-writes` | that finishing first run actually sticks |
 | `--accounts-test` | the rules for the people on a console and switching between them |
 | `--players-test` | the rules for which controller is which player |
-| `--fightstick-test` | which fight sticks are known, and where a game's buttons go on one: every count of buttons in both arcade cores' orders, and no layout for any other pad |
-| `--arcade-settings-test` | holding Start in an arcade game: a hold of about a second presses MAME 2003-Plus's menu key once, a tap or a shorter hold presses nothing, a second hold closes it, player 1's left stick click never reaches MAME, and nothing changes on FinalBurn Neo or any other core |
+| `--fightstick-test` | which fight sticks are known, and where a game's buttons go on one: every count of buttons in the arcade cores' orders, a Naomi board's in Flycast, MAME 0.289's from its catalogue's count with its 7th and 8th on the stick clicks, and no layout for any other pad or a Dreamcast game |
+| `--arcade-settings-test` | holding Start in an arcade game: a hold of about a second presses a MAME's menu key once, in MAME 2003-Plus or MAME 0.289, or a Naomi or Atomiswave board's Test button in Flycast, a tap or a shorter hold presses nothing, a second hold closes MAME's menu, player 1's left stick click never reaches MAME 2003-Plus and does reach MAME 0.289 (its button 7), no player's stick clicks reach a board, and nothing changes on FinalBurn Neo, a Dreamcast game or any other core |
+| `--arcade-match-test` | which emulator plays an arcade game (`arcadematch.cpp`), on catalogues written in the test: by the zip's name for a grid, by its files and CHDs at Play, an emulator that marks the set not working skipped, MAME 2003-Plus before MAME 0.289 and never for a 7z, a disc going to the MAME its CHD was made for, a disc name with spaces, a light-gun game greyed for a light gun, one any list marks as made for anything but a controller not supported, a Dreamcast zip only Flycast's, and the reason when no emulator's files fit |
+| `--arcade-tile-test` | the Library's one Arcade tile (`library.cpp`, `tileGroups`): every arcade label, RomM's and the boards', in it and none left a tile of its own, one folder alone the Arcade tile too, its query naming each folder once in id order, every arcade folder called Arcade and every other platform keeping RomM's name, and an arcade game's card saying Arcade with its folder kept for the tile's line |
 | `--screen-view-test` | a DS or 3DS game's screens: player 1's L3 shows the top screen alone, the bottom alone, then both, once per press however long it is held, and never reaches the emulator; on the DS, R2 is the lid (melonDS's L3) and never its swap, and the microphone and the touch go through; on the 3DS, the touch, ZL and ZR go through; both is the layout a 3DS game starts with; a new game starts with both; and nothing changes in any other game |
 | `--controls-test` | an arcade game's Controls: every state a person can reach by every press, from the default, on a pad and on the fight stick (each press a swap or a move, two buttons never on one, nothing lost, every refused press changing nothing), which buttons are rows and what they are called, a trigger's pull following its button, and the file written, read back after a hand edit, and deleted by Reset |
 | `--netblock-test` | that no emulator reaches the network (`netblock.cpp`): the program's own `socket`, lookups and `pthread_create` are what every library reaches; code standing in for an emulator is refused an IPv4, IPv6 or raw socket and every lookup, and so is curl inside its call, on curl's own lookup thread; a Unix socket, and the console's own sockets and lookups, even from inside the emulator's call, are left alone |
+| `--idle-test` | the screen's dim and off, and the 3 seconds after a wake in which no press does anything in a menu |
 | `--battery-test` | how a controller's battery reading becomes the row in the top bar |
 | `--volume-test` | the volume keys' rules |
 | `--playtime-test` | time played: the clock and what is reported to RomM |
@@ -304,7 +316,11 @@ something besides `.md` files and `docs/`):
   Wii bridge in the builder, runs the bridge's `make test` (report only
   until the date below), `--check-option-tables` and the self-tests,
   summarises the compiler's warnings, fails a new one, and lists the code
-  nothing calls (below).
+  nothing calls (below). When the pull request changes what an arcade
+  emulator's catalogue is made from, it also lists every arcade game whose
+  emulator would change, old catalogues against new
+  (`ci/list-arcade-changes.sh`), a report that never fails: a game that
+  moves loses its saves and states.
 - **The changelog check** (`changelog.yml`): see "Pull requests and issues".
 
 **No new warnings in the files you touch** (`ci/check-new-warnings.sh`,
@@ -345,17 +361,17 @@ at the end of the report (`ci/warn-unused-touched.sh`, with the names held on
 purpose, none today): each is removed, or kept with the reason in the pull
 request (CLAUDE.md, rule 6).
 
-**A pull request to `main` never builds the image**, the cores, PCSX2 (and
-so `frontend/ps2`), Cemu or Sunshine; a mistake there first shows when the
-maintainer pushes to `testing`. That includes the check of each core's
-options against `cores/options/` (`cores/check-options.sh`, which
+**A pull request to `main` never builds the image**, the cores, MAME 0.289,
+PCSX2 (and so `frontend/ps2`), Cemu, sm2-emu, Supermodel or Sunshine; a mistake there first shows
+when the maintainer pushes to `testing`. That includes the check of each
+core's options against `cores/options/` (`cores/check-options.sh`, which
 `cores/build-core.sh` runs on every core it builds or takes from the
-cache): a pull request to `main` that moves a core's pin passes, and a
+cache, and `cores/fetch-mame.sh` on MAME 0.289): a pull request to `main` that moves a core's pin passes, and a
 difference in its options shows at the testing push. Dolphin's and FBNeo's
 lists need a game loaded, so `tools/check-applied.sh` compares them on the
 reference console. A pull request into any other branch runs
-`build-frontend.yml`, `build-core.yml`, `build-pcsx2.yml`, `build-cemu.yml`
-and `build-sunshine.yml` when it touches their paths (each workflow's
+`build-frontend.yml`, `build-core.yml`, `build-mame.yml`, `build-pcsx2.yml`,
+`build-cemu.yml`, `build-sm2emu.yml`, `build-supermodel.yml` and `build-sunshine.yml` when it touches their paths (each workflow's
 `paths:` list).
 
 **Every pull request**, whatever it is aimed at and whatever it changes,
@@ -538,6 +554,13 @@ here, not reworded; follow the link for the full text.
   together with RomM's behaviour is the source of truth" (MMagTech; it
   stands in docs/NEXT-SESSION.md's first paragraph, and is quoted here so it
   stays when that file is rewritten).
+- **The console uses RomM, never manages it.** Looking at, sorting and
+  deleting a person's saves, screenshots and the rest is RomM's job; no
+  gallery, list or manager goes on the console
+  (`docs/decisions/2026-10-21-romm-owns-management.md`).
+- **No option on a main screen for a few players.** Home, a system's grid
+  and a game's page carry only what every player uses
+  (`docs/decisions/2026-10-13-no-ui-for-the-few.md`).
 - **The controller is the input the design assumes.** A keyboard is the
   guaranteed input at first run, and a mouse "moves focus and clicks the
   focused thing, and nothing else" (docs/PROJECT.md, open question 16,

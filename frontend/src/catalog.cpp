@@ -1,4 +1,5 @@
 #include "catalog.h"
+#include "arcadematch.h"
 #include "catalog_internal.h"
 #include "ncch.h"
 #include "players.h"
@@ -11,33 +12,22 @@
 #include <sys/stat.h>
 
 #include <algorithm>
-#include <fstream>
 #include <map>
-#include <unordered_set>
 #include <vector>
 
-#include <cctype>
-#include <cstdio>
 #include <cstring>
 #include <string>
 
 namespace catalog {
 namespace {
 
+// EVERY ROW BELOW IS POSITIONAL, so a field inserted in the middle would
+// silently re-assign the ones that follow it.
 struct Entry {
     const char* slug;
-    const char* fsSlug;   // nullptr when the slug alone is enough
     Support support;
     const char* core;
     const char* reason;
-    // Set only where the slug alone is ambiguous: the name of the SYSTEM this
-    // row actually serves, used to qualify a tile so two platforms with the
-    // same name can be told apart. Cabinet's manifest carries the same thing in
-    // its `systems` field.
-    //
-    // LAST IN THE STRUCT ON PURPOSE. Every row below is positional, so a field
-    // inserted in the middle would silently re-assign the ones that follow it.
-    const char* system = nullptr;
 };
 
 // Started from Cabinet's core-manifest.json, 2026-09-14. Since 2026-10-11
@@ -45,66 +35,73 @@ struct Entry {
 // own, and a core's pin moves by docs/PROJECT.md, "Constraints and
 // principles", 8 (only for something a player gets).
 const Entry kTable[] = {
-    {"3do",                  nullptr,     Support::Playable, "opera",           nullptr},
+    {"3do",                  Support::Playable, "opera",           nullptr},
     // Nintendo 3DS in Azahar's own core (docs/PROJECT.md, open question 50).
     // Decrypted cartridge dumps play: .3ds, .cci, .cxi and .3dsx, and the
     // compressed .zcci, .zcxi and .z3dsx, which the core reads as they are
     // (it reports them as its own extensions). An encrypted dump or a .cia
     // is refused before the core sees it, with the reason (ncch.h).
-    {"3ds",                  nullptr,     Support::Playable, "azahar",          nullptr},
-    // One slug, two platforms, two different cores. This is the case the
-    // "never key on slug alone" rule exists for. The fsSlug here is the
-    // folder's name with capitals, spaces, dashes, underscores, dots and "+"
-    // ignored, and other spellings of the same emulator count too (#310;
-    // arcadeFolder below). A generic arcade folder matches neither row and
-    // picks one of them per game.
-    {"arcade",               "FBNEO",     Support::Playable, "fbneo_libretro",  nullptr,
-     "FinalBurn Neo"},
-    {"arcade",               "MAME2003",  Support::Playable, "mame2003_plus",   nullptr,
-     "MAME 2003-Plus"},
-    {"atari2600",            nullptr,     Support::Playable, "stella2014",      nullptr},
-    {"atari7800",            nullptr,     Support::Playable, "prosystem",       nullptr},
-    {"dc",                   nullptr,     Support::Playable, "flycast",         nullptr},
-    {"gamegear",             nullptr,     Support::Playable, "genesis_plus_gx", nullptr},
-    {"gb",                   nullptr,     Support::Playable, "gambatte",        nullptr},
-    {"gba",                  nullptr,     Support::Playable, "mgba",            nullptr},
-    {"gbc",                  nullptr,     Support::Playable, "gambatte",        nullptr},
-    {"genesis",              nullptr,     Support::Playable, "genesis_plus_gx", nullptr},
-    {"n64",                  nullptr,     Support::Playable, "mupen64plus",     nullptr},
-    {"nds",                  nullptr,     Support::Playable, "melonds",         nullptr},
-    {"neo-geo-pocket-color", nullptr,     Support::Playable, "beetle_ngp",      nullptr},
-    {"nes",                  nullptr,     Support::Playable, "fceumm",          nullptr},
-    {"ngc",                  nullptr,     Support::Playable, "dolphin",         nullptr},
-    {"ps2",                  nullptr,     Support::Playable, "pcsx2",           nullptr},
-    {"psp",                  nullptr,     Support::Playable, "ppsspp",          nullptr},
-    {"psx",                  nullptr,     Support::Playable, "pcsx_rearmed",    nullptr},
-    {"saturn",               nullptr,     Support::Playable, "beetle_saturn",   nullptr},
-    {"segacd",               nullptr,     Support::Playable, "genesis_plus_gx", nullptr},
-    {"sega32",               nullptr,     Support::Playable, "picodrive",       nullptr},
-    {"sms",                  nullptr,     Support::Playable, "genesis_plus_gx", nullptr},
-    {"snes",                 nullptr,     Support::Playable, "snes9x",          nullptr},
-    {"tg16",                 nullptr,     Support::Playable, "beetle_pce_fast", nullptr},
-    {"turbografx-cd",        nullptr,     Support::Playable, "beetle_pce_fast", nullptr},
-    {"vectrex",              nullptr,     Support::Playable, "vecx",            nullptr},
-    {"virtualboy",           nullptr,     Support::Playable, "beetle_vb",       nullptr},
+    {"3ds",                  Support::Playable, "azahar",          nullptr},
+    // THE ARCADE EMULATORS, in the order a game is asked of them. Which one
+    // plays a game is decided by its zip, never by its folder
+    // (arcadematch.h); these rows say only that they are arcade emulators,
+    // for every slug arcadematch::isArcadeSlug names. Flycast's own row is
+    // Dreamcast's, below.
+    {"arcade",               Support::Playable, "flycast",         nullptr},
+    {"arcade",               Support::Playable, "fbneo_libretro",  nullptr},
+    {"arcade",               Support::Playable, "mame2003_plus",   nullptr},
+    // sm2-emu, a program of its own (standalone.cpp), for every Model 2 game
+    // its list marks working (docs/decisions/2026-10-28-model-2-and-model-3.md).
+    {"arcade",               Support::Playable, "sm2emu",          nullptr},
+    // Supermodel, a program of its own (standalone.cpp), for every Model 3
+    // game (docs/decisions/2026-10-28-model-2-and-model-3.md).
+    {"arcade",               Support::Playable, "supermodel",      nullptr},
+    // MAME 0.289, libretro's own build, for what nothing else plays
+    // (docs/decisions/2026-10-28-prebuilt-mame-core.md).
+    {"arcade",               Support::Playable, "mame_libretro",   nullptr},
+    {"atari2600",            Support::Playable, "stella2014",      nullptr},
+    {"atari7800",            Support::Playable, "prosystem",       nullptr},
+    {"dc",                   Support::Playable, "flycast",         nullptr},
+    {"gamegear",             Support::Playable, "genesis_plus_gx", nullptr},
+    {"gb",                   Support::Playable, "gambatte",        nullptr},
+    {"gba",                  Support::Playable, "mgba",            nullptr},
+    {"gbc",                  Support::Playable, "gambatte",        nullptr},
+    {"genesis",              Support::Playable, "genesis_plus_gx", nullptr},
+    {"n64",                  Support::Playable, "mupen64plus",     nullptr},
+    {"nds",                  Support::Playable, "melonds",         nullptr},
+    {"neo-geo-pocket-color", Support::Playable, "beetle_ngp",      nullptr},
+    {"nes",                  Support::Playable, "fceumm",          nullptr},
+    {"ngc",                  Support::Playable, "dolphin",         nullptr},
+    {"ps2",                  Support::Playable, "pcsx2",           nullptr},
+    {"psp",                  Support::Playable, "ppsspp",          nullptr},
+    {"psx",                  Support::Playable, "pcsx_rearmed",    nullptr},
+    {"saturn",               Support::Playable, "beetle_saturn",   nullptr},
+    {"segacd",               Support::Playable, "genesis_plus_gx", nullptr},
+    {"sega32",               Support::Playable, "picodrive",       nullptr},
+    {"sms",                  Support::Playable, "genesis_plus_gx", nullptr},
+    {"snes",                 Support::Playable, "snes9x",          nullptr},
+    {"tg16",                 Support::Playable, "beetle_pce_fast", nullptr},
+    {"turbografx-cd",        Support::Playable, "beetle_pce_fast", nullptr},
+    {"vectrex",              Support::Playable, "vecx",            nullptr},
+    {"virtualboy",           Support::Playable, "beetle_vb",       nullptr},
     // Wii on the same Dolphin as GameCube, which plays both from one core.
     // Which games play on a pad is per game, in coverageFor below (wii.h).
-    {"wii",                  nullptr,     Support::Playable, "dolphin",         nullptr},
+    {"wii",                  Support::Playable, "dolphin",         nullptr},
 
     // NOT A LIBRETRO CORE: a whole emulator, from Flathub or in the image, run
     // as a separate program. The name is a row in standalone.cpp rather than
     // a file in the core directory, and `answer` asks standalone::installed
     // rather than stat'ing a .so. docs/PROJECT.md, open questions 19 and 32.
-    {"switch",               nullptr,     Support::Playable, "eden",            nullptr},
-    {"ps3",                  nullptr,     Support::Playable, "rpcs3",           nullptr},
-    {"xbox",                 nullptr,     Support::Playable, "xemu",            nullptr},
-    {"xbox360",              nullptr,     Support::Playable, "xenia",           nullptr},
+    {"switch",               Support::Playable, "eden",            nullptr},
+    {"ps3",                  Support::Playable, "rpcs3",           nullptr},
+    {"xbox",                 Support::Playable, "xemu",            nullptr},
+    {"xbox360",              Support::Playable, "xenia",           nullptr},
     // PlayStation Vita in Vita3K, played as a PlayStation TV (docs/PROJECT.md,
     // open question 49): every game shows, with no greying.
-    {"psvita",               nullptr,     Support::Playable, "vita3k",          nullptr},
+    {"psvita",               Support::Playable, "vita3k",          nullptr},
     // Wii U in Cemu. Which games play on a pad is per game, in coverageFor
     // below (wiiu.h), as for Wii.
-    {"wiiu",                 nullptr,     Support::Playable, "cemu",            nullptr},
+    {"wiiu",                 Support::Playable, "cemu",            nullptr},
 
     // A core exists and Cabinet did not ship it. The manifest says so in as
     // many words, "iOS-only by decision", and there was no tvOS build, which
@@ -116,7 +113,7 @@ const Entry kTable[] = {
     // to be about THIS console, not about what Cabinet chose on a phone: 171
     // games is the largest excluded row in the reference library, so it is the
     // tile most likely to be asked about.
-    {"Game & Watch",         nullptr,     Support::Excluded, "gw",
+    {"Game & Watch",         Support::Excluded, "gw",
      "Not built here. These games are too small to play on a television"},
 };
 
@@ -126,59 +123,15 @@ bool eq(const char* a, const std::string& b) { return b == a; }
 
 namespace {
 
-// A folder name with capitals, spaces, dashes, underscores, dots and "+"
-// ignored, so `MAME 2003-Plus`, `mame_2003_plus` and `Mame2003+` are one name.
-std::string folderKey(const std::string& s) {
-    std::string k;
-    for (const char ch : s) {
-        if (ch == ' ' || ch == '-' || ch == '_' || ch == '.' || ch == '+') continue;
-        k += static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-    }
-    return k;
+// The table's row for a platform. An arcade slug has several, one per arcade
+// emulator, and is answered before it gets here (coverageFor).
+const Entry* lookup(const std::string& slug) {
+    for (const Entry& e : kTable)
+        if (eq(e.slug, slug)) return &e;
+    return nullptr;
 }
 
-// THE ARCADE FOLDER THAT NAMES ITS EMULATOR (#310), as the table's fsSlug for
-// that emulator's row, or empty for a folder that names none. Matching
-// "FBNEO" exactly and case-sensitively was Cabinet's rule, and it hid every
-// arcade game from a person who named the folder the way RomM's own guide
-// says (`arcade`, or `fbneo` in lower case).
-std::string arcadeFolder(const std::string& fsSlug) {
-    const std::string k = folderKey(fsSlug);
-    for (const char* n : {"fbneo", "fba", "fbalpha", "finalburnneo", "finalburnalpha"})
-        if (k == n) return "FBNEO";
-    for (const char* n : {"mame2003", "mame2003plus", "mame2003p"})
-        if (k == n) return "MAME2003";
-    return {};
-}
-
-// A folder RomM files as arcade that names no emulator: `arcade`, `mame`,
-// `cps`. The core is picked per game; see coverageFor(Game).
-bool genericArcade(const std::string& slug, const std::string& fsSlug) {
-    return slug == "arcade" && arcadeFolder(fsSlug).empty();
-}
-
-// Returns the table row, not a Coverage, because displayQualifier needs the
-// row's `system`.
-const Entry* lookup(const std::string& slug, const std::string& fsSlug) {
-    // An arcade folder is matched on the emulator its name spells, not on
-    // the name as typed.
-    const std::string folder = slug == "arcade" ? arcadeFolder(fsSlug) : fsSlug;
-    const Entry* slugOnly = nullptr;
-    for (const Entry& e : kTable) {
-        if (!eq(e.slug, slug)) continue;
-        if (e.fsSlug) {
-            if (eq(e.fsSlug, folder)) return &e;
-            continue;   // right slug, wrong core — keep looking
-        }
-        slugOnly = &e;
-    }
-    // A slug that matches an entry needing an fsSlug, but whose fsSlug matched
-    // none of them, falls through to nullptr. For arcade that is the generic
-    // folder, which coverageFor answers per game before it gets here.
-    return slugOnly;
-}
-
-// The arcade row for one of the two arcade cores, by manifest name.
+// The arcade row for one of the arcade emulators, by manifest name.
 const Entry* arcadeRow(const char* core) {
     for (const Entry& e : kTable)
         if (eq(e.slug, "arcade") && std::strcmp(e.core, core) == 0) return &e;
@@ -307,62 +260,68 @@ Coverage answer(const Entry* e) {
     return c;
 }
 
-// The sets one arcade core runs, read once from `<core file>.sets` beside the
-// cores (cores/arcade-sets.sh makes it from the core's own DAT at the pinned
-// commit). A missing list is said once in the log and reads as empty, so the
-// games are greyed rather than handed to a core with no driver for them.
-const std::unordered_set<std::string>& setsOf(const char* core) {
-    auto load = [](const char* name) {
-        std::unordered_set<std::string> sets;
-        std::string file = coreFileName(name);
-        file.replace(file.size() - 3, 3, ".sets");   // fbneo_libretro.so
-        const std::string path = gCoreDir + "/" + file;
-        std::ifstream in(path);
-        if (!in) {
-            std::fprintf(stderr, "[catalog] no arcade set list at %s\n", path.c_str());
-            return sets;
+// AN ARCADE GAME, by its zip's name (arcadematch.h): the emulator the
+// first catalogue that has the set working names, a light-gun game for the
+// light gun it needs, or not supported here, which is also a game made for
+// anything but a controller. Which emulator
+// really plays it is asked again of its files at Play (launch_routes.cpp).
+//
+// A GAME WHOSE RECORD KNOWS WHAT ITS ZIP HOLDS (Game::members, a loose zip a
+// launch read) is asked of its files when they fit, so a game offline names
+// the emulator it plays on, and the save tags it is mirrored under.
+Coverage arcadeGame(const romm::Game& g, bool dreamcast) {
+    arcadematch::Answer a = arcadematch::byName(g.fsName, dreamcast);
+    if (a.verdict == arcadematch::Verdict::Plays && !g.members.empty() &&
+        g.membersFile == g.fsName && g.membersSize == g.sizeBytes) {
+        const arcadematch::Answer f = arcadematch::byFiles(g.fsName, g.members, {}, dreamcast);
+        if (f.verdict == arcadematch::Verdict::Plays) a = f;
+    }
+    switch (a.verdict) {
+        case arcadematch::Verdict::Plays: {
+            Coverage c = answer(arcadeRow(a.core));
+            c.arcade = true;
+            return c;
         }
-        for (std::string line; std::getline(in, line);)
-            if (!line.empty() && line[0] != '#') sets.insert(line);
-        return sets;
-    };
-    static const std::unordered_set<std::string> fbneo = load("fbneo_libretro");
-    static const std::unordered_set<std::string> mame = load("mame2003_plus");
-    return std::strcmp(core, "fbneo_libretro") == 0 ? fbneo : mame;
-}
-
-// A game in a generic arcade folder: FinalBurn Neo if its list has the set,
-// else MAME 2003-Plus if its list does (#310). The set is the file's name, as
-// the core is handed it (launch_routes.cpp keeps an arcade file's own name).
-Coverage arcadeGame(const romm::Game& g) {
-    std::string set = g.fsName;
-    if (const size_t dot = set.find_last_of('.'); dot != std::string::npos) set.erase(dot);
-    for (char& ch : set) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-    for (const char* core : {"fbneo_libretro", "mame2003_plus"})
-        if (setsOf(core).count(set)) return answer(arcadeRow(core));
-    return {Support::UnsupportedGame, nullptr, "Not supported on this console"};
+        case arcadematch::Verdict::NeedsGun:
+            return {Support::NeedsController, nullptr, "Needs a light gun"};
+        default:
+            return {Support::UnsupportedGame, nullptr, "Not supported"};
+    }
 }
 }  // namespace
 
-void setCoreDirectory(const char* dir) { if (dir) gCoreDir = dir; }
+void setCoreDirectory(const char* dir) {
+    if (!dir) return;
+    gCoreDir = dir;
+    arcadematch::setDirectory(dir);
+}
 
 Coverage coverageFor(const romm::Platform& p) {
-    // A generic arcade folder is enterable when either arcade core is here;
-    // which one a game needs is answered per game.
-    if (genericArcade(p.slug, p.fsSlug)) {
-        const Coverage fbneo = answer(arcadeRow("fbneo_libretro"));
-        if (fbneo.support == Support::Playable) return fbneo;
-        const Coverage mame = answer(arcadeRow("mame2003_plus"));
-        return mame.support == Support::Playable ? mame : fbneo;
+    // An arcade folder is enterable when any arcade emulator is here; which
+    // one a game needs is answered per game.
+    if (arcadematch::isArcadeSlug(p.slug)) {
+        Coverage first;
+        for (const Entry& e : kTable) {
+            if (!eq(e.slug, "arcade")) continue;
+            const Coverage c = answer(&e);
+            if (c.support == Support::Playable) return c;
+            if (!first.core) first = c;
+        }
+        return first;
     }
-    return answer(lookup(p.slug, p.fsSlug));
+    return answer(lookup(p.slug));
 }
 // The one platform whose CIA games are Hidden (coverageFor, below).
 static bool hidesCias(const std::string& slug) { return slug == "3ds"; }
 
 Coverage coverageFor(const romm::Game& g) {
-    Coverage c = genericArcade(g.platformSlug, g.platformFsSlug)
-        ? arcadeGame(g) : answer(lookup(g.platformSlug, g.platformFsSlug));
+    // AN ARCADE GAME'S EMULATOR COMES FROM ITS ZIP, in every arcade folder
+    // and for a zip in Dreamcast's (arcadematch.h).
+    const bool dreamcastZip =
+        g.platformSlug == "dc" && !g.multiFile && arcadematch::asksDreamcast(g.fsName);
+    Coverage c = arcadematch::isArcadeSlug(g.platformSlug) || dreamcastZip
+                     ? arcadeGame(g, dreamcastZip)
+                     : answer(lookup(g.platformSlug));
     // A Wii game that takes neither a Classic Controller nor a GameCube pad
     // needs a real Wii Remote, and plays while any Wii Remote is paired, as
     // on a Wii (#200, PROJECT.md question 35). Remove every Remote and they
@@ -424,7 +383,7 @@ const char* shortReason(Support s) {
         case Support::Excluded: return "Not shipped here";
         case Support::NotInstalled: return "Core not built yet";
         case Support::NeedsController: return "Needs a Wii Remote";
-        case Support::UnsupportedGame: return "Not supported here";
+        case Support::UnsupportedGame: return "Not supported";
         case Support::Hidden: return "Not shown here";
     }
     return "Not playable here";
@@ -442,28 +401,23 @@ const char* shortReason(const Coverage& c) {
     return shortReason(c.support);
 }
 
-std::string displayQualifier(const romm::Platform& p) {
-    const Entry* e = lookup(p.slug, p.fsSlug);
-    // Only the ambiguous rows carry a system name, so everything else comes
-    // back empty. Qualifying a platform nobody can confuse would be noise.
-    if (e && e->system) return e->system;
-    // A generic arcade folder (#310) is still ambiguous to a person when
-    // there are two, two tiles saying "Arcade", so fall back to the one field
-    // that actually distinguishes them on the server: the folder's name. Not
-    // when it is only the tile's own name again (`arcade` under "Arcade").
-    if (!p.fsSlug.empty() && p.slug == "arcade" &&
-        folderKey(p.fsSlug) != folderKey(p.name))
-        return p.fsSlug;
-    return {};
+std::string displayName(const romm::Platform& p) {
+    // EVERY ARCADE FOLDER IS ONE SYSTEM, "Arcade" (#611): its games share one
+    // tile, as they share one look and one achievements system (looks.cpp,
+    // achievements.cpp). RomM calls MAME's, FinalBurn Neo's, Naomi's and
+    // Atomiswave's folders "Arcade" and CPS1's "Capcom Play System"; the
+    // folder itself is named only inside that tile (folderName).
+    if (arcadematch::isArcadeSlug(p.slug)) return "Arcade";
+    return p.name.empty() ? p.slug : p.name;
 }
 
-std::string displayName(const romm::Platform& p) {
-    // The joined form, for the places that want one string: a grid's heading,
-    // a launch screen, a line of output. A tile wants the two halves and calls
-    // displayQualifier for the second.
-    const std::string base = p.name.empty() ? p.slug : p.name;
-    const std::string q = displayQualifier(p);
-    return q.empty() ? base : base + " (" + q + ")";
+std::string systemName(const romm::Game& g) {
+    if (arcadematch::isArcadeSlug(g.platformSlug)) return "Arcade";
+    return g.platformName;
+}
+
+std::string folderName(const romm::Game& g) {
+    return g.platformFsSlug.empty() ? g.platformName : g.platformFsSlug;
 }
 
 }  // namespace catalog

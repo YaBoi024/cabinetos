@@ -12,6 +12,7 @@
 #include <optional>
 #include <string>
 
+#include "arcadematch.h"
 #include "arcadesettings.h"
 #include "controls.h"
 #include "core.h"
@@ -286,12 +287,18 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             return fightstick::test();
         } else if (SDL_strcmp(argv[i], "--arcade-settings-test") == 0) {
             return arcadesettings::test();
+        } else if (SDL_strcmp(argv[i], "--arcade-match-test") == 0) {
+            return arcadematch::test();
+        } else if (SDL_strcmp(argv[i], "--arcade-changes") == 0 && i + 2 < argc) {
+            return arcadematch::changes(argv[i + 1], argv[i + 2]);
         } else if (SDL_strcmp(argv[i], "--screen-view-test") == 0) {
             return screenview::test();
         } else if (SDL_strcmp(argv[i], "--controls-test") == 0) {
             return controls::test();
         } else if (SDL_strcmp(argv[i], "--netblock-test") == 0) {
             return netblock::test();
+        } else if (SDL_strcmp(argv[i], "--idle-test") == 0) {
+            return idle::test();
         } else if (SDL_strcmp(argv[i], "--battery-test") == 0) {
             batteryTestMode = true;
         } else if (SDL_strcmp(argv[i], "--volume-test") == 0) {
@@ -319,6 +326,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             firstRunServerCheck = true;
         } else if (SDL_strcmp(argv[i], "--same-names-test") == 0) {
             return samenames::test();
+        } else if (SDL_strcmp(argv[i], "--arcade-tile-test") == 0) {
+            return arcadeTileTest();
         } else if (SDL_strcmp(argv[i], "--same-names") == 0) {
             sameNamesMode = true;
         } else if (SDL_strcmp(argv[i], "--romm-probe") == 0) {

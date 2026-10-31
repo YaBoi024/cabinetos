@@ -83,6 +83,22 @@ constexpr float kDimDepth = 0.6f;
 constexpr float kDimFadeSeconds = 2.0f;    // going down is unhurried
 constexpr float kWakeFadeSeconds = 0.25f;  // coming back answers the press
 
+// THE SAME DIM OVER A GAME IN ITS OWN EMULATOR (#606). This window mixes the
+// dim into its picture as the values stand, but gamescope mixes this window
+// over another program's in linear light, where the same black lifts less:
+// at 0.6 it left that game's white at 170 of 255 on the A9, not 102. This is
+// the opacity there that leaves the picture as dark as `depth` does here.
+float overlayDepth(float depth);
+
+// A WAKE IS NOT A CHOICE (#411, docs/decisions/2026-10-27-a-wake-is-not-a-choice.md).
+// After the screen comes back from off, the machine comes back from Rest
+// (power::justWoke) or a device starts streaming, no press does anything in a
+// menu for this long. Measured on the A9: a game started 0.8 s after a press
+// lit a dark screen, before the television showed the picture again, and
+// streams connecting started the game Home had focused with presses nobody
+// made. A starting value, for the television to judge.
+constexpr double kWakeSettleSeconds = 3.0;
+
 enum class Level { Awake, Dim, Blank };
 
 // FORK (handheld): the choices for the dim in the menus, saved as the word in
@@ -109,11 +125,17 @@ public:
     // Seconds before the screen dims on a menu (kDimChoices).
     void setDimAfter(double seconds) { dimAfter_ = seconds; }
 
-    // Somebody touched something. Returns TRUE when this press did nothing but
-    // wake the screen, so the menus can swallow it: the first press on a dark
+    // Somebody touched something. Returns TRUE when this press must do nothing
+    // in a menu, so the menus can swallow it: the first press on a dark
     // console must not also launch whatever happened to have focus, which
-    // nobody could see.
+    // nobody could see. On a screen that was off, neither may any press for
+    // kWakeSettleSeconds after it.
     bool input(double now);
+
+    // Something other than a press woke the console: a device starting to
+    // stream. The screen lifts and the timer starts again, as for a press,
+    // and the presses of the next kWakeSettleSeconds do nothing in a menu.
+    void woke(double now);
 
     // Called once a frame. `playing` means a game is running and not paused.
     // Returns the level, and changes it — the caller acts on the edges.
@@ -127,9 +149,14 @@ private:
     double blankAfter_ = kMenuBlankAfter;
     double dimAfter_ = kMenuDimAfter;
     double last_ = 0.0;
+    double settleUntil_ = -1.0;
     bool started_ = false;
     Level level_ = Level::Awake;
 };
+
+// --idle-test: the dim, the blank and the wait after a wake, every case, no
+// SDL. 0 when all pass.
+int test();
 
 // Puts the television's input to sleep, or wakes it, through gamescope. On a
 // worker, because it runs a program and the frame loop must not wait on one.

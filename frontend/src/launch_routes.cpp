@@ -16,14 +16,17 @@
 #include <cctype>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "arcadematch.h"
 #include "cache.h"
 #include "catalog.h"
 #include "disc.h"
 #include "fileio.h"
+#include "library.h"
 #include "ncch.h"
 #include "romfile.h"
 #include "romm.h"
@@ -82,14 +85,112 @@ static void fetchLaunchSaves(LaunchJob& job, romm::Client& client, const storage
     job.miiSaves.title = miiTitle;
 }
 
+// A link at `link` to `target` (relative to the link's folder), made unless
+// one is already there. A file already at `link` is left as it is.
+static void linkInto(const std::string& link, const std::string& target) {
+    struct stat st;
+    if (::lstat(link.c_str(), &st) == 0) {
+        if (!S_ISLNK(st.st_mode)) return;
+        char was[4096];
+        const ssize_t n = ::readlink(link.c_str(), was, sizeof was - 1);
+        if (n > 0 && std::string(was, static_cast<size_t>(n)) == target) return;
+        ::unlink(link.c_str());
+    }
+    if (::symlink(target.c_str(), link.c_str()) != 0)
+        std::fprintf(stderr, "[launch] could not link %s\n", link.c_str());
+}
+
+static std::string baseName(const std::string& path) {
+    const size_t slash = path.find_last_of('/');
+    return slash == std::string::npos ? path : path.substr(slash + 1);
+}
+
+static bool endsWithNoCase(const std::string& s, const char* tail) {
+    const size_t n = std::strlen(tail);
+    return s.size() > n && strcasecmp(s.c_str() + s.size() - n, tail) == 0;
+}
+
+// The CHDs at the top of a folder game, with the SHA1 each one's header
+// gives: an arcade disc, beside its zip (docs/decisions/
+// 2026-10-28-arcade-discs-one-folder.md). Nothing deeper is looked at.
+static std::vector<arcadematch::Disc> topLevelDiscs(const std::string& dir) {
+    std::vector<arcadematch::Disc> out;
+    DIR* d = ::opendir(dir.c_str());
+    if (!d) return out;
+    while (struct dirent* e = ::readdir(d)) {
+        const std::string n = e->d_name;
+        struct stat st;
+        if (!endsWithNoCase(n, ".chd") || ::stat((dir + "/" + n).c_str(), &st) != 0 ||
+            !S_ISREG(st.st_mode))
+            continue;
+        out.push_back({n.substr(0, n.size() - 4), arcadematch::chdSha1(dir + "/" + n)});
+    }
+    ::closedir(d);
+    return out;
+}
+
+// AN ARCADE GAME'S EMULATOR, FROM ITS FILES (arcadematch.h): what its archive
+// holds and the CHDs beside it. The press named one by the zip's name; when
+// the files name another, the job carries that one and the frame thread
+// loads it behind the curtain (pumpLaunch). A set whose files fit none ends
+// the job with the reason, which the game's page shows.
+static bool pickArcade(LaunchJob& job, const std::string& fileName,
+                       const std::vector<romm::ArchiveMember>& members,
+                       const std::vector<arcadematch::Disc>& discs) {
+    const arcadematch::Answer a =
+        arcadematch::byFiles(fileName, members, discs, job.platformSlug == "dc");
+    if (a.verdict != arcadematch::Verdict::Plays) {
+        std::fprintf(stderr, "[arcade] %s: %s\n", fileName.c_str(), a.why.c_str());
+        job.message = a.why;
+        job.stage = LaunchJob::Stage::Failed;
+        return false;
+    }
+    job.arcadePicked = true;
+    std::fprintf(stderr, "[arcade] %s: %s, by its %zu files and %zu discs\n", fileName.c_str(),
+                 a.core, members.size(), discs.size());
+    if (job.coreName != a.core) {
+        job.coreName = a.core;
+        job.corePath = job.corePath.substr(0, job.corePath.find_last_of('/') + 1) +
+                       catalog::coreFileName(a.core);
+        job.coreChanged = true;
+    }
+    return true;
+}
+
 // The end of every route: the saves fetched, then Ready, unless a cancel
 // came during either.
 //
 // A 3DS FILE AZAHAR CANNOT PLAY ENDS HERE, with the reason, before the core
 // is handed it (ncch.h): an encrypted dump or a .cia. The file stays, as for
 // any launch that fails after its download.
+//
+// AN ARCADE GAME NOT YET PICKED BY ITS FILES is picked here, from the archive
+// on the disk: one inside a folder game, which RomM does not open, or a loose
+// one RomM listed nothing for. Its list is kept in the game's record, so a 7z
+// is decompressed once (rememberArchive).
 static void finish(LaunchJob& job, romm::Client& client, const storage::User& user) {
     if (cancelled(job)) return;
+    if (job.arcade && !job.arcadePicked) {
+        const std::string file = baseName(job.romPath);
+        struct stat st;
+        const int64_t size = ::stat(job.romPath.c_str(), &st) == 0 ? st.st_size : 0;
+        std::vector<romm::ArchiveMember> members = rememberedArchive(job.romId, file, size);
+        if (members.empty()) {
+            std::string err;
+            if (!arcadematch::readMembers(job.romPath, &members, &err)) {
+                std::fprintf(stderr, "[arcade] %s: %s\n", job.romPath.c_str(), err.c_str());
+                job.message = "Couldn't open this game's file";
+                job.stage = LaunchJob::Stage::Failed;
+                return;
+            }
+            rememberArchive(job.romId, file, size, members);
+        }
+        const size_t slash = job.romPath.find_last_of('/');
+        if (!pickArcade(job, file, members,
+                        topLevelDiscs(job.romPath.substr(0, slash == std::string::npos ? 0
+                                                                                      : slash))))
+            return;
+    }
     if (job.coreName == "azahar") {
         if (std::string why = ncch::refusal(job.romPath); !why.empty()) {
             job.message = std::move(why);
@@ -173,6 +274,20 @@ void launchWorker(LaunchJob& job, romm::Client& client, const int id, const int 
             }
         } else {
             std::fprintf(stderr, "[firmware] none listed: %s\n", ferr.c_str());
+        }
+        // FLYCAST READS A NAOMI OR ATOMISWAVE BOARD'S BIOS FROM `bios/dc/`
+        // (naomi.zip, awbios.zip and the rest its catalogue names,
+        // arcadematch::flycastBios), so an arcade folder's are linked there
+        // too, whichever emulator this game turns out to need.
+        if (job.arcade) {
+            const std::string dc = biosDir + "/dc";
+            for (const std::string& f : platformFirmware) {
+                struct stat st;
+                const std::string name = baseName(f);
+                if (!arcadematch::flycastBios(name) || ::stat(f.c_str(), &st) != 0) continue;
+                storage::makeDirs(dc);
+                linkInto(dc + "/" + name, "../" + name);
+            }
         }
 
         // AND THEN UNDER THE NAME THE CORE WILL ACTUALLY OPEN.
@@ -627,11 +742,35 @@ void launchWorker(LaunchJob& job, romm::Client& client, const int id, const int 
             }
         }
         // WHAT TO START: a disc's sheet (.cue, .gdi) over its tracks, then
-        // a file the emulator lists, then the largest.
+        // a file the emulator lists, then the largest. AN ARCADE GAME STARTS
+        // ITS ZIP, never the largest file, which is its CHD: the archive named
+        // after the game first, then the first by name.
         std::string boot;
         int rank = -1;
         int64_t bootSize = -1;
+        if (job.arcade) {
+            std::string first;
+            for (const auto& [n, size] : mine) {
+                if (!endsWithNoCase(n, ".zip") && !endsWithNoCase(n, ".7z")) continue;
+                const std::string stem = n.substr(0, n.find_last_of('.'));
+                if (strcasecmp(stem.c_str(), fsName.c_str()) == 0) boot = entry + "/" + n;
+                if (first.empty() || n < first) first = n;
+            }
+            if (boot.empty() && !first.empty()) boot = entry + "/" + first;
+            // AND ITS CHDs WHERE MAME AND FLYCAST LOOK, `<game>/<set>/`,
+            // linked to the copies at the top, which are what the cache
+            // keeps and counts.
+            if (!boot.empty()) {
+                const std::string set = baseName(boot).substr(0, baseName(boot).find_last_of('.'));
+                for (const auto& [n, size] : mine) {
+                    if (!endsWithNoCase(n, ".chd")) continue;
+                    storage::makeDirs(entry + "/" + set);
+                    linkInto(entry + "/" + set + "/" + n, "../" + n);
+                }
+            }
+        }
         for (const auto& [n, size] : mine) {
+            if (job.arcade) break;
             std::string ext = n.substr(n.find_last_of('.') == std::string::npos
                                            ? n.size() : n.find_last_of('.') + 1);
             for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
@@ -669,6 +808,24 @@ void launchWorker(LaunchJob& job, romm::Client& client, const int id, const int 
         job.romPath = primary;
         finish(job, client, user);
         return;
+    }
+
+    // AN ARCADE ZIP IS CHECKED BEFORE IT COMES DOWN (arcadematch.h): RomM
+    // lists what a loose zip or 7z holds, and the game's record keeps that
+    // list for a launch with no server, so a set whose files fit no emulator
+    // says so before any download. With neither, finish reads the archive.
+    if (job.arcade) {
+        std::vector<romm::ArchiveMember> members;
+        std::vector<romm::RomFile> files;
+        std::string lerr;
+        if (!romm::serverAway() && client.fetchRomFiles(id, &files, &lerr) &&
+            files.size() == 1 && !files[0].members.empty()) {
+            members = files[0].members;
+            rememberArchive(id, fsName, expectedSize, members);
+        } else {
+            members = rememberedArchive(id, fsName, expectedSize);
+        }
+        if (!members.empty() && !pickArcade(job, fsName, members, {})) return;
     }
 
     // A GAME IS ONE ENTRY, AND THE ENTRY IS A FILE WHEN THE GAME IS ONE

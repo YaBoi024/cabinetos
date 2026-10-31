@@ -54,8 +54,11 @@ rsync -az -e "ssh -p 2222 -i $KEY" "$ROOT/tools/core-options.c" "$ROOT/frontend/
     podman run --rm -v /tmp/check-applied:/w:Z -w /w localhost/cabinetos-builder \
         gcc -O2 -o core-options core-options.c -ldl' || bad "could not build core-options on the A9"
 
-list_with_game() {   # <core file stem> <list name> <glob of a game in the cache>
-    local so="$1" list="$2" glob="$3" game now
+list_with_game() {   # <core file stem> <list name> <glob of a game in the cache> [<skip>]
+    # <skip>: a pattern for the options that belong to one game rather than
+    # the core (FBNeo's DIP switches, and its high scores, offered only for a
+    # game that keeps them), left out on both sides.
+    local so="$1" list="$2" glob="$3" skip="${4:-^$}" game now
     game=$("${SSH[@]}" "ls -d $glob 2>/dev/null | head -1")
     if [[ -z "$game" ]]; then
         note "$list: no game in the cache to list it with ($glob)"
@@ -65,8 +68,9 @@ list_with_game() {   # <core file stem> <list name> <glob of a game in the cache
     # cores/check-options.sh compares them: a core printing to stdout while it
     # loads is not an option (PCSX ReARMed's "Using 32-bit LUT").
     now=$("${SSH[@]}" "cd /tmp/check-applied && timeout 120 ./core-options \
-        /usr/lib/cabinetos/cores/${so}_libretro.so --game \"$game\" 2>/dev/null | grep -P '\t'")
-    if diff -u <(grep $'\t' "$ROOT/cores/options/$list.txt") <(printf '%s\n' "$now") \
+        /usr/lib/cabinetos/cores/${so}_libretro.so --game \"$game\" 2>/dev/null | grep -P '\t'" |
+        grep -Ev "$skip")
+    if diff -u <(grep $'\t' "$ROOT/cores/options/$list.txt" | grep -Ev "$skip") <(printf '%s\n' "$now") \
         >/tmp/check-applied.diff; then
         ok "$list: $(printf '%s\n' "$now" | grep -c .) options, as listed"
     else
@@ -75,7 +79,10 @@ list_with_game() {   # <core file stem> <list name> <glob of a game in the cache
     fi
 }
 list_with_game dolphin dolphin '/var/lib/cabinetos/cache/"Nintendo Gamecube"/*/*.rvz'
-list_with_game fbneo fbneo_libretro '/var/lib/cabinetos/cache/FBNEO/*/*.zip'
+# A Neo Geo game, since FBNeo declares its Neo Geo options only for one, and
+# the console sets one of them (fbneo-neogeo-mode, coreoptions.cpp).
+list_with_game fbneo fbneo_libretro '/var/lib/cabinetos/cache/NeoGeoMVS/*/*.zip' \
+    $'^fbneo-(dipswitch-|debug-dip-|hiscores\t)'
 # The listing runs with /tmp as the system folder; Dolphin and FBNeo leave
 # folders there.
 "${SSH[@]}" 'rm -rf /tmp/check-applied /tmp/User /tmp/fbneo /tmp/Mupen64plus' >/dev/null 2>&1

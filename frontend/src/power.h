@@ -69,9 +69,11 @@ Event poll();
 // Let the shutdown or sleep proceed. Taken again automatically on waking.
 void releaseDelay();
 
-// True for a few seconds after the machine comes back from a sleep. The press
-// that woke it reaches us as an ordinary power-key press, and without this the
-// console would wake straight into its own Power menu. Call once a frame.
+// True for idle::kWakeSettleSeconds after the machine comes back from a sleep.
+// The press that woke it reaches us as an ordinary power-key press, and
+// without this the console would wake straight into its own Power menu; no
+// other press does anything in a menu then either (input.cpp, a wake is not a
+// choice). Call once a frame.
 bool justWoke();
 
 }  // namespace power

@@ -3,8 +3,10 @@
 // 2026-10-25, docs/decisions/2026-10-25-arcade-controls.md). The pause
 // menu's row and its panel are the App's, in controlsflow.cpp.
 //
-// ONLY THE TWO ARCADE CORES (fightstick::isArcadeCore). Every other system
-// plays by position, as before, with nothing to change.
+// ONLY AN ARCADE GAME (fightstick::isArcadeCore, given the session's
+// arcadeCore): FinalBurn Neo, MAME 2003-Plus, and Flycast playing a Naomi or
+// Atomiswave board. Every other system plays by position, as before, with
+// nothing to change.
 //
 // A ROW IS ONE OF THE GAME'S BUTTONS, as the core declared it for port 0
 // (core.h, inputDescriptors) with an id among the ten below. The lever,

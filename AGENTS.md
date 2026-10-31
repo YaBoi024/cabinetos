@@ -25,6 +25,10 @@ tool, not only Claude.
   `docs/decisions/2026-10-23-when-an-emulator-pin-moves.md` lists the five
   reasons. "It is old" or "there is a newer version" is not one.
 - **No fix for one game.** One rule for every game.
+- **No management screens, no niche options.** Viewing and organising is
+  RomM's job (`docs/decisions/2026-10-21-romm-owns-management.md`), and an
+  option few players would use never goes on a main screen
+  (`docs/decisions/2026-10-13-no-ui-for-the-few.md`).
 - If unsure which of these applies, ask on an issue.
 
 ## Also

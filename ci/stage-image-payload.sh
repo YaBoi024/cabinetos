@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #
 # Assemble everything the image has to carry that is not in this repository:
-# the frontend and the Wii bridge, the 23 libretro cores and PCSX2, the system
-# files that ship with emulators rather than coming off RomM, Cemu and
-# Sunshine.
+# the frontend and the Wii bridge, the 23 libretro cores and PCSX2, MAME
+# 0.289, the system files that ship with emulators rather than coming off
+# RomM, Cemu, sm2-emu and Sunshine.
 #
 # WHY THIS EXISTS AT ALL. Until 2026-09-19 the image contained none of it. The
 # Containerfile copied build_files, system_files and two licence files, so a
@@ -21,7 +21,11 @@
 #                  finished .so
 #   PCSX2          .github/workflows/build-pcsx2.yml (cabinetos-ps2.so, its
 #                  libraries and resources)
+#   MAME 0.289     .github/workflows/build-mame.yml (libretro's own build,
+#                  checked against its pins by cores/fetch-mame.sh)
 #   Cemu           .github/workflows/build-cemu.yml
+#   sm2-emu        .github/workflows/build-sm2emu.yml (and its catalogue)
+#   Supermodel     .github/workflows/build-supermodel.yml (and its catalogue)
 #   Sunshine       .github/workflows/build-sunshine.yml
 #
 # So this only ever COLLECTS and CHECKS. It builds nothing, and it fails before
@@ -41,9 +45,15 @@
 #   bin/cabinetos-frontend
 #   bin/cabinetos-wii-bridge      the Wii Remotes' bridge (#200, wiibridge/)
 #   cores/<core>_libretro.so      x23
+#   mame/{mame_libretro.so, .catalogue, plugins/}   MAME 0.289, beside the
+#                                 cores in the image, in a layer of its own
 #   system/PPSSPP/...             PPSSPP's fonts and lookup tables
 #   system/dolphin-emu/Sys/...    Dolphin's game settings and Wii files
 #   cemu/{bin,share/Cemu}/...     Wii U's emulator, its game profiles and resources
+#   sm2emu/{bin,share/sm2-emu}/..., sm2emu.catalogue   Model 2's emulator and
+#                                 which sets it plays
+#   supermodel/{bin,lib,share/supermodel}/..., supermodel.catalogue   Model 3's
+#                                 emulator, SDL2_net, and which sets it plays
 #   sunshine/Sunshine-*.rpm       Remote Play's streaming host, with our patch (#304)
 #
 # This starts image_payload/ afresh. Two more folders go in after it, from
@@ -68,14 +78,20 @@ if [ $# -ge 1 ]; then
     CORES="$SRC/cores"
     SYSTEM="$SRC/system"
     CEMUSRC="$SRC/cemu"
+    SM2SRC="$SRC/sm2emu"
+    SUPERMODELSRC="$SRC/supermodel"
     SUNSHINESRC="$SRC/sunshine"
+    MAMESRC="$SRC/mame"
 else
     FRONTEND="$ROOT/frontend/build/cabinetos-frontend"
     BRIDGE="$ROOT/wiibridge/cabinetos-wii-bridge"
     CORES="$ROOT/cores/build"
     SYSTEM="$ROOT/cores/system"
     CEMUSRC="$ROOT/cores/build/cemu"
+    SM2SRC="$ROOT/cores/build/sm2emu"
+    SUPERMODELSRC="$ROOT/cores/build/supermodel"
     SUNSHINESRC="$ROOT/cores/build/sunshine"
+    MAMESRC="$ROOT/cores/build/mame"
 fi
 
 # The cores this console is supposed to have, read off the script that builds
@@ -149,14 +165,15 @@ if [ "${#missing[@]}" -ne 0 ]; then
     exit 1
 fi
 
-# The two arcade cores' set lists (#310), which pick the core for each game in
-# a generic arcade folder. Without one, every game in such a folder greys out.
-for sets in fbneo_libretro.sets mame2003_plus_libretro.sets; do
-    [ -s "$CORES/$sets" ] || {
-        echo "$sets is not in $CORES; cores/arcade-sets.sh makes it" >&2
+# The arcade emulators' catalogues, from which each arcade game's emulator is
+# picked by its zip (frontend/src/arcadematch.h). Without one, that emulator
+# plays nothing.
+for cat in flycast_libretro.catalogue fbneo_libretro.catalogue mame2003_plus_libretro.catalogue; do
+    [ -s "$CORES/$cat" ] || {
+        echo "$cat is not in $CORES; cores/arcade-sets.sh makes it" >&2
         exit 1
     }
-    install -m 0644 "$CORES/$sets" "$OUT/cores/$sets"
+    install -m 0644 "$CORES/$cat" "$OUT/cores/$cat"
 done
 
 # Anything in the source directory that is NOT one of the twenty-three. Not an
@@ -266,6 +283,25 @@ fi
 # NOT SHIPPED: cabinet-ps2-probe. It is the headless harness for measuring
 # without a television, it is 28 MB, and nothing on a console runs it.
 
+# --- MAME 0.289 -------------------------------------------------------------
+# libretro's own build of the core, its catalogue and its plugins, from
+# cores/fetch-mame.sh (cores/fetch-mame.sh cores/build locally). REQUIRED, for
+# PlayStation 2's reason: without it the games only it plays read as not
+# installed. build_files/install-mame.sh puts it beside the cores.
+for f in mame_libretro.so mame_libretro.catalogue plugins/boot.lua plugins/json/init.lua \
+    plugins/hiscore/init.lua VERSION; do
+    [ -s "$MAMESRC/$f" ] || {
+        echo "MAME 0.289's $f is not in $MAMESRC; cores/fetch-mame.sh makes it" >&2
+        exit 1
+    }
+done
+case "$(file -b "$MAMESRC/mame_libretro.so")" in
+    ELF\ 64-bit\ LSB\ shared\ object,\ x86-64,*) ;;
+    *) echo "mame_libretro.so is not an x86-64 shared object" >&2; exit 1 ;;
+esac
+rm -rf "$OUT/mame"
+cp -R "$MAMESRC" "$OUT/mame"
+
 # --- Wii U ----------------------------------------------------------------
 # Cemu, built by cores/build-cemu.sh at its pin: the program and the two
 # folders it reads. REQUIRED, for PlayStation 2's reason: without it Wii U
@@ -280,6 +316,39 @@ for f in bin/Cemu share/Cemu/resources share/Cemu/gameProfiles/default VERSION; 
 done
 rm -rf "$OUT/cemu"
 cp -R "$CEMUSRC" "$OUT/cemu"
+
+# --- Sega Model 2 -----------------------------------------------------------
+# sm2-emu, built by cores/build-sm2emu.sh at its pin, and its catalogue
+# (cores/arcade-sets.sh sm2emu, run into the same folder). REQUIRED, for
+# PlayStation 2's reason: without it every Model 2 game falls to MAME 0.289,
+# which runs few, or greys. build_files/install-sm2emu.sh puts it at
+# /usr/lib/cabinetos/sm2emu and the catalogue beside the cores.
+for f in bin/sm2-emu share/sm2-emu/games.xml VERSION sm2emu.catalogue; do
+    [ -s "$SM2SRC/$f" ] || {
+        echo "sm2-emu's $f is not in $SM2SRC, so the image would lose Model 2" >&2
+        echo "Build it with cores/build-sm2emu.sh, then cores/arcade-sets.sh sm2emu $SM2SRC." >&2
+        exit 1
+    }
+done
+rm -rf "$OUT/sm2emu"
+cp -R "$SM2SRC" "$OUT/sm2emu"
+
+# --- Sega Model 3 -----------------------------------------------------------
+# Supermodel, built by cores/build-supermodel.sh at its pin, and its catalogue
+# (cores/arcade-sets.sh supermodel, run into the same folder). REQUIRED, for
+# PlayStation 2's reason: without it every Model 3 game greys, since MAME
+# 0.289 runs none. build_files/install-supermodel.sh puts it at
+# /usr/lib/cabinetos/supermodel and the catalogue beside the cores.
+for f in bin/supermodel lib/libSDL2_net-2.0.so.0 share/supermodel/Games.xml VERSION \
+         supermodel.catalogue; do
+    [ -s "$SUPERMODELSRC/$f" ] || {
+        echo "Supermodel's $f is not in $SUPERMODELSRC, so the image would lose Model 3" >&2
+        echo "Build it with cores/build-supermodel.sh, then cores/arcade-sets.sh supermodel $SUPERMODELSRC." >&2
+        exit 1
+    }
+done
+rm -rf "$OUT/supermodel"
+cp -R "$SUPERMODELSRC" "$OUT/supermodel"
 
 # --- Remote Play ------------------------------------------------------------
 # Sunshine, built by cores/build-sunshine.sh at its pin with our patch (#304).
@@ -308,7 +377,10 @@ printf '  ps2       %s emulator, %s libraries, %s resources\n' \
        "$(du -h "$OUT/cores/cabinetos-ps2.so" | cut -f1)" \
        "$(wc -l < "$OUT/cores/cabinetos-ps2.bundled" | tr -d ' ')" \
        "$(du -sh "$OUT/system/pcsx2/resources" | cut -f1)"
+printf '  mame      0.289 (%s), %s\n' "$(cut -c1-8 "$OUT/mame/VERSION")" "$(du -sh "$OUT/mame" | cut -f1)"
 printf '  wii u     Cemu %s, %s\n' "$(cut -c1-10 "$OUT/cemu/VERSION")" "$(du -sh "$OUT/cemu" | cut -f1)"
+printf '  model 2   sm2-emu %s, %s\n' "$(cut -c1-10 "$OUT/sm2emu/VERSION")" "$(du -sh "$OUT/sm2emu" | cut -f1)"
+printf '  model 3   Supermodel %s, %s\n' "$(cut -c1-10 "$OUT/supermodel/VERSION")" "$(du -sh "$OUT/supermodel" | cut -f1)"
 printf '  sunshine  %s, %s\n' "$(head -1 "$OUT/sunshine/VERSION" | cut -d' ' -f1)" "$(du -sh "$OUT/sunshine" | cut -f1)"
 printf '  system    %s, %s entries\n' "$(du -sh "$OUT/system" | cut -f1)" \
        "$(find "$OUT/system" -mindepth 2 -maxdepth 2 | wc -l | tr -d ' ')"

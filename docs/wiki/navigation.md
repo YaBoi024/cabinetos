@@ -19,7 +19,9 @@ Buttons are named by position, Xbox style: **A** is the bottom face button
 | **Start** | The Power menu (Sleep, Restart, Power off, Switch to Steam) |
 | Up from the top row | The top bar |
 
-When the screen has dimmed or turned off, the first press only wakes it.
+When the screen has dimmed or turned off, the first press only wakes it. After
+it was off, after Sleep, and after a Remote Play device connects, buttons do
+nothing in the menus for 3 seconds.
 
 ## Screen by screen
 
@@ -65,7 +67,7 @@ The Home (Guide) button is never passed to a game.
 
 | System | Button | Does |
 |---|---|---|
-| Arcade | Hold **Start** for a second | The game's own settings, see [Arcade](systems.md#arcade) |
+| Arcade | Hold **Start** for a second | The game's own settings (not in Model 2 and Model 3 games), see [Arcade](arcade.md) |
 | Nintendo DS | Right stick, **R3**, **L3**, **R2** | The right stick moves a pointer on the touch screen; **R3** (press the stick) touches; click **L3** for the top screen alone, again for the bottom screen alone, and again for both; hold **R2** to close the lid, for the few games that ask for it |
 | Nintendo 3DS | Right stick, **R3**, **L3** | The right stick moves a pointer on the touch screen, and is the C-stick too; **R3** touches; click **L3** for the top screen alone, again for the bottom screen alone, and again for both |
 | PlayStation (PS1) | **L1 + R1 + Select** | The DualShock's ANALOG button, for the few games that need it pressed |
@@ -99,7 +101,7 @@ use them, and L3+R3 is the pause menu.
 | Hold it + **X** (left face button) | Screenshot, also with the pause menu open |
 
 State, rewind, fast forward and screenshot shortcuts work in the built-in
-emulators (3DS: no rewind). In Switch, PS3, Xbox, Xbox 360, Wii U and PS Vita games only the tap works;
+emulators (3DS: no rewind). In Switch, PS3, Xbox, Xbox 360, Wii U and PS Vita games, and Model 2 and Model 3 arcade games, only the tap works;
 use the pause menu for the rest.
 
 ## The on-screen keyboard

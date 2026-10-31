@@ -74,20 +74,31 @@ FROM ghcr.io/ublue-os/bazzite-deck:44.20261012.1@sha256:96301a1520b5bb63db956408
 #                                Moves on a base bump or a change to
 #                                build_files/ or system_files/.
 #    2. the cores         95 MB  pinned, and PCSX2. Moves when one moves.
-#    3. RPCS3            131 MB  pinned. Moves when RPCS3 is bumped.
-#    4. Xenia Edge        21 MB  pinned. Moves when Edge is bumped.
-#    5. Cemu              35 MB  built at a pin by build-cemu.yml.
-#    6. xemu's drive       1 MB  pinned.
-#    7. the core files    16 MB  PPSSPP's, Dolphin's and PCSX2's resources.
-#    8. the frontend       4 MB  the frontend, the Wii bridge, the
+#    3. MAME 0.289       126 MB  pinned, the core, its catalogue and its
+#                                plugins (in 2026.10.29.2, its first image).
+#                                Moves when MAME is bumped, which is seldom.
+#    4. RPCS3            131 MB  pinned. Moves when RPCS3 is bumped.
+#    5. Xenia Edge        21 MB  pinned. Moves when Edge is bumped.
+#    6. Cemu              35 MB  built at a pin by build-cemu.yml.
+#    7. sm2-emu            2 MB  built at a pin by build-sm2emu.yml, with
+#                                its catalogue (Model 2). Not yet in an
+#                                image: 6.2 MB on disk, 2.3 MB gzipped, as
+#                                built on the A9 on 2026-10-29.
+#    8. Supermodel         2 MB  built at a pin by build-supermodel.yml, with
+#                                SDL2_net and its catalogue (Model 3). Not
+#                                yet in an image: 4.3 MB on disk, 1.6 MB
+#                                gzipped, as built on the A9 on 2026-10-29.
+#    9. xemu's drive       1 MB  pinned.
+#   10. the core files    16 MB  PPSSPP's, Dolphin's and PCSX2's resources.
+#   11. the frontend       4 MB  the frontend, the Wii bridge, the
 #                                controller lists and the shaders. Moves
 #                                with nearly every change.
-#    9. the boot splash  254 MB  the initramfs. Moves with the OS layer.
-#   10. the version       1 kB  every image.
-#   11. the lint               (nothing in it)
+#   12. the boot splash  254 MB  the initramfs. Moves with the OS layer.
+#   13. the version       1 kB  every image.
+#   14. the lint               (nothing in it)
 #
 # A console downloads only the layers whose bytes changed, so a frontend change
-# ships layer 8, PROVIDED the other layers rebuild to identical bytes. CI
+# ships layer 11, PROVIDED the other layers rebuild to identical bytes. CI
 # builds from nothing every time, so that rests on `podman build --timestamp`
 # in the Justfile, on build.sh stamping the packages it installs with a fixed
 # time (#511), and on there being NO RECHUNK, which throws this order away
@@ -104,6 +115,15 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=tmpfs,dst=/tmp \
     /ctx/install-frontend.sh cores
+
+# MAME 0.289: libretro's own build of the core, its catalogue and the plugins
+# its high scores need, 416 MB, from the payload (cores/fetch-mame.sh checked
+# every pin). A layer of its own beside the cores: four times their size and
+# moving as rarely, so a change to another core does not ship it again.
+# build_files/install-mame.sh says what goes where.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=tmpfs,dst=/tmp \
+    /ctx/install-mame.sh
 
 # RPCS3, the PS3 emulator: the RPCS3 team's own build, pinned by checksum,
 # 338 MB. Beside the cores because it moves as rarely as they do. Not from
@@ -131,6 +151,20 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     --mount=type=tmpfs,dst=/tmp \
     /ctx/install-cemu.sh
+
+# Sega Model 2: sm2-emu, built from source at a pin by build-sm2emu.yml, and
+# its catalogue, from the payload. A layer of its own beside Cemu's, moving
+# only when its pin does.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=tmpfs,dst=/tmp \
+    /ctx/install-sm2emu.sh
+
+# Sega Model 3: Supermodel, built from source at a pin by build-supermodel.yml,
+# with SDL2_net and its catalogue, from the payload. A layer of its own beside
+# sm2-emu's, moving only when its pin does.
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+    --mount=type=tmpfs,dst=/tmp \
+    /ctx/install-supermodel.sh
 
 # xemu's blank Xbox hard drive, pinned by checksum, 1.6 MB, beside the EEPROM
 # that system_files puts in the same folder. xemu itself is a Flatpak

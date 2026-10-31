@@ -283,7 +283,7 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
   **Built, #60.**
 - **And from the startup screen, when the server does not answer.** A
   server whose IP changed is exactly the console that never reaches
-  Settings. So "Waiting for your server, 12s" gains a second, brighter line
+  Settings. So "Waiting for the server, 12s" gains a second, brighter line
   after 10 s: "Press (A) to change the server address". A opens the PIN pad
   if one is set, then the same keyboard and check as Settings. The same
   server at the new address: the start carries on there, no restart. A
@@ -406,7 +406,9 @@ from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
     Bluetooth link kept), back when it ends. **Merged (#298).**
   - **The screen during a stream (#294).** A stream started while the TV is
     dark lights it, and counts as somebody arriving: the dim lifts and the
-    timer starts again. Nothing else changes while a device streams: the
+    timer starts again, and for 3 seconds its presses do nothing in a menu
+    (#411, docs/decisions/2026-10-27-a-wake-is-not-a-choice.md). Nothing
+    else changes while a device streams: the
     screen dims after "Dim screen after" without a press (on the device too) and goes
     off at "Turn off screen after". **When it goes off, the stream ends
     first**, as Quit in Moonlight would end it, whether a device is still

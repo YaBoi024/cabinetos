@@ -279,15 +279,15 @@ FirmwareAliases firmwareAliases(const std::string& slug, const std::string& fsSl
 // systems and only some of them are in this class: Genesis Plus GX writes a
 // `.brm` for Sega CD and nothing at all for Genesis, Game Gear or Master
 // System, whose cartridges have real batteries the core exposes. The audit's
-// own table is the source; `stem` is the basename of the file the core was
-// handed, without its extension, which is what these cores name the save
+// own table is the source; `fileName` is the basename of the file the core
+// was handed, and without its extension it is what these cores name the save
 // after.
 //
-// EXCEPT ARCADE, which is keyed on `core`, the manifest name of the core the
-// game is actually running in (#310): one arcade folder can hold games for
-// both arcade cores, so the folder no longer says which file is written.
+// EXCEPT AN ARCADE GAME (`arcade`, catalog::Coverage::arcade), which is keyed
+// on `core`, the manifest name of the emulator its zip picked
+// (arcadematch.h): a folder no longer says which file is written.
 std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core,
-                                const std::string& stem);
+                                const std::string& fileName, bool arcade);
 
 // The tag a save or state is filed under on RomM, for a given manifest core
 // name. This is the compatibility marker: Cabinet greyed out a state whose tag

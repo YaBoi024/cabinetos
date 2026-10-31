@@ -1355,7 +1355,7 @@ void Flow::activateStep() {
             case Act::Edit: {
                 // Settings' keyboard, with first run's own title and hint.
                 ui::Keyboard::Config cfg = serverKeyboardConfig(address_);
-                cfg.title = "Your RomM server";
+                cfg.title = "RomM server";
                 cfg.hint = "The address you open RomM at, without http://";
                 keyboard_.open(cfg);
                 typing_ = Typing::Address;

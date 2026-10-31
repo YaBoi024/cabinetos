@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
-#include <ctime>
 #include <utility>
 #include <vector>
 
@@ -177,9 +176,9 @@ bool installVitaFirmware(const Emulator& e, const std::atomic<bool>& cancel,
     const auto missing = [&](bool somethingFailed) {
         if (!hasSystemSoftware(e))
             *message = somethingFailed ? "Couldn't install the PlayStation Vita firmware"
-                                       : "No PlayStation Vita firmware on your server";
+                                       : "No PlayStation Vita firmware on the server";
         else
-            *message = "No PlayStation Vita font package on your server";
+            *message = "No PlayStation Vita font package on the server";
         return false;
     };
     // Nothing on the server, or no server: whatever is installed stands.
@@ -245,24 +244,6 @@ bool installArchives(const Emulator& e, const std::string& entryPath,
     writeFile(entryPath + "/" + kInstalledNote, note);
     for (const auto& a : archives) ::unlink((entryPath + "/" + a.second).c_str());
     return true;
-}
-
-// `link` made a link to `target`, whatever was there. A real folder there
-// would be Vita3K's own, made while a link was missing; it is moved aside,
-// never deleted, since under ux0/user it would hold saves.
-bool placeLink(const std::string& target, const std::string& link) {
-    struct stat st;
-    if (::lstat(link.c_str(), &st) == 0) {
-        if (S_ISDIR(st.st_mode)) {
-            const std::string aside = link + ".aside-" + std::to_string(std::time(nullptr));
-            std::fprintf(stderr, "[standalone] %s was a folder; moved to %s\n", link.c_str(),
-                         aside.c_str());
-            if (::rename(link.c_str(), aside.c_str()) != 0) return false;
-        } else {
-            ::unlink(link.c_str());
-        }
-    }
-    return ::symlink(target.c_str(), link.c_str()) == 0;
 }
 
 // XML's five, for the name a game shows.

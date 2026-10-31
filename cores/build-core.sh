@@ -969,6 +969,39 @@ if [ "$CORE" = fbneo_libretro ]; then
     echo "checked: FBNeo's combination buttons are the only \"Buttons ...\""
 fi
 
+if [ "$CORE" = flycast ]; then
+    # NOT A PATCH, A CHECK. Naomi and Atomiswave games lean on three things
+    # here: the board memory Flycast writes, `reicast/<the zip's own
+    # name>.nvmem` in the save folder (frontend/src/savetable.cpp, the one
+    # arcade file of Flycast's that reaches RomM); its RetroPad order for a
+    # board's buttons, B A Y X R L R2 L2 on Naomi and B A Y X R on Atomiswave,
+    # which it declares the game's buttons in (frontend/src/fightstick.cpp);
+    # and the board's Test and Service on L3 and R3, which the console keeps
+    # from the game and presses Test with when Start is held
+    # (frontend/src/arcadesettings.h). A pin where any reads otherwise stops
+    # here, so the console is put right in the same change.
+    FLY_LR="$SRC/shell/libretro/libretro.cpp"
+    if ! { grep -q 'snprintf(save_dir, sizeof(save_dir), "%s%creicast%c", dir, slash, slash);' "$FLY_LR" &&
+        grep -q 'arcadeFlashPath = std::string(save_dir) + g_base_name;' "$FLY_LR" &&
+        grep -q 'sys_nvmem->Save(getArcadeFlashPath());' "$SRC/core/hw/flashrom/nvmem.cpp" &&
+        grep -q 'suffix = ".nvmem";' "$SRC/core/hw/flashrom/nvmem.cpp"; }; then
+        echo "flycast: its arcade board memory is no longer reicast/<file>.nvmem in the save folder; check savetable.cpp" >&2
+        exit 1
+    fi
+    for MAP in nao_joymap aw_joymap; do
+        ORDER=$(sed -n "/static const uint32_t ${MAP}\[\] =/,/};/ s/.*JOYPAD_\([A-Z0-9]*\) *\*\/ *[A-Z]*_\([A-Z0-9]*\)_KEY.*/\1:\2/p" "$FLY_LR" | tr '\n' ' ')
+        case "$MAP:$ORDER" in
+        "nao_joymap:B:BTN0 Y:BTN2 SELECT:COIN START:START UP:UP DOWN:DOWN LEFT:LEFT RIGHT:RIGHT A:BTN1 X:BTN3 L:BTN5 R:BTN4 L2:BTN7 R2:BTN6 L3:TEST R3:SERVICE ") ;;
+        "aw_joymap:B:BTN0 Y:BTN2 SELECT:COIN START:START UP:UP DOWN:DOWN LEFT:LEFT RIGHT:RIGHT A:BTN1 X:BTN3 R:BTN4 L3:TEST R3:SERVICE ") ;;
+        *)
+            echo "flycast: its $MAP reads '$ORDER'; check fightstick.cpp and arcadesettings.h" >&2
+            exit 1
+            ;;
+        esac
+    done
+    echo "checked: Flycast's board memory, button order, Test and Service"
+fi
+
 # platform=unix is the core's own Linux case, and on every Makefile-based core
 # in the set it is also the default when uname says Linux. It is the
 # best-tested path these cores have; the ios-arm64 case Cabinet uses is the

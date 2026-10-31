@@ -145,6 +145,16 @@ jobs:
       - name: Self-tests
         run: ci/run-self-tests.sh
 
+      # EVERY ARCADE GAME WHOSE EMULATOR WOULD CHANGE, on a pull request that
+      # changes what the arcade catalogues are made from: a game that moves
+      # loses its saves and states
+      # (docs/decisions/2026-10-28-emulator-updates-and-saves.md). A report
+      # in the summary, and nothing at all when no catalogue's sources
+      # changed. ci/list-arcade-changes.sh.
+      - name: Arcade games whose emulator would change
+        if: github.event_name == 'pull_request'
+        run: ci/list-arcade-changes.sh "${{ github.event.pull_request.base.sha }}"
+
       # The image build downloads this. Uploaded on every run and not only
       # when called, because a binary you can fetch off a finished run is how
       # somebody puts a build on a machine without having to reproduce it.

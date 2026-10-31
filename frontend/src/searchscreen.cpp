@@ -151,7 +151,7 @@ void SearchScreen::draw(Ctx& c) {
         case State::Failed:
             // Names the server, not the library. The person typed a word and
             // the console could not go and look.
-            std::snprintf(line, sizeof line, "Could not reach your server");
+            std::snprintf(line, sizeof line, "Could not reach the server");
             break;
         case State::Results:
             // `total` is the server's count of what matched, which is larger
@@ -182,7 +182,7 @@ void SearchScreen::draw(Ctx& c) {
         const float y = top + c.text.ascent(ui::TextStyle::Title3, c.sc);
         drawFocusedLine(c.r, c.text, c.sc, (*c.cards)[fi],
                         /*tags=*/design::hasTwin(*c.cards, results_, fi),
-                        /*system=*/true, c.on, x, y, roomW, 0.60f);
+                        LineNames::System, c.on, x, y, roomW, 0.60f);
     }
 
     if (results_.empty()) return;

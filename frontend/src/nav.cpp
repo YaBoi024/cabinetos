@@ -159,7 +159,13 @@ App::InputOwner App::inputOwner() {
     if (keyboard.isOpen() &&
         !(here() == Screen::Search && (searchScreen.focused() || barFocused)))
         return InputOwner::Keyboard;
-    if (playing) return InputOwner::Game;
+    // AN EMULATOR OF ITS OWN IS A GAME TOO, all the while it runs: its
+    // presses go to it (takeStandaloneEvent), and between its pause menu
+    // closing and the emulator taking the pads back, as the menu fades out,
+    // none may reach the screen behind it. One did, on the A9 on
+    // 2026-10-29: an A pressed as Zero Gunner's menu faded pressed Play on
+    // its page, which started a second sm2-emu over the first.
+    if (playing || standaloneRun.active()) return InputOwner::Game;
     return InputOwner::UI;
 }
 

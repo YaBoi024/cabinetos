@@ -182,7 +182,7 @@ Level forGame(int romId) {
 bool hasLevels(const std::string& core) {
     if (core == "melonds") return cab::Core::canServeDesktopGL();
     for (const char* c : {"pcsx2", "dolphin", "ppsspp", "mupen64plus", "flycast", "azahar",
-                          "eden", "rpcs3", "xemu", "vita3k"})
+                          "eden", "rpcs3", "xemu", "vita3k", "sm2emu", "supermodel"})
         if (core == c) return true;
     return false;
 }
@@ -381,6 +381,27 @@ std::string vita3k(Level l) {
     return std::string("resolution-multiplier: ") + pick(l, kScale) +
            "\nasync-pipeline-compilation: " + pick(l, kAsync) +
            "\nanisotropic-filtering: 16\n";
+}
+
+int sm2emu(Level l) {
+    // SEGA MODEL 2, 496x384: 1x, 3x (1152 lines, the 1080p step) and 6x
+    // (2304 lines, the 4K step), the plan's levels (2026-10-28). Measured on
+    // the A9 at 6x, Vulkan: 99 frames in 100 drawn in under 5.2 ms, against
+    // the 17.4 ms a frame of its 57.52 Hz allows. sm2-emu's own range is 1 to
+    // 8. Nothing else in it moves with the level: its texture filtering, 2D
+    // upscaling and translucency stay at its faithful defaults.
+    static const int kScale[] = {1, 3, 6};
+    return pick(l, kScale);
+}
+
+int supermodelLines(Level l) {
+    // SEGA MODEL 3, 496x384, drawn at the size it is given: 720, 1080 and
+    // 2160 lines, at most the screen's, in its shape
+    // (standalone_supermodel.cpp). Measured on the A9 at 2160, 2026-10-29:
+    // all 17 games in the reference library ran at 60 frames a second, the
+    // median frame 16.7 ms.
+    static const int kLines[] = {720, 1080, 2160};
+    return pick(l, kLines);
 }
 
 void logApplied(const std::string& who, int romId, Level l) {

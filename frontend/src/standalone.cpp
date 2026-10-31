@@ -25,7 +25,8 @@ namespace cab::standalone {
 namespace {
 
 // Eden and xemu are pinned in system_files/usr/share/cabinetos/flatpaks.list.
-// RPCS3, Xenia, Cemu and Vita3K are in the image (build_files/install-*.sh).
+// RPCS3, Xenia, Cemu, Vita3K, sm2-emu and Supermodel are in the image
+// (build_files/install-*.sh).
 const Emulator kEmulators[] = {
     // Eden's words for a game it cannot load (yuzu/main_window.cpp, before its
     // "Error while loading ROM!" box).
@@ -135,6 +136,46 @@ const Emulator kEmulators[] = {
      // notesPlaying: Vita3K writes the saves straight into the person's
      // folder, through the link standalone_vita3k.cpp makes, as Xenia does.
      "zip|vpk", "firmware", true, false, false, false, false, true, true},
+
+    // SEGA MODEL 2. sm2-emu, built from source at a pin (cores/build-sm2emu.sh)
+    // and in the image at /usr/lib/cabinetos/sm2emu, for the Model 2 games
+    // the arcade match gives it (arcadematch.h). Started on the game's zip with
+    // its set named, it opens no game list and no window of its own but the
+    // game's; it keeps no log of its own, so what it prints is it. A game it
+    // cannot open is one of these two lines (src/rom/rom_loader.cpp), and it
+    // exits 1 before any window. SIGTERM is SDL's quit, which ends its loop,
+    // writes NVRAM and EEPROM and exits 0 (measured on the A9, 2026-10-28).
+    // docs/decisions/2026-10-28-model-2-and-model-3.md.
+    {"sm2emu", nullptr, "/usr/lib/cabinetos/sm2emu/bin/sm2-emu", "sm2-emu", nullptr,
+     {"does not contain any game sm2-emu recognises", "missing required ROM"},
+     {nullptr, nullptr, nullptr, nullptr},
+     nullptr,
+     nullptr,
+     nullptr, 0, nullptr,
+     // notesPlaying: it writes the board's NVRAM straight into the person's
+     // folder, as Cemu writes its saves.
+     "zip|7z", "", false, false, false, false, false, true, false},
+
+    // SEGA MODEL 3. Supermodel, built from source at a pin
+    // (cores/build-supermodel.sh) and in the image at
+    // /usr/lib/cabinetos/supermodel, for the Model 3 games the arcade match
+    // gives it (arcadematch.h). Started on the game's zip, it opens no window
+    // of its own but the game's; its log is Supermodel.log in its home, its
+    // working folder (standalone_supermodel.cpp). A zip it cannot use is one
+    // of these two lines (src/GameLoader.cpp), and it exits 1 before any
+    // window. SIGTERM is SDL's quit, which ends its loop, writes NVRAM and
+    // exits 0 (measured on the A9, 2026-10-29). It opens a zip only, never a
+    // 7z (arcadematch.cpp). docs/decisions/2026-10-28-model-2-and-model-3.md.
+    {"supermodel", nullptr, "/usr/lib/cabinetos/supermodel/bin/supermodel", "supermodel",
+     "Supermodel.log",
+     {"No complete Model 3 games found", "Could not open"},
+     {nullptr, nullptr, nullptr, nullptr},
+     nullptr,
+     nullptr,
+     nullptr, 0, nullptr,
+     // notesPlaying: its NVRAM is written straight into the person's folder,
+     // through the link standalone_supermodel.cpp makes, as Vita3K's saves are.
+     "zip", "", false, false, false, false, false, true, false},
 };
 
 // How long a program that was asked to close gets before it is made to.
@@ -308,6 +349,36 @@ std::string yamlQuote(const std::string& v) {
     return out + "\"";
 }
 
+// `link` made a link to `target`, whatever was there. A real folder there
+// is the emulator's own, made while a link was missing (Vita3K's under
+// ux0/user, Supermodel's NVRAM): it is moved aside, never deleted, since it
+// may hold saves.
+bool placeLink(const std::string& target, const std::string& link) {
+    struct stat st;
+    if (::lstat(link.c_str(), &st) == 0) {
+        if (S_ISDIR(st.st_mode)) {
+            const std::string aside = link + ".aside-" + std::to_string(std::time(nullptr));
+            std::fprintf(stderr, "[standalone] %s was a folder; moved to %s\n", link.c_str(),
+                         aside.c_str());
+            if (::rename(link.c_str(), aside.c_str()) != 0) return false;
+        } else {
+            ::unlink(link.c_str());
+        }
+    }
+    return ::symlink(target.c_str(), link.c_str()) == 0;
+}
+
+// An arcade game's set, from its zip's name: `scud` from `.../scud.zip`. The
+// arcade match picked the emulator by that name (arcadematch.h), so it is in
+// that emulator's list.
+std::string arcadeSet(const std::string& romPath) {
+    std::string base = romPath.substr(romPath.find_last_of('/') + 1);
+    const size_t dot = base.find_last_of('.');
+    if (dot != std::string::npos) base.erase(dot);
+    for (char& c : base) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return base;
+}
+
 }  // namespace detail
 
 // What the emulators' files share (standalone_internal.h), used here bare.
@@ -387,9 +458,9 @@ bool installGame(const Emulator& e, const std::string& entryPath,
     return installRpcs3(e, entryPath, cancel, romPath, message);
 }
 
-bool prepare(const Emulator& e, const std::string& entryPath, const std::string& saveDir,
-             const std::string& player, int players, quality::Level level, bool* missingKeys,
-             std::string* err) {
+bool prepare(const Emulator& e, const std::string& entryPath, const std::string& romPath,
+             const std::string& saveDir, const std::string& player, int players,
+             quality::Level level, bool* missingKeys, std::string* err) {
     *missingKeys = false;
     storage::makeDirs(saveDir);
     if (std::strcmp(e.core, "eden") == 0)
@@ -402,6 +473,10 @@ bool prepare(const Emulator& e, const std::string& entryPath, const std::string&
     if (std::strcmp(e.core, "cemu") == 0) return prepareCemu(e, saveDir, players, err);
     if (std::strcmp(e.core, "vita3k") == 0)
         return prepareVita3k(e, entryPath, saveDir, player, players, level, missingKeys, err);
+    if (std::strcmp(e.core, "sm2emu") == 0)
+        return prepareSm2emu(e, romPath, saveDir, players, level, err);
+    if (std::strcmp(e.core, "supermodel") == 0)
+        return prepareSupermodel(e, romPath, saveDir, players, level, err);
     *err = std::string("nothing prepares ") + e.core;
     return false;
 }
@@ -420,6 +495,10 @@ std::string saveRoot(const Emulator& e, const std::string& saveDir) {
     if (std::strcmp(e.core, "eden") == 0) return edenSaveRoot(e, saveDir);
     // Vita: the person's `savedata/`, linked in as Vita3K's ux0/user/00/savedata.
     if (std::strcmp(e.core, "vita3k") == 0) return vita3kSaveRoot(saveDir);
+    // Model 2: the board's NVRAM and EEPROM, as sm2-emu names them.
+    if (std::strcmp(e.core, "sm2emu") == 0) return sm2emuNvram(saveDir);
+    // Model 3: the board's NVRAM, as Supermodel names it.
+    if (std::strcmp(e.core, "supermodel") == 0) return supermodelNvram(saveDir);
     return {};
 }
 
@@ -555,6 +634,10 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
             cemuArgs(full, dir, romPath);
         } else if (std::strcmp(e.core, "vita3k") == 0) {
             vita3kArgs(full, e, dir, romPath);
+        } else if (std::strcmp(e.core, "sm2emu") == 0) {
+            sm2emuArgs(full, dir, saveDir, romPath);
+        } else if (std::strcmp(e.core, "supermodel") == 0) {
+            supermodelArgs(full, e, dir, romPath);
         } else {
             full.insert(full.end(), {"--no-gui", "--fullscreen", romPath});
         }

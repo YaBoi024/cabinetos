@@ -74,7 +74,7 @@ void App::showControls(bool fresh) {
     const ControlsKind& k = cp.kinds[static_cast<size_t>(cp.shown)];
     SDL_Gamepad* gp = SDL_GetGamepadFromID(k.pad);
     const std::vector<controls::Row>& rows = controls::rows();
-    const std::vector<int> at = controls::current(k.kind, defaultFor(k, session.core));
+    const std::vector<int> at = controls::current(k.kind, defaultFor(k, session.arcadeCore()));
     const bool two = cp.kinds.size() >= 2;
     std::vector<std::string> labels, values;
     // TWO KINDS ON: the first row says only whose layout the rows are, and
@@ -164,7 +164,8 @@ void App::stepControlsKind(int dir, bool wrap) {
 void App::takeControl(int control) {
     ControlsPanel& cp = controlsPanel;
     const ControlsKind& k = cp.kinds[static_cast<size_t>(cp.shown)];
-    const bool moved = controls::give(k.kind, k.name, defaultFor(k, session.core), cp.row, control);
+    const bool moved =
+        controls::give(k.kind, k.name, defaultFor(k, session.arcadeCore()), cp.row, control);
     cp.listen = 0;
     cp.row = -1;
     sound::play(moved ? sound::Cue::Activate : sound::Cue::Back);

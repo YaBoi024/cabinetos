@@ -474,7 +474,7 @@ std::optional<int> App::connectToServer(char** argv) {
         // Where the cores are, so the catalog can tell "the manifest has a core
         // for this" apart from "this console has it built".
         catalog::setCoreDirectory(coreDir);
-        setup::showWaiting(waitDeps, std::string("Looking for your server at ")
+        setup::showWaiting(waitDeps, std::string("Looking for the server at ")
                                          .append(rommAddress)
                                          .append("…")
                                          .c_str());
@@ -775,9 +775,13 @@ void App::settleScreensAtStart() {
 void App::startBrowsing() {
     libraryScreen.build(platformTiles, collectionTiles);
     if (rommAddress) startCoverFill();
-    if (rommAddress && !platformTiles.empty()) {
+    // EVERY PLATFORM THE SERVER LISTED, not every tile: the Arcade tile holds
+    // many (#611), and each keeps its covers under its own id. And only with
+    // the server's list: a library from the drive names only the systems on
+    // it (covercache::sweep).
+    if (rommAddress && !libFromDrive && !lib.platformNames.empty()) {
         std::vector<int> live;
-        for (const screens::Tile& t : platformTiles) live.push_back(t.id);
+        for (const auto& [id, name] : lib.platformNames) live.push_back(id);
         coverTidy = std::thread([live]() {
             covercache::sweep(live);
             covercache::evict(covercache::kBudgetBytes);

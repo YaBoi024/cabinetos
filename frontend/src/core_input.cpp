@@ -53,11 +53,27 @@ unsigned gDescriptorsVersion = 0;
 
 // THE KEYS HELD ON THE CORE'S KEYBOARD (Core::setKey), port 0 only. No real
 // keyboard reaches a core: the console's keyboard is player 1's pad
-// (play.cpp), and the one key ever pressed here is MAME 2003-Plus's menu key
+// (play.cpp), and the one key ever pressed here is a MAME's menu key
 // (arcadesettings.h).
 std::bitset<RETROK_LAST> gKeys;
 
+// AND THE CORE'S OWN KEYBOARD CALLBACK, for a core that is told of keys as
+// they go down and up (RETRO_ENVIRONMENT_SET_KEYBOARD_CALLBACK) rather than
+// asking whether one is held: MAME 0.289 hears keys only this way
+// (retro_keyboard_event in its libretro.cpp at our pin), MAME 2003-Plus only
+// by asking. Told of each change Core::setKey makes. The core's, so it goes
+// when the core does.
+retro_keyboard_event_t gKeyboardEvent = nullptr;
+
 void releaseKeys() { gKeys.reset(); }
+
+void forgetKeyboard() { gKeyboardEvent = nullptr; }
+
+void setDescriptors(std::vector<InputDescriptor> (&now)[kMaxPorts]) {
+    if (std::equal(std::begin(now), std::end(now), std::begin(gDescriptors))) return;
+    for (int p = 0; p < kMaxPorts; ++p) gDescriptors[p] = std::move(now[p]);
+    ++gDescriptorsVersion;
+}
 
 void keepDescriptors(const retro_input_descriptor* d) {
     std::vector<InputDescriptor> now[kMaxPorts];
@@ -67,9 +83,7 @@ void keepDescriptors(const retro_input_descriptor* d) {
             continue;
         now[d->port].push_back({d->id, d->description});
     }
-    if (std::equal(std::begin(now), std::end(now), std::begin(gDescriptors))) return;
-    for (int p = 0; p < kMaxPorts; ++p) gDescriptors[p] = std::move(now[p]);
-    ++gDescriptorsVersion;
+    setDescriptors(now);
 }
 
 void clearInputDescriptors() { keepDescriptors(nullptr); }
@@ -158,6 +172,10 @@ int16_t inputState(unsigned port, unsigned device, unsigned index, unsigned id) 
 // here before its own switch; nothing for any other call.
 std::optional<bool> environmentInput(unsigned cmd, void* data) {
     switch (cmd) {
+        case RETRO_ENVIRONMENT_SET_KEYBOARD_CALLBACK:
+            gKeyboardEvent = data ? static_cast<const retro_keyboard_callback*>(data)->callback
+                                  : nullptr;
+            return true;
         case RETRO_ENVIRONMENT_GET_RUMBLE_INTERFACE:
             // Every core that has motors, as RetroArch does (#149). Answered
             // even with the Settings switch off: the switch is applied at the
@@ -281,7 +299,15 @@ const std::vector<InputDescriptor>& Core::inputDescriptors(int port) const {
 unsigned Core::inputDescriptorsVersion() const { return gDescriptorsVersion; }
 
 void Core::setKey(unsigned retrok, bool down) {
-    if (retrok < gKeys.size()) gKeys[retrok] = down;
+    if (retrok >= gKeys.size() || gKeys[retrok] == down) return;
+    gKeys[retrok] = down;
+    if (gKeyboardEvent) gKeyboardEvent(down, retrok, 0, 0);
+}
+
+void Core::declareButtons(const std::vector<InputDescriptor>& buttons) {
+    std::vector<InputDescriptor> now[kMaxPorts];
+    for (auto& port : now) port = buttons;
+    setDescriptors(now);
 }
 
 void Core::setPad(int port, const PadState& pad) {

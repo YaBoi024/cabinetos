@@ -33,6 +33,11 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [when-an-emulator-pin-moves](2026-10-23-when-an-emulator-pin-moves.md): a pin moves only for a major feature, a bug or slowness we have seen, more games playing, a patch fixed upstream, or a move we do not choose.
 - [3ds-games-get-no-network](2026-10-20-3ds-games-get-no-network.md): a 3DS game never reaches a server named in the game; by a patch to Azahar until 2026-10-26, by the block for every emulator since.
 - [emulators-get-no-network](2026-10-26-emulators-get-no-network.md): one block keeps every emulator off the network, inside the console's program by who asked and outside it by starting each with no network.
+- [arcade-emulator-from-the-zip](2026-10-28-arcade-emulator-from-the-zip.md): an arcade game's emulator comes from its zip's name and files, in a fixed order, never from its folder.
+- [emulator-updates-and-saves](2026-10-28-emulator-updates-and-saves.md): every emulator update is taken to break saves and states, so it needs a reason, a run first and a changelog warning.
+- [prebuilt-mame-core](2026-10-28-prebuilt-mame-core.md): MAME 0.289 is libretro's own build, the one core we do not build.
+- [model-2-and-model-3](2026-10-28-model-2-and-model-3.md): Model 2 plays in sm2-emu and Model 3 in Supermodel, both built into the image.
+- [model-3-net-board-linked-to-itself](2026-10-29-model-3-net-board-linked-to-itself.md): Model 3's net board is on, linked to itself, inside the empty network every emulator gets.
 
 ### Controls
 
@@ -41,8 +46,10 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [hold-start-opens-arcade-settings](2026-10-25-hold-start-opens-arcade-settings.md): holding Start in an arcade game opens the emulator's own menu, never one of the console's.
 - [no-remapping](2026-09-26-no-remapping.md): no button remapping on any system but arcade games, which have Controls.
 - [arcade-controls](2026-10-25-arcade-controls.md): an arcade game's pause menu has a Controls row that moves its buttons, per game, kind of controller and person.
+- [rewind-only-with-shortcuts](2026-10-29-rewind-only-with-shortcuts.md): a game keeps a rewind history only while In-game shortcuts are on, and rewind has no switch of its own.
 - [ds-3ds-screen-view](2026-10-26-ds-3ds-screen-view.md): L3 shows a DS or 3DS game's top screen alone, the bottom alone, then both, and the DS's lid moves to R2.
 - [controls-guide-is-a-pdf](2026-10-27-controls-guide-is-a-pdf.md): the printable one-page controls guide is a PDF on the wiki, made from an HTML file beside it.
+- [a-wake-is-not-a-choice](2026-10-27-a-wake-is-not-a-choice.md): the presses that come with a wake do nothing in a menu: the first on a dimmed screen, and every press for 3 seconds after the screen was off, after Sleep and after a device starts streaming.
 
 ### Sound and display
 
@@ -50,12 +57,20 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 
 ### RomM and the library
 
+- [arcade-discs-one-folder](2026-10-28-arcade-discs-one-folder.md): an arcade game with a disc is one folder with its CHD at the top, the only layout RomM documents.
+- [arcade-sets-non-merged](2026-09-27-arcade-sets-non-merged.md): arcade sets are non-merged, for every emulator.
+- [one-arcade-tile](2026-10-29-one-arcade-tile.md): every arcade folder is one Library tile, Arcade, whose grid names each game's folder; everywhere else an arcade game's system is Arcade.
+- [romm-owns-management](2026-10-21-romm-owns-management.md): the console uses what RomM offers and never manages it: no gallery, list or manager of its own.
+
 ### Screens and settings
 
 - [focused-game-names-its-system](2026-10-25-focused-game-names-its-system.md): the focused game's line names its system on Home, in a collection and in Search, and not in a system's own grid.
+- [no-ui-for-the-few](2026-10-13-no-ui-for-the-few.md): an option only a few players would use never goes on Home, a grid or a game's page.
 
 ### The image and updates
 
 ### Building and checking
 
 ### How we work
+
+- [wiki-side-list-groups](2026-10-29-wiki-side-list-groups.md): the wiki's side list has five groups, Set it up, Playing, Systems, Settings and Help, each with one rule for what goes in it.

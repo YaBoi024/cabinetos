@@ -113,15 +113,16 @@ if [[ "${cores}" -ne 23 ]]; then
     exit 1
 fi
 
-# The arcade cores' set lists (#310): which games in a generic arcade folder
-# each core runs. Read by catalog.cpp from beside the cores.
-for sets in fbneo_libretro.sets mame2003_plus_libretro.sets; do
-    if [[ ! -s "${PAYLOAD}/cores/${sets}" ]]; then
-        log "ERROR: ${sets} is not in the payload"
+# The arcade emulators' catalogues: each set's files, discs and working
+# status, which pick an arcade game's emulator from its zip. Read by
+# arcadematch.cpp from beside the cores.
+for cat in flycast_libretro.catalogue fbneo_libretro.catalogue mame2003_plus_libretro.catalogue; do
+    if [[ ! -s "${PAYLOAD}/cores/${cat}" ]]; then
+        log "ERROR: ${cat} is not in the payload"
         exit 1
     fi
-    install -m 0644 "${PAYLOAD}/cores/${sets}" /usr/lib/cabinetos/cores/
-    log "  ${sets}: $(grep -vc '^#' "/usr/lib/cabinetos/cores/${sets}") sets"
+    install -m 0644 "${PAYLOAD}/cores/${cat}" /usr/lib/cabinetos/cores/
+    log "  ${cat}: $(grep -vc '^[#!]' "/usr/lib/cabinetos/cores/${cat}") sets"
 done
 
 # --- PlayStation 2 ---------------------------------------------------------

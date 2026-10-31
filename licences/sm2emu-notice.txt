@@ -1,0 +1,145 @@
+sm2-emu — Sega Model 2 arcade emulator
+======================================
+
+Copyright (c) 2025+ Daniel Martin (dmanlfc) and the sm2-emu contributors.
+
+sm2-emu is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version, together with the additional terms below. See LICENSE for the full
+text of the GPL.
+
+sm2-emu is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+This licence covers every release after v0.9.50 and all work done since.
+Earlier releases stay under the terms they were published with, including the
+notice in each source file's header.
+
+Additional terms (GNU GPL version 3, section 7)
+-----------------------------------------------
+
+These terms apply to sm2-emu and to every work based on it, in source or
+object form.
+
+  1. Attribution (section 7(b)). Keep intact the copyright notices and author
+     attributions in the source files, in this NOTICE file, and on the
+     program's About screen. A version without an About screen must show them
+     somewhere equivalent that users can reach from the program.
+
+  2. Origin (section 7(c)). Do not misrepresent the origin of sm2-emu, or
+     present it or a work based on it as entirely your own work. A modified
+     version must be marked as modified, both in its source and on its About
+     screen, and must state that it is based on sm2-emu, with a link to
+     https://github.com/dmanlfc/sm2-emu.
+
+  3. Name (section 7(e)). This licence grants no rights to the name "sm2-emu"
+     or its logo. A modified version distributed to others must use a
+     different name; describing it as "based on sm2-emu" is fine. Copies built
+     from unmodified source, or changed only to build, package or install it
+     on a particular system (such as a Linux distribution or Batocera), may
+     keep the name.
+
+This project would not exist without the reverse-engineering work of the MAME
+team. Substantial portions of the hardware emulation are derived from MAME's
+Sega Model 2 driver and its supporting device cores, all of which the MAME
+authors released under the BSD 3-Clause License. Their copyright notices are
+preserved in the individual source files that carry derived code. Those files
+are marked "SPDX-License-Identifier: GPL-3.0-or-later AND BSD-3-Clause": the
+code taken from MAME remains under the BSD 3-Clause License (see
+LICENSES/BSD-3-Clause.txt), and sm2-emu's changes to it are under the GPL.
+
+Derived from MAME (https://github.com/mamedev/mame), BSD-3-Clause
+-----------------------------------------------------------------
+
+  Sega Model 2 driver, geometry engine and rasterizer
+    src/mame/sega/model2.cpp, model2.h, model2_m.cpp, model2_v.cpp, model2rd.ipp
+    Copyright (c) R. Belmont, Olivier Galibert, ElSemi, Angelo Salese,
+                  Matthew Daniels
+
+  Sega System 24 tilemap chip
+    src/mame/sega/segaic24.cpp, segaic24.h
+    Copyright (c) Olivier Galibert
+
+  Tilemap pixel and category flag semantics
+    src/emu/tilemap.cpp, tilemap.h
+    Copyright (c) Aaron Giles
+
+  Intel 80960KB CPU core and disassembler
+    src/devices/cpu/i960/i960.cpp, i960.h, i960dis.cpp, i960dis.h
+    Copyright (c) Farfetch'd, R. Belmont
+
+  Fujitsu MB86233 / MB86234 "TGP" geometry coprocessor
+    src/devices/cpu/mb86233/mb86233.cpp, mb86233.h, mb86233d.cpp
+    Copyright (c) Olivier Galibert
+
+  Inter-processor FIFO with flow control
+    src/devices/machine/gen_fifo.cpp, gen_fifo.h
+    Copyright (c) Olivier Galibert
+
+  Yamaha SCSP (Saturn Custom Sound Processor)
+    src/devices/sound/scsp.cpp, scsp.h, scspdsp.cpp, scspdsp.h
+    Copyright (c) ElSemi, R. Belmont
+
+  Polygon rasterizer helper concepts
+    src/devices/video/poly.h
+    Copyright (c) Ville Linde, Aaron Giles
+
+Deliberately not derived from MAME
+----------------------------------
+
+Two commodity parts are implemented from their published programming models
+rather than ported, because they are fully documented general-purpose chips: no
+reverse-engineering insight is embodied in one implementation over another, so
+there is nothing to be gained by tracking MAME's, and MAME's versions are woven
+into its device framework in ways a port would have to unpick.
+
+  Motorola 68000 (the sound board CPU)
+    Musashi, by Karl Stenerud, used unmodified and configured through compile
+    definitions. MIT licence. https://github.com/kstenerud/Musashi
+    MAME's own 68000 is either generated from a table into some two hundred
+    thousand lines per variant, or is itself a fork of Musashi.
+
+  Intel 8251A / NEC uPD71051 USART (the sound command link)
+    src/hw/i8251.cpp, i8251.h — written for this project.
+    MAME's i8251 is bit-serial through device_serial_interface, and so is the
+    SCSP at the other end of the wire; this models whole bytes and keeps only the
+    byte period, which is the part the sound driver's pacing depends on.
+
+Architectural influence
+-----------------------
+
+The application structure — the XML-driven ROM database with content-addressed
+CRC32 identification and stride/chunk interleaving, the snapshot-based handoff
+between emulation and rendering, and the layered input abstraction — was
+informed by the design of Supermodel, the Sega Model 3 emulator
+(https://supermodel3.com). Supermodel is licensed under the GPL; no Supermodel
+code is included in sm2-emu except where contributed directly by its original
+author under the terms of this project's licence.
+
+Third-party dependencies
+------------------------
+
+  SDL3                      — zlib licence      — https://libsdl.org
+  Musashi                   — MIT licence       — Karl Stenerud
+  ymfm                      — BSD-3-Clause      — Aaron Giles
+  Dear ImGui                — MIT licence       — Omar Cornut
+  VulkanMemoryAllocator     — MIT licence       — AMD / GPUOpen
+  Vulkan-Headers            — Apache-2.0 / MIT  — The Khronos Group
+  miniz                     — MIT licence       — Rich Geldreich et al.
+  pugixml                   — MIT licence       — Arseny Kapoulkine
+  LZMA SDK                  — Public domain     — Igor Pavlov
+  stb_image                 — Public domain     — Sean Barrett
+  stb_truetype              — Public domain     — Sean Barrett
+    (ImGui's copy, also used to draw shaped glyphs)
+  HarfBuzz                  — Old MIT licence   — Behdad Esfahbod et al.
+  SheenBidi                 — Apache-2.0        — Muhammad Tayyab Akram
+  libcurl                   — curl licence      — Daniel Stenberg et al.
+    (optional, for the game picker's artwork scraping; linked from the
+    system, not vendored under 3rdparty/)
+
+Sega, Model 2, Virtua Fighter, Virtua Cop and Daytona USA are trademarks of
+their respective owners. sm2-emu is an independent work and is not affiliated
+with or endorsed by Sega. No copyrighted game data is distributed with this
+software.

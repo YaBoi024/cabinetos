@@ -117,8 +117,11 @@ void App::handleEvent(const SDL_Event& e) {
     // ANY TOUCH WAKES THE SCREEN, AND ON A DARK SCREEN THAT IS ALL IT
     // DOES. The press that lights a dimmed or blank Home is swallowed,
     // so it cannot also launch whatever had focus, which nobody could
-    // see. A running game is the exception: its pad is read by state
-    // rather than by these events, so nothing is lost from play.
+    // see. A WAKE IS NOT A CHOICE (idle.h, #411): after the screen
+    // comes back from off, the machine from Rest, or a device starts
+    // streaming, every press is swallowed for the first seconds too. A
+    // running game is the exception: its pad is read by state rather
+    // than by these events, so nothing is lost from play.
     bool touched = false;
     switch (e.type) {
         case SDL_EVENT_KEY_DOWN:
@@ -146,8 +149,10 @@ void App::handleEvent(const SDL_Event& e) {
     // ON THE WAY DOWN NOTHING TAKES A PRESS (#393): the picture is fading
     // to black over Restart or Power off, and the machine goes when it has.
     if (poweringDown && (touched || powerKey)) return;
-    if (touched && idleWatch.input(clockSeconds()) && owner != InputOwner::Game &&
-        !powerKey)
+    // Rest is asked here, at the press, not by the frame: the press that
+    // woke the machine is handled before the frame notices the wake.
+    if (touched && (idleWatch.input(clockSeconds()) || power::justWoke()) &&
+        owner != InputOwner::Game && !powerKey)
         return;
     // THE PRESS THAT ENDS THE WAIT after a state loads: A, as the
     // prompt says (Return on a keyboard). It was any button, and

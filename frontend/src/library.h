@@ -40,9 +40,10 @@ struct Library {
     // games and sees nothing will reasonably conclude the scan failed.
     std::vector<screens::Tile> platformTiles;
     std::vector<screens::Tile> collectionTiles;
-    // Every platform's full name, qualified where two share one ("Arcade
-    // (FinalBurn Neo)"), for anything that names a system outside a tile:
-    // Settings' Downloads groups by it.
+    // Every platform the server listed, by its name as the console shows it
+    // (catalog::displayName, "Arcade" for every arcade folder), for anything
+    // that names a system outside a tile: Settings' Downloads groups by it.
+    // The cover sweep keeps the covers of every id here (App::startBrowsing).
     std::map<int, std::string> platformNames;
     // What a tile's cached cover is validated against: the platform's own
     // `updated_at` and `rom_count`, as the server reported them this boot.
@@ -56,6 +57,14 @@ struct Library {
 };
 
 int appendGame(Library& lib, const romm::Game& g);
+// The platforms behind each Library tile: one each, and every arcade folder
+// together, the Arcade tile (#611). And a tile's query for its platforms.
+std::vector<std::vector<romm::Platform>> tileGroups(const std::vector<romm::Platform>& platforms);
+std::string platformsQuery(std::vector<int> ids);
+// `--arcade-tile-test`: which platforms share a tile, the Arcade tile's query,
+// and what an arcade game's card and line are called. Needs no server. 0 when
+// all pass.
+int arcadeTileTest();
 bool loadTileGames(romm::Client& client, Library& lib, screens::Tile& tile);
 std::vector<int> gridOrder(Library& lib, const screens::Tile& tile);
 // `platformsErr`, when given, is why the platform list did not come: empty
@@ -63,3 +72,11 @@ std::vector<int> gridOrder(Library& lib, const screens::Tile& tile);
 Library loadLibrary(romm::Client& client, std::string* platformsErr = nullptr);
 Library offlineLibrary();
 std::string gameRecordJson(const romm::Game& g);
+
+// What an arcade game's archive holds, kept in the game's record
+// (romm_types.h, Game::members), and read back for the same archive, by its
+// name and size; empty when the record has none for it.
+void rememberArchive(int romId, const std::string& file, int64_t size,
+                     const std::vector<romm::ArchiveMember>& members);
+std::vector<romm::ArchiveMember> rememberedArchive(int romId, const std::string& file,
+                                                   int64_t size);

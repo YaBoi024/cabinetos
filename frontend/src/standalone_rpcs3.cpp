@@ -107,7 +107,7 @@ bool installPs3Firmware(const Emulator& e, const std::atomic<bool>& cancel,
     if (pup.empty()) {
         // Nothing on the server, or no server: whatever is installed stands.
         if (!had.empty()) return true;
-        *message = "No PlayStation 3 firmware on your server";
+        *message = "No PlayStation 3 firmware on the server";
         return false;
     }
     struct stat st;

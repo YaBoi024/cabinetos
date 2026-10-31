@@ -60,6 +60,15 @@ void setDimIndex(int i) {
 
 double dimSeconds() { return kDimChoices[dimIndex()].seconds; }
 
+float overlayDepth(float depth) {
+    // What this window keeps of the picture, as the light it stands for
+    // (the sRGB curve), is what gamescope must keep.
+    const float keep = 1.0f - depth;
+    const float light = keep <= 0.04045f ? keep / 12.92f
+                                         : std::pow((keep + 0.055f) / 1.055f, 2.4f);
+    return 1.0f - light;
+}
+
 const char* name(Level l) {
     switch (l) {
         case Level::Awake: return "awake";
@@ -72,9 +81,18 @@ const char* name(Level l) {
 bool Watch::input(double now) {
     last_ = now;
     started_ = true;
-    if (level_ == Level::Awake) return false;
+    if (level_ == Level::Awake) return now < settleUntil_;
+    // Back from off, the television takes a moment to show the picture, and
+    // a press until it does is a press nobody could aim. A dim needs no
+    // wait: the picture was there under it all along.
+    if (level_ == Level::Blank) settleUntil_ = now + kWakeSettleSeconds;
     level_ = Level::Awake;
     return true;
+}
+
+void Watch::woke(double now) {
+    input(now);
+    settleUntil_ = now + kWakeSettleSeconds;
 }
 
 Level Watch::update(double now, bool playing) {
@@ -129,6 +147,67 @@ void setDisplayAsleep(bool asleep, bool wait, std::function<void()> first) {
     else worker.detach();
 }
 
+int test() {
+    int failures = 0;
+    auto check = [&](bool ok, const char* what) {
+        std::printf("  %s  %s\n", ok ? "ok  " : "FAIL", what);
+        if (!ok) ++failures;
+    };
+    const double dim = kMenuDimAfter, off = kMenuBlankAfter, settle = kWakeSettleSeconds;
+    {
+        Watch w;
+        w.update(0.0, false);
+        check(!w.input(10.0), "an awake screen takes every press");
+        check(w.update(10.0 + dim, false) == Level::Dim, "a menu dims after 5 minutes");
+        check(w.input(10.0 + dim), "the press that lights a dim screen does nothing");
+        check(!w.input(10.2 + dim), "and the next one acts: the picture was there");
+    }
+    {
+        Watch w;
+        w.update(0.0, false);
+        check(w.update(off, false) == Level::Blank, "a menu goes off at the setting");
+        check(w.input(off + 1.0), "the press that lights a dark screen does nothing");
+        check(w.input(off + 1.8), "nor one 0.8 s later, before the picture is back (#411)");
+        check(w.input(off + 0.9 + settle), "nor one just inside the wait");
+        check(!w.input(off + 1.1 + settle), "after the wait a press acts");
+        check(w.update(off + 1.1 + settle, false) == Level::Awake,
+              "and a press in the wait kept the screen awake");
+    }
+    {
+        Watch w;
+        w.update(0.0, false);
+        w.update(off, false);
+        w.woke(off + 1.0);
+        check(w.update(off + 1.0, false) == Level::Awake, "a stream starting lights a dark screen");
+        check(w.input(off + 2.0), "and its presses do nothing for the wait");
+        check(!w.input(off + 1.1 + settle), "then act");
+    }
+    {
+        Watch w;
+        w.update(0.0, false);
+        w.woke(100.0);
+        check(w.input(100.5), "a stream starting on a lit screen waits too");
+        check(w.update(100.0 + dim - 1.0, false) == Level::Awake,
+              "and counts as somebody there for the timer");
+    }
+    {
+        Watch w;
+        w.update(0.0, true);
+        check(w.update(kGameDimAfter, true) == Level::Dim, "a game in play dims at 20 minutes");
+        check(w.update(kGameDimAfter + off, true) == Level::Dim, "and never goes off");
+    }
+    {
+        // gamescope's mix of the overlay, in linear light, back to sRGB.
+        const float light = 1.0f - overlayDepth(kDimDepth);
+        const float shown = 1.055f * std::pow(light, 1.0f / 2.4f) - 0.055f;
+        check(std::fabs(shown - (1.0f - kDimDepth)) < 0.002f,
+              "the dim over a game in its own emulator leaves white at 40%, as everywhere");
+        check(overlayDepth(0.0f) == 0.0f, "and no dim is no dim");
+    }
+    std::printf("%s\n", failures ? "FAILED" : "all passed");
+    return failures ? 1 : 0;
+}
+
 }  // namespace idle
 
 int savedScreenOff() {
@@ -145,14 +224,16 @@ int savedScreenOff() {
 //
 // After the keyboard and the guides, because it is not part of the
 // interface; it is the television resting. At full depth it is also
-// the blank wherever gamescope cannot put the output to sleep.
-void App::drawDim() {
+// the blank wherever gamescope cannot put the output to sleep. ON THE
+// OVERLAY, over a game in its own emulator, it is drawn deeper so it looks
+// the same (idle::overlayDepth).
+void App::drawDim(bool onOverlay) {
     const float d = dimLayer.value();
     if (d > 0.001f) {
         const float keep = renderer.contentAlpha();
         renderer.setContentAlpha(1.0f);
         renderer.draw(ui::Rect{0, 0, ui::kCanvasWidth, ui::kCanvasHeight, 0,
-                               ui::Color::black(d)});
+                               ui::Color::black(onOverlay ? idle::overlayDepth(d) : d)});
         renderer.setContentAlpha(keep);
     }
 }

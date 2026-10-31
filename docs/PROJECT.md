@@ -2542,12 +2542,7 @@ the page says "No Saturn BIOS on your server". Offline, nothing is claimed.
 **Not tested:** the BIOS wording, because the only server has every BIOS
 and deleting one from it was not on the table.
 
-**Arcade sets must be non-merged (MMagTech, 2026-09-27).** A non-merged
-set carries everything a game needs in its own zip, board BIOS included:
-Metal Slug 2's zip on this server holds the whole Neo Geo BIOS set
-(`sp-s2.sp1`, `000-lo.lo`, `sfix.sfix`, `sm1.sm1`, every Unibios). So arcade
-needs no BIOS check. Some non-merged sets published online leave Neo Geo's
-BIOS out; the server's separate `neogeo.zip` is fetched as firmware anyway.
+**Arcade sets must be non-merged (MMagTech, 2026-09-27):** moved to [docs/decisions/2026-09-27-arcade-sets-non-merged.md](decisions/2026-09-27-arcade-sets-non-merged.md).
 
 **Saturn's BIOS on this server is `saturn_bios.bin`** (MD5 `af5828fd…`, a
 v1.00 BIOS, the name other Saturn emulators use), not either file Beetle
@@ -21195,11 +21190,9 @@ repository; this is its substance.
 
 #### Why it waits: RomM
 
-**His rule, 2026-10-21:** "I don't want the OS to become a management client
-to features already offered in RomM." The console uses what RomM offers (games
-load from it, saves and states sync through it, screenshots go to its gallery,
-RetroAchievements show in it), and RomM is where people view, share and
-delete. A clip endpoint would serve every RomM client, not only this one.
+The rule this rests on moved to
+`docs/decisions/2026-10-21-romm-owns-management.md`. A clip endpoint would
+serve every RomM client, not only this one.
 
 **What RomM 5.4 has** (its API description on the project's write-test RomM,
 and RomM's master on GitHub, both read 2026-10-21):

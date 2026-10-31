@@ -1,5 +1,7 @@
 #include "power.h"
 
+#include "idle.h"
+
 #include <systemd/sd-bus.h>
 
 #include <cerrno>
@@ -253,7 +255,7 @@ bool justWoke() {
         std::fprintf(stderr, "[power] woke from a %.0fs sleep\n", gap - lastGap);
     }
     lastGap = gap;
-    return mono - wokeAt < 3.0;
+    return mono - wokeAt < idle::kWakeSettleSeconds;
 }
 
 }  // namespace power

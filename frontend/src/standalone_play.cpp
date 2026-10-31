@@ -52,12 +52,12 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     // THE GAME'S PICTURE QUALITY (#63), its own choice or the console's.
     const quality::Level level = quality::forGame(launchJob.romId);
     quality::logApplied(launchJob.coreName, launchJob.romId, level);
-    if (!cab::standalone::prepare(emu, launchJob.entryPath, saveDir, user.name, pads, level,
-                                  &missingKeys, &err)) {
+    if (!cab::standalone::prepare(emu, launchJob.entryPath, launchJob.romPath, saveDir,
+                                  user.name, pads, level, &missingKeys, &err)) {
         cab::vpad::close();
         if (!err.empty()) std::fprintf(stderr, "[standalone] %s\n", err.c_str());
         refuseLaunch(missingKeys ? "No " + launchJob.systemName + " " + emu.needs +
-                                       " on your server"
+                                       " on the server"
                                  : std::string("Couldn't start this game"));
         return;
     }
@@ -162,6 +162,7 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     curtain.from = curtain.to = 0.0f;
     curtain.elapsed = curtain.duration;
     standaloneClearFrames = 30;
+    standaloneDimDrawn = 0.0f;
     standalonePaused = false;
     // No dots until somebody asks for them, and then in the middle.
     pointer = Pointer{};
@@ -201,18 +202,19 @@ void App::finishStandalone() {
     curtain.from = curtain.to = 1.0f;
     curtain.elapsed = curtain.duration;
     curtain.retarget(0.0f, kCurtainUp);
-    // Nothing reached this loop while the emulator had the screen, so the
-    // idle timers think nobody has touched anything since the launch.
+    // Back on Home counts as somebody there. A game can end long after the
+    // last press, by crashing or by its own quit, and Home must not go dark
+    // the moment it is back.
     idleWatch.input(clockSeconds());
     switch (standaloneRun.ended()) {
         case cab::standalone::Run::End::CouldNotLoad:
             refuseLaunch("Couldn't start this game");
             break;
         case cab::standalone::Run::End::KeysTooOld:
-            refuseLaunch("Needs newer " + launchJob.systemName + " keys on your server");
+            refuseLaunch("Needs newer " + launchJob.systemName + " keys on the server");
             break;
         case cab::standalone::Run::End::NoLicence:
-            refuseLaunch("No license for this game on your server");
+            refuseLaunch("No license for this game on the server");
             break;
         case cab::standalone::Run::End::Crashed:
             menuNotice.say("The game closed unexpectedly", Tone::Problem);
@@ -263,6 +265,11 @@ void App::openStandaloneMenu() {
     standalonePaused = true;
     for (auto& sh : standaloneShortcut) sh = {};
     for (auto& bs : backStart) bs = {};
+    // THE SCREEN-OFF TIMER STARTS AGAIN AT THE PAUSE (#604), however the
+    // menu opened. It counted from the last press the game heard, so a
+    // game left running past the screen-off time went dark the instant
+    // its menu opened: a pad going off, with nobody pressing anything.
+    idleWatch.input(clockSeconds());
     toggleOverlay();
     std::fprintf(stderr, "[standalone] paused\n");
 }
@@ -292,6 +299,10 @@ bool App::takeStandaloneEvent(const SDL_Event& e) {
             case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
             case SDL_EVENT_GAMEPAD_BUTTON_UP: {
                 playClock.touch();
+                // A PRESS IS SOMEBODY THERE (#604): it lifts the dim over the
+                // game (watchStandalone) and still goes on to the game, as a
+                // press does in every other game.
+                if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) idleWatch.input(clockSeconds());
                 const int p = players::playerOf(e.gbutton.which);
                 const auto b = static_cast<SDL_GamepadButton>(e.gbutton.button);
                 const bool down = e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
@@ -359,6 +370,8 @@ bool App::takeStandaloneEvent(const SDL_Event& e) {
                 break;
             }
             case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
+                if (std::abs(static_cast<int>(e.gaxis.value)) > idle::kAxisDeadzone)
+                    idleWatch.input(clockSeconds());
                 const int p = players::playerOf(e.gaxis.which);
                 const auto a = static_cast<SDL_GamepadAxis>(e.gaxis.axis);
                 // The dots' driver's sticks and triggers are the dots'.
@@ -384,6 +397,7 @@ bool App::takeStandaloneEvent(const SDL_Event& e) {
             }
             case SDL_EVENT_KEY_DOWN:
                 playClock.touch();
+                idleWatch.input(clockSeconds());
                 break;
             default:
                 break;
@@ -432,21 +446,29 @@ bool App::watchStandalone(float dt) {
     }
 
     // WHILE AN EMULATOR OF ITS OWN HAS THE SCREEN, this loop watches it and
-    // does nothing else: no idle dimming over a game this process cannot
-    // see, nothing drawn, and a short sleep so a watcher does not take a
-    // core from the game. Play time counts as it does for any game.
+    // does little else: nothing drawn but the dots and the dim, and a short
+    // sleep so a watcher does not take a core from the game. Play time
+    // counts as it does for any game.
     if (standaloneRun.active() && !standalonePaused) {
-        // THE POINTER: its long press, its dots moving, and drawn while they
-        // change. Over the dots, the frames that clear this window draw them
-        // instead, so they stay over the game.
+        // THE DIM, AS OVER EVERY GAME IN PLAY (#604): after kGameDimAfter
+        // with no press (takeStandaloneEvent) the picture dims, and it never
+        // goes out. It was left out here once, as a game this process cannot
+        // see, and a game left running stayed at full brightness however
+        // long it was left.
+        idleFrame(dt, /*playingNow=*/true, kScreenOff[screenOffIndex].seconds);
+        // THE POINTER: its long press, its dots moving. The dots and the dim
+        // are drawn while either changes, and over either, the frames that
+        // clear this window draw them instead, so they stay over the game.
         pointerTick(dt);
-        if (pointer.on && standaloneClearFrames > 0) {
+        if (std::abs(dimLayer.value() - standaloneDimDrawn) > 0.001f)
+            pointer.dirty = std::max(pointer.dirty, 3);
+        if ((pointer.on || dimLayer.value() > 0.001f) && standaloneClearFrames > 0) {
             pointer.dirty = std::max(pointer.dirty, standaloneClearFrames);
             standaloneClearFrames = 0;
         }
         if (pointer.dirty > 0) {
             --pointer.dirty;
-            drawPointer();
+            drawOverGame();
         } else if (standaloneClearFrames > 0) {
             --standaloneClearFrames;
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -676,17 +698,23 @@ void App::endPointer() {
     pointer = Pointer{};
 }
 
-// THE DOTS, ON THIS WINDOW OVER THE GAME, and nothing else: it is gamescope's
-// overlay while the emulator has the screen (startStandalone), drawn
-// transparent wherever nothing is. White for the left stick's, red for the
-// right's, as Sony's two pointers are; each with a dark rim so it shows on
-// any picture, and a little smaller while it touches.
-void App::drawPointer() {
+// THE DOTS AND THE DIM, ON THIS WINDOW OVER THE GAME, and nothing else: it
+// is gamescope's overlay while the emulator has the screen
+// (startStandalone), drawn transparent wherever nothing is. The dots are
+// white for the left stick's, red for the right's, as Sony's two pointers
+// are; each with a dark rim so it shows on any picture, and a little
+// smaller while it touches. The dim goes over them, as over everything,
+// deeper than elsewhere because gamescope mixes this window in linear light
+// (idle::overlayDepth), so the game under it dims as much as any other.
+// NEITHER MOVES WITH THE PIXEL SHIFT: this window cannot move the game's
+// picture, and a dim moved off it would leave a bright strip at one edge.
+void App::drawOverGame() {
     int dw = 0, dh = 0;
     SDL_GetWindowSizeInPixels(window, &dw, &dh);
+    renderer.setPixelShift(0, 0);
     renderer.beginFrame(dw, dh);
     renderer.presentScene();
-    for (int d = 0; d < 2; ++d) {
+    for (int d = 0; pointer.on && d < 2; ++d) {
         if (d == 1 && !pointer.second) break;
         const float r = pointer.finger[d] ? kDotPressed : kDotRadius;
         ui::Rect dot;
@@ -701,5 +729,8 @@ void App::drawPointer() {
         dot.shadowColor = ui::Color::black(0.4f);
         renderer.draw(dot);
     }
+    drawDim(/*onOverlay=*/true);
+    standaloneDimDrawn = dimLayer.value();
+    renderer.setPixelShift(shiftShown.dx, shiftShown.dy);
     SDL_GL_SwapWindow(window);
 }

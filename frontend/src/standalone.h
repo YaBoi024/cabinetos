@@ -1,14 +1,17 @@
 // Emulators that are whole applications, played as games.
 //
 // WHAT THIS IS FOR. Switch (Eden), PS3 (RPCS3), Xbox (xemu), Xbox 360 (Xenia
-// Edge), Wii U (Cemu) and PlayStation Vita (Vita3K) are not libretro cores and
-// cannot be loaded into this process the way the other systems are (PS2
-// included). Eden and xemu come from Flathub, pinned in flatpaks.list; RPCS3
-// is the RPCS3 team's own build, in the image (build_files/install-rpcs3.sh),
-// because its Flatpak shows a warning box on every start; Xenia Edge and
-// Vita3K are their developers' own builds, in the image too
-// (build_files/install-xenia.sh, install-vita3k.sh), because neither is on
-// Flathub.
+// Edge), Wii U (Cemu), PlayStation Vita (Vita3K), Sega Model 2 (sm2-emu) and
+// Sega Model 3 (Supermodel) are not libretro cores and cannot be loaded into
+// this process the way the other systems are (PS2 included). Eden and xemu come from Flathub, pinned in
+// flatpaks.list; RPCS3 is the RPCS3 team's own build, in the image
+// (build_files/install-rpcs3.sh), because its Flatpak shows a warning box on
+// every start; Xenia Edge and Vita3K are their developers' own builds, in the
+// image too (build_files/install-xenia.sh, install-vita3k.sh), because neither
+// is on Flathub; Cemu, sm2-emu and Supermodel are built here at a pin
+// (cores/build-cemu.sh, cores/build-sm2emu.sh, cores/build-supermodel.sh).
+// sm2-emu and Supermodel play the Model 2 and Model 3 games the arcade match
+// gives them (arcadematch.h), from any arcade folder.
 // Each one opens its own window and draws its own picture.
 // So the console starts the emulator as a separate program, hands it the
 // television, and takes the screen back when it ends. docs/PROJECT.md, open
@@ -24,8 +27,9 @@
 // WHERE THE CODE IS. standalone.cpp is the mechanism and the table; each
 // emulator's own setup is in its file (standalone_eden.cpp,
 // standalone_rpcs3.cpp, standalone_xemu.cpp, standalone_xenia.cpp,
-// standalone_cemu.cpp and standalone_vita3k.cpp), and what they share is
-// standalone_internal.h. Since the restructure (#398).
+// standalone_cemu.cpp, standalone_vita3k.cpp, standalone_sm2emu.cpp and
+// standalone_supermodel.cpp), and what they share is standalone_internal.h.
+// Since the restructure (#398).
 //
 // WHERE ITS STATE LIVES. Each emulator gets `emulators/<core>/` under the
 // storage root and runs with that as its working directory. Eden treats a
@@ -101,7 +105,7 @@ struct Emulator {
     // format. The console never unpacks them.
     const char* extensions;
     // What it cannot start a game without, in the words the console refuses
-    // with: "No Switch keys on your server", "No PS3 firmware on your server".
+    // with: "No Switch keys on the server", "No PS3 firmware on the server".
     const char* needs;
     // GAMES THAT HAVE TO BE INSTALLED BEFORE THEY RUN (a PS3 PKG, a Vita
     // game's zip). The game is always a folder, fetched file by file into it,
@@ -176,7 +180,9 @@ bool installGame(const Emulator& e, const std::string& entryPath,
 // Everything the emulator needs before a game starts: the folders, its keys
 // out of `bios/` under the names it opens, and the settings the console
 // decides for it (fullscreen, no prompts, docked). `entryPath` is the game's
-// own file or folder on the disk.
+// own file or folder on the disk, and `romPath` the file it will be started
+// on (sm2-emu's and Supermodel's settings name the game's buttons, which its
+// set says).
 //
 // `saveDir` is this person's folder for this game (storage::savesDir), and
 // the emulator writes the game's save inside it, so two people and two games
@@ -190,15 +196,17 @@ bool installGame(const Emulator& e, const std::string& entryPath,
 //
 // `level` is the picture quality this game runs at (quality.h), written into
 // the emulator's settings with everything else.
-bool prepare(const Emulator& e, const std::string& entryPath, const std::string& saveDir,
-             const std::string& player, int players, quality::Level level, bool* missingKeys,
-             std::string* err);
+bool prepare(const Emulator& e, const std::string& entryPath, const std::string& romPath,
+             const std::string& saveDir, const std::string& player, int players,
+             quality::Level level, bool* missingKeys, std::string* err);
 
 // Where, inside `saveDir`, the game's own save folders are: the root of what
 // travels to RomM as a zip, whose top-level folders are one per game. For
 // Eden, `user/save/0000000000000000/<profile>`, each folder inside named by
 // the game's title ID, which is why no title ID is ever asked for. For RPCS3,
 // `hdd0/home/00000001/savedata`, whose folders are named by the game too.
+// For sm2-emu, `nvram`, the board's NVRAM and EEPROM, `<set>.nv` and
+// `<set>.eeprom`; for Supermodel, `nvram`, the board's `<set>.nv`.
 std::string saveRoot(const Emulator& e, const std::string& saveDir);
 
 // AROUND A GAME. `beforeStart` runs after this person's saves are unpacked
@@ -215,7 +223,7 @@ std::string saveRoot(const Emulator& e, const std::string& saveDir);
 // the way the next paragraph's do, and the game starts. Only saves the drive
 // will not give up keep the game from starting.
 //
-// Xenia, Cemu, Eden and RPCS3 (`notesPlaying`): the note goes in the PERSON's folder for
+// Xenia, Cemu, Eden, RPCS3, Vita3K, sm2-emu and Supermodel (`notesPlaying`): the note goes in the PERSON's folder for
 // the game (`saveDir`), where the emulator writes the saves itself. A note
 // still there at the next start or the next launch of that game means the
 // last one never got its saves zipped, and the whole folder is sent then.
