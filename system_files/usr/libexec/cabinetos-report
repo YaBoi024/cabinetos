@@ -86,8 +86,14 @@ DEFAULT_HOSTNAME = "cabinetos"
 CONTROLLER_NAME = re.compile(r"RVL-CNT|RVL-WBC|Controller|Gamepad|Joy-Con|8BitDo|DualSense|"
                              r"DualShock|Wireless Controller|Pro Controller|Remote|Arcade Stick")
 # Names that are the project's and public, never a person's.
-PUBLIC = ["ghcr.io/mmagtech/cabinetos", "github.com/MMagTech/cabinetos", "MMagTech/cabinetos",
+PUBLIC = ["ghcr.io/yaboi024/cabinetos", "github.com/YaBoi024/cabinetos", "YaBoi024/cabinetos",
+          "ghcr.io/mmagtech/cabinetos", "github.com/MMagTech/cabinetos", "MMagTech/cabinetos",
           "CabinetOS"]
+# Where a report is sent (FORK: this fork's issues, not upstream's).
+ISSUES_URL = "https://github.com/YaBoi024/cabinetos/issues/new/choose"
+# DNS names that say nothing about anybody and stay: they are in every log.
+GENERIC_DOMAINS = {"local", "localdomain", "lan", "home", "internal", "private", "invalid",
+                   "test", "localhost", "example.com"}
 ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
 
@@ -196,6 +202,47 @@ def server_address(root):
     return str(server.get("address", "")).strip()
 
 
+def private_domain(d):
+    """A DNS name worth hiding, lower-case, or "" for one that is not: it
+    needs a dot (a bare "lan" or "local" is in every log and hiding it would
+    wreck them), and not a reverse-lookup zone, a Tailscale name (those have
+    their own rule) or an address."""
+    d = (d or "").strip().lstrip("~").strip(".").lower()
+    if "." not in d or d in GENERIC_DOMAINS or d.endswith((".arpa", ".ts.net", ".local")):
+        return ""
+    if re.match(r"^[0-9.:\[\]]+$", d):
+        return ""
+    return d
+
+
+def network_domains():
+    """The DNS names the network handed this console (FORK: the search domain
+    from the router, e.g. a family's or a workplace's own domain). It names
+    whose network this is, and it is in resolvectl, in NetworkManager and in
+    the system log at every connection."""
+    found = []
+
+    def take(text):
+        for d in re.split(r"[\s,;]+", text or ""):
+            d = private_domain(d)
+            if d and d not in found:
+                found.append(d)
+
+    for line in run(["resolvectl", "status"], timeout=8).splitlines():
+        m = re.match(r"\s*(?:DNS Domain|Search Domains?):\s*(.+)$", line)
+        if m:
+            take(m.group(1))
+    for line in run(["nmcli", "-t", "device", "show"], timeout=8).splitlines():
+        m = re.match(r"IP[46]\.(?:DOMAIN|SEARCHES)\[\d+\]:(.+)$", line)
+        if m:
+            take(m.group(1))
+    for line in (read("/etc/resolv.conf") or "").splitlines():
+        m = re.match(r"\s*(?:search|domain)\s+(.+)$", line)
+        if m:
+            take(m.group(1))
+    return found
+
+
 def steam_installed(settings):
     """The console's own rule (frontend/src/steam.cpp, installed): Steam's
     share is there and the setting names that file (#486, SCRIPTS-04). Remove
@@ -245,9 +292,20 @@ def collect_secrets(root):
     address = server_address(root)
     if address:
         bare = re.sub(r"^[a-z]+://", "", address).rstrip("/")
-        s.add(bare, "server", numbered=False)
+        s.add(bare, "server", numbered=False, fold=True)
         host = bare.rsplit(":", 1)[0] if bare.count(":") == 1 else bare
-        s.add(host, "server", numbered=False)
+        s.add(host, "server", numbered=False, fold=True)
+        # FORK: THE SERVER'S DOMAIN TOO ("romm.example.com" -> "example.com"),
+        # which is also the network's name and turns up in the log without
+        # the server's own name in front of it.
+        if host.count(".") >= 2:
+            parent = private_domain(host.split(".", 1)[1])
+            if parent:
+                s.add(parent, "dns domain", numbered=False, fold=True)
+
+    # FORK: the network's own DNS name, from the router.
+    for d in network_domains():
+        s.add(d, "dns domain", numbered=False, fold=True)
 
     # Profiles, in account order, so <profile 1> is the first account.
     accounts = read_json(os.path.join(root, "config", "accounts.json")) or {}
@@ -590,6 +648,15 @@ def journal_lines(boot):
         if ident == "systemd-logind" and re.match(r"(New session|Removed session|Session \d+ logged out)", msg):
             dropped += 1
             continue
+        # FORK: TAILSCALE'S WORDS ABOUT THE TAILNET. The exit node it suggests
+        # is a peer by name, and the counts ("N peers", DNS "Hosts:N") are the
+        # tailnet's size.
+        if ident == "tailscaled":
+            if re.search(r"(?i)exit.?node", msg):
+                dropped += 1
+                continue
+            msg = re.sub(r"\b\d+ peers?\b", "peers", msg)
+            msg = re.sub(r"\bHosts:\d+", "Hosts:?", msg)
         try:
             ts = int(j.get("__REALTIME_TIMESTAMP", "0")) / 1e6
             when = datetime.datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
@@ -1009,15 +1076,18 @@ def section_network():
     out += "\n" + run(["resolvectl", "status"], timeout=8)
     out += "\n--- Tailscale\n" + first_line(run(["tailscale", "version"])) + "\n"
     ts = run(["tailscale", "status", "--json"], timeout=8)
+    tj = {}   # FORK: unset when tailscale is off or missing, and read below
     try:
         tj = json.loads(ts)
         self_node = tj.get("Self") or {}
+        # FORK: NOT THE TAILNET'S SIZE (devices, devices online) AND NOT WHAT
+        # ITS PEERS ADVERTISE (exit nodes, subnet routes): neither helps find a
+        # fault on this console, and both describe somebody's network.
+        health = [h for h in (tj.get("Health") or []) if not re.search(r"(?i)exit.?node|advertis", h)]
         out += kv([
             ("State", tj.get("BackendState", "")),
             ("Online", str(self_node.get("Online", ""))),
-            ("Devices in the tailnet", str(len(tj.get("Peer") or {}))),
-            ("Online now", str(sum(1 for p in (tj.get("Peer") or {}).values() if p.get("Online")))),
-            ("Health", "; ".join(tj.get("Health") or []) or "nothing reported"),
+            ("Health", "; ".join(health) or "nothing reported"),
             ("Key expires", str(self_node.get("KeyExpiry", ""))),
         ])
     except ValueError:
@@ -1237,16 +1307,17 @@ def build(root, how, frontend_bin):
             parts.append((title, extra + "\n"))
             continue
         body, cut = capped(lines, BOOT_CAP, BOOT_HEAD)
-        note = "%d lines; %d routine audit and SSH login lines left out%s.\n\n" % (
+        note = "%d lines; %d routine audit, SSH login and Tailscale tailnet lines left out%s.\n\n" % (
             len(lines), extra, ", %d cut from the middle" % cut if cut else "")
         parts.append((title, note + body))
 
     head = ("CabinetOS diagnostic report\n"
             "Created %s, %s.\n"
-            "Attach this file to an issue: https://github.com/MMagTech/cabinetos/issues/new/choose\n"
-            "Private details are replaced: <server>, <profile 1>, <wifi 1>, <lan ip 1>,\n"
-            "<mac 1 of 00:11:22> (the maker's half is kept) and so on. The same value has\n"
-            "the same placeholder everywhere in this file.\n" % (now.strftime("%Y-%m-%d %H:%M:%S %Z"), how))
+            "Attach this file to an issue: %s\n"
+            "Private details are replaced: <server>, <dns domain>, <profile 1>, <wifi 1>,\n"
+            "<lan ip 1>, <mac 1 of 00:11:22> (the maker's half is kept) and so on. The same\n"
+            "value has the same placeholder everywhere in this file.\n"
+            % (now.strftime("%Y-%m-%d %H:%M:%S %Z"), how, ISSUES_URL))
     text = head
     for title, body in parts:
         text += "\n\n==== %s %s\n\n%s" % (title, "=" * max(4, 72 - len(title)), body)

@@ -55,6 +55,12 @@ emulators included.
   `"token":`, `"username":`) and in web addresses or forms (`?u=...&t=...&p=...`, as
   RetroAchievements takes its sign-in). Tested against samples, which the old script leaked.
   `system_files/usr/libexec/cabinetos-report`
+- **The report keeps the network and the tailnet out**: the router's DNS search domain and the
+  RomM server's domain are replaced (`<dns domain>`, `<server>`), the tailnet's size (devices,
+  devices online, "N peers", DNS "Hosts:N") and anything about exit nodes or advertised routes
+  (Tailscale's "suggested exit node" log lines, the matching Health messages) are left out, and
+  the report is sent to this fork's issues page. The Tailscale part no longer crashes the whole
+  report when Tailscale is off or missing. `system_files/usr/libexec/cabinetos-report`
 - **The report has a Steam Deck section**: model (LCD or OLED), firmware, battery health and
   cycles, charge limit, power profile and TDP cap, temperatures, brightness, the Deck's services and
   controls; and which Tailscale peers are reached directly or through a relay.
