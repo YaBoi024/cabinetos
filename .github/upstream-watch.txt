@@ -77,3 +77,8 @@ frontend/src/qrlink.cpp
 frontend/src/qrlink.h
 frontend/src/vpad.h
 system_files/usr/libexec/cabinetos-remoteplay
+# Security: the diagnostic report scrubs secrets, the network and the tailnet
+system_files/usr/libexec/cabinetos-report
+frontend/src/report.cpp
+frontend/src/report.h
+frontend/src/reportflow.cpp
