@@ -606,7 +606,7 @@ struct App {
     // is what makes quitting a game return to the launch screen and backing out
     // again return to the browsing.
     enum class Screen { Home, Library, Grid, Detail, Search, AddAccount, TailscaleSignIn, Report,
-                        HowTo, Settings, WhatsNew, Friend };
+                        HowTo, Settings, WhatsNew, Friend, Join };
     std::vector<Screen> stack{Screen::Home};
     // Which screen last set the room, so a change of screen can be told apart
     // from focus moving within one. See the backdrop block in the frame loop.
@@ -639,6 +639,18 @@ struct App {
     // account has to be the one the phone uses, or the two never meet.
     screens::QrLinkScreen tsSignInScreen;
     screens::QrLinkScreen friendScreen;   // FORK (handheld): friendflow.cpp
+    // FORK (handheld): JOIN A FRIEND (joinflow.cpp). The pairing screen, the
+    // pairing run on a worker (its cancel flag first, so it outlives the
+    // Job's join), and Moonlight while it streams.
+    screens::QrLinkScreen joinScreen;
+    std::atomic<bool> joinCancel{false};
+    cab::Job<int> joinPair;
+    std::string joinHost;
+    int joinPid = -1;
+    uint64_t joinStartMs = 0;
+    uint64_t joinStopMs = 0;
+    bool joinL3 = false, joinR3 = false;
+    int joinClearFrames = 0;
     // THE DIAGNOSTIC REPORT (#195): the same screen again, the link this time
     // a download of the report. Its lines are set when it is made.
     screens::QrLinkScreen reportScreen;
@@ -1380,6 +1392,7 @@ struct App {
     float heldFor = 0.0f, nextRepeat = 0.0f;
     void holdNav(screens::Nav n);
     void releaseNav(screens::Nav n);
+    void stickAsDpad(SDL_JoystickID pad, Uint8 axis, Sint16 value, bool live);   // FORK (handheld): input.cpp
     void letGoOfHeld();
 
     bool navigate(screens::Nav n);
@@ -2167,6 +2180,17 @@ struct App {
     // friendflow.cpp (FORK (handheld))
     void pressFriend();
     void refreshFriend();
+    // joinflow.cpp (FORK (handheld))
+    void pressJoin();
+    void askJoinAddress(const std::string& why);
+    void startJoinPair(const std::string& host);
+    void startJoinStream(const std::string& host);
+    void pollJoin();
+    bool takeJoinEvent(const SDL_Event& e);
+    bool watchJoin(float dt);
+    void stopJoin();
+    void finishJoin(int status);
+    void closeJoinAtExit();
     // tailscaleflow.cpp
     void startTailscaleAtBoot();
     void pollTailscale();

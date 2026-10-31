@@ -487,6 +487,17 @@ class Scrubber:
                       r"(\s*[=:]\s*)(bearer\s+)?(?!<)['\"]?[^\s'\",;&]{6,}",
                       lambda m: m.group(1) + m.group(2) + "<secret>", text)
         text = re.sub(r"(?i)\b(bearer)\s+[A-Za-z0-9._~+/=-]{8,}", r"\1 <secret>", text)
+        # FORK (handheld): THE SAME IN JSON ("password": "x", the key quoted, so
+        # the pattern above never saw it) and IN A WEB ADDRESS OR FORM
+        # (?u=name&t=token&p=password: RetroAchievements takes its sign-in as
+        # u, t and p). Only after a ? or & so an ordinary "t=12" in a log line
+        # stays. Whatever the value is, it goes: a name or a token alike.
+        text = re.sub(r'(?i)("(?:password|passwd|passphrase|psk|token|api[_-]?key|secret|salt|'
+                      r'auth(?:orization)?|pin|username|user|login)"\s*:\s*)"[^"]*"',
+                      r'\1"<secret>"', text)
+        text = re.sub(r"(?i)([?&](?:u|t|p|pw|pwd|pass|password|passwd|token|tok|key|api[_-]?key|"
+                      r"apikey|secret|auth|user|username|login|pin|code|session|sid)=)[^&\s\"'<>]+",
+                      r"\1<secret>", text)
         # Serial numbers in the forms logs print them.
         text = re.sub(r"(?i)\b(serial ?number|serialnumber|serial|s/n|iserial)(\s*[:=]\s*)"
                       r"(?!<)'?([A-Za-z0-9._-]{4,})'?",
@@ -697,6 +708,87 @@ def section_machine():
     out += "\n--- firmware the kernel asked for (this boot)\n"
     fw = run(["journalctl", "-k", "-b", "0", "-o", "cat", "--no-pager", "--grep", "(?i)firmware|microcode"], timeout=30)
     out += fw if fw.strip() else "(nothing)\n"
+    return out
+
+
+def section_deck():
+    # FORK (handheld): THE STEAM DECK'S OWN PARTS, so a fault on a handheld
+    # can be read without asking what it was. Everything is read from the
+    # kernel's files and the units the Deck's base image carries; none of it
+    # names anybody (serial numbers are not read, and the scrub would catch
+    # one that slipped in).
+    board = first_line(read("/sys/class/dmi/id/board_name"))
+    vendor = first_line(read("/sys/class/dmi/id/board_vendor"))
+    models = {"Jupiter": "Steam Deck LCD (Jupiter)", "Galileo": "Steam Deck OLED (Galileo)"}
+    if vendor != "Valve" or board not in models:
+        return "Not a Steam Deck (board %s, %s).\n" % (board or "unknown", vendor or "unknown")
+    out = kv([("Model", models[board]),
+              ("Firmware (BIOS)", first_line(read("/sys/class/dmi/id/bios_version")) or "unknown"),
+              ("BIOS date", first_line(read("/sys/class/dmi/id/bios_date")) or "unknown")])
+
+    out += "\n--- Battery\n"
+    bat = None
+    for d in sorted(glob.glob("/sys/class/power_supply/BAT*")):
+        bat = d
+        break
+    if bat:
+        def num(name):
+            v = first_line(read(os.path.join(bat, name)))
+            return int(v) if v.lstrip("-").isdigit() else None
+        full, design = num("energy_full"), num("energy_full_design")
+        health = ("%d%% of its design capacity" % round(100 * full / design)
+                  if full and design else "unknown")
+        out += kv([("Charge", "%s%%" % (first_line(read(os.path.join(bat, "capacity"))) or "?")),
+                   ("Status", first_line(read(os.path.join(bat, "status"))) or "?"),
+                   ("Health", health),
+                   ("Charge cycles", str(num("cycle_count")) if num("cycle_count") is not None
+                    else "not reported")])
+    else:
+        out += "(no battery found)\n"
+
+    out += "\n--- Charge limit and power\n"
+    limit = None
+    for h in glob.glob("/sys/class/hwmon/hwmon*"):
+        if first_line(read(os.path.join(h, "name"))) == "steamdeck_hwmon":
+            v = first_line(read(os.path.join(h, "max_battery_charge_level")))
+            limit = "%s (0 means no limit)" % v if v else "not readable"
+            fan = first_line(read(os.path.join(h, "fan1_input")))
+            if fan:
+                out += "Fan: %s rpm\n" % fan
+    out += "Charge limit: %s\n" % (limit or "steamdeck_hwmon not found")
+    out += "Power profile: %s\n" % (first_line(run(["tuned-adm", "active"], timeout=5)) or "unknown")
+    for h in glob.glob("/sys/class/drm/card*/device/hwmon/hwmon*"):
+        cap = first_line(read(os.path.join(h, "power1_cap")))
+        if cap.isdigit():
+            out += "Graphics power cap (the TDP limit): %.1f W\n" % (int(cap) / 1e6)
+        for name in ("temp1_input",):
+            t = first_line(read(os.path.join(h, name)))
+            if t.isdigit():
+                out += "Graphics temperature: %d C\n" % (int(t) // 1000)
+    for h in glob.glob("/sys/class/hwmon/hwmon*"):
+        if first_line(read(os.path.join(h, "name"))) == "k10temp":
+            t = first_line(read(os.path.join(h, "temp1_input")))
+            if t.isdigit():
+                out += "Processor temperature: %d C\n" % (int(t) // 1000)
+    for bl in glob.glob("/sys/class/backlight/*"):
+        out += "Brightness: %s of %s\n" % (first_line(read(os.path.join(bl, "brightness"))) or "?",
+                                           first_line(read(os.path.join(bl, "max_brightness"))) or "?")
+
+    out += "\n--- The Deck's services\n"
+    for unit in ("tuned.service", "inputplumber.service", "powerstation.service",
+                 "jupiter-fan-control.service", "steam-powerbuttond.service"):
+        out += "%-30s %s\n" % (unit, first_line(run(["systemctl", "is-active", unit], timeout=5)))
+    gyro = run(["pgrep", "-c", "-f", "sdgyrodsu"], timeout=5)
+    out += "%-30s %s\n" % ("sdgyrodsu (the gyro server)",
+                           "running" if first_line(gyro) not in ("", "0") else "not running")
+
+    out += "\n--- The Deck's own controls\n"
+    names = []
+    for d in sorted(glob.glob("/sys/class/input/input*")):
+        n = first_line(read(os.path.join(d, "name")))
+        if n and re.search(r"Steam Deck|Valve|Steam Controller|Virtual", n):
+            names.append(n)
+    out += "".join("  %s\n" % n for n in names) or "  (none seen)\n"
     return out
 
 
@@ -930,6 +1022,19 @@ def section_network():
         ])
     except ValueError:
         out += ts
+    # FORK (handheld): HOW EACH PEER WITH TRAFFIC IS REACHED, without its name:
+    # a relayed path lags whatever the console does.
+    if isinstance(tj, dict):
+        rows = []
+        for peer in (tj.get("Peer") or {}).values():
+            if not peer.get("Active"):
+                continue
+            how = "direct" if peer.get("CurAddr") else ("relayed via %s" % peer.get("Relay")
+                                                         if peer.get("Relay") else "no path yet")
+            rows.append("  active peer %d: %s, received %s, sent %s\n" % (
+                len(rows) + 1, how, size_text(int(peer.get("RxBytes") or 0)),
+                size_text(int(peer.get("TxBytes") or 0))))
+        out += "\n--- Tailscale paths (peers with traffic)\n" + ("".join(rows) or "  none active\n")
     if first_line(run(["systemctl", "is-active", "tailscaled.service"])) == "active":
         # NOT THE NEAREST RELAY OR THE LIST OF THEM BY DELAY: together they
         # say roughly where the house is.
@@ -1105,6 +1210,7 @@ def build(root, how, frontend_bin):
         ("Summary", lambda: section_summary(root, settings, frontend)),
         ("Settings", lambda: section_settings(root)),
         ("The machine", section_machine),
+        ("The Steam Deck", section_deck),   # FORK (handheld)
         ("Graphics", lambda: section_graphics(frontend)),
         ("The screen", lambda: section_screen(frontend)),
         ("Drives and space", lambda: section_drives(root)),

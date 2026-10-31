@@ -23,9 +23,23 @@ Moonlight, adds your console by the address the page shows (your Wi-Fi address
 at home, the Tailscale address away from home), and types the four digits it
 asks for on your TV. Then start a game: your friend joins as the next player.
 
-Two consoles can play together this way: one streams, the other runs
-Moonlight and connects as above. Joining from a console is not built into
-CabinetOS yet.
+## Join a friend's console
+
+Two consoles play together the same way: one streams, the other joins.
+
+1. Your friend turns on **Streaming** and stays on Home.
+2. On your console: Settings, Remote Play, **Join a friend**. Type the address
+   from your friend's Play with a friend page.
+3. The first time, your console shows four digits. A number pad opens on your
+   friend's console by itself: they type the digits there.
+4. Your friend's screen appears on yours. Your controllers join their game as
+   the next players.
+
+Click **both sticks** together to leave (or Select, Start, L1 and R1 together,
+Moonlight's own way out). **Hold Select** for your friend's pause menu.
+
+Join a friend needs Moonlight on your console; the row reads *Needs Moonlight*
+until it is installed.
 
 ## Pair a device
 
@@ -41,7 +55,11 @@ not open while a game is being played on the TV.
 
 ## While a device is streaming
 
-- The device joins the game as the next player. The console's own controls
+- The device joins the game as the next player. If a controller is player 1
+  and the Deck's own controls are player 2, the friend is seated second and
+  the Deck's controls move to third, so the friend still has a port in
+  two-player games such as PlayStation 2. Connect your friend before you
+  start the game. The console's own controls
   stay as they are, and the game keeps playing. A one-player game cannot be
   played from a device.
 - The console keeps playing its own sound, and the device plays it too. The

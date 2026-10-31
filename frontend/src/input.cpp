@@ -15,6 +15,55 @@
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
 
+// FORK (handheld): A STICK AS THE D-PAD. Each direction is pressed past 55% of
+// the stick's travel and let go under 35%, so a stick resting off centre does
+// not flicker, and the press is the d-pad's own, pushed as an event: every
+// screen, the keyboard, the pause menu and the repeat when held already know
+// what the d-pad does. One state for the console's one stick at a time; a
+// second pad's stick moving while the first is held is ignored.
+namespace {
+struct StickDirs {
+    SDL_JoystickID pad = 0;
+    bool down[4] = {false, false, false, false};   // left, right, up, down
+};
+StickDirs gStickDirs;
+
+constexpr SDL_GamepadButton kStickButton[4] = {
+    SDL_GAMEPAD_BUTTON_DPAD_LEFT, SDL_GAMEPAD_BUTTON_DPAD_RIGHT,
+    SDL_GAMEPAD_BUTTON_DPAD_UP, SDL_GAMEPAD_BUTTON_DPAD_DOWN};
+
+void pushDpad(SDL_JoystickID pad, SDL_GamepadButton b, bool down) {
+    SDL_Event ev{};
+    ev.type = down ? SDL_EVENT_GAMEPAD_BUTTON_DOWN : SDL_EVENT_GAMEPAD_BUTTON_UP;
+    ev.gbutton.timestamp = SDL_GetTicksNS();
+    ev.gbutton.which = pad;
+    ev.gbutton.button = static_cast<Uint8>(b);
+    ev.gbutton.down = down;
+    SDL_PushEvent(&ev);
+}
+}  // namespace
+
+void App::stickAsDpad(SDL_JoystickID pad, Uint8 axis, Sint16 value, bool live) {
+    constexpr int kPress = 18000, kRelease = 11500;   // of 32767
+    bool any = false;
+    for (bool d : gStickDirs.down) any = any || d;
+    if (any && gStickDirs.pad != pad) return;
+    const bool horizontal = axis == SDL_GAMEPAD_AXIS_LEFTX;
+    const int neg = horizontal ? 0 : 2, pos = horizontal ? 1 : 3;   // left/up, right/down
+    for (const int i : {neg, pos}) {
+        const int signedValue = i == neg ? -value : value;
+        bool& held = gStickDirs.down[i];
+        if (!held && live && signedValue > kPress) {
+            held = true;
+            gStickDirs.pad = pad;
+            pushDpad(pad, kStickButton[i], true);
+        } else if (held && (!live || signedValue < kRelease)) {
+            held = false;
+            pushDpad(pad, kStickButton[i], false);
+        }
+    }
+}
+
 void App::holdNav(screens::Nav n) {
     navHeld = true;
     heldNav = n;
@@ -206,8 +255,8 @@ void App::handleEvent(const SDL_Event& e) {
                     case SDLK_DOWN: keyboard.moveFocus(0, +1); break;
                     case SDLK_BACKSPACE: keyboard.backspace(); break;
                     case SDLK_RETURN:
-                        std::fprintf(stderr, "[keyboard] committed: %s\n",
-                                     keyboard.value().c_str());
+                        std::fprintf(stderr, "[keyboard] committed, %zu characters\n",
+                                     keyboard.value().size());
                         keyboardResult(keyboard.commit());
                         break;
                     case SDLK_ESCAPE: keyboardResult(keyboard.cancel()); break;
@@ -375,8 +424,8 @@ void App::handleEvent(const SDL_Event& e) {
                     case SDL_GAMEPAD_BUTTON_WEST: keyboard.backspace(); break;
                     case SDL_GAMEPAD_BUTTON_NORTH: keyboard.toggleShift(); break;
                     case SDL_GAMEPAD_BUTTON_START:
-                        std::fprintf(stderr, "[keyboard] committed: %s\n",
-                                     keyboard.value().c_str());
+                        std::fprintf(stderr, "[keyboard] committed, %zu characters\n",
+                                     keyboard.value().size());
                         keyboardResult(keyboard.commit());
                         break;
                     case SDL_GAMEPAD_BUTTON_EAST:
@@ -538,6 +587,15 @@ void App::handleEvent(const SDL_Event& e) {
         // read zero, and a single threshold turns that into a jump
         // every time the pad is picked up.
         case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
+            // FORK (handheld): THE LEFT STICK MOVES FOCUS IN THE MENUS, as the
+            // d-pad does (stickAsDpad, above). Not in a game: a game reads the
+            // pad's state itself.
+            if (e.gaxis.axis == SDL_GAMEPAD_AXIS_LEFTX ||
+                e.gaxis.axis == SDL_GAMEPAD_AXIS_LEFTY) {
+                stickAsDpad(e.gaxis.which, e.gaxis.axis, e.gaxis.value,
+                            /*live=*/!(playing && !overlayOpen));
+                break;
+            }
             const bool left = e.gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER;
             const bool right = e.gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER;
             if (!left && !right) break;

@@ -36,6 +36,7 @@ void App::runFrameLoop() {
         ra::pump();
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
+            if (takeJoinEvent(e)) continue;   // FORK (handheld): joinflow.cpp
             if (takeStandaloneEvent(e)) continue;
             handleEvent(e);
         }
@@ -53,6 +54,7 @@ void App::runFrameLoop() {
 
         // THE SCREENSHOT gamescope is writing, whenever there is one.
         pumpStandaloneShot();
+        if (watchJoin(dt)) continue;   // FORK (handheld): Moonlight has the screen
         if (watchStandalone(dt)) {
             refuseCaptureOverAnotherWindow("the emulator's");
             continue;
@@ -171,6 +173,7 @@ void App::runFrameLoop() {
             pollUpdate();
         }
         askReadyWhenFree();
+        pollJoin();   // FORK (handheld): joinflow.cpp
         noticeLowBattery(dt);
 	tickLevelBars(dt);   // FORK (handheld): levelbar.cpp
         sayUpdatedTo();

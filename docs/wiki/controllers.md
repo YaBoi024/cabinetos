@@ -31,6 +31,10 @@ Wii Remotes have their own pairing, below.
 
 A wired pad needs nothing: plug it in.
 
+**8BitDo pads with a mode switch, such as the Pro 2:** pair them in Switch
+mode. Hold **Start + Y** as you switch the pad on, then pair it as above. In
+another mode the pad shows in the list but the pairing fails.
+
 ## Players
 
 Up to **four players**. Each controller takes the next free number as it

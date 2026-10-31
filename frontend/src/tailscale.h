@@ -38,6 +38,14 @@ struct Status {
     // When its sign-in ends (seconds since 1970), or 0 when it never does:
     // Tailscale's default is 180 days, and an owner can turn it off.
     int64_t expires = 0;
+    // FORK (handheld): HOW THE DEVICES TALKING TO THIS CONSOLE ARE REACHED.
+    // "direct" when every peer with traffic is reached over a path of its own,
+    // "relayed" when any is going through one of Tailscale's relay servers
+    // (DERP), and empty when no peer is active. A relayed stream lags no
+    // matter what the console does. `relay` is that server's region code
+    // ("nyc"), set only when relayed.
+    std::string path;
+    std::string relay;
 };
 
 // Ask every two seconds while on. The app turns it on while Settings or the

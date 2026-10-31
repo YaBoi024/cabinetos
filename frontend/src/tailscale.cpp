@@ -29,11 +29,11 @@ std::string str(json_object* o, const char* key) {
 }
 
 // `tailscale status --json`: the backend's state, the waiting sign-in link,
-// and this console's own entry. Its peers are left out (--peers=false): the
-// row needs none of them.
+// this console's own entry, and (FORK (handheld)) how its active peers are
+// reached, which needs the peers.
 Status ask() {
     Status s;
-    const proc::Result r = proc::run({"tailscale", "status", "--json", "--peers=false"}, 5);
+    const proc::Result r = proc::run({"tailscale", "status", "--json"}, 5);
     json_object* o = r.out.empty() ? nullptr : json_tokener_parse(r.out.c_str());
     if (!o) return s;
     s.answered = true;
@@ -60,6 +60,27 @@ Status ask() {
                 }
             }
     }
+    // THE PEERS WITH TRAFFIC NOW ("Active"): one with an address of its own in
+    // CurAddr is direct; one with only a Relay region is going through DERP.
+    // Any relayed one makes the answer "relayed", since that is the one that
+    // lags.
+    json_object* peers = nullptr;
+    if (json_object_object_get_ex(o, "Peer", &peers) && peers &&
+        json_object_is_type(peers, json_type_object)) {
+        json_object_object_foreach(peers, key, peer) {
+            (void)key;
+            json_object* active = nullptr;
+            if (!json_object_object_get_ex(peer, "Active", &active) ||
+                !json_object_get_boolean(active))
+                continue;
+            if (!str(peer, "CurAddr").empty()) {
+                if (s.path.empty()) s.path = "direct";
+            } else if (!str(peer, "Relay").empty()) {
+                s.path = "relayed";
+                s.relay = str(peer, "Relay");
+            }
+        }
+    }
     json_object_put(o);
     return s;
 }
@@ -73,7 +94,8 @@ void refresh() {
     Status s = ask();
     std::lock_guard<std::mutex> lk(gM);
     if (s.answered == gLast.answered && s.state == gLast.state && s.authUrl == gLast.authUrl &&
-        s.name == gLast.name && s.address == gLast.address && s.expires == gLast.expires)
+        s.name == gLast.name && s.address == gLast.address && s.expires == gLast.expires &&
+        s.path == gLast.path && s.relay == gLast.relay)
         return;
     if (s.state != gLast.state)
         std::fprintf(stderr, "[tailscale] %s\n", s.answered ? s.state.c_str() : "not running");

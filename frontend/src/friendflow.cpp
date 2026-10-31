@@ -41,7 +41,18 @@ void App::refreshFriend() {
     lines.push_back("3  Tap CabinetOS in Moonlight.");
     lines.push_back("    Type its four digits here.");
     lines.push_back("4  Then start a game.");
-    if (remoteplay::streaming()) lines.push_back("A friend is connected.");
+    if (remoteplay::streaming()) {
+        lines.push_back("A friend is connected.");
+        // FORK (handheld): WHETHER THE FRIEND REACHES THIS CONSOLE DIRECTLY OR
+        // THROUGH TAILSCALE'S RELAY SERVERS. A relayed stream lags whatever
+        // the console does, and now the person can see why. Nothing is said
+        // for a friend on the same Wi-Fi, which never touches Tailscale.
+        if (ts.path == "direct") lines.push_back("Connection: direct");
+        else if (ts.path == "relayed") {
+            lines.push_back("Connection: relayed (" + ts.relay + ")");
+            lines.push_back("A relay adds lag.");
+        }
+    }
     friendScreen.setText("Play with a friend", std::move(lines), "");
 }
 

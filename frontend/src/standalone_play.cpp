@@ -36,7 +36,13 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     // ONE VIRTUAL CONTROLLER PER PLAYER, and at least one: the emulator
     // is given these and never the real pads (vpad.h). Without them the
     // game would start and nothing would move it, so that refuses here.
-    const int pads = std::max(1, players::count());
+    // FORK (handheld): ONE CONTROLLER KEPT FREE FOR A FRIEND while Streaming is
+    // on and nobody is streaming yet. The emulator is given its controllers
+    // once, here, so a friend whose Moonlight connects after the game has
+    // started would otherwise have none to press (Switch, 2026-10-29).
+    const bool spare = rpState == "active" && players::sharing() && !remoteplay::streaming() &&
+                       players::count() < cab::vpad::kMaxPlayers;
+    const int pads = std::max(1, players::count() + (spare ? 1 : 0));
     if (!cab::vpad::open(pads)) {
         refuseLaunch("Couldn't start this game");
         return;

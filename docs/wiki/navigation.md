@@ -11,7 +11,7 @@ Buttons are named by position, Xbox style: **A** is the bottom face button
 
 | Button | Does |
 |---|---|
-| D-pad | Move. Hold to repeat. |
+| D-pad, or the left stick | Move. Hold to repeat. (The stick moves in the menus only; in a game it is the game's.) |
 | **A** | Select |
 | **B** | Back |
 | **L1** / **R1** | Previous / next of Home, Library, Search, Settings |

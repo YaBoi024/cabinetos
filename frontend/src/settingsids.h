@@ -13,7 +13,7 @@ enum SettingId { SetAddAccount = 1, SetInterfaceSounds, SetPinSet, SetPinChange,
                  SetAchievementSound, SetDeveloper, SetVersion, SetRemotePlay,
                  SetPairedDevices, SetTailscale, SetReport, SetHowTo, SetPads,
                  SetWhatsNew,
-                 SetSleepAfter, SetChargeLimit, SetDimAfter, SetFriend };   // FORK (handheld)
+                 SetSleepAfter, SetChargeLimit, SetDimAfter, SetFriend, SetJoin };   // FORK (handheld)
 // One Eject row per USB drive: this plus the drive's index in
 // storage::locations() when the rows were built.
 static constexpr int kSetEject = 100;

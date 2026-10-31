@@ -62,3 +62,5 @@ app  app.xemu.xemu      stable  2f8b8889edcf69fb2ba2a8691371a7bb49febeba360e9c87
 
 # Nintendo Switch.
 app  dev.eden_emu.eden  stable  88af3f795612d92099a71e4ed63d8219ee04088dcd9cfb5776ae595940425091
+# Moonlight, for Join a friend (this console as a guest in another console's stream).
+app  com.moonlight_stream.Moonlight  stable  d46a012e142b9b5eaad94e5549c042964f3029b03d555d3d5088057cd1ba6b9f

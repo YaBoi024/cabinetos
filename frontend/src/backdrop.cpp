@@ -88,7 +88,7 @@ void App::drawGround(bool gameUp, float dt) {
             else if (!lastLitArt.empty())
                 want = lastLitArt;
         } else if (here() == Screen::AddAccount || here() == Screen::TailscaleSignIn ||
-                   here() == Screen::Friend ||
+                   here() == Screen::Friend || here() == Screen::Join ||
                    here() == Screen::Report || here() == Screen::WhatsNew ||
                    here() == Screen::HowTo) {
             // **A TEXT SCREEN GETS THE PLAIN GRADIENT.** MMagTech,

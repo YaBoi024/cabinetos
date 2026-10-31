@@ -3,75 +3,118 @@
 A fork of [CabinetOS](https://github.com/MMagTech/cabinetos) by MMagTech,
 adapted for the Steam Deck. This lists every deliberate difference from
 upstream. When a sync conflicts, use it to decide which side to keep.
+Files marked `FORK (handheld)` in their comments are the fork's.
 
-## Base image
-- `Containerfile` builds on `ghcr.io/ublue-os/bazzite-deck`, pinned by tag
-  and digest, for Deck hardware support (speaker tuning, built-in controls,
-  power controls, OLED panel correction).
+## Identity and build
+- **Base image: bazzite-deck**, pinned by tag and digest, for the Deck's hardware support (speaker
+  tuning, built-in controls, power controls, OLED panel correction). `Containerfile`
+- **Own image owner and signing key** (`ghcr.io/yaboi024/cabinetos`). Details in section 2.
+- **Shown as "CabinetOS Handheld"**, with a fork watermark on the boot screen.
+  `about.cpp`, `startscreen.cpp`, `build_files/assets/make-boot-watermark.py`
+- **Staying in sync with CabinetOS.** A daily check opens an issue when upstream changes a file the
+  fork depends on. `.github/workflows/watch-upstream.yml`, `.github/upstream-watch.txt`;
+  `base-update.yml` follows bazzite-deck.
+- **`tools/deck-loop.sh`**: edit on the Mac, build and run on the Deck, no GitHub round trip.
 
-##Updated keys
-- Own image owner and signing key
-
-## Workflows
-- Added `.github/workflows/watch-upstream.yml` and `.github/upstream-watch.txt`
-  (daily check of upstream; opens an issue when watched files change).
-- `base-update.yml`: [pointed at bazzite-deck]
-
-## Changes in this fork
-- **Base image: the fork builds on bazzite-deck instead of plain bazzite
-- **Updates from the console work.** The update button used to download an update and then fail to
-  install it, because of an SELinux permission. A small settings file fixes it.
+## System fixes
+- **Updates from the console work** (an SELinux permission).
   `system_files/usr/lib/systemd/system/cabinetos-update-download.service.d/10-selinux.conf`
-- **Sound follows the dock.** Audio moves to the TV (tested over HDMI) when you dock the Deck, and back
-  to the built-in speakers when you undock.
+- **Sound follows the dock**: TV when docked, speakers when not.
   `system_files/usr/lib/systemd/system/cabinetos-session.service.d/10-audio.conf`
-- **The Deck keeps its sound while a device streams.** Sunshine used to move the Deck's output to a
-  silent virtual one for the whole stream unless the device's Moonlight asked otherwise, so the Deck
-  went quiet and its volume keys set the device's volume. Now the output is never moved.
-  `cores/sunshine-patches/0002-keep-the-consoles-sound-on.patch`
-- **A device that streams joins as the next player.** The Deck's own controls stay player 1 and the
-  game keeps running; before, the game paused and the Deck's controls were set aside until the
-  device left. For the old behaviour, start the console with `CABINETOS_STREAM_SHARE=0`.
-  `frontend/src/players.cpp`, `players.h`, `pausemenu.cpp`
-- **Play together is gone; streaming is the one way.** The old Play together screens and code are
-  removed. Settings, Remote Play, **Play with a friend** walks a guest through installing Moonlight,
-  adding the console (Wi-Fi or Tailscale address) and the PIN.
-  `frontend/src/friendflow.cpp` (new), `settingsflow.cpp`, `settingsids.h`, `app.h`, `nav.cpp`,
-  `backdrop.cpp`, `tailscaleflow.cpp`, `remoteplayflow.cpp`
-- **Heavy games drop to Performance while a stream is open.** `frontend/src/quality.cpp`
-- **`tools/moonlight-pin.sh`** prints the flatpaks.list lines to pin Moonlight (not added to the
-  list yet).
-- **A connected controller becomes player 1.** The Deck's own controls step back to player 2, so
-  one-player systems like Game Boy Advance work with an external controller.
-  `frontend/src/players.cpp`
-- **The Deck's battery shows in the top bar**, the same way a controller's does.
-  `battery.h`, `battery.cpp`, `players.cpp`
-- **Gyro works on the Deck in Switch games (Eden).** Eden listens to the Deck's own gyro server.
-  Gyro from an external controller is not supported yet (Works but fails to swap back to Deck's gyro without a reboot).
-  `frontend/src/standalone_eden.cpp`
-- **Rumble works on the Deck's built-in controls.** A log line now records the first rumble, or the
-  error if one happens. If rumble stops, check:
-  `journalctl -b -t cabinetos-session -o cat | grep "\[rumble\]"`
-  `frontend/src/rumble.cpp`
-- **Touchscreen works on the Deck** Tap the top bar the or swipe to move, swipe in from the left edge to go back. `touchinput.cpp` and tapspots.h (new), plus small changes in `app.h`, `input.cpp` and `bar.cpp`
-- **Staying in sync with CabinetOS.** A daily check lists upstream changes that could break the Deck
-  changes, and warns if a Deck setting no longer matches an upstream file.
-  `.github/workflows/watch-upstream.yml`, `.github/upstream-watch.txt`
+- **Power profiles work**: tuned is masked on bazzite-deck and is unmasked in the image.
+  `build_files/configure-session.sh`
+
+## Streaming: the way to play together
+Play together (lockstep netplay) is removed. Every game is played together by streaming: the game
+runs once, on the host Deck, and friends join with Moonlight. It works for every system, standalone
+emulators included.
+- **A device that streams joins as the next player.** The Deck's controls stay player 1 and the game
+  keeps running. `CABINETOS_STREAM_SHARE=0` brings back the old takeover. `players.cpp`, `players.h`,
+  `pausemenu.cpp`
+- **The Deck keeps its sound while a device streams**, and the device plays it too.
+  `cores/sunshine-patches/0002-keep-the-consoles-sound-on.patch` (needs an image build)
+- **Heavy games drop to Performance while a stream is open**, from the next game started.
+  `quality.cpp`, `quality.h`
+- **Play with a friend** (Settings, Remote Play): the steps for a friend, a QR code to Moonlight, this
+  console's Wi-Fi and Tailscale addresses, and the PIN. `friendflow.cpp` (new)
+- **Join a friend** (Settings, Remote Play): this Deck as the guest. Type the friend's address; the
+  first time, four digits appear to type on the friend's Deck; then Moonlight runs full screen with
+  this Deck's controllers. Both stick clicks together leave. Needs Moonlight installed, which needs
+  its lines in `flatpaks.list` (run `tools/moonlight-pin.sh`). Untested on a Deck.
+  `joinflow.cpp`, `moonlight.h`, `moonlight.cpp` (new)
+- Wiring for both pages: `settingsflow.cpp`, `settingsids.h`, `app.h`, `nav.cpp`, `backdrop.cpp`,
+  `frame.cpp`, `main.cpp`, `remoteplayflow.cpp`, `tailscaleflow.cpp`
+- Note for upstream: Join a friend connects to an address the player types, which is the same kind
+  of place as the RomM server's address, but it is not on CONTRIBUTING.md's list of fixed places.
+
+## Security and reports
+- **Typed text is never logged.** The keyboard used to write what was typed to the system log when
+  it was confirmed, which put a Wi-Fi password or a RetroAchievements password into the diagnostic
+  report. It now logs only how many characters. `input.cpp`
+- **The report scrubs sign-in details by form, not only by list**: values in JSON (`"password":`,
+  `"token":`, `"username":`) and in web addresses or forms (`?u=...&t=...&p=...`, as
+  RetroAchievements takes its sign-in). Tested against samples, which the old script leaked.
+  `system_files/usr/libexec/cabinetos-report`
+- **The report has a Steam Deck section**: model (LCD or OLED), firmware, battery health and
+  cycles, charge limit, power profile and TDP cap, temperatures, brightness, the Deck's services and
+  controls; and which Tailscale peers are reached directly or through a relay.
+  `system_files/usr/libexec/cabinetos-report`
+- **The Play with a friend page shows "Connection: direct" or "relayed"** while a friend is
+  connected over Tailscale, and says a relay adds lag. `tailscale.h`, `tailscale.cpp`, `friendflow.cpp`
+
+## Controls and screen
+- **A connected controller becomes player 1**, the Deck's controls player 2, so one-player systems
+  work with a controller. `players.cpp`
+- **A friend streaming in is seated before the Deck's own controls** when a controller is player 1
+  (controller, friend, Deck), so the friend still has a port on two-port systems like PlayStation 2.
+  The Deck alone with a friend stays Deck, friend. `players.cpp`
+- **One controller is kept free for a friend** when a standalone-emulator game (Switch, PS3, ...)
+  starts with Streaming on, so a friend who connects after the start still has a controller.
+  `standalone_play.cpp`
+- **Gyro works on the Deck in Switch games** (Eden reads the Deck's gyro server).
+  `standalone_eden.cpp`. External-controller gyro is parked (section 7).
+- **The left stick moves focus in the menus**, like the d-pad (it was d-pad only). Not in a game.
+  `input.cpp`, `app.h`
+- **Rumble works on the Deck's controls**, with a log line for the first rumble. `rumble.cpp`
+- **Touchscreen in the menus**: taps, drag, swipe in from the left edge for Back; Search results.
+  `touchinput.cpp`, `tapspots.h` (new), `input.cpp`, `bar.cpp`, `searchscreen.h`, `home.cpp`,
+  `libraryscreen.*`, `grid.h`
+- **Volume and brightness bar** when the Deck's keys are pressed. `levelbar.cpp`, `levelbar.h` (new),
+  `volume.cpp`, `volume.h`
+
+## Battery and power
+- **The Deck's battery in the top bar**, a low-battery notice, and labels over each battery.
+  `battery.*`, `batteryrow.*`, `players.cpp`
+- **Power profile per game**: full speed for heavy systems, battery-biased for Home and light ones.
+  `powerprofile.cpp`, `powerprofile.h`, `frame.cpp`
+- **Sleep when idle on battery** (menus only, unplugged only). `idlesleep.h`, `idlesleep.cpp` (new)
+- **Charge limit** (80, 90 or none; only on a Deck). `chargelimit.h`, `chargelimit.cpp` (new),
+  `system_files/usr/libexec/cabinetos-charge-limit`, its unit and polkit rule
+- **Dim screen after** 2, 3 or 5 minutes, before the screen turns off. `idle.h`, `settings.*`
+
+## Library
+- **No tile for a system with no games.** `library.cpp`
+- **What's New shows two QR codes**: the original's and the fork's. `qrlink.*`
 
 ## Tested on
 - Steam Deck OLED: tested.
 - Steam Deck LCD: not tested.
 
 ## Known issues
-- First boot after initial install: Eden installs in about two minutes and needs
-  internet; audio and Eden appear after the first reboot. (May be fixed, need to verify)
-- Touchscreen does not work in CabinetOS menus.
+- **Silent on the first boot of a new image** (after an install or a `bootc switch`); sound is back
+  after one reboot. Cause unknown (section 4.2).
+- First boot needs internet for about two minutes while Eden and xemu install.
+- Untested on a Deck: Join a friend, Play with a friend, the streaming quality drop, the
+  Sunshine sound patch (needs an image build).
 
 ## To do
-- Check back buttons, trackpads, rumble, sleep
-- Touchscreen in CabinetOS menus (low priority)
-- Test on a Steam Deck LCD
-- No multiplayer yet (wishful thinking) by me (on emulators that support it)
+- Test streaming: PS2 with the quality drop, a controller on the phone, a friend over Tailscale,
+  two Moonlight guests at once, player order with a pad and a phone.
+- Pin Moonlight in `flatpaks.list` (`tools/moonlight-pin.sh`) and test Join a friend on two Decks.
+- Install page: add `bootc switch` from CabinetOS main as a way in.
+- Offer MMagTech the streaming work (sound fix, share by default, quality drop, the two pages),
+  without the Deck-only parts.
+- Back buttons and trackpads; Steam Deck LCD.
 
 DETAILS:
 1. Base image
@@ -136,7 +179,7 @@ SDL then uses its PulseAudio-compatible driver, which does not name an output, s
 Programs the console launches inherit the setting. The Flatpak emulators (Eden, xemu) run in their own environment. Other emulators have not all been checked on the TV.
 
 4.2 First boot
-On the very first boot after an install, audio and the Eden emulator may be missing. After one reboot they appear.
+On the very first boot after an install, audio and the Eden emulator may be missing. After one reboot they appear. Seen again on 2026-10-29 after moving a Deck onto this fork with `bootc switch`, so it is the first boot of a new image, not only of a fresh install.
 Eden and xemu are installed from Flathub by cabinetos-flatpak-setup on first boot. It took about two minutes and needs internet.
 Why audio is silent on the first boot is not known. Ruled out: the "Failed to enable UCM device Speaker" message (it also appears on boots where audio works), saved ALSA mixer state, and WirePlumber's saved state.
 5. Controllers: player order

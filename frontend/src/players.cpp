@@ -245,6 +245,32 @@ void putLastPressedFirst() {
     }
     if (at2 > at1) gSeats.swap(0, 1);
 }
+// FORK (handheld): A FRIEND'S PAD NEVER LANDS PAST THE GAME'S PORTS BECAUSE THE
+// DECK'S OWN CONTROLS ARE IN THE WAY. With an 8BitDo, the Deck and a friend's
+// phone, the seats came out 8BitDo, Deck, friend: player 3, and a PlayStation
+// 2 game has two ports, so the friend's pad did nothing (2026-10-29). A pad
+// through a stream is seated ahead of the handheld's own controls instead,
+// unless those are player 1: the Deck alone with a friend stays Deck, friend.
+// Asked as a game starts, which is when the numbers are kept.
+void putGuestsBeforeBuiltIn() {
+    for (int pass = 0; pass < 4; ++pass) {
+        bool moved = false;
+        const int n = static_cast<int>(gSeats.seats().size());
+        for (int i = 1; i + 1 < n; ++i) {
+            const uint32_t here = gSeats.idOf(i), next = gSeats.idOf(i + 1);
+            auto a = gOpen.find(here);
+            if (here == 0 || next == 0 || a == gOpen.end() || !isBuiltIn(a->second)) continue;
+            bool guest;
+            {
+                std::lock_guard<std::mutex> lk(gIsRemoteLock);
+                guest = gIsRemote[next];
+            }
+            if (guest && gSeats.swap(i, i + 1)) moved = true;
+        }
+        if (!moved) break;
+    }
+}
+
 void changed(const char* what, SDL_JoystickID id) {
     ++gGeneration;
     light();
@@ -326,7 +352,10 @@ void removed(SDL_JoystickID id) {
 
 void setInGame(bool on) {
     if (gSeats.inGame() == on) return;
-    if (on) putLastPressedFirst();   // FORK (handheld): before the game keeps the numbers
+    if (on) {   // FORK (handheld): before the game keeps the numbers
+        putLastPressedFirst();
+        putGuestsBeforeBuiltIn();
+    }
     gSeats.setInGame(on);
     gRemote.setInGame(on);
     changed(on ? "game started" : "game ended", 0);
