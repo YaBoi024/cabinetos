@@ -33,11 +33,21 @@ jobs:
           git diff --name-only "$BASE" upstream/main > changed.txt
           awk '!/^#/ && NF' .github/upstream-watch.txt > watch.txt
           awk 'NR==FNR{w[$0]=1; next} {for (p in w) if (index($0,p)==1) {print; break}}' watch.txt changed.txt > hits.txt
+          # A trial merge, written to no branch: which files the fork and
+          # upstream both changed in ways git cannot join on its own.
+          if git merge-tree --write-tree --name-only HEAD upstream/main > merge.txt; then
+            : > conflicts.txt
+          else
+            awk 'NR==1 {next} /^$/ {exit} {print}' merge.txt > conflicts.txt
+          fi
+          git log --no-merges --format='%h %s' HEAD..upstream/main | head -40 > commits.txt
           echo "new=$NEW" >> "$GITHUB_OUTPUT"
           echo "hits=$(wc -l < hits.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+          echo "conflicts=$(wc -l < conflicts.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
           {
             echo "Upstream commits not in this fork: $NEW"
             echo "Files changed upstream: $(wc -l < changed.txt)"
+            echo "Files that conflict in a trial merge: $(wc -l < conflicts.txt)"
             echo
             echo "Watched files changed:"
             cat hits.txt
@@ -47,19 +57,39 @@ jobs:
         env:
           NEW: ${{ steps.cmp.outputs.new }}
           HITS: ${{ steps.cmp.outputs.hits }}
+          CONFLICTS: ${{ steps.cmp.outputs.conflicts }}
         run: |
           TITLE="Upstream changes to review"
           EXISTING=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
-          if [ "$HITS" -gt 0 ]; then
+          if [ "$NEW" -gt 0 ]; then
             {
               echo "Upstream has $NEW commit(s) this fork has not merged."
-              echo "These changed files are on your watch list:"
               echo
-              sed 's/^/- `/; s/$/`/' hits.txt
+              if [ "$CONFLICTS" -gt 0 ]; then
+                echo "**A trial merge conflicts in $CONFLICTS file(s)**, which need resolving by hand:"
+                echo
+                sed 's/^/- `/; s/$/`/' conflicts.txt
+              else
+                echo "**A trial merge is clean**: no file conflicts. It still needs reading and a build before it is merged."
+              fi
+              echo
+              if [ "$HITS" -gt 0 ]; then
+                echo "These changed files are on your watch list:"
+                echo
+                sed 's/^/- `/; s/$/`/' hits.txt
+              else
+                echo "None of the changed files are on your watch list."
+              fi
+              echo
+              echo "<details><summary>Upstream commits (newest first, up to 40)</summary>"
+              echo
+              sed 's/^/- /' commits.txt
+              echo
+              echo "</details>"
               echo
               echo "Compare: https://github.com/${GITHUB_REPOSITORY}/compare/main...MMagTech:main"
               echo
-              echo "Read these changes before using Sync fork."
+              echo "Merge on a branch and open a pull request, rather than Sync fork: this fork has commits upstream does not."
             } > body.md
             if [ -n "$EXISTING" ]; then
               gh issue edit "$EXISTING" --body-file body.md
@@ -67,7 +97,7 @@ jobs:
               gh issue create --title "$TITLE" --body-file body.md
             fi
           elif [ -n "$EXISTING" ]; then
-            gh issue close "$EXISTING" --comment "No watched files differ from upstream now."
+            gh issue close "$EXISTING" --comment "This fork has every upstream commit now."
           fi
       - name: Check fork drop-ins still have their target
         run: |

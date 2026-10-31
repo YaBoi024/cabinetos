@@ -64,7 +64,8 @@ frontend/src/romm_library.cpp
 frontend/src/romm_types.h
 frontend/src/screens.h
 frontend/src/tailscale.cpp
-frontend/src/tailscale.h# Streaming: Play with a friend, Join a friend, the quality drop
+frontend/src/tailscale.h
+# Streaming: Play with a friend, Join a friend, the quality drop
 frontend/src/nav.cpp
 frontend/src/backdrop.cpp
 frontend/src/main.cpp
