@@ -3,12 +3,11 @@
 CabinetOS Handheld replaces everything on the drive you install it to. It is a
 whole operating system, not an app.
 
-There is no installer ISO for CabinetOS Handheld yet (the one tried so far froze
-while installing Bazzite). For now it is installed in two steps: install the
+There is no installer ISO for CabinetOS Handheld yet. For now it is installed by installing the
 original CabinetOS, then switch it to this image.
 
 ## What you need
-- **A Steam Deck.** Tested on the OLED model; the LCD model is next.
+- **A Steam Deck.** Tested on the OLED model.
 - **A [RomM](https://github.com/rommapp/romm) server**, version 5.1 or newer,
   on your network, with your games, BIOS and firmware in it. See
   [Your RomM server](romm.md).
