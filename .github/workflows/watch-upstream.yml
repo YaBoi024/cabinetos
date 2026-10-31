@@ -105,15 +105,19 @@ jobs:
           for dir in $(git ls-tree -r --name-only HEAD system_files/usr/lib/systemd/system/ \
                        | grep '\.service\.d/' | sed 's|/[^/]*$||' | sort -u); do
             unit="${dir%.d}"
-            git cat-file -e "upstream/main:${unit}" 2>/dev/null || echo "${unit}" >> lost.txt
+            # Only a unit upstream once had and has since removed. Units the
+            # base image ships (tailscaled, tuned) were never in upstream's
+            # tree, and their drop-ins still apply.
+            git cat-file -e "upstream/main:${unit}" 2>/dev/null && continue
+            [ -n "$(git log -1 --format=%h upstream/main -- "${unit}")" ] && echo "${unit}" >> lost.txt
           done
           TITLE="A fork drop-in has lost its target"
           EXISTING=$(gh issue list --state open --search "$TITLE in:title" --json number --jq '.[0].number // empty')
           if [ -s lost.txt ]; then
-            { echo "Upstream no longer has these units, so the fork's drop-ins do nothing:"; echo
+            { echo "Upstream removed these units, so the fork's drop-ins do nothing:"; echo
               sed 's/^/- `/; s/$/`/' lost.txt; } > lost.md
             if [ -n "$EXISTING" ]; then gh issue edit "$EXISTING" --body-file lost.md
             else gh issue create --title "$TITLE" --body-file lost.md; fi
           elif [ -n "$EXISTING" ]; then
-            gh issue close "$EXISTING" --comment "All drop-in targets exist upstream again."
+            gh issue close "$EXISTING" --comment "No drop-in targets a unit upstream removed."
           fi
