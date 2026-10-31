@@ -11,9 +11,11 @@ Files marked `FORK (handheld)` in their comments are the fork's.
 - **Own image owner and signing key** (`ghcr.io/yaboi024/cabinetos`). Details in section 2.
 - **Shown as "CabinetOS Handheld"**, with a fork watermark on the boot screen.
   `about.cpp`, `startscreen.cpp`, `build_files/assets/make-boot-watermark.py`
-- **Staying in sync with CabinetOS.** A daily check opens an issue when upstream changes a file the
-  fork depends on. `.github/workflows/watch-upstream.yml`, `.github/upstream-watch.txt`;
-  `base-update.yml` follows bazzite-deck.
+- **Staying in sync with CabinetOS.** A daily check keeps one issue open while upstream has commits
+  the fork has not merged: a trial merge's conflicting files, the changed files on the watch list,
+  and the commits. `.github/workflows/watch-upstream.yml`, `.github/upstream-watch.txt`;
+  `base-update.yml` follows bazzite-deck monthly. A weekly Claude task on the Mac reviews both and
+  says what is ready to merge; it never merges.
 - **`tools/deck-loop.sh`**: edit on the Mac, build and run on the Deck, no GitHub round trip.
 
 ## System fixes
