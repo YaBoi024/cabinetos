@@ -5,10 +5,11 @@
 // rather than the client (romm.h). Moved out of romm.h in the restructure
 // (#398).
 //
-// A PLATFORM IS NOT ITS SLUG. RomM can hold two platforms with the same name
-// AND the same slug — "Arcade" is FBNeo and MAME 2003-Plus in this library,
-// deliberately. Platform carries `id` as identity and `fsSlug` as the thing
-// that picks a core. Never key on `slug`.
+// A PLATFORM IS NOT ITS SLUG. RomM can hold several platforms with the same
+// name AND the same slug: "Arcade" is the FBNeo, MAME, Naomi and Atomiswave
+// folders in the reference library. Platform carries `id` as identity and
+// `fsSlug`, the folder's name, as what a person tells them apart by. Never
+// key on `slug` for identity.
 
 #pragma once
 
@@ -68,6 +69,15 @@ struct Collection {
     // from a real game inside it, which is all a tile needs.
     std::string coverPath;
     bool isFavorite = false;
+};
+
+// One file inside an archive, as RomM's `archive_members` lists it for a
+// loose zip or 7z: its name, CRC32 and size. An arcade game's emulator is
+// picked from these (arcadematch.h).
+struct ArchiveMember {
+    std::string name;
+    uint32_t crc = 0;
+    int64_t size = 0;
 };
 
 struct Game {
@@ -141,6 +151,15 @@ struct Game {
     std::string revision;
     std::vector<std::string> tags;
     std::string tagLabel;
+    // WHAT AN ARCADE GAME'S ARCHIVE HOLDS, kept in the game's record so its
+    // emulator can be picked with no server (arcadematch.h): RomM's
+    // `archive_members` for a loose zip or 7z, or what the console read off
+    // one inside a folder game. `membersFile` and `membersSize` are the
+    // archive they were read from, so a changed one is read again. Not in
+    // RomM's lists; filled by a launch (launch_routes.cpp), in the record only.
+    std::string membersFile;
+    int64_t membersSize = 0;
+    std::vector<ArchiveMember> members;
 };
 
 // RomM's four fields as one line, in RomM's order on its folder structure
@@ -179,6 +198,10 @@ struct RomFile {
     // several discs fetches only its own files (disc.h).
     std::string category;
     bool topLevel = true;
+    // RomM's `archive_members`: what a loose zip or 7z holds. Empty for any
+    // other file, and for an archive inside a folder game, which RomM does
+    // not open.
+    std::vector<ArchiveMember> members;
 };
 
 // A save or a save state held by RomM.

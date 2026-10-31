@@ -1,0 +1,92 @@
+---
+# MAME 0.289 for the image: libretro's own build of its core, fetched and
+# checked against its pins, with its plugins and its catalogue
+# (cores/fetch-mame.sh, docs/decisions/2026-10-28-prebuilt-mame-core.md).
+# Nothing is compiled here but the two checking tools: it is the one core not
+# built from source.
+#
+# CALLED BY build.yml for every image, like build-cemu.yml, and on a pull
+# request into any branch but main that touches it. Its artifact has the
+# payload's shape, `mame/`, and ci/stage-image-payload.sh refuses to build an
+# image without it.
+
+name: Build MAME
+
+on:
+  workflow_call:
+  pull_request:
+    branches-ignore:
+      - main
+    paths:
+      - 'cores/fetch-mame.sh'
+      - 'cores/arcade-sets.sh'
+      - 'cores/check-options.sh'
+      - 'cores/options/mame_libretro.txt'
+      - 'tools/core-info.c'
+      - 'tools/core-options.c'
+      - '.github/workflows/build-mame.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: MAME 0.289
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      # The core's checks run in the builder, where the cores are checked:
+      # the container build-core.yml publishes, built here if it cannot be
+      # pulled.
+      - name: Fetch the builder container
+        run: |
+          set -euo pipefail
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          image="ghcr.io/$owner/cabinetos-builder:$(sha256sum frontend/Containerfile | cut -c1-16)"
+          if podman pull "$image"; then
+            podman tag "$image" cabinetos-builder
+            echo "pulled $image"
+          else
+            echo "could not pull $image; building it here instead"
+            podman build -t cabinetos-builder -f frontend/Containerfile frontend
+          fi
+
+      # The two zips, kept so a release site that answers 500 cannot fail a
+      # build; the script checks each one's sha256 whichever way it came.
+      - name: Downloads, from the cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: .mame-downloads
+          key: mame-downloads-${{ hashFiles('cores/fetch-mame.sh') }}
+
+      - name: Fetch and check it
+        run: |
+          set -euo pipefail
+          cores/fetch-mame.sh artifact .mame-downloads 2>&1 | tee /tmp/mame.log
+
+      - name: Upload it
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: mame-linux-x86_64
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## MAME 0.289, Linux x86-64"
+            echo
+            if [[ -f /tmp/mame.log ]]; then
+              echo '```'
+              tail -30 /tmp/mame.log
+              echo '```'
+            else
+              echo "The fetch produced no log, so it failed before starting."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

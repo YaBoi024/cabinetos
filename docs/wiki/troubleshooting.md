@@ -6,17 +6,17 @@ The system's name in a message is RomM's name for the platform.
 
 | Message | What to do |
 |---|---|
-| *No Sega Saturn BIOS on your server* (or another system) | Add the BIOS to RomM as firmware for that platform. File names: [Systems, formats and BIOS](systems.md). |
-| *No Nintendo Switch keys on your server* | Add `prod.keys` as Switch firmware in RomM. |
-| *Needs newer Nintendo Switch keys on your server* | The game needs keys from a newer firmware. Replace `prod.keys`. |
-| *No PlayStation 3 firmware on your server* | Add `PS3UPDAT.PUP` as PS3 firmware. |
-| *No PlayStation Vita firmware on your server* | Add Sony's Vita system software, `PSVUPDAT.PUP`, as Vita firmware. |
-| *No PlayStation Vita font package on your server* | Add Sony's Vita font package (Sony names it `PSP2UPDAT.PUP`) as Vita firmware too. The Vita needs both files. |
+| *No Sega Saturn BIOS on the server* (or another system; an arcade game names its folder) | Add the BIOS to RomM as firmware for that platform. File names: [Systems, formats and BIOS](systems.md). |
+| *No Nintendo Switch keys on the server* | Add `prod.keys` as Switch firmware in RomM. |
+| *Needs newer Nintendo Switch keys on the server* | The game needs keys from a newer firmware. Replace `prod.keys`. |
+| *No PlayStation 3 firmware on the server* | Add `PS3UPDAT.PUP` as PS3 firmware. |
+| *No PlayStation Vita firmware on the server* | Add Sony's Vita system software, `PSVUPDAT.PUP`, as Vita firmware. |
+| *No PlayStation Vita font package on the server* | Add Sony's Vita font package (Sony names it `PSP2UPDAT.PUP`) as Vita firmware too. The Vita needs both files. |
 | *Couldn't install the PlayStation Vita firmware* | One of the Vita firmware files on the server is damaged or is not a Vita file. Replace it in RomM. |
 | *Encrypted 3DS games can't be played* | The dump is encrypted. Use a decrypted cartridge dump (`.3ds`, `.cci`, `.cxi`). |
 | *3DS CIA files can't be played* | A CIA has to be installed, which the console does not do. Use a decrypted cartridge dump instead. |
-| *No license for this game on your server* | Put the game's `.rap` file in the same RomM game folder as its PKG. |
-| *No Xbox BIOS on your server* | Add the MCPX boot ROM and a flash BIOS as Xbox firmware. |
+| *No license for this game on the server* | Put the game's `.rap` file in the same RomM game folder as its PKG. |
+| *No Xbox BIOS on the server* | Add the MCPX boot ROM and a flash BIOS as Xbox firmware. |
 | *This game's file is a web page, not a game* | The file on the server is a saved download page. Replace it in RomM. |
 | *Needs X.X GB more space* | Remove downloads (Settings, Storage, Downloads) or plug in a drive. |
 | *Couldn't start this game* | Check the format against [Systems](systems.md#file-formats-in-short). A zipped Dreamcast, GameCube, Wii or Saturn disc will not start: use CHD, RVZ or ISO. |
@@ -35,8 +35,7 @@ graphics under Linux:
 ## The Library
 
 - **A system is missing.** Its RomM platform slug must match the
-  [list](systems.md#every-system). Arcade folders must be named `FBNEO` or
-  `MAME2003` exactly.
+  [list](systems.md#every-system).
 - **A tile says *Emulator not installed*.** Switch and Xbox emulators install
   from Flathub on the first boot with internet (RomM alone is not enough), and
   try again every six hours.
@@ -61,7 +60,7 @@ graphics under Linux:
 
 - **The TV is black.** The console turned the screen off after the time in
   Settings, Display and Sound. Press any button; that first press only wakes
-  it.
+  it, and buttons do nothing for 3 seconds while the picture comes back.
 
 ## Remote Play
 

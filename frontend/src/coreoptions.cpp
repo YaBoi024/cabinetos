@@ -260,6 +260,26 @@ std::map<std::string, std::string> optionOverrides(const std::string& core, bool
     // sends those as a message to the frontend (RETRO_ENVIRONMENT_SET_MESSAGE),
     // which this console does not show.
     if (coreName == "mame2003_plus") return {{"mame2003-plus_skip_disclaimer", "enabled"}};
+    // MAME 0.289: FOUR OPTIONS, THE REST AT THEIR DEFAULTS (the arcade plan of
+    // 2026-10-28). It reads the ini the console writes, which starts the
+    // high-score plugin (mamehome.h); software lists stay off, so a zip is
+    // always an arcade set, never a cartridge for a home system; and no mouse,
+    // which the console never hands a core. Its start-up and warning screens
+    // are always skipped in libretro's builds.
+    if (coreName == "mame_libretro")
+        return {
+            {"mame_read_config", "enabled"},
+            {"mame_softlists_enable", "disabled"},
+            {"mame_softlists_auto_media", "disabled"},
+            {"mame_mouse_enable", "disabled"},
+        };
+    // A NEO GEO GAME IS THE ARCADE BOARD, MVS, with the English BIOS, which
+    // is uncensored (docs/decisions/2026-10-28-arcade-emulator-from-the-zip.md):
+    // it comes from an arcade folder. The declared default, "DIPSWITCH",
+    // leaves it to a BIOS DIP switch. FinalBurn Neo declares this option only
+    // with a Neo Geo game loaded; a set carries its own BIOS (measured on the
+    // A9, 2026-10-28).
+    if (coreName == "fbneo_libretro") return {{"fbneo-neogeo-mode", "MVS_EUR"}};
     if (coreName == "mgba") return {{"mgba_interframe_blending", "mix_smart"}};
     if (coreName == "stella2014") return {{"stella2014_mix_frames", "ghost_75"}};
 

@@ -13,10 +13,10 @@
 // So the answer is neither "show everything" nor "hide quietly" — it is to KNOW,
 // per platform, and to say so. This is the knowing part.
 //
-// Keyed on `slug`, with `fsSlug` breaking the tie, because those travel between
-// servers whereas `id` does not — the opposite of identity WITHIN one server,
-// where `id` is the only unique field. "Arcade" is the case that needs both:
-// two platforms, one slug, different cores.
+// Keyed on `slug`, because it travels between servers whereas `id` does not —
+// the opposite of identity WITHIN one server, where `id` is the only unique
+// field. An arcade game is the exception: its emulator comes from its zip,
+// never from its folder (arcadematch.h).
 //
 // What each core saves, the tags a save and a state travel under and the
 // firmware a core can find are in savetable.h, and the core options this
@@ -80,9 +80,9 @@ enum class Support {
     // and saying why, rather than leaving it out.
     NeedsController,
     // The console runs this system, and no emulator here runs THIS GAME: an
-    // arcade set in a generic arcade folder that neither FinalBurn Neo's nor
-    // MAME 2003-Plus's set list has (#310). Also about one game, so also
-    // shown greyed.
+    // arcade set no emulator's catalogue has working (arcadematch.h), or a
+    // zip in Dreamcast's folder that is not a Flycast set. Also about one
+    // game, so also shown greyed.
     UnsupportedGame,
     // The console runs this system, and THIS GAME is one it lists nowhere: a
     // 3DS game that is a CIA, by its name in RomM (ncch::namesCia; MMagTech,
@@ -103,6 +103,10 @@ struct Coverage {
     // place of Play, so it is worded for the screen, capital first (#484).
     // Home's Resume on such a game opens that page (App::showWhyUnplayable).
     const char* reason = nullptr;
+    // An arcade game, its emulator picked by its zip (arcadematch.h): what
+    // the fight stick, Controls, holding Start, the saves and
+    // RetroAchievements ask, since Flycast plays Dreamcast discs as well.
+    bool arcade = false;
 };
 
 // The file a core was built into, given the manifest's name for it.
@@ -135,28 +139,19 @@ std::map<std::string, std::vector<std::string>> libretroCores();
 
 Coverage coverageFor(const romm::Platform& p);
 
-// The name to put on a tile. RomM's own `name` is not always enough to tell two
-// platforms apart: the reference library holds two called "Arcade", with the
-// same slug, differing only in `fs_slug` and in which core they need. A person
-// looking at two identical tiles has no way to choose, so the ambiguous ones
-// are qualified — "Arcade (FinalBurn Neo)" and "Arcade (MAME 2003-Plus)" — and
-// everything else is left exactly as the server named it.
+// The name to put on a tile, a grid's heading, Settings' Downloads: the
+// server's name for the platform, and "Arcade" for every arcade folder, whose
+// games share one tile (#611, catalog.cpp).
 std::string displayName(const romm::Platform& p);
 
-// THE QUALIFIER, ON ITS OWN. "Arcade (FinalBurn Neo)" is one string where a
-// title is wanted — a grid's heading, a launch screen — and two facts where a
-// tile is: a NAME and the thing that tells it apart from the other tile with
-// the same name.
-//
-// Keeping them joined cost more than tidiness. At the width a library tile
-// gives a Title 3 name, "Arcade (FinalBurn Neo)" and "Arcade (MAME 2003-Plus)"
-// both came out as "Arcade" over "(FinalBurn ..." and "(MAME 200..." — so the
-// qualifier that exists SOLELY to tell two tiles apart was the part being cut
-// off. Split, the name fits on one line and the qualifier goes to the line
-// that has room for it.
-//
-// Empty for every platform that was never ambiguous, which is most of them.
-std::string displayQualifier(const romm::Platform& p);
+// A game's system wherever a screen names it, by the same rule: "Arcade" for a
+// game in any arcade folder, RomM's name for the rest.
+std::string systemName(const romm::Game& g);
+
+// A game's RomM folder, its platform's fs_slug: what the Arcade tile's line
+// names after each game, and where an arcade game's BIOS is uploaded (#611).
+// RomM's name for the platform when the game carries no folder.
+std::string folderName(const romm::Game& g);
 
 // The same answer in a handful of words, for a place that has a handful of
 // words' worth of room — a library tile's second line.
@@ -175,14 +170,11 @@ const char* shortReason(const Coverage& c);
 // slug and fs_slug, so Home can decide whether the most recently played game is
 // one this console can resume without fetching the platform list first.
 //
-// AND IN A GENERIC ARCADE FOLDER IT PICKS THE CORE (#310). A folder whose name
-// is an arcade emulator's (`FBNEO`, `fb-neo`, `MAME 2003-Plus`, ...: capitals,
-// spaces, dashes, underscores, dots and `+` ignored) runs every game in that
-// emulator, as before. Any other folder RomM files as arcade (`arcade`,
-// `mame`, `cps`) picks per game, by the set name the zip is called: FinalBurn
-// Neo if its set list has it, else MAME 2003-Plus if its list does, else
-// UnsupportedGame. The lists are `<core>.sets` beside the cores, made from each
-// core's own DAT at its pinned commit (cores/arcade-sets.sh).
+// AND FOR AN ARCADE GAME IT NAMES THE EMULATOR its zip's name finds first in
+// the catalogues (arcadematch.h, byName), with `arcade` set; Play asks again of
+// the zip's files. A light-gun game is NeedsController, and a set no emulator
+// here has working, or one made for anything but a controller, is
+// UnsupportedGame.
 Coverage coverageFor(const romm::Game& g);
 
 inline bool playable(const romm::Platform& p) {

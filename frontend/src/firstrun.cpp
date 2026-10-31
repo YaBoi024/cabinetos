@@ -283,7 +283,7 @@ std::string Machine::because() const {
         case Step::Server:
             if (facts_.serverAnswered) return {};
             if (!facts_.haveServerAddress)
-                return "Enter the address of your RomM server.";
+                return "Enter the RomM server's address.";
             if (!facts_.serverChecked) return "Checking…";
             return "Nothing answered at that address.";
 

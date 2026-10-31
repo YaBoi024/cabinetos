@@ -25,6 +25,7 @@ constexpr Credit kCredits[] = {
     {"Vectrex system ROM", "Inside vecx \xC2\xB7 Non-commercial"},
     {"Vectrex screen sheets", "THK and Gigapig \xC2\xB7 MIT, art non-commercial"},
     {"Flycast", "Dreamcast, Naomi \xC2\xB7 GPL v2"},
+    {"MAME 0.289", "Arcade \xC2\xB7 GPL v2"},
     {"PPSSPP", "PSP \xC2\xB7 GPL v2+"},
     {"PCSX2", "PlayStation 2 \xC2\xB7 GPL v3+"},
     {"Dolphin", "GameCube \xC2\xB7 GPL v2+"},
@@ -46,6 +47,11 @@ constexpr Credit kCredits[] = {
     {"RPCS3", "PlayStation 3 \xC2\xB7 GPL v2"},
     {"Xenia Edge", "Xbox 360 \xC2\xB7 BSD 3-clause"},
     {"Cemu", "Wii U \xC2\xB7 MPL 2.0"},
+    // Its own About screen, which its licence's section 7 asks to keep its
+    // copyright line on, is never shown here, so the line is here.
+    {"sm2-emu", "Model 2, Daniel Martin (dmanlfc) \xC2\xB7 GPL v3+"},
+    {"Supermodel", "Model 3 \xC2\xB7 GPL v3+"},
+    {"SDL2_net", "Inside Supermodel \xC2\xB7 zlib"},
     {"xemu-dashboard", "The Xbox drive \xC2\xB7 MIT"},
     {"Sunshine", "Remote Play \xC2\xB7 GPL v3"},
     {"Tailscale", "Remote Play away \xC2\xB7 BSD 3-clause"},

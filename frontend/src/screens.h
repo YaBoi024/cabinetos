@@ -55,6 +55,9 @@ struct ControllersOn {
 // (App::refuseStartWithoutController): the same words in both places.
 inline const std::string kNeedsController = "Needs a controller";
 inline const std::string kNeedsRemote = "Needs a Wii Remote";
+// What the focused game's line names after the game (drawFocusedLine): the
+// system, the game's RomM folder in the Arcade tile (#611), or nothing.
+enum class LineNames { Nothing, System, Folder };
 
 // Everything a screen needs to draw itself. References, because the app owns
 // all of it and a screen outlives none of it.

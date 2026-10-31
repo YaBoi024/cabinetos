@@ -25,7 +25,7 @@ void drawKeptMark(Ctx& c, const design::Card& card, float x, float y, float w, f
 void drawCover(Ctx& c, const design::Card& card, float x, float y, float w, float h,
                float radius, float f, bool rim, bool large = false);
 void drawFocusedLine(ui::Renderer& r, ui::TextRenderer& text, float sc, const design::Card& card,
-                     bool tags, bool system, ControllersOn on, float x, float baseline,
+                     bool tags, LineNames names, ControllersOn on, float x, float baseline,
                      float room, float nameAlpha);
 
 }  // namespace screens

@@ -33,6 +33,8 @@
 {%- assign last = nil -%}
 {%- for s in site.data.wiki -%}
   {%- for p in s.pages -%}
+    {%- assign ext = p.file | split: '.' | last -%}
+    {%- if ext != 'md' -%}{%- continue -%}{%- endif -%}
     {%- if found and next == nil -%}{%- assign next = p -%}{%- endif -%}
     {%- assign here = 'wiki/' | append: p.file -%}
     {%- if here == page.path -%}{%- assign found = true -%}{%- assign prev = last -%}{%- endif -%}
@@ -42,7 +44,7 @@
 
 {%- capture sidelist -%}
   {%- for s in site.data.wiki -%}
-    <h5>{{ s.section }}</h5>
+    {%- if s.section -%}<h5>{{ s.section }}</h5>{%- endif -%}
     {%- for p in s.pages -%}
       {%- assign here = 'wiki/' | append: p.file -%}
       {%- if p.file == 'README.md' -%}{%- assign href = '/wiki/' -%}{%- else -%}{%- assign href = '/wiki/' | append: p.file | replace: '.md', '.html' -%}{%- endif -%}

@@ -1,6 +1,7 @@
 #include "achievements.h"
 
 #include "accounts.h"
+#include "arcadematch.h"
 #include "core.h"
 #include "fileio.h"
 #include "ps2.h"
@@ -741,7 +742,6 @@ void signOut() {
 uint32_t consoleFor(const std::string& s) {
     static const std::map<std::string, uint32_t> kConsole = {
         {"3do", RC_CONSOLE_3DO},
-        {"arcade", RC_CONSOLE_ARCADE},
         {"atari2600", RC_CONSOLE_ATARI_2600},
         {"atari7800", RC_CONSOLE_ATARI_7800},
         {"colecovision", RC_CONSOLE_COLECOVISION},
@@ -771,11 +771,16 @@ uint32_t consoleFor(const std::string& s) {
         {"virtualboy", RC_CONSOLE_VIRTUAL_BOY},
         {"wii", RC_CONSOLE_WII},
     };
+    // Every arcade folder, whatever RomM labels it, is RetroAchievements'
+    // Arcade.
+    if (arcadematch::isArcadeSlug(s)) return RC_CONSOLE_ARCADE;
     const auto it = kConsole.find(s);
     return it == kConsole.end() ? 0 : it->second;
 }
 
-bool coreReadable(const std::string& manifestCore) { return manifestCore != "mame2003_plus"; }
+bool coreReadable(const std::string& manifestCore, bool arcade) {
+    return arcade ? manifestCore == "fbneo_libretro" : manifestCore != "mame2003_plus";
+}
 
 void beginGame(const std::string& raHash, const std::string& platformSlug, bool ps2) {
     endGame();

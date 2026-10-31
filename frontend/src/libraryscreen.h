@@ -29,8 +29,12 @@ struct Tile {
     // "collection_id=2", "smart_collection_id=2". The id alone is not: RomM
     // counts platforms, collections and smart collections separately, so
     // platform 2, collection 2 and smart collection 2 are three tiles (#352).
+    // The Arcade tile names every arcade platform, "platform_ids=45&
+    // platform_ids=55", and its `id` is the first of them (#611).
     std::string query;
-    std::string title;        // "Arcade (FinalBurn Neo)", "SHMUP"
+    std::string title;        // "Arcade", "SHMUP"
+    // The Arcade tile: its grid's line names each game's folder (#611).
+    bool namesFolder = false;
     std::string detail;       // "141 games", or why it cannot be played
     std::string cover;        // a cover path for the tile's artwork
     bool enterable = true;

@@ -58,7 +58,7 @@ void App::startCoverFill() {
             ++reused;
             continue;
         }
-        coverFill.want.push_back(t.id);
+        coverFill.want.emplace_back(t.id, t.query);
     }
     if (reused || !coverFill.want.empty())
         std::fprintf(stderr, "[covers] %d tile(s) remembered, %zu to ask about\n",
@@ -77,13 +77,14 @@ void App::startCoverFill() {
                 if (i >= coverFill.want.size()) return;
                 std::vector<romm::Game> one;
                 std::string err;
-                if (!liveClient.fetchRoms(
-                        "platform_ids=" + std::to_string(coverFill.want[i]), 1,
-                        &one, &err) || one.empty())
+                // The tile's own query, so the Arcade tile's cover is the
+                // first among every arcade folder's games (#611).
+                if (!liveClient.fetchRoms(coverFill.want[i].second, 1, &one, &err) ||
+                    one.empty())
                     continue;
                 if (one[0].coverPath.empty()) continue;
                 std::lock_guard<std::mutex> lk(coverFill.m);
-                coverFill.done.emplace_back(coverFill.want[i], one[0].coverPath);
+                coverFill.done.emplace_back(coverFill.want[i].first, one[0].coverPath);
             }
         });
     }
@@ -99,9 +100,12 @@ void App::drainCovers() {
             arrived.swap(coverFill.done);
         }
         for (const auto& [id, cover] : arrived) {
-            for (screens::Tile& t : platformTiles)
-                if (t.id == id && t.cover.empty()) { t.cover = cover; break; }
-            libraryScreen.learnedTile("platform_ids=" + std::to_string(id), "", cover);
+            for (screens::Tile& t : platformTiles) {
+                if (t.id != id) continue;
+                if (t.cover.empty()) t.cover = cover;
+                libraryScreen.learnedTile(t.query, "", cover);
+                break;
+            }
             auto it = lib.tileCache.find(id);
             if (it != lib.tileCache.end()) it->second.cover = cover;
         }

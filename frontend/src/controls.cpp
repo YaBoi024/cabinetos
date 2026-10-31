@@ -124,8 +124,11 @@ Rows rowsFrom(const std::string& core, const std::vector<cab::InputDescriptor>& 
     std::array<bool, 16> seen{};
     for (const cab::InputDescriptor& d : port0) {
         // A second button on the same id is the same button to the core:
-        // one row, and the other said in the log.
-        if (d.id >= 16 || !isControl(static_cast<int>(d.id)) || seen[d.id]) {
+        // one row, and the other said in the log. FLYCAST'S L3 AND R3 ARE A
+        // BOARD'S TEST AND SERVICE, which never reach a game but by holding
+        // Start (arcadesettings.h): no rows.
+        const bool board = core == "flycast" && (d.id == cab::L3 || d.id == cab::R3);
+        if (d.id >= 16 || !isControl(static_cast<int>(d.id)) || seen[d.id] || board) {
             out.hidden.push_back(d);
             continue;
         }

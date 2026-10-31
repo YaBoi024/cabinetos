@@ -20,10 +20,10 @@ using design::Card;
 // A grid of games
 // ---------------------------------------------------------------------------
 
-void GridScreen::open(std::string title, bool namesSystem, std::vector<int> cards,
+void GridScreen::open(std::string title, LineNames names, std::vector<int> cards,
                       const std::vector<design::Card>& all) {
     title_ = std::move(title);
-    namesSystem_ = namesSystem;
+    names_ = names;
     cards_ = std::move(cards);
     slot_ = 0;
 
@@ -379,12 +379,13 @@ void GridScreen::drawGlass(Ctx& c) {
     const int idx = focusedCard();
     if (idx >= 0 && idx < static_cast<int>(c.cards->size())) {
         // After the name: RomM's tags when another copy of this game is in
-        // the grid (#383), the system in a collection (#579), and a greyed
-        // game's reason. See drawFocusedLine.
+        // the grid (#383), the system in a collection (#579) or the folder in
+        // the Arcade tile (#611), and a greyed game's reason. See
+        // drawFocusedLine.
         const float room = ui::kCanvasWidth - design::kLibraryInset - x - design::kLetterIndexWidth;
         drawFocusedLine(c.r, c.text, c.sc, (*c.cards)[idx],
-                        /*tags=*/design::hasTwin(*c.cards, cards_, idx),
-                        /*system=*/namesSystem_, c.on, x, baseline, room, 0.95f);
+                        /*tags=*/design::hasTwin(*c.cards, cards_, idx), names_, c.on, x,
+                        baseline, room, 0.95f);
     }
 }
 

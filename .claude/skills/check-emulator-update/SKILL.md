@@ -35,8 +35,8 @@ unasked.
 ## The full check, for one
 
 1. **Find the pin and when it was set.** A core: `REPO` and `COMMIT` in its
-   `case` arm in `cores/build-core.sh`. Others: `cores/build-pcsx2.sh`,
-   `cores/build-cemu.sh`, `cores/build-sunshine.sh`, `build_files/install-*.sh`
+   `case` arm in `cores/build-core.sh`. Others: the other `cores/build-*.sh`
+   (PCSX2, Cemu, sm2-emu, Supermodel, Sunshine), `build_files/install-*.sh`
    and `system_files/usr/share/cabinetos/flatpaks.list`. Date it with
    `git log -S<value>` on that file. A downloaded build names its upstream
    commit in its version or on its release page. A Flathub pin's version comes

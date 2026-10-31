@@ -22,7 +22,8 @@ Every other cover opens the game's page.
 ![The Library](../media/library.webp)
 
 - **Platforms**: one tile per system on your server that has games, with the
-  number of games. A system with no games has no tile until one is added.
+  number of games. Every arcade folder is one tile, **Arcade**. A system with
+  no games has no tile until one is added.
 - **Collections**: your RomM collections and smart collections, your
   Favorites first, then A to Z. Below them, other accounts' public
   collections, under "From" and the account's name. Another account's
@@ -43,7 +44,9 @@ controller nobody has paired (a Wii Remote, a Wii U GamePad) are greyed and
 listed last.
 
 Two games with the same name show the tags from their file names after the
-name, such as *(USA) (Rev 1)*; see [Your RomM server](romm.md).
+name, such as *(USA) (Rev 1)*; see [Your RomM server](romm.md). In the Arcade
+tile, the line names each game's folder after its name, such as
+*Metal Slug · NeoGeoMVS*.
 
 ## A game's page
 

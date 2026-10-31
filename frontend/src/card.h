@@ -40,7 +40,12 @@ struct Card {
     // What it runs on, for the one line under a shelf heading that names the
     // focused game. Titles collide across platforms — "Altered Beast" is a Game
     // & Watch entry AND a Genesis one — so the name alone is not an answer.
+    // "Arcade" for every arcade folder's game (catalog::systemName).
     std::string platform;
+    // The game's RomM folder (catalog::folderName), which the Arcade tile's
+    // line names in place of the system: that tile holds every arcade folder
+    // and its heading already says Arcade (#611).
+    std::string folder;
     // ON THE MACHINE AND PROMISED TO STAY. Not "is it cached" — the cache is
     // invisible by decision, and pressing Play fetches a game and says nothing
     // about it. This is the deliberate act: somebody chose to keep this game,

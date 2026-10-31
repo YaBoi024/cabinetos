@@ -347,10 +347,10 @@ void App::openDetail(int cardIndex) {
         if (g.id != d.romId) continue;
         raHash = g.raHash;
         raPlatform = g.platformSlug;
-        d.platform = g.platformName;
+        d.platform = catalog::systemName(g);
         d.sizeBytes = g.sizeBytes;
         const catalog::Coverage cov = catalog::coverageFor(g);
-        raReadable = !cov.core || ra::coreReadable(cov.core);
+        raReadable = !cov.core || ra::coreReadable(cov.core, cov.arcade);
         d.playable = cov.support == catalog::Support::Playable;
         d.reason = cov.reason ? cov.reason : "Not playable on this console";
         detailManualPath = pdfManual(g.manualPath) ? g.manualPath : std::string();

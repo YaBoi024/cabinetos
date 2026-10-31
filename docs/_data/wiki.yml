@@ -1,14 +1,22 @@
 # The wiki's pages, in reading order. The layout builds the side list and the
 # previous and next links from this, so a new page is one line here. A
 # title with a comma in it is quoted, or YAML ends it at the comma.
-- section: Start here
-  pages:
+#
+# Each group has one rule, so a new page has one place to go:
+#   Set it up  what a new owner does once, in order.
+#   Playing    what everyone uses from day to day.
+#   Systems    about one kind of game: its files, its folders, its quirks.
+#   Settings   what is changed once and left.
+#   Help       for looking things up.
+# A group with no section name draws no heading. A page that is not .md (the
+# controls guide) is in the side list but not in the previous and next links.
+- pages:
     - { file: README.md, title: Wiki home }
+- section: Set it up
+  pages:
     - { file: install.md, title: Install }
     - { file: first-run.md, title: First run }
     - { file: romm.md, title: Your RomM server }
-- section: Setup
-  pages:
     - { file: controllers.md, title: Controllers and Bluetooth }
     - { file: network.md, title: Wi-Fi and network }
     - { file: drives.md, title: Drives and storage }
@@ -16,21 +24,25 @@
   pages:
     - { file: library.md, title: The library }
     - { file: pause-menu.md, title: The pause menu }
-    - { file: discs.md, title: Games on several discs }
     - { file: saves.md, title: "Saves, states and sync" }
     - { file: players.md, title: Players and accounts }
     - { file: screenshots.md, title: Screenshots }
     - { file: achievements.md, title: Achievements }
-- section: Settings
-  pages:
-    - { file: picture.md, title: Picture and colours }
     - { file: remote-play.md, title: Remote Play }
     - { file: steam.md, title: Steam }
+- section: Systems
+  pages:
+    - { file: systems.md, title: "Systems, formats and BIOS" }
+    - { file: arcade.md, title: Arcade }
+    - { file: discs.md, title: Games on several discs }
+- section: Settings
+  pages:
+    - { file: picture.md, title: Display and Sound }
     - { file: updates.md, title: Updates }
     - { file: file-access.md, title: File access }
-- section: Reference
+- section: Help
   pages:
     - { file: navigation.md, title: Buttons and shortcuts }
-    - { file: systems.md, title: "Systems, formats and BIOS" }
+    - { file: controls.pdf, title: Controls guide }
     - { file: troubleshooting.md, title: When something is wrong }
     - { file: changelog.md, title: What's new }

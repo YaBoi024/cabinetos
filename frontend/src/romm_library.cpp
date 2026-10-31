@@ -11,6 +11,7 @@
 
 #include <json-c/json.h>
 
+#include <cstdlib>
 #include <ctime>
 
 namespace romm {
@@ -121,11 +122,33 @@ std::string tagLabel(const Game& g) {
 // Wii U rule reads it as needing the GamePad and Home leaves it off (#398,
 // ROMM-31). A record written before it carried one takes the code this
 // console read online (wiiu-codes.txt).
+// RomM's `archive_members`, or the record's copy of them.
+static std::vector<ArchiveMember> parseMembers(json_object* list) {
+    std::vector<ArchiveMember> out;
+    if (!list || json_object_get_type(list) != json_type_array) return out;
+    const size_t n = json_object_array_length(list);
+    for (size_t i = 0; i < n; ++i) {
+        json_object* m = json_object_array_get_idx(list, i);
+        ArchiveMember a;
+        a.name = jstr(m, "name");
+        a.size = jint(m, "size");
+        a.crc = static_cast<uint32_t>(std::strtoul(jstr(m, "crc_hash").c_str(), nullptr, 16));
+        if (!a.name.empty()) out.push_back(std::move(a));
+    }
+    return out;
+}
+
 bool gameFromJson(const std::string& json, Game* out) {
     json_object* o = json_tokener_parse(json.c_str());
     if (!o) return false;
     const bool ok = parseGame(o, out);
     if (ok) out->productCode = jstr(o, "product_code");
+    if (json_object* a = nullptr; ok && json_object_object_get_ex(o, "archive_members", &a) && a) {
+        out->membersFile = jstr(a, "file");
+        out->membersSize = jint(a, "size");
+        json_object* list = nullptr;
+        if (json_object_object_get_ex(a, "members", &list)) out->members = parseMembers(list);
+    }
     json_object_put(o);
     if (ok && out->platformSlug == "wiiu" && out->productCode.empty()) {
         bool known = false;
@@ -446,6 +469,8 @@ static bool parseRomFiles(json_object* root, std::vector<RomFile>* out) {
         if (json_object_object_get_ex(o, "is_top_level", &top) &&
             json_object_get_type(top) == json_type_boolean)
             f.topLevel = json_object_get_boolean(top);
+        if (json_object* m = nullptr; json_object_object_get_ex(o, "archive_members", &m))
+            f.members = parseMembers(m);
         if (f.id != 0 && !f.fileName.empty()) out->push_back(std::move(f));
     }
     return true;

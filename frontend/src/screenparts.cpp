@@ -157,8 +157,8 @@ void drawCover(Ctx& c, const Card& card, float x, float y, float w, float h,
 // THE FOCUSED GAME'S LINE beside a heading: Home's shelves, a grid and Search
 // each name the one card focus is on there, and they name it the same way.
 // The name, then RomM's tags dimmer when `tags` (the caller's hasTwin, #383),
-// then the system after a middle dot when `system`, then a greyed game's
-// reason, dimmer. The system is at the name's brightness: it is part of the
+// then the system or the folder after a middle dot (`names`), then a greyed
+// game's reason, dimmer. The system is at the name's brightness: it is part of the
 // answer to "which game is this", where the tags and the reason are notes on
 // it.
 //
@@ -175,19 +175,23 @@ void drawCover(Ctx& c, const Card& card, float x, float y, float w, float h,
 // Remote turned on mid-game is not seen, #590). Never beside a reason of its
 // own: a greyed game is not made playable by turning a controller on.
 //
-// `system` is for a list that mixes systems under a heading that names none
-// (Home's shelves, a collection, Search, #579). A platform's own grid leaves
-// it out: its heading already says it.
+// THE LINE NAMES WHAT THE HEADING DOES NOT. The system, for a list that mixes
+// systems under a heading that names none (Home's shelves, a collection,
+// Search, #579). The folder, in the Arcade tile's grid, whose heading names
+// the system and whose games come from every arcade folder (#611). Nothing
+// in any other platform's own grid: its heading already says it.
 //
 // THE NAME IS WHAT GETS SHORTENED. Everything after it always shows, so a long
 // title cannot push the system or the reason off the end of the line.
 void drawFocusedLine(ui::Renderer& r, ui::TextRenderer& text, float sc, const Card& card,
-                     bool tags, bool system, ControllersOn on, float x, float baseline,
+                     bool tags, LineNames names, ControllersOn on, float x, float baseline,
                      float room, float nameAlpha) {
     const ui::TextStyle st = ui::TextStyle::Callout;
     const float gap = 24.0f;
-    const std::string sys =
-        (system && !card.platform.empty()) ? "   \xC2\xB7   " + card.platform : "";
+    const std::string& what = names == LineNames::Folder ? card.folder : card.platform;
+    const std::string sys = (names != LineNames::Nothing && !what.empty())
+                                ? "   \xC2\xB7   " + what
+                                : "";
     const bool showTags = tags && !card.tagLabel.empty();
     const std::string& reason = !card.unavailable.empty()                    ? card.unavailable
                                 : (on.remote && !on.other && !card.wii) ? kNeedsController

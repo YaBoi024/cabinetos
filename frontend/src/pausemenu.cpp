@@ -315,11 +315,13 @@ void App::remotePlayHandover() {
     players::setStreaming(on);
     // A DEVICE ARRIVING COUNTS AS SOMEBODY THERE (#294): the idle timer
     // starts again and a dim or dark screen lifts, so the phone sees
-    // the console, not the black layer, and its first press is not
-    // spent waking it. Only the timer: no press reaches the menus. The
-    // screen itself was already woken by the start step, before Sunshine
-    // looked (cabinetos-remoteplay).
-    if (on) idleWatch.input(clockSeconds());
+    // the console, not the black layer. The screen itself was already
+    // woken by the start step, before Sunshine looked
+    // (cabinetos-remoteplay). AND IT IS A WAKE (idle.h, #411): presses
+    // that arrived with the connection started the game Home had
+    // focused, so for the first seconds the stream's presses do nothing
+    // in a menu.
+    if (on) idleWatch.woke(clockSeconds());
     // Remote Play's section greys out for the stream, and back after. A
     // panel already open from it (Paired devices, Tailscale's menu)
     // closes, so nothing in it can be pressed from the stream either.

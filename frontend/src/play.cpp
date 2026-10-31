@@ -104,6 +104,15 @@ void App::finishExit() {
     cab::Core::shared().unloadGame();
     vectrexsheets::release();
     closePs2Window();
+    // AND THE EMULATOR SHUT DOWN, retro_deinit, as RetroArch's Close Content
+    // does, before any save below is gathered. Until 2026-10-28 this waited
+    // for the next launch, and libretro MAME writes its NVRAM, settings and
+    // high scores only there (measured on the A9: a quit wrote nothing), so
+    // they came late, or never when the console was switched off. Every core,
+    // since a core may write anything at deinit; the next launch loads it
+    // afresh, as it always has. After closePs2Window, the order PlayStation 2
+    // had at the next launch.
+    cab::Core::shared().unload();
     // AFTER the unload, for the one platform whose save is a tree. The
     // battery above is read out of the core's own memory and is finished
     // the moment the game stopped writing to it; a directory save is files
@@ -209,7 +218,7 @@ void App::watchPs2Start() {
     if (playClock.active()) playClock.finish(playtime::wallMs());
     finishExit();
     refuseLaunch(launchJob.biosMissing.load()
-                     ? "No " + launchJob.systemName + " BIOS on your server"
+                     ? "No " + launchJob.systemName + " BIOS on the server"
                      : std::string("Disc can't be read"));
 }
 
@@ -458,7 +467,7 @@ bool App::readGameInput(cab::Core& core) {
         // this kind of pad, the same place, over the layout or the plain
         // table, in its stead.
         if (SDL_Gamepad* gp = players::gamepad(p)) {
-            const fightstick::Layout* layout = fightstick::forPort(p, gp, session.core);
+            const fightstick::Layout* layout = fightstick::forPort(p, gp, session.arcadeCore());
             if (const controls::Map* moved = controls::forPort(p, gp, layout))
                 controls::apply(*moved, st);
             else if (layout)
@@ -477,8 +486,10 @@ bool App::readGameInput(cab::Core& core) {
         // the game above does not count.
         if (p == 0)
             core.setKey(arcadesettings::kMenuKey,
-                        arcadesettings::step(arcadeHold, session.core, st.buttons,
+                        arcadesettings::step(arcadeHold, session.arcadeCore(), st.buttons,
                                              core.framesRun()));
+        else
+            arcadesettings::keepClicks(session.arcadeCore(), st.buttons);
         core.setPad(p, st);
     }
 
@@ -523,13 +534,22 @@ bool App::readGameInput(cab::Core& core) {
     // Whether this game can rewind, decided once it is running.
     // A core with no rewind is not asked its state's size: for Azahar that
     // question makes a whole state, up to 0.9 s, in the game's first frames.
+    // NOTHING IS KEPT WITH THE SHORTCUTS OFF (MMagTech, 2026-10-29): the
+    // shortcut is the only way to rewind, so the snapshots would hold the
+    // game's frame twice a second for nothing. The switch is in Settings,
+    // which a game never shows, so asking once per game is enough.
     if (rewindAvailable < 0 && core.running() && core.framesRun() > 0) {
-        const bool allowed = session.snapshots && catalog::rewindAllowed(session.core.c_str());
+        const bool shortcutsOn = shortcuts::enabled();
+        const bool allowed = shortcutsOn && session.snapshots &&
+                             catalog::rewindAllowed(session.core.c_str());
         const size_t sz = allowed ? core.stateSize() : 0;
         rewindAvailable = allowed && sz > 0 ? 1 : 0;
         rewindLastFrame = core.framesRun();
-        std::fprintf(stderr, "[rewind] %s (state %zu KB)\n",
-                     rewindAvailable ? "available" : "not offered", sz / 1024);
+        if (!shortcutsOn)
+            std::fprintf(stderr, "[rewind] off: in-game shortcuts are off\n");
+        else
+            std::fprintf(stderr, "[rewind] %s (state %zu KB)\n",
+                         rewindAvailable ? "available" : "not offered", sz / 1024);
     }
     // WHAT REWIND IS HOLDING, in the log each time it starts: the
     // numbers the memory budget was argued from, measured.

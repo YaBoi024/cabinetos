@@ -361,9 +361,9 @@ std::optional<int> App::waitForServer(char** argv) {
             const int secs = static_cast<int>(waited);
             char line[96];
             if (secs < 60)
-                std::snprintf(line, sizeof line, "Waiting for your server, %ds", secs);
+                std::snprintf(line, sizeof line, "Waiting for the server, %ds", secs);
             else
-                std::snprintf(line, sizeof line, "Waiting for your server, %dm %ds",
+                std::snprintf(line, sizeof line, "Waiting for the server, %dm %ds",
                               secs / 60, secs % 60);
             setup::drawStartup(renderer, text,
                                newAddress.empty() ? line : "Connecting", 1.0f,

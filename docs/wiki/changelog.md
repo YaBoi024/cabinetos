@@ -4,6 +4,85 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.10.30.2 {#v2026-10-30-2}
+
+- **New:** every arcade folder in RomM is now one Library tile, **Arcade**,
+  in title order, with greyed games last. As you move through it, the line
+  beside the heading names each game's folder, such as
+  *Metal Slug · NeoGeoMVS*. Everywhere else (Search, collections, Home and a
+  game's page) an arcade game's system is *Arcade*. Your folders in RomM stay
+  as they are; for one board on its own, make a RomM collection. See
+  [Arcade](arcade.md). ([#615](https://github.com/MMagTech/cabinetos/pull/615))
+- **Changed:** the console says *the server*, not *your server*, since it may
+  be someone else's: *No Sega Saturn BIOS on the server*, *Waiting for the
+  server*. A missing arcade BIOS names its folder: *No Naomi BIOS on the
+  server*.
+
+## 2026.10.30 {#v2026-10-30}
+
+- **New:** Sega Model 3 games now play, in Supermodel: Virtua Fighter 3,
+  Scud Race, Sega Rally 2, Star Wars Trilogy and more. Their driving games
+  and Star Wars Trilogy rumble, as Model 2's driving games do. Keep them as
+  zip. Dirt Devils does not play yet: it stops at its network check. See
+  [Arcade](arcade.md) for how to set out arcade folders.
+  ([#616](https://github.com/MMagTech/cabinetos/pull/616))
+
+## 2026.10.29.7 {#v2026-10-29-7}
+
+- **New:** Sega Model 2 games now play, in sm2-emu: Daytona USA, Sega Rally,
+  Virtua Fighter 2 and more. See [Arcade](arcade.md) for how to set out
+  arcade folders. Eight of them played in MAME 0.289 until now and move to
+  sm2-emu: Daytona USA, Virtua Fighter 2, Virtua Striker, Motor Raid, Pilot
+  Kids, Rail Chase 2, Gunblade NY and Zero Gunner. Their high scores and
+  settings from MAME do not carry over, and their save states can no longer
+  be loaded, since sm2-emu has none.
+  ([#613](https://github.com/MMagTech/cabinetos/pull/613))
+- **Fixed:** in a Switch, PS3, Xbox, Xbox 360, Wii U, PS Vita or Model 2
+  game, a button pressed just as the pause menu faded away after Resume
+  could start the game a second time behind the one being played, and what
+  was played in the first was never saved. Presses now go to the game.
+
+## 2026.10.29.6 {#v2026-10-29-6}
+
+- **Changed:** arcade folders keep working after RomM's next update, which
+  gives MAME, FinalBurn Neo, Naomi and Atomiswave folders labels of their
+  own. A Gaelco folder now gets a tile. CPS and Neo Geo games now start on
+  the CRT look like the other arcade games, and all arcade folders share one
+  Look choice.
+  ([#610](https://github.com/MMagTech/cabinetos/pull/610))
+
+## 2026.10.29.5 {#v2026-10-29-5}
+
+- **Fixed:** pausing a Switch, PS3, Xbox, Xbox 360, Wii U or PS Vita game
+  played for longer than **Turn off screen after** turned the screen off at
+  once. The time now counts from the pause, as in every other game.
+  ([#604](https://github.com/MMagTech/cabinetos/issues/604))
+- **Fixed:** a Switch, PS3, Xbox, Xbox 360, Wii U or PS Vita game left
+  running with nobody pressing anything stayed at full brightness. It now
+  dims after 20 minutes, as every other game does, and any press brings it
+  back.
+
+## 2026.10.29.4 {#v2026-10-29-4}
+
+- **Changed:** with In-game shortcuts off, as a console starts, games no
+  longer keep a rewind history in the background that nothing could use.
+  It took memory and a little of the game's time twice a second. With
+  shortcuts on, rewind works as before.
+  ([#609](https://github.com/MMagTech/cabinetos/pull/609))
+
+## 2026.10.29.3 {#v2026-10-29-3}
+
+- **New:** MAME 0.289 joins, for arcade games nothing else here plays: CPS3,
+  ST-V and many more. High scores are kept. A CPS3 CD set installs once,
+  about 22 minutes; the No CD sets start at once.
+
+## 2026.10.29 {#v2026-10-29}
+
+- **New:** Sega Naomi, Naomi 2 and Atomiswave games now play, and CPS1, CPS2
+  and Neo Geo folders get tiles of their own. Each arcade game now picks its
+  emulator from the files in its zip: see [Systems](systems.md) on the
+  wiki for how to set out arcade folders.
+
 ## 2026.10.27.3 {#v2026-10-27-3}
 
 - **New:** in a DS or 3DS game, click **L3** (press the left stick in) for
@@ -14,6 +93,13 @@ one you install, so you only ever install the newest.
   games that ask for it. L3 used to close it, which put the game to sleep
   with a white screen. R2 no longer swaps the screens, and on the 3DS
   holding L3 no longer swaps them either: L3 shows one screen instead.
+- **Fixed:** connecting to the console with Moonlight could start the game
+  Home had focused, with nobody pressing anything, and a press just after
+  the screen came back on could start a game before the TV showed the
+  picture. After the screen was off, after Sleep, and after a device
+  connects to stream, buttons now do nothing in the menus for 3 seconds. The
+  first press on a dimmed screen still only wakes it.
+  ([#411](https://github.com/MMagTech/cabinetos/issues/411))
 
 ## 2026.10.27 {#v2026-10-27}
 
@@ -76,7 +162,7 @@ one you install, so you only ever install the newest.
   own settings: in a MAME 2003-Plus game, MAME's menu, whose **Dip Switches**
   set the difficulty, the lives and the rest; in a FinalBurn Neo game, the
   board's own test menu, where the board has one. Hold Start again to close
-  MAME's menu. See [Arcade](systems.md#arcade).
+  MAME's menu. See [Arcade](arcade.md).
   ([#580](https://github.com/MMagTech/cabinetos/pull/580))
 - **Fixed:** leaving a MAME 2003-Plus game with both stick clicks could
   open MAME's DIP switch menu. It no longer does.

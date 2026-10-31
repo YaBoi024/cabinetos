@@ -10,6 +10,10 @@ Read before working on a screen, the network, Bluetooth, pairing or first run.
 
 - **Two tiles that read the same are one tile.**
 
+- **On screen it is "the server", never "your server".** The person at the TV
+  may be on someone else's RomM, a parent's or a friend's. Say what is missing
+  and where; whoever owns the server knows it is theirs. (MMagTech, 2026-10-29)
+
 - **THE COPY ASSUMES A COMPETENT ADULT.** MMagTech, 2026-09-20: *"if you have a
   RomM server and can install an OS I shouldn't need to tell you in depth how to
   pair a controller."* Every line says the CONSTRAINT — required or optional,

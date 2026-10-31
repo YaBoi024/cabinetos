@@ -514,8 +514,9 @@ static int rommProbe(const char* address, bool allowPairing) {
     std::printf("\n%zu platforms, %d games\n\n", platforms.size(), total);
 
     // fs_slug is printed next to the name because it is the field that
-    // distinguishes two platforms the name and the slug cannot — "Arcade" is
-    // FBNeo and MAME 2003-Plus, and a client keying on slug loses one of them.
+    // distinguishes two platforms the name and the slug cannot: RomM calls
+    // the FBNeo, MAME, Naomi and Atomiswave folders all "Arcade", and a
+    // client keying on slug loses all but one of them.
     for (const auto& p : platforms) {
         std::printf("  %5d  %-34s id=%-4d slug=%-22s fs=%s\n", p.romCount,
                     p.name.c_str(), p.id, p.slug.c_str(), p.fsSlug.c_str());

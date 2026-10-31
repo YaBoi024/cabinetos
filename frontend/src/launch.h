@@ -51,7 +51,7 @@ struct LaunchJob {
     // WHAT A FAILED LAUNCH SAYS, in words (#146, #90). The worker notes
     // whether a system that cannot start without its BIOS got none from the
     // server; if the game then fails, that is what the page says, "No Saturn
-    // BIOS on your server", rather than the core's own wording. It is never
+    // BIOS on the server", rather than the core's own wording. It is never
     // a reason to refuse: the core is still asked, and may manage.
     std::atomic<bool> biosMissing{false};
     std::string systemName;
@@ -112,6 +112,15 @@ struct LaunchJob {
     // after; see saveRowName.
     std::string fsStem;
     std::string corePath;
+    // AN ARCADE GAME (catalog::Coverage::arcade): its emulator was named at
+    // the press by its zip's name, and the worker asks again of its files
+    // (arcadematch.h). `arcadePicked` once it has; `coreChanged` when the
+    // files named another emulator, `coreName` and `corePath` then being
+    // that one's, which the frame thread loads behind the curtain
+    // (pumpLaunch). Written by the worker before Ready, as `romPath` is.
+    bool arcade = false;
+    bool arcadePicked = false;
+    bool coreChanged = false;
     std::string title;
     std::string message;
     // THE GAME'S SAVES AS RomM HOLDS THEM, fetched by the worker once the game

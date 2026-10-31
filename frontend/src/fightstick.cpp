@@ -52,10 +52,30 @@ constexpr cab::Button kClassic[] = {cab::B, cab::A, cab::Y,  cab::X,
 
 enum class Order { Declared, Classic };
 
+// MAME 0.289'S BUTTONS, 1 to 8, as its joypad gives them with its per-game
+// profiles off (button_mapping and retro_joystick_device::configure in
+// src/osd/modules/input/input_retro.cpp at libretro/mame 5f5a07748ce5): B,
+// A, Y, X, L and R, then L3 and R3. Its L2 and R2 are pedals, never
+// buttons. Asserted at the pin (cores/fetch-mame.sh).
+constexpr cab::Button kMame[] = {cab::B, cab::A, cab::Y,  cab::X,
+                                 cab::L, cab::R, cab::L3, cab::R3};
+
 // The order a core's buttons are counted in, or none for a core that is not
-// an arcade core (which plays the stick as a pad).
+// an arcade core (which plays the stick as a pad). FLYCAST DECLARES A BOARD'S
+// BUTTONS IN THE BOARD'S ORDER, button 1 to 8 on B, A, Y, X, R, L, R2, L2 for
+// Naomi and 1 to 5 on B, A, Y, X, R for Atomiswave (set_input_descriptors and
+// its nao_joymap and aw_joymap in shell/libretro/libretro.cpp at the pin; the
+// core's build stops when the maps move, cores/build-core.sh). Its name comes
+// here only for a Naomi or Atomiswave game: a Dreamcast game passes none.
+// MAME 0.289's are the console's own declaration, in its order (mameButtons).
+// SM2-EMU AND SUPERMODEL, PROGRAMS OF THEIR OWN, hear no RetroPad at all: the
+// console lays a Model 2 or Model 3 game's buttons out here, in their order,
+// and writes where each landed into its settings before it starts
+// (standalone_sm2emu.cpp, standalone_supermodel.cpp).
 std::optional<Order> orderFor(const std::string& core) {
-    if (core == "fbneo_libretro") return Order::Declared;
+    if (core == "fbneo_libretro" || core == "flycast" || core == "mame_libretro" ||
+        core == "sm2emu" || core == "supermodel")
+        return Order::Declared;
     if (core == "mame2003_plus") return Order::Classic;
     return std::nullopt;
 }
@@ -85,6 +105,15 @@ int labelNumber(const std::string& s) {
 // and on a stick two buttons are pressed together as on the cabinet, so
 // they get no button (MMagTech at the TV, 2026-10-24).
 bool fbneoCombination(const std::string& label) { return label.rfind("Buttons ", 0) == 0; }
+
+// Whether a declared button is one of the game's, for a stick: one of the
+// eight ids a game's button may be on, and for MAME 0.289 its 7th and 8th on
+// the stick clicks too, which a stick has no other way to press. Not FBNeo's
+// combination buttons.
+bool counts(const std::string& core, const cab::InputDescriptor& d) {
+    if (core == "mame_libretro" && (d.id == cab::L3 || d.id == cab::R3)) return true;
+    return classicNumber(d.id) && !(core == "fbneo_libretro" && fbneoCombination(d.label));
+}
 
 // ---- The layout the game in play gives each port --------------------------------
 
@@ -133,7 +162,16 @@ int classicNumber(unsigned id) {
 
 bool isArcadeCore(const std::string& core) { return orderFor(core).has_value(); }
 
+cab::Button slotButton(int slot) { return kSlot[slot]; }
+
 bool readsClassic(const std::string& core) { return orderFor(core) == Order::Classic; }
+
+std::vector<cab::InputDescriptor> mameButtons(int count) {
+    std::vector<cab::InputDescriptor> out;
+    for (int i = 0; i < count && i < 8; ++i)
+        out.push_back({static_cast<unsigned>(kMame[i]), "Button " + std::to_string(i + 1)});
+    return out;
+}
 
 const Stick* match(uint16_t vendor, uint16_t product, const std::string& device) {
     for (const Stick& s : kSticks)
@@ -158,8 +196,7 @@ std::optional<Layout> make(const Stick* stick, const std::string& core,
     if (!order) return std::nullopt;
     std::vector<const cab::InputDescriptor*> f;
     for (const cab::InputDescriptor& d : port.empty() ? port0 : port)
-        if (classicNumber(d.id) && !(*order == Order::Declared && fbneoCombination(d.label)))
-            f.push_back(&d);
+        if (counts(core, d)) f.push_back(&d);
     if (f.empty()) return std::nullopt;
     if (*order == Order::Classic)
         std::stable_sort(f.begin(), f.end(), [](const auto* a, const auto* b) {
@@ -269,6 +306,19 @@ int test() {
               six->count == 6 && six->left.empty(),
           "and each keeps the core's own label");
 
+    // Marvel vs. Capcom 2 on a Naomi board in Flycast, as Flycast declares it:
+    // buttons 1 to 6 on B, A, Y, X, R, L, then Coin, Start, Test and Service.
+    const D mvc2 = {{cab::B, "LIGHT PUNCH"},  {cab::A, "STRONG PUNCH"}, {cab::Y, "ASSIST A"},
+                    {cab::X, "LIGHT KICK"},   {cab::R, "STRONG KICK"},  {cab::L, "ASSIST B"},
+                    {cab::Start, "Start"},    {cab::Select, "Coin"},    {cab::L3, "Test"},
+                    {cab::R3, "Service"}};
+    check(slots(make(stick, "flycast", mvc2, mvc2)) ==
+              ids({cab::B, cab::A, cab::Y, no, cab::X, cab::R, cab::L, no}),
+          "a Naomi board in Flycast, six buttons in the board's order: 1 2 3 on top, 4 5 6 "
+          "below, Test and Service not counted");
+    check(!make(stick, "", mvc2, mvc2),
+          "and a Dreamcast game in Flycast, which passes no arcade core, has no layout");
+
     // MAME 2003-Plus sends them in RetroPad id order; its Classic table
     // puts them back in the game's.
     const D mame6 = {{cab::B, "B1: Jab Punch"},       {cab::Y, "B3: Fierce Punch"},
@@ -280,6 +330,23 @@ int test() {
           "MAME 2003-Plus, six buttons: B A Y on top, X L R below (the Classic table)");
     check(m6 && m6->label[1] == "B2: Strong Punch" && m6->warnings.empty(),
           "its labels agree with the table, and nothing is said");
+
+    // MAME 0.289 names none of a game's buttons; the console declares them
+    // from its catalogue's count, in its order, the 7th and 8th on the clicks.
+    const std::string m289 = "mame_libretro";
+    check(mameButtons(2).size() == 2 && mameButtons(2)[1].id == cab::A &&
+              mameButtons(2)[1].label == "Button 2" && mameButtons(12).size() == 8 &&
+              mameButtons(0).empty(),
+          "MAME 0.289's buttons: as many as its catalogue says, eight at most");
+    check(slots(make(stick, m289, mameButtons(6), mameButtons(6))) ==
+              ids({cab::B, cab::A, cab::Y, no, cab::X, cab::L, cab::R, no}),
+          "MAME 0.289, six buttons: B A Y on top, X L R below, its own order");
+    check(slots(make(stick, m289, mameButtons(8), mameButtons(8))) ==
+              ids({cab::B, cab::A, cab::Y, cab::L3, cab::X, cab::L, cab::R, cab::R3}),
+          "and eight: its 7th and 8th, on the stick clicks, top and bottom right");
+    check(slots(make(stick, m289, mameButtons(2), none)) ==
+              ids({no, no, no, no, cab::B, cab::A, no, no}),
+          "and two, on the bottom row, as for every arcade core");
 
     check(slots(make(stick, fbneo, {{cab::B, "Button 1"}}, none)) ==
               ids({no, no, no, no, cab::B, no, no, no}),
@@ -379,6 +446,30 @@ int test() {
         apply(*e, p);
         check(p.buttons == cab::bit(cab::R2) && p.rightTrigger == 1.0f && p.leftTrigger == 0.0f,
               "a button that sends a trigger's id pulls that trigger all the way");
+    }
+
+    // Virtua Fighter 2 in sm2-emu: its three buttons, as the console lays
+    // them out for it (standalone_sm2emu.cpp), the bottom row from the left
+    // with a gap before the third, which sm2-emu is told is the left trigger.
+    {
+        const D vf2 = {{cab::B, "Button 1"}, {cab::A, "Button 2"}, {cab::Y, "Button 3"}};
+        const std::optional<Layout> l = make(stick, "sm2emu", vf2, vf2);
+        check(slots(l) == ids({no, no, no, no, cab::B, cab::A, no, cab::Y}),
+              "sm2-emu's three-button game takes the bottom row's 5, 6 and 8");
+        check(slotButton(4) == cab::B && slotButton(5) == cab::A && slotButton(7) == cab::L2,
+              "and those slots are the stick's South, East and left trigger");
+        check(isArcadeCore("sm2emu"), "sm2-emu is an arcade emulator for a stick");
+    }
+
+    // Virtua Fighter 3 in Supermodel: Guard, Punch, Kick and Escape, four
+    // buttons, the bottom row as a Neo Geo cabinet's (standalone_supermodel.cpp).
+    {
+        const D vf3 = {{cab::B, "Button 1"}, {cab::A, "Button 2"}, {cab::Y, "Button 3"},
+                       {cab::X, "Button 4"}};
+        const std::optional<Layout> l = make(stick, "supermodel", vf3, vf3);
+        check(slots(l) == ids({no, no, no, no, cab::B, cab::A, cab::Y, cab::X}),
+              "Supermodel's four-button game takes the bottom row");
+        check(isArcadeCore("supermodel"), "Supermodel is an arcade emulator for a stick");
     }
 
     std::printf("\n%s\n", failures ? "FAILED" : "all passed");

@@ -124,6 +124,8 @@
       var u = new URL(a.getAttribute("href"), location.href);
       u.hash = "";
       u.search = "";
+      // Pages only: the controls guide in the list is a PDF.
+      if (!/(\.html|\/)$/.test(u.pathname)) return;
       if (!seen[u.href]) {
         seen[u.href] = true;
         urls.push(u.href);

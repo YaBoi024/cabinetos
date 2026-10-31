@@ -32,6 +32,12 @@ struct GameSession {
     std::string core;
     // RomM's platform slug, for the pause menu's system rows (sysopts.h).
     std::string platformSlug;
+    // An arcade game (catalog::Coverage::arcade): Flycast plays Dreamcast
+    // discs and Naomi boards, and only the boards are arcade games.
+    bool arcade = false;
+    // The core, for what only an arcade game gets (the fight stick's layout,
+    // Controls, holding Start), or empty for any other game.
+    std::string arcadeCore() const { return arcade ? core : std::string(); }
     std::string title;
     // The server's own file name for the game, without its extension. A
     // save's row on RomM is named after it — see saveRowName.

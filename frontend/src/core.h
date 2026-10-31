@@ -326,9 +326,10 @@ public:
 
     void setPad(int port, const PadState& pad);
     // A key of the core's keyboard, as libretro numbers it (RETROK_*), held
-    // or let go, for port 0. No real keyboard is passed to a core; the one
-    // key pressed is MAME 2003-Plus's menu key (arcadesettings.h). Every key
-    // is let go when a game loads.
+    // or let go, for port 0: asked by the core, and told to a core that
+    // gave its keyboard callback, as it changes. No real keyboard is passed
+    // to a core; the one key pressed is a MAME's menu key
+    // (arcadesettings.h). Every key is let go when a game loads.
     void setKey(unsigned retrok, bool down);
     // How many players there are, so the core is told a controller is in
     // each of their ports. Before loadGame it sets what the game starts with;
@@ -362,6 +363,11 @@ public:
     // what it made of them (fightstick.cpp).
     const std::vector<InputDescriptor>& inputDescriptors(int port) const;
     unsigned inputDescriptorsVersion() const;
+    // THE GAME'S BUTTONS DECLARED BY THE CONSOLE, for every port, in place of
+    // what the core declared, for a core that names none of a game's own:
+    // MAME 0.289, whose list is the same for every game and is emptied with
+    // the rest at loadGame (fightstick::mameButtons). After loadGame.
+    void declareButtons(const std::vector<InputDescriptor>& buttons);
 
     // --- PlayStation 2 ---------------------------------------------------
     //

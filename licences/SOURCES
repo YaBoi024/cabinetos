@@ -15,6 +15,11 @@ picodrive-authors      libretro/picodrive                  733c711a477a642fd2006
 opera                  libretro/opera-libretro             a501a278d057b952d1ad6165549c59ab178ca497  libopera/opera_arm.c#L1-29
 # --- the other cores ---
 flycast                flyinghead/flycast                  a172e0001351dfbc49b86860a13d5390b1c493fe  LICENSE
+# MAME 0.289, libretro's own build of this commit (cores/fetch-mame.sh), and
+# the high-score plugin's json library, which ships beside it.
+mame                   libretro/mame                       5f5a07748ce5c239c4118463ce8e6473743d4859  COPYING
+mame-gpl2              libretro/mame                       5f5a07748ce5c239c4118463ce8e6473743d4859  docs/legal/GPL-2.0
+mame-json-plugin       libretro/mame                       5f5a07748ce5c239c4118463ce8e6473743d4859  plugins/json/LICENSE
 ppsspp                 hrydgard/ppsspp                     c989c2553e1099730736d965c221823fe974fa55  LICENSE.TXT
 ppsspp-ffmpeg          hrydgard/ppsspp-ffmpeg              b87f7c6d522d1edba77cfc4fac96ce48a236f806  LICENSE.md
 ppsspp-ffmpeg-lgpl     hrydgard/ppsspp-ffmpeg              b87f7c6d522d1edba77cfc4fac96ce48a236f806  COPYING.LGPLv2.1
@@ -54,6 +59,15 @@ rpcs3                  RPCS3/rpcs3                         1707d7fc883ef48ff21bd
 xenia-edge             has207/xenia-edge                   a7c39fa7d9c54d83022e431da62c1c65bf3e6196  LICENSE
 vita3k                 Vita3K/Vita3K                       649d7d69b2da2eb55f17233376f861a3a32cf12a  COPYING.txt
 cemu                   cemu-project/Cemu                   4e3c824faa00f6b85782db019f20f29f063f3a2a  LICENSE.txt
+# sm2-emu's licence, the additional terms its NOTICE sets under GPL v3 section
+# 7, and the BSD 3-Clause licence of the code it takes from MAME's Model 2 driver.
+sm2emu                 dmanlfc/sm2-emu                     4c290c558afaaa85956fa2364971c92cfde707cf  LICENSE
+sm2emu-notice          dmanlfc/sm2-emu                     4c290c558afaaa85956fa2364971c92cfde707cf  NOTICE
+sm2emu-bsd3            dmanlfc/sm2-emu                     4c290c558afaaa85956fa2364971c92cfde707cf  LICENSES/BSD-3-Clause.txt
+# Supermodel's licence, and that of SDL2_net, Fedora 44's 2.4.0, which ships
+# beside it (cores/build-supermodel.sh).
+supermodel             trzy/Supermodel                     14815455dc28fca2c8662fb1ed99d447ecf8f364  Docs/LICENSE.txt
+sdl2-net               libsdl-org/SDL_net                  904600c6133e0435d627ec1878bfdfeac414a899  LICENSE.txt
 # Cemu's shared fonts are Noto Sans CJK, under the OFL.
 noto-cjk-ofl           notofonts/noto-cjk                  f8d157532fbfaeda587e826d4cd5b21a49186f7c  Sans/LICENSE
 xemu-dashboard         xemu-project/xemu-dashboard         8cb5e525a8d2c980a4daa6b2c2106b53661b5b20  LICENSE

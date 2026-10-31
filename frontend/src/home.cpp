@@ -356,7 +356,8 @@ void App::drawHome(float dt, float sc) {
             screens::drawFocusedLine(
                 renderer, text, sc, fc,
                 /*tags=*/design::hasTwin(cards, indices, static_cast<int>(at(slot))),
-                /*system=*/true, controllersOn(), titleX, headerBaseline, room, 0.60f);
+                screens::LineNames::System, controllersOn(), titleX, headerBaseline,
+                room, 0.60f);
         }
 
         const float shelfTop =

@@ -64,6 +64,7 @@ not open while a game is being played on the TV.
   played from a device.
 - The console keeps playing its own sound, and the device plays it too. The
   device's volume is set on the device.
+- For 3 seconds after a device connects, its buttons do nothing in the menus.
 - **Hold Select** on the device's controller for the console's
   [pause menu](pause-menu.md), in every game.
 - Wii games that need a Wii Remote cannot be played from a device.

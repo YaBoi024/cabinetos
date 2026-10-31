@@ -75,7 +75,11 @@ in git on 72c0c4b.
 
 Plain answers. **Lead with what a change does and why it exists, in terms of
 what breaks for the product, not the subsystem.** Keep the detail, after the
-plain statement. Check the running machine before theorising, and say what is
+plain statement. **Explain how something works as steps.** When he asks how
+something happens, answer with the steps in the order a person would see them,
+one per line, each saying who does it (RomM or the console), in plain words
+with no code names; and say first when it applies only to other people's
+setups, not his. Check the running machine before theorising, and say what is
 verified and what is assumed. **Use the `MMagTech` handle, never a personal
 name**: the repo is public.
 
