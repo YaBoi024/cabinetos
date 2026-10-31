@@ -27,9 +27,8 @@ Files marked `FORK (handheld)` in their comments are the fork's.
   `build_files/configure-session.sh`
 
 ## Streaming: the way to play together
-Play together (lockstep netplay) is removed. Every game is played together by streaming: the game
-runs once, on the host Deck, and friends join with Moonlight. It works for every system, standalone
-emulators included.
+Games are played together by streaming: the game runs once, on the host Deck, 
+and friends join with Moonlight. It's been tested on N64, PSX and a few others.
 - **A device that streams joins as the next player.** The Deck's controls stay player 1 and the game
   keeps running. `CABINETOS_STREAM_SHARE=0` brings back the old takeover. `players.cpp`, `players.h`,
   `pausemenu.cpp`
@@ -50,23 +49,6 @@ emulators included.
   of place as the RomM server's address, but it is not on CONTRIBUTING.md's list of fixed places.
 
 ## Security and reports
-- **Typed text is never logged.** The keyboard used to write what was typed to the system log when
-  it was confirmed, which put a Wi-Fi password or a RetroAchievements password into the diagnostic
-  report. It now logs only how many characters. `input.cpp`
-- **The report scrubs sign-in details by form, not only by list**: values in JSON (`"password":`,
-  `"token":`, `"username":`) and in web addresses or forms (`?u=...&t=...&p=...`, as
-  RetroAchievements takes its sign-in). Tested against samples, which the old script leaked.
-  `system_files/usr/libexec/cabinetos-report`
-- **The report keeps the network and the tailnet out**: the router's DNS search domain and the
-  RomM server's domain are replaced (`<dns domain>`, `<server>`), the tailnet's size (devices,
-  devices online, "N peers", DNS "Hosts:N") and anything about exit nodes or advertised routes
-  (Tailscale's "suggested exit node" log lines, the matching Health messages) are left out, and
-  the report is sent to this fork's issues page. The Tailscale part no longer crashes the whole
-  report when Tailscale is off or missing. `system_files/usr/libexec/cabinetos-report`
-- **The report has a Steam Deck section**: model (LCD or OLED), firmware, battery health and
-  cycles, charge limit, power profile and TDP cap, temperatures, brightness, the Deck's services and
-  controls; and which Tailscale peers are reached directly or through a relay.
-  `system_files/usr/libexec/cabinetos-report`
 - **The Play with a friend page shows "Connection: direct" or "relayed"** while a friend is
   connected over Tailscale, and says a relay adds lag. `tailscale.h`, `tailscale.cpp`, `friendflow.cpp`
 
@@ -112,16 +94,13 @@ emulators included.
 - **Silent on the first boot of a new image** (after an install or a `bootc switch`); sound is back
   after one reboot. Cause unknown (section 4.2).
 - First boot needs internet for about two minutes while Eden and xemu install.
-- Untested on a Deck: Join a friend, Play with a friend, the streaming quality drop, the
+- Untested on a Deck (tested on mobile devices and Windows PCs): Join a friend, Play with a friend, the streaming quality drop, the
   Sunshine sound patch (needs an image build).
 
 ## To do
 - Test streaming: PS2 with the quality drop, a controller on the phone, a friend over Tailscale,
   two Moonlight guests at once, player order with a pad and a phone.
-- Pin Moonlight in `flatpaks.list` (`tools/moonlight-pin.sh`) and test Join a friend on two Decks.
-- Install page: add `bootc switch` from CabinetOS main as a way in.
-- Offer MMagTech the streaming work (sound fix, share by default, quality drop, the two pages),
-  without the Deck-only parts.
+- Test Join a friend on two Decks.
 - Back buttons and trackpads; Steam Deck LCD.
 
 DETAILS:
