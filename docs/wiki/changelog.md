@@ -6,6 +6,13 @@ one you install, so you only ever install the newest.
 
 ## Next
 
+- **Fixed:** an arcade game made for MAME could stop on FinalBurn Neo's
+  *romset is missing files* screen. PGM games such as DoDonPachi II, Knights
+  of Valour and Martial Masters did. The console now checks for every file an
+  emulator needs, its BIOS and shared chips included, before choosing it, so
+  such a game plays in the next emulator its zip fits, usually MAME. No game
+  that played before moves to another emulator, and your zips stay as they
+  are.
 - **Fixed:** a password typed on the console's on-screen keyboard, such as
   a Wi-Fi or RetroAchievements password, was written into the console's log
   when you finished typing with Start or Enter, and a diagnostic report made
