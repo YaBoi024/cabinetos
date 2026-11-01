@@ -106,3 +106,15 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: ci/check-decisions.sh "${BASE}" "${HEAD}"
+
+  licences:
+    name: Licences
+    runs-on: ubuntu-24.04
+    env:
+      REPORT_ONLY_UNTIL: '2026-11-08'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: Every licence text fetched at the revision the image ships
+        run: ci/check-licences.sh

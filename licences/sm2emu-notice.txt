@@ -1,3 +1,5 @@
+sm2emu-notice: NOTICE from github.com/dmanlfc/sm2-emu at 4c290c558afaaa85956fa2364971c92cfde707cf
+
 sm2-emu — Sega Model 2 arcade emulator
 ======================================
 
