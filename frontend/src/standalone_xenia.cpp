@@ -110,6 +110,14 @@ void xeniaArgs(std::vector<std::string>& full, const std::string& dir, const std
              "--mappings_file=" + dir + "/gamecontrollerdb.txt",
              "--slot_bindings_passthrough=" + slots,
              "--render_target_path=performance",
+             // UNREAL ENGINE 3'S TILED ANTI-ALIASING (Gears of War, Mass
+             // Effect, Batman) leaves black patches on characters unless
+             // rasterized at the Xenos sample positions. The window offset
+             // stays in the viewport, as every game drew at our earlier pin:
+             // the EDRAM way fixes Halo 4's bottom tile but bands these.
+             // docs/decisions/2026-11-01-xbox-360-unreal-engine-3-fix.md.
+             "--xenos_sample_positions=true",
+             "--window_offset_in_edram=false",
              "--occlusion_query=fast",
              "--async_shader_compilation=true",
              "--mount_scratch=true",

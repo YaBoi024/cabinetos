@@ -4,6 +4,48 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.11.01.4 {#v2026-11-01-4}
+
+- **Fixed:** Dirt Devils stopped at its network check (*Mode: Slave,
+  checking network*) and never started. It plays now.
+  ([#635](https://github.com/MMagTech/cabinetos/pull/635))
+
+## 2026.11.01.3 {#v2026-11-01-3}
+
+- **Fixed:** characters in Gears of War, Gears of War 2 and other Xbox 360
+  games made with Unreal Engine 3, such as Mass Effect and the Batman Arkham
+  games, no longer show black patches. Xbox 360's emulator, Xenia Edge, is
+  updated for it; as with any emulator update, an Xbox 360 save made before
+  this update may not load. ([#632](https://github.com/MMagTech/cabinetos/pull/632))
+
+## 2026.11.01.2 {#v2026-11-01-2}
+
+- **Fixed:** an arcade game made for MAME could stop on FinalBurn Neo's
+  *romset is missing files* screen. PGM games such as DoDonPachi II, Knights
+  of Valour and Martial Masters did. The console now checks for every file an
+  emulator needs, its BIOS and shared chips included, before choosing it, so
+  such a game plays in the next emulator its zip fits, usually MAME. No game
+  that played before moves to another emulator, and your zips stay as they
+  are. ([#631](https://github.com/MMagTech/cabinetos/pull/631))
+
+## 2026.11.01 {#v2026-11-01}
+
+- **Fixed:** a password typed on the console's on-screen keyboard, such as
+  a Wi-Fi or RetroAchievements password, was written into the console's log
+  when you finished typing with Start or Enter, and a diagnostic report made
+  soon after carried it. The keyboard no longer writes what you type, and a
+  report made after this update leaves out any such line from before it. It
+  also hides the File access password and Tailscale's sign-in link now. If
+  you shared a report before this update, change any password you had typed
+  on the console shortly before making it.
+- **Changed:** the diagnostic report says more about the newer systems: the
+  Switch, Wii U and PS3 emulators' own logs, everything the console noted
+  during each game you played, which firmware files are on the console (by
+  name and size only), which Switch and Xbox emulator versions are
+  installed, and the buttons you moved in an arcade game's **Controls**. A
+  profile name an emulator shortens, such as an Xbox 360 gamertag, is now
+  hidden like the name itself.
+
 ## 2026.10.30.2 {#v2026-10-30-2}
 
 - **New:** every arcade folder in RomM is now one Library tile, **Arcade**,

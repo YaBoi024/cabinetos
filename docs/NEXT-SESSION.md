@@ -43,9 +43,8 @@ RomM: keep test launches under a minute, or have his go.
    for the games nothing older plays, with high scores" (2026.10.29.3);
    #613, "Arcade: Sega Model 2 games play in sm2-emu" (2026.10.29.7); and
    #616, "Arcade: Sega Model 3 games play in Supermodel" (2026.10.30), where
-   16 of his 17 Model 3 games play and Dirt Devils waits at its network
-   check until Supermodel takes trzy/Supermodel#360 (no patch of ours, his
-   call 2026-10-29). In Later, each planned with him before anything is
+   16 of his 17 Model 3 games play; the 17th, Dirt Devils, plays by our
+   Supermodel patch (#635, "Supermodel: a machine linked to itself runs as the only cabinet, so Dirt Devils plays"), since Supermodel declined it. In Later, each planned with him before anything is
    built: #617, "Arcade: a Controls row for Model 2 and Model 3 games",
    and #608, "FinalBurn Neo games keep no high scores".
 2. **The left stick in Naomi and Atomiswave lever games (his note,
@@ -127,7 +126,6 @@ RomM: keep test launches under a minute, or have his go.
   RomM token revoke, rommapp/romm#5274), #534 (the Azahar patch,
   azahar-emu/azahar#2694),
   eden-emulator/Issue-Reports#739 (a Switch controller connected mid-game),
-  trzy/Supermodel#360 (Dirt Devils linked to itself; no patch of ours),
   #203 closed until libretro/dolphin#508 moves.
 - **Filed, not scheduled:** #559, "A power cut right after a download or an
   unpack can leave a damaged game that the console keeps (exFAT and NTFS
