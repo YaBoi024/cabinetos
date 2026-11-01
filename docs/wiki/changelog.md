@@ -4,6 +4,15 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## Next
+
+- **Changed:** the system CabinetOS is built on moves to Bazzite
+  44.20261026, with Linux 7.2.11. The new kernel has fixes for Radeon
+  graphics, Wi-Fi, Bluetooth, controllers and sound, and the firmware and
+  the parts that draw the picture, play the sound, update the console and
+  run Remote Play away from home are newer versions.
+  ([#627](https://github.com/MMagTech/cabinetos/pull/627))
+
 ## 2026.11.01.4 {#v2026-11-01-4}
 
 - **Fixed:** Dirt Devils stopped at its network check (*Mode: Slave,
