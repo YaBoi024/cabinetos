@@ -4,6 +4,14 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.11.01.3 {#v2026-11-01-3}
+
+- **Fixed:** characters in Gears of War, Gears of War 2 and other Xbox 360
+  games made with Unreal Engine 3, such as Mass Effect and the Batman Arkham
+  games, no longer show black patches. Xbox 360's emulator, Xenia Edge, is
+  updated for it; as with any emulator update, an Xbox 360 save made before
+  this update may not load. ([#632](https://github.com/MMagTech/cabinetos/pull/632))
+
 ## 2026.11.01.2 {#v2026-11-01-2}
 
 - **Fixed:** an arcade game made for MAME could stop on FinalBurn Neo's

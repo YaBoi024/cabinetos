@@ -16135,18 +16135,8 @@ reason; the same answer is expected for RPCS3's and Eden's output filters.
 thing seen once while testing; issues are opened only when he asks for one,
 the rest is recorded here):
 
-- **Black patches on character models in Gears of War 2** (and on record
-  for Gears of War 1): Unreal Engine 3's MSAA tiling under Xenia. Fixed in
-  Xenia Canary on 2026-10-06 (xenia-canary/xenia-canary#1271, "Xenos sample
-  positions; UE3 tiling fix"; the tracker's note on
-  xenia-canary/game-compatibility#46 and #44: `window_offset_in_edram =
-  false` with `xenos_sample_positions = true`). Neither flag exists in Edge
-  at our pin (checked in its source), and Edge's commits to 2026-10-18 have
-  not merged it. The per-game "Black Shading Fix" in Xenia's patch set is
-  not taken, by the rule; Edge ships no patch files and Batocera applies
-  none by default. The fix is the next Edge pin that carries Canary's
-  change, with the two flags passed for every game if they are not its
-  defaults by then.
+- **Black patches on character models in Gears of War 1 and 2:** moved to
+  [decisions/2026-11-01-xbox-360-unreal-engine-3-fix.md](decisions/2026-11-01-xbox-360-unreal-engine-3-fix.md).
 - **Gears of War and Gears of War 2 each hung once on the A9**, about three
   minutes and about 95 seconds in: Xenia alive, two emulated CPU threads at
   100%, the graphics thread idle; the pause menu worked and Exit to Home
