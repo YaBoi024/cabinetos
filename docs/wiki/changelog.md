@@ -4,6 +4,12 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.11.01.4 {#v2026-11-01-4}
+
+- **Fixed:** Dirt Devils stopped at its network check (*Mode: Slave,
+  checking network*) and never started. It plays now.
+  ([#635](https://github.com/MMagTech/cabinetos/pull/635))
+
 ## 2026.11.01.3 {#v2026-11-01-3}
 
 - **Fixed:** characters in Gears of War, Gears of War 2 and other Xbox 360
