@@ -31,6 +31,15 @@
 //     reproduced at a shell in one line. On a project whose rule is "measure
 //     rather than reason", that last property is worth more than elegance.
 //
+// ONE EXCEPTION, AND IT IS THE PASSWORD. nmcli takes a Wi-Fi password only
+// on its command line or from a passwd-file, and neither will do (#629, `join`
+// in net.cpp): any process on the console can read any other's argv through
+// /proc/<pid>/cmdline, and a passwd-file's password is handed back on every
+// retry, which turns a wrong one into a 45-second wait. So a new profile with a
+// typed password is made over D-Bus, one small `a{sa{sv}}` of three groups,
+// checked by joining a simulated radio's networks (WPA2, mixed, WPA3, hidden);
+// nmcli still brings it up and says why when it fails.
+//
 // The price is parsing, and it is paid in one place: `--terse` output is
 // colon-separated with `\` escapes, and an SSID may legally contain a colon.
 // Everything that reads nmcli goes through `splitFields` for that reason.
@@ -43,11 +52,7 @@
 // command line. That is not defensiveness about a hypothetical — a scan puts
 // unvetted bytes from strangers into this process, every time it runs.
 //
-// The one exposure kept rather than solved: a passphrase passed to `nmcli` is
-// visible in that process's argv while it runs. On this machine that is not an
-// escalation — the only readers are the same user and root, and NetworkManager
-// stores the passphrase where root can read it anyway — but it is written down
-// here rather than left to be discovered.
+// AND A PASSWORD NEVER GOES ON A COMMAND LINE: above, the one exception.
 //
 // --- IT BLOCKS, AND CALLERS MUST TREAT IT THAT WAY -------------------------
 //
@@ -158,7 +163,9 @@ bool cachedScan(std::vector<Network>* out, std::string* err);
 // Blocks until NetworkManager settles or `timeoutSeconds` passes. It returns
 // false on a wrong passphrase, and `err` carries what nmcli said, because
 // "Secrets were required, but not provided" is the one failure a person can act
-// on and paraphrasing it loses that.
+// on and paraphrasing it loses that. A failed join with a passphrase leaves no
+// profile behind: one holding the wrong password showed as "Saved", and
+// joining it tried that password again (MMagTech on the TV, 2026-09-24).
 bool join(const std::string& ssid, const std::string& passphrase, bool hidden,
           std::string* err, int timeoutSeconds = 45);
 

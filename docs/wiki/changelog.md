@@ -4,6 +4,14 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## Next
+
+- **Fixed:** for the few seconds the console took to join a Wi-Fi network
+  with a password you typed, any other program running on it, such as a
+  game, could read that password. It now goes straight to the console's
+  network service, which no other program can read. Joining works as
+  before. ([#629](https://github.com/MMagTech/cabinetos/issues/629))
+
 ## 2026.11.01.3 {#v2026-11-01-3}
 
 - **Fixed:** characters in Gears of War, Gears of War 2 and other Xbox 360
