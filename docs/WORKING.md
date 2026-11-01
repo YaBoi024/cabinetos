@@ -35,7 +35,12 @@ and how he wants it done. This changes rarely. New here? Start at
   newest first, and no date line: the version is the date (UTC). **Write it for a player, not for us:** what they
   would have noticed, then what happens now, and the issue number; no
   internal names (`**Fixed:** GameCube saves kept on your server loaded as an
-  empty card on a new console. They load now.`). **A New entry says how to
+  empty card on a new console. They load now.`). **Name what the change
+  covers, not a game.** Every fix is one rule for every game, so an entry
+  says which games it reaches by what they share (a system, a board, an
+  engine, a kind of controller), never by title: a title reads as a fix for
+  that game. A title may appear only as an example of what the screen shows
+  (*Metal Slug · NeoGeoMVS*). **A New entry says how to
   use it**, not only how to open it: the buttons, briefly, and a link to its
   wiki page (MMagTech: the manuals entry said R1 and nothing about turning or
   zooming). A pushed-again `testing`
