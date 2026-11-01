@@ -15,27 +15,26 @@ one you install, so you only ever install the newest.
 
 ## 2026.11.01.4 {#v2026-11-01-4}
 
-- **Fixed:** Dirt Devils stopped at its network check (*Mode: Slave,
-  checking network*) and never started. It plays now.
+- **Fixed:** a Model 3 game set up as the second of two linked cabinets
+  waited forever for the other at its network check (*Mode: Slave, checking
+  network*) and never started. It now plays on its own.
   ([#635](https://github.com/MMagTech/cabinetos/pull/635))
 
 ## 2026.11.01.3 {#v2026-11-01-3}
 
-- **Fixed:** characters in Gears of War, Gears of War 2 and other Xbox 360
-  games made with Unreal Engine 3, such as Mass Effect and the Batman Arkham
-  games, no longer show black patches. Xbox 360's emulator, Xenia Edge, is
+- **Fixed:** characters in Xbox 360 games made with Unreal Engine 3 no
+  longer show black patches. Xbox 360's emulator, Xenia Edge, is
   updated for it; as with any emulator update, an Xbox 360 save made before
   this update may not load. ([#632](https://github.com/MMagTech/cabinetos/pull/632))
 
 ## 2026.11.01.2 {#v2026-11-01-2}
 
 - **Fixed:** an arcade game made for MAME could stop on FinalBurn Neo's
-  *romset is missing files* screen. PGM games such as DoDonPachi II, Knights
-  of Valour and Martial Masters did. The console now checks for every file an
-  emulator needs, its BIOS and shared chips included, before choosing it, so
-  such a game plays in the next emulator its zip fits, usually MAME. No game
-  that played before moves to another emulator, and your zips stay as they
-  are. ([#631](https://github.com/MMagTech/cabinetos/pull/631))
+  *romset is missing files* screen. PGM games did. The console now checks
+  for every file an emulator needs, its BIOS and shared chips included,
+  before choosing it, so such a game plays in the next emulator its zip
+  fits, usually MAME. No game that played before moves to another emulator,
+  and your zips stay as they are. ([#631](https://github.com/MMagTech/cabinetos/pull/631))
 
 ## 2026.11.01 {#v2026-11-01}
 
@@ -71,22 +70,20 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.30 {#v2026-10-30}
 
-- **New:** Sega Model 3 games now play, in Supermodel: Virtua Fighter 3,
-  Scud Race, Sega Rally 2, Star Wars Trilogy and more. Their driving games
-  and Star Wars Trilogy rumble, as Model 2's driving games do. Keep them as
-  zip. Dirt Devils does not play yet: it stops at its network check. See
+- **New:** Sega Model 3 games now play, in Supermodel. Games whose cabinets
+  had force feedback rumble, as Model 2's driving games do. Keep them as
+  zip. A game set up as a linked second cabinet does not play yet: it stops
+  at its network check. See
   [Arcade](arcade.md) for how to set out arcade folders.
   ([#616](https://github.com/MMagTech/cabinetos/pull/616))
 
 ## 2026.10.29.7 {#v2026-10-29-7}
 
-- **New:** Sega Model 2 games now play, in sm2-emu: Daytona USA, Sega Rally,
-  Virtua Fighter 2 and more. See [Arcade](arcade.md) for how to set out
-  arcade folders. Eight of them played in MAME 0.289 until now and move to
-  sm2-emu: Daytona USA, Virtua Fighter 2, Virtua Striker, Motor Raid, Pilot
-  Kids, Rail Chase 2, Gunblade NY and Zero Gunner. Their high scores and
-  settings from MAME do not carry over, and their save states can no longer
-  be loaded, since sm2-emu has none.
+- **New:** Sega Model 2 games now play, in sm2-emu. See [Arcade](arcade.md)
+  for how to set out arcade folders. Model 2 games that played in MAME 0.289
+  until now move to sm2-emu: their high scores and settings from MAME do
+  not carry over, and their save states can no longer be loaded, since
+  sm2-emu has none.
   ([#613](https://github.com/MMagTech/cabinetos/pull/613))
 - **Fixed:** in a Switch, PS3, Xbox, Xbox 360, Wii U, PS Vita or Model 2
   game, a button pressed just as the pause menu faded away after Resume
@@ -154,11 +151,11 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.27 {#v2026-10-27}
 
-- **Fixed:** leaving a Wii game such as Mario Kart Wii could freeze the
-  picture for up to a minute while the emulator waited on Nintendo's old
-  servers. No emulator reaches the internet any more, so leaving is
-  immediate, and no game contacts a server of its own. A 3DS game now sees
-  its Wi-Fi as on, and its online modes still do not connect.
+- **Fixed:** leaving a Wii game could freeze the picture for up to a minute
+  while the emulator waited on Nintendo's old servers. No emulator reaches
+  the internet any more, so leaving is immediate, and no game contacts a
+  server of its own. A 3DS game now sees its Wi-Fi as on, and its online
+  modes still do not connect.
   ([#557](https://github.com/MMagTech/cabinetos/issues/557))
 
 ## 2026.10.26.3 {#v2026-10-26-3}
@@ -268,11 +265,10 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.22.4 {#v2026-10-22-4}
 
-- **Changed:** Wii games that require MotionPlus, such as Wii Sports Resort,
-  Red Steel 2 and Skyward Sword, are greyed with *Needs MotionPlus* until a
-  TechKen Wii Remote is paired: on Nintendo's own Remotes, Linux turns
-  MotionPlus off whenever a game turns it on. TechKen's copies are the only
-  officially supported Wii Remote. See
+- **Changed:** Wii games that require MotionPlus are greyed with
+  *Needs MotionPlus* until a TechKen Wii Remote is paired: on Nintendo's own
+  Remotes, Linux turns MotionPlus off whenever a game turns it on. TechKen's
+  copies are the only officially supported Wii Remote. See
   [Wii Remotes](controllers.md#wii-remotes).
 - **Fixed:** a Wii U game that needs the GamePad said *Needs a Wii Remote* on
   its tile. It says *Needs a Wii U GamePad* now.
