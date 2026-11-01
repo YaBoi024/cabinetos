@@ -69,6 +69,8 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 
 ### The image and updates
 
+- [access-password-is-the-admin-password](2026-11-01-access-password-is-the-admin-password.md): File access and Developer access share one password that is also the console user's admin password, readable by the console's own programs; accepted for now.
+
 ### Building and checking
 
 ### How we work
