@@ -10,7 +10,8 @@
 #
 # THE SOURCES, one per emulator:
 #   fbneo_libretro  its "Arcade only" DAT, and its drivers (the DAT names no
-#                   controls): their input lists for the light-gun games
+#                   controls and marks no file optional): their BIOS files'
+#                   BRF_OPT, their input lists for the light-gun games
 #                   ("P1 Gun X") and the mahjong panels ("P1 Kan", "P1 Pon",
 #                   "P1 Chi"), and their casino genre (GBF_CASINO)
 #   mame2003_plus   its metadata/mame2003-plus.xml, and its catver.ini for the
@@ -60,9 +61,13 @@
 # Supermodel's); each disc by the CHD's
 # name and the SHA1 the list gives (none for Flycast), a space in its name
 # written %20. Left out of the files:
-# the BIOS options (what the set takes from the BIOS at the end of its romof
-# chain; for MAME 0.289, the files with a `bios=`), files with no dump,
-# optional files, and Flycast's Copy and Eeprom entries. Flycast's also has
+# the BIOS files the emulator does not ask for (FBNeo's that its drivers mark
+# BRF_OPT, Neo Geo's choices of BIOS among them; for 2003-Plus and MAME
+# 0.289, the BIOS choices other than the default, the files with a `bios=`
+# naming another), files with no dump,
+# optional files, and Flycast's Copy and Eeprom entries. MAME 0.289's also
+# holds the files of the devices in the machine (its device_refs), which its
+# -listxml lists under each device. Flycast's also has
 # one `!bios` line: the BIOS zips it reads from bios/dc/.
 #
 # THE PIN IS READ FROM cores/build-core.sh, the one place it is written, and
@@ -202,10 +207,11 @@ import xml.etree.ElementTree as ET
 core, paths = sys.argv[1], sys.argv[2:]
 
 
-def mame_machines(path):
+def mame_machines(path, devices=False):
     # MAME 0.289's machines from its -listxml zip, one at a time as the list
     # streams (it is 327 MB), each cleared once used. A BIOS, a device or a
-    # machine that cannot run is not a set.
+    # machine that cannot run is not a set; devices=True gives the devices
+    # instead.
     with zipfile.ZipFile(path) as z:
         xml = [n for n in z.namelist() if n.endswith(".xml")]
         if len(xml) != 1:
@@ -214,7 +220,10 @@ def mame_machines(path):
             for _, m in ET.iterparse(f):
                 if m.tag != "machine":
                     continue
-                if "yes" not in (m.get("isbios"), m.get("isdevice")) and m.get("runnable") != "no":
+                if devices:
+                    if m.get("isdevice") == "yes":
+                        yield m
+                elif "yes" not in (m.get("isbios"), m.get("isdevice")) and m.get("runnable") != "no":
                     yield m
                 m.clear()
 
@@ -250,19 +259,32 @@ def line(name, works, flag, files, discs, buttons=0):
     print(" ".join(parts))
 
 
-def from_xml(path, is_bios, not_working, flag_of):
+def other_bios_choices(g):
+    # The CRCs of g's BIOS choices other than its default, the one the
+    # emulator loads (the list marks it default="yes", or it is the first):
+    # each a file with a bios= naming another choice. MAME 0.289 and
+    # 2003-Plus ask for every other file, the default's and a BIOS file with
+    # no bios= (PGM's) among them.
+    sets = list(g.iter("biosset"))
+    default = next((b.get("name") for b in sets if b.get("default") == "yes"),
+                   sets[0].get("name") if sets else None)
+    return {r.get("crc").lower() for r in g.iter("rom")
+            if r.get("crc") and r.get("bios") and r.get("bios") != default}
+
+
+def from_xml(path, is_bios, unasked, not_working, flag_of):
     games = {g.get("name"): g for g in ET.parse(path).getroot().iter("game")}
 
     def bios_crcs(g):
-        # The entry at the end of the romof chain, when it is a BIOS: its
-        # files are the BIOS options, never required.
+        # The entry at the end of the romof chain, when it is a BIOS: those
+        # of its files the emulator does not ask for, unasked(bios).
         seen = set()
         while g is not None and g.get("romof") and g.get("name") not in seen:
             seen.add(g.get("name"))
             g = games.get(g.get("romof"))
         if g is None or not is_bios(g):
             return set()
-        return {r.get("crc").lower() for r in g.iter("rom") if r.get("crc")}
+        return unasked(g)
 
     for name, g in sorted(games.items()):
         if is_bios(g):
@@ -322,6 +344,42 @@ def fbneo_flags(drv):
     return flags
 
 
+def fbneo_bios_options(drv, bios):
+    # The CRCs of the BIOS bios's files that FBNeo's drivers mark optional
+    # (BRF_OPT): Neo Geo's choices of BIOS and a few other boards'. Its
+    # loader asks for every other file, a BIOS's included
+    # (src/burner/libretro/libretro.cpp, its "is required" check): all six
+    # of PGM's. A file no driver lists as a BIOS file stops the list.
+    global bios_marks
+    if bios_marks is None:
+        bios_marks = {}
+        entry = re.compile(r'\{\s*"([^"]+)"\s*,\s*(?:0x[0-9a-fA-F]+|\d+)\s*,\s*(0x[0-9a-fA-F]+)\s*,'
+                           r'\s*([^}]*)\}')
+        for root, _, names in os.walk(drv):
+            for n in names:
+                if not n.endswith((".cpp", ".h")):
+                    continue
+                for m in entry.finditer(open(os.path.join(root, n), encoding="latin-1").read()):
+                    if "BRF_BIOS" in m.group(3):
+                        key = (m.group(1).lower(), int(m.group(2), 16))
+                        bios_marks.setdefault(key, set()).add("BRF_OPT" in m.group(3))
+    out = set()
+    for r in bios.iter("rom"):
+        if not r.get("crc"):
+            continue
+        key = (r.get("name").lower(), int(r.get("crc"), 16))
+        if key not in bios_marks:
+            sys.exit("fbneo_libretro: %s's %s is in no driver's BIOS files; the drivers changed shape"
+                     % (bios.get("name"), r.get("name")))
+        # Optional only where every driver listing it says so.
+        if bios_marks[key] == {True}:
+            out.add(r.get("crc").lower())
+    return out
+
+
+bios_marks = None
+
+
 def catver_flags(path):
     # MAME 2003-Plus's own catver.ini: the categories of games made for
     # anything but a controller.
@@ -344,11 +402,13 @@ if core == "fbneo_libretro":
     flags = fbneo_flags(paths[1])
     if sum(f == "x" for f in flags.values()) < 100:
         sys.exit("fbneo_libretro: its drivers gave too few games not made for a controller")
-    from_xml(paths[0], lambda g: g.get("isbios") == "yes", {"preliminary"},
+    from_xml(paths[0], lambda g: g.get("isbios") == "yes",
+             lambda b: fbneo_bios_options(paths[1], b), {"preliminary"},
              lambda g: flags.get(g.get("name").lower(), "-"))
 elif core == "mame2003_plus":
     flags = catver_flags(paths[1])
-    from_xml(paths[0], lambda g: g.get("runnable") == "no", {"preliminary", "protection"},
+    from_xml(paths[0], lambda g: g.get("runnable") == "no", other_bios_choices,
+             {"preliminary", "protection"},
              lambda g: flags.get(g.get("name").lower()) or
              ("g" if any(i.get("control") == "lightgun" for i in g.iter("input")) else "-"))
 elif core == "flycast":
@@ -420,17 +480,34 @@ elif core == "flycast":
         flag = "g" if uses in guns else "x" if uses in touch else "-"
         line(name.group(1), True, flag, files, discs)
 elif core == "mame_libretro":
-    marks = {"x": 0, "g": 0}
-    for m in mame_machines(paths[0]):
-        files = []
+    def asked(m):
+        # The files MAME asks for of machine or device m, as (CRC, size).
+        files, others = [], other_bios_choices(m)
         for r in m.iter("rom"):
             crc = (r.get("crc") or "").lower()
             if (not crc or r.get("status") == "nodump" or r.get("optional") == "yes"
-                    or r.get("bios")):
+                    or crc in others):
                 continue
             f2 = (int(crc, 16), int(r.get("size") or 0))
             if f2 not in files:
                 files.append(f2)
+        return files
+
+    # A device's files (a sound chip's, an I/O board's) are listed under the
+    # device, not under the machines holding it, and MAME asks for them too:
+    # a first pass over the list for them. A machine's device_refs name every
+    # device in it, a device's own devices included.
+    device_files = {d.get("name"): asked(d) for d in mame_machines(paths[0], devices=True)}
+    if sum(1 for f in device_files.values() if f) < 500:
+        sys.exit("mame_libretro: only %d devices with files; the list changed shape"
+                 % sum(1 for f in device_files.values() if f))
+    marks = {"x": 0, "g": 0}
+    for m in mame_machines(paths[0]):
+        files = asked(m)
+        for d in m.iter("device_ref"):
+            for f2 in device_files.get(d.get("name"), []):
+                if f2 not in files:
+                    files.append(f2)
         discs = [(d.get("name"), (d.get("sha1") or "").lower()) for d in m.iter("disk")
                  if d.get("status") != "nodump" and d.get("optional") != "yes"]
         flag = mame_flag(m)
