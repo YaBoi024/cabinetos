@@ -29,11 +29,13 @@
 #      address, profile and account names, tokens, Wi-Fi and connection names,
 #      Tailscale names and addresses, Remote Play device names, the names of
 #      Bluetooth devices that are not controllers, serial numbers, a changed
-#      hostname, Steam account names) and replaced everywhere.
+#      hostname, Steam account names, the File access password) and replaced
+#      everywhere.
 #   2. A safety net by pattern for what no list knows: email addresses,
 #      network addresses, MAC and Bluetooth addresses (the maker's half is
-#      kept, it says what the device is), serial numbers, Tailscale names,
-#      Steam IDs, tokens and passwords in key=value form.
+#      kept, it says what the device is), serial numbers, Tailscale names and
+#      sign-in links, Steam IDs, tokens and passwords in key=value form, and
+#      the text the on-screen keyboard logged before it stopped.
 # Each distinct value gets its own stable placeholder (<profile 1>, <wifi 2>,
 # <lan ip 3>), so the log still reads. Measured on the A9, 2026-10-10, before
 # this existed: Tailscale writes the account's email into the log in plain
@@ -336,6 +338,11 @@ def collect_secrets(root):
     for tok in (web or "").split():
         s.add(tok, "secret", numbered=False)
 
+    # File access and Developer access: the console user's login password
+    # (system_files/usr/libexec/cabinetos-files). Nothing logs it, but sshd's
+    # failures are kept, and one typed as a user name would be in them.
+    s.add(first_line(read("/var/lib/cabinetos-files/password")), "secret", numbered=False)
+
     # Bluetooth: a controller's name is its model and stays; anything else
     # (a phone, headphones) is named by a person and does not.
     bt_lines = run(["bluetoothctl", "devices"], timeout=8).splitlines() if bluetooth_up() else []
@@ -480,6 +487,10 @@ class Scrubber:
         return self.placeholder(":".join(parts), "mac")[:-1] + " of " + maker + ">"
 
     def __call__(self, text):
+        # THE ON-SCREEN KEYBOARD ONCE LOGGED WHAT WAS TYPED, a Wi-Fi or
+        # RetroAchievements password among it (frontend/src/input.cpp now
+        # logs the length), and a boot from before the update still has it.
+        text = re.sub(r"(\[keyboard\] committed): [^\n]*", r"\1 (the typed text left out)", text)
         if self.known:
             text = self.known.sub(self._known, text)
         # Secrets in key=value form, and bearer tokens.
@@ -495,6 +506,9 @@ class Scrubber:
         # Email addresses.
         text = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}",
                       lambda m: self.placeholder(m.group(0).lower(), "email"), text)
+        # Tailscale's sign-in link (frontend/src/tailscaleflow.cpp logs it):
+        # still open, it puts this console in whoever's network opens it.
+        text = re.sub(r"https?://login\.tailscale\.com/a/[^\s'\"]+", "<tailscale sign-in link>", text)
         # Tailscale names.
         text = re.sub(r"\b[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.ts\.net\b",
                       lambda m: self.placeholder(m.group(0).lower(), "tailscale name"), text)

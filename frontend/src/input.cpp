@@ -211,8 +211,11 @@ void App::handleEvent(const SDL_Event& e) {
                     case SDLK_DOWN: keyboard.moveFocus(0, +1); break;
                     case SDLK_BACKSPACE: keyboard.backspace(); break;
                     case SDLK_RETURN:
-                        std::fprintf(stderr, "[keyboard] committed: %s\n",
-                                     keyboard.value().c_str());
+                        // ITS LENGTH, NEVER THE TEXT: a Wi-Fi or
+                        // RetroAchievements password reached the log, and a
+                        // diagnostic report on a public issue with it.
+                        std::fprintf(stderr, "[keyboard] committed %zu characters\n",
+                                     keyboard.value().size());
                         keyboardResult(keyboard.commit());
                         break;
                     case SDLK_ESCAPE: keyboardResult(keyboard.cancel()); break;
@@ -380,8 +383,11 @@ void App::handleEvent(const SDL_Event& e) {
                     case SDL_GAMEPAD_BUTTON_WEST: keyboard.backspace(); break;
                     case SDL_GAMEPAD_BUTTON_NORTH: keyboard.toggleShift(); break;
                     case SDL_GAMEPAD_BUTTON_START:
-                        std::fprintf(stderr, "[keyboard] committed: %s\n",
-                                     keyboard.value().c_str());
+                        // ITS LENGTH, NEVER THE TEXT: a Wi-Fi or
+                        // RetroAchievements password reached the log, and a
+                        // diagnostic report on a public issue with it.
+                        std::fprintf(stderr, "[keyboard] committed %zu characters\n",
+                                     keyboard.value().size());
                         keyboardResult(keyboard.commit());
                         break;
                     case SDL_GAMEPAD_BUTTON_EAST:

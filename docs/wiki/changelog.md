@@ -4,6 +4,17 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## Next
+
+- **Fixed:** a password typed on the console's on-screen keyboard, such as
+  a Wi-Fi or RetroAchievements password, was written into the console's log
+  when you finished typing with Start or Enter, and a diagnostic report made
+  soon after carried it. The keyboard no longer writes what you type, and a
+  report made after this update leaves out any such line from before it. It
+  also hides the File access password and Tailscale's sign-in link now. If
+  you shared a report before this update, change any password you had typed
+  on the console shortly before making it.
+
 ## 2026.10.30.2 {#v2026-10-30-2}
 
 - **New:** every arcade folder in RomM is now one Library tile, **Arcade**,
