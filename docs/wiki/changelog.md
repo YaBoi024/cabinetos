@@ -12,7 +12,7 @@ one you install, so you only ever install the newest.
   emulator needs, its BIOS and shared chips included, before choosing it, so
   such a game plays in the next emulator its zip fits, usually MAME. No game
   that played before moves to another emulator, and your zips stay as they
-  are.
+  are. ([#631](https://github.com/MMagTech/cabinetos/pull/631))
 - **Fixed:** a password typed on the console's on-screen keyboard, such as
   a Wi-Fi or RetroAchievements password, was written into the console's log
   when you finished typing with Start or Enter, and a diagnostic report made
