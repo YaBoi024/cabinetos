@@ -6,6 +6,11 @@ one you install, so you only ever install the newest.
 
 ## Next
 
+- **Fixed:** characters in Gears of War, Gears of War 2 and other Xbox 360
+  games made with Unreal Engine 3, such as Mass Effect and the Batman Arkham
+  games, no longer show black patches. Xbox 360's emulator, Xenia Edge, is
+  updated for it; as with any emulator update, an Xbox 360 save made before
+  this update may not load. ([#632](https://github.com/MMagTech/cabinetos/pull/632))
 - **Fixed:** a password typed on the console's on-screen keyboard, such as
   a Wi-Fi or RetroAchievements password, was written into the console's log
   when you finished typing with Start or Enter, and a diagnostic report made

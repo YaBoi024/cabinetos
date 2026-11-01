@@ -56,7 +56,7 @@ pcsx2-twemoji          PCSX2/pcsx2                         fd9d310ccbb6b8b62c976
 pcsx2-promptfont       PCSX2/pcsx2                         fd9d310ccbb6b8b62c976da8886a3c8fd3a10ff3  bin/resources/fonts/promptfont-license
 pcsx2-flags            PCSX2/pcsx2                         fd9d310ccbb6b8b62c976da8886a3c8fd3a10ff3  bin/resources/icons/flags/LICENSE
 rpcs3                  RPCS3/rpcs3                         1707d7fc883ef48ff21bdcbb0141a3211ae09cb2  LICENSE
-xenia-edge             has207/xenia-edge                   a7c39fa7d9c54d83022e431da62c1c65bf3e6196  LICENSE
+xenia-edge             has207/xenia-edge                   4ad875acb557910b42d39749787bc55a4b75d6e7  LICENSE
 vita3k                 Vita3K/Vita3K                       649d7d69b2da2eb55f17233376f861a3a32cf12a  COPYING.txt
 cemu                   cemu-project/Cemu                   4e3c824faa00f6b85782db019f20f29f063f3a2a  LICENSE.txt
 # sm2-emu's licence, the additional terms its NOTICE sets under GPL v3 section
