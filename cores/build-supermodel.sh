@@ -9,8 +9,8 @@
 # MAME 0.289 lists 23 Model 3 games and runs none; at this pin 16 of the 17
 # in the reference library reached gameplay on the A9 at 4K (2026-10-29).
 # Its Flathub build moves on its own; a pinned build keeps the same emulator
-# for everyone. Not patched: a patch that looks needed is named to MMagTech
-# first.
+# for everyone. One patch of ours (below, "the patch"), named to MMagTech
+# first, as any other would be.
 #
 # HOW: Supermodel's own Makefiles/Makefile.UNIX, with SDL 2 (Fedora's
 # sdl2-compat, on the image's SDL 3), SDL2_net, OpenGL, GLU and zlib from
@@ -23,8 +23,9 @@
 # every setting the console writes is one this source reads, read from
 # frontend/src/standalone_supermodel.cpp itself so the two cannot drift
 # (which is why build-supermodel.yml's cache key covers that file); SIGTERM
-# ends its loop and NVRAM is saved on the way out; every library it still
-# asks the system for is in Fedora 44, and SDL2_net is taken from lib/.
+# ends its loop and NVRAM is saved on the way out; the patch applies exactly;
+# every library it still asks the system for is in Fedora 44, and SDL2_net is
+# taken from lib/.
 # WHAT IT CANNOT: that a game runs. That is seen on the A9 for every move of
 # the pin.
 #
@@ -118,6 +119,39 @@ grep -q 'only continue if Supermodel is linked to itself' "$SRC/Src/Model3/SimNe
     { echo "Supermodel's net board no longer runs linked to itself" >&2; fail=1; }
 (( fail == 0 )) || exit 1
 echo "the console's ${#flags[@]} flags and ${#keys[@]} settings are all read at the pin"
+
+# --- the patch ---------------------------------------------------------------
+# A MACHINE LINKED TO ITSELF IS THE ONLY MACHINE. Tracked on #ISSUE; Supermodel
+# declined it (trzy/Supermodel#360: on the hardware the operator sets such a
+# game to no link), so no release will carry it and it stays
+# (docs/decisions/2026-11-01-dirt-devils-supermodel-patch.md). Linked to
+# itself, a game set as a slave or relay cabinet waits for the machine before
+# it, which is itself, forever: Dirt Devils, whose own setting is slave,
+# stopped at "Mode: Slave, checking network" with every thread waiting and
+# SIGTERM ignored. Patched, a machine linked to itself takes the master's path
+# whatever its game is set to, by the same test Supermodel uses to let a lone
+# master go on (port in is port out, address 127.0.0.1), for both kinds of net
+# game. A game set as master, Scud Race, runs as before. Each replacement must
+# match exactly once, or the build stops: a patch that matches nothing is a
+# green build without it.
+NETBOARD="$SRC/Src/Model3/SimNetBoard.cpp"
+patch_once() {
+    FROM="$1" TO="$2" perl -0pi -e '
+        my $n = () = /\Q$ENV{FROM}\E/g;
+        die "matched $n times\n" unless $n == 1;
+        s/\Q$ENV{FROM}\E/$ENV{TO}/;
+    ' "$NETBOARD" || {
+        echo "the Supermodel patch did not apply to SimNetBoard.cpp; upstream shape changed" >&2
+        exit 1
+    }
+}
+ALONE='(port_in == port_out && addr_out == "127.0.0.1")'
+TAB=$'\t'
+patch_once "if (RAM16[0x400] == 0)${TAB}// master" \
+    "if (RAM16[0x400] == 0 || $ALONE)${TAB}// master, or linked to itself (cabinetos)"
+patch_once "if (RAM16[0x200] == 0)${TAB}// master" \
+    "if (RAM16[0x200] == 0 || $ALONE)${TAB}// master, or linked to itself (cabinetos)"
+echo "patched: a machine linked to itself runs as the only cabinet"
 
 run_in_builder() {
     podman run --rm -v "$SRC":/src:Z -w /src "$BUILDER" bash -c "$1"

@@ -60,11 +60,15 @@ otherwise, and that script is in this repository so anyone can reproduce the
 binaries exactly. Two cores have been shown to build byte-identically on two
 different machines.
 
-**Source patches are part of this.** `cores/build-core.sh` applies four
-in-flight patches: melonDS's unload flush, PPSSPP's shader-cache save and
-CPU-engine log, and Azahar's, which gives games no network. They are visible in that script, they are applied at build time
-rather than vendored, and they are the modifications this project makes to GPL
-source.
+**Source patches are part of this.** Four build scripts apply in-flight
+patches: `cores/build-core.sh` (melonDS's unload flush, PPSSPP's shader-cache
+save and CPU-engine log, and Azahar's, which gives each game its own folders),
+`cores/build-pcsx2.sh` (PCSX2's sound handed to the console),
+`cores/build-sunshine.sh` (Sunshine's, in `cores/sunshine-patches/`) and
+`cores/build-supermodel.sh` (Supermodel's, which runs a machine linked to
+itself as the only cabinet). They are visible in those scripts, they are
+applied at build time rather than vendored, and they are the modifications
+this project makes to GPL source.
 
 ---
 
@@ -164,7 +168,7 @@ here. See `frontend/src/catalog.cpp`.
 | **The libraries compiled into Cemu** (wxWidgets, Boost, fmt, SDL 3, OpenSSL, curl, glslang, pugixml, libzip, zstd and others) | built by Cemu's own vcpkg recipe at the versions its pinned commit names, linked statically, unchanged | each under its own licence (wxWidgets licence, Boost licence, fmt MIT, SDL zlib, OpenSSL Apache 2.0, curl MIT-style, glslang BSD-style, pugixml MIT, libzip BSD 3-Clause, zstd BSD) |
 | **sm2-emu**, in `/usr/lib/cabinetos/sm2emu` | built from source by `cores/build-sm2emu.sh`, unmodified, `dmanlfc/sm2-emu` at commit `4c290c558afaaa85956fa2364971c92cfde707cf` (v0.9.56), with its own game list and translations from the same commit; copyright 2025+ Daniel Martin (dmanlfc) and the sm2-emu contributors | GPL v3 or later, with additional terms under its section 7 (its `NOTICE`: keep its copyright notices and author attributions, do not misrepresent its origin, and a modified copy takes another name); the code it takes from MAME's Model 2 driver stays BSD 3-Clause |
 | **The libraries compiled into sm2-emu** (Musashi, ymfm, Dear ImGui, pugixml, miniz, the LZMA SDK, stb, VulkanMemoryAllocator, SheenBidi) | its own submodules and committed sources at its pinned commit, linked statically by its own CMake, unchanged | each under its own licence (Musashi MIT, ymfm BSD 3-Clause, Dear ImGui MIT, pugixml MIT, miniz MIT, the LZMA SDK and stb public domain, VulkanMemoryAllocator MIT, SheenBidi Apache 2.0) |
-| **Supermodel**, in `/usr/lib/cabinetos/supermodel` | built from source by `cores/build-supermodel.sh`, unmodified, `trzy/Supermodel` at commit `14815455dc28fca2c8662fb1ed99d447ecf8f364` (v0.3a-20261025-git-1481545), with its own game list and crosshair pictures from the same commit; copyright 2003-2026 The Supermodel Team | GPL v3 or later |
+| **Supermodel**, in `/usr/lib/cabinetos/supermodel` | built from source by `cores/build-supermodel.sh`, **modified**: a machine whose net board is linked to itself runs as the only cabinet (the patch is in that script), `trzy/Supermodel` at commit `14815455dc28fca2c8662fb1ed99d447ecf8f364` (v0.3a-20261025-git-1481545), with its own game list and crosshair pictures from the same commit; copyright 2003-2026 The Supermodel Team | GPL v3 or later |
 | **The libraries compiled into Supermodel** (GLEW, minizip, TinyXML-2, Dear ImGui, minimp3, and Musashi, its 68000 core) | its own `Src/Pkgs` and `Src/CPU/68K/Musashi` at its pinned commit, built by its own makefile, unchanged | each under its own licence (GLEW BSD 3-Clause and MIT, minizip zlib, TinyXML-2 zlib, Dear ImGui MIT, minimp3 CC0; Musashi under the GPL, by its author's permission, as its header says) |
 | **SDL2_net**, `/usr/lib/cabinetos/supermodel/lib/libSDL2_net-2.0.so.0` | Fedora 44's package, version 2.4.0, copied unchanged beside Supermodel, which the image's base lacks | zlib |
 | **Sunshine** (Remote Play), `/usr/bin/sunshine` and `/usr/share/sunshine` | built from source by `cores/build-sunshine.sh` with LizardByte's own Fedora 44 recipe, `LizardByte/Sunshine` at tag `v2026.914.233613`, **modified**: our patches in `cores/sunshine-patches/` (#304); `build_files/install-sunshine.sh` removes only the file capability the package sets and its own service and launchers | GPL v3 |
