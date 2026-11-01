@@ -38,6 +38,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [prebuilt-mame-core](2026-10-28-prebuilt-mame-core.md): MAME 0.289 is libretro's own build, the one core we do not build.
 - [model-2-and-model-3](2026-10-28-model-2-and-model-3.md): Model 2 plays in sm2-emu and Model 3 in Supermodel, both built into the image.
 - [model-3-net-board-linked-to-itself](2026-10-29-model-3-net-board-linked-to-itself.md): Model 3's net board is on, linked to itself, inside the empty network every emulator gets.
+- [xbox-360-unreal-engine-3-fix](2026-11-01-xbox-360-unreal-engine-3-fix.md): every Xbox 360 game draws at the Xenos sample positions with the window offset in the viewport, so Unreal Engine 3 games lose their black patches.
 - [dirt-devils-supermodel-patch](2026-11-01-dirt-devils-supermodel-patch.md): a patch to Supermodel runs a machine linked to itself as the only cabinet, so Dirt Devils plays.
 
 ### Controls
