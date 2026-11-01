@@ -11,12 +11,16 @@
 #include <map>
 #include <mutex>
 
+#include <dirent.h>
+#include <sys/stat.h>
+
 #include "accounts.h"
 #include "cache.h"
 #include "covercache.h"
 #include "fileio.h"
 #include "pending.h"
 #include "romm.h"
+#include "savemirror.h"
 #include "standalone.h"
 #include "storage.h"
 
@@ -25,13 +29,51 @@ namespace {
 
 std::atomic<int> gPlaying{0};
 std::atomic<int> gLaunching{0};
-
-std::mutex gMu;          // guards the three below
-bool gAsked = false;     // RomM answered this start
-std::set<int> gGone;     // what it said
-std::set<int> gSaid;     // games already said to be left, so each is said once
+std::mutex gMu;                // guards the four below
+Queue gQueue;                  // the upload queue's two questions
+bool gAsked = false;           // RomM answered this start
+std::set<int> gGone;           // what it said
+std::set<std::string> gSaid;   // what was said to be left, so each is said once
 
 bool inUse(int romId) { return romId == gPlaying.load() || romId == gLaunching.load(); }
+
+// Says once a run why a game, or a person's files of it, were left.
+void sayLeft(const std::string& what, const std::string& line) {
+    std::lock_guard<std::mutex> lk(gMu);
+    if (gSaid.insert(what).second) std::fprintf(stderr, "%s\n", line.c_str());
+}
+
+// The folders named `<romId>` one level under `dir`: `saves/<platform>/<id>`.
+std::vector<std::string> gameFolders(const std::string& dir, int romId) {
+    std::vector<std::string> out;
+    DIR* d = ::opendir(dir.c_str());
+    if (!d) return out;
+    while (dirent* e = ::readdir(d)) {
+        if (e->d_name[0] == '.') continue;
+        const std::string p = dir + "/" + e->d_name + "/" + std::to_string(romId);
+        if (storage::exists(p)) out.push_back(p);
+    }
+    ::closedir(d);
+    return out;
+}
+
+// A folder anywhere under `dir` holding an emulator's note: saves not yet
+// off it (standalone.h, notesPlaying).
+bool holdsNote(const std::string& dir) {
+    if (cab::standalone::hasPlayingNote(dir)) return true;
+    DIR* d = ::opendir(dir.c_str());
+    if (!d) return false;
+    bool found = false;
+    while (dirent* e = ::readdir(d)) {
+        if (e->d_name[0] == '.') continue;
+        const std::string p = dir + "/" + e->d_name;
+        struct stat st;
+        if (::lstat(p.c_str(), &st) != 0 || !S_ISDIR(st.st_mode)) continue;
+        if (holdsNote(p)) { found = true; break; }
+    }
+    ::closedir(d);
+    return found;
+}
 
 std::string accountName(const std::vector<accounts::Account>& all, int id) {
     for (const accounts::Account& a : all)
@@ -132,13 +174,26 @@ void setInUse(int playing, int launching) {
     gLaunching = launching;
 }
 
+void setQueue(Queue q) {
+    std::lock_guard<std::mutex> lk(gMu);
+    gQueue = std::move(q);
+}
+
+bool uploadsPending() {
+    std::function<int()> pending;
+    {
+        std::lock_guard<std::mutex> lk(gMu);
+        pending = gQueue.pending;
+    }
+    return pending && pending() > 0;
+}
+
 bool removeCopy(int romId) {
     const std::vector<cache::Placement> copies = cache::findAll(romId);
     auto leave = [&](const char* because) {
-        std::lock_guard<std::mutex> lk(gMu);
-        if (gSaid.insert(romId).second)
-            std::fprintf(stderr, "[gone] %d left on the drive for now: RomM no longer has "
-                                 "it, but %s\n", romId, because);
+        sayLeft("copy " + std::to_string(romId),
+                "[gone] " + std::to_string(romId) + " left on the drive for now: RomM no "
+                "longer has it, but " + because);
         return false;
     };
     if (inUse(romId)) return leave("it is being played");
@@ -182,18 +237,68 @@ bool removeCopy(int romId) {
     return true;
 }
 
-int forgetOwed(int romId) {
-    int n = 0;
-    for (const storage::User& u : storage::knownUsers())
-        for (const cache::Owed& o : cache::owed(u))
-            if (o.romId == romId) {
-                cache::clearPending(u, romId, o.fileName);
-                ++n;
+bool removeSaves(int romId, const storage::User& signedIn) {
+    const std::string id = std::to_string(romId);
+    if (inUse(romId)) {
+        sayLeft("saves " + id, "[gone] " + id + "'s saves left for now: it is being played");
+        return false;
+    }
+    Queue q;
+    {
+        std::lock_guard<std::mutex> lk(gMu);
+        q = gQueue;
+    }
+    int people = 0, files = 0, owedGone = 0;
+    int64_t bytes = 0;
+    bool left = false;
+    for (const storage::User& u : storage::knownUsers()) {
+        const std::string home = storage::userDir(u);
+        std::vector<std::string> folders = gameFolders(home + "/saves", romId);
+        for (const std::string& f : gameFolders(home + "/states", romId)) folders.push_back(f);
+        if (storage::exists(storage::screenshotsDir(u) + "/" + id))
+            folders.push_back(storage::screenshotsDir(u) + "/" + id);
+        std::vector<cache::Owed> owed;
+        for (cache::Owed& o : cache::owed(u))
+            if (o.romId == romId) owed.push_back(std::move(o));
+        // NOT YET TRIED: the signed-in person's owed file before RomM has
+        // refused it this run, or saves still in an emulator's folder.
+        std::string wait;
+        for (const cache::Owed& o : owed)
+            if (u.id == signedIn.id && !(q.refused && q.refused(u, romId, o.fileName)))
+                wait = o.fileName + " has not been tried by the upload queue yet";
+        for (const std::string& f : folders)
+            if (wait.empty() && holdsNote(f)) wait = f + " still holds an emulator's note";
+        if (!wait.empty()) {
+            sayLeft("saves " + id + " " + home,
+                    "[gone] " + id + ": " + u.name + "'s saves left for now: " + wait);
+            left = true;
+            continue;
+        }
+        bool any = !folders.empty() || !owed.empty();
+        for (const std::string& f : folders) {
+            bytes += storage::treeBytes(f);
+            if (storage::removeEntry(f)) ++files;
+        }
+        for (const cache::Owed& o : owed) {
+            for (const std::string& p : {o.localPath, o.shotPath}) {
+                if (p.empty() || !storage::exists(p)) continue;
+                bytes += storage::treeBytes(p);
+                if (cab::removeFile(p)) ++files;
             }
-    if (n)
-        std::fprintf(stderr, "[gone] %d: %d upload(s) no longer owed, RomM no longer has the "
-                             "game; the files stay on the drive\n", romId, n);
-    return n;
+            cache::clearPending(u, romId, o.fileName);
+            ++owedGone;
+        }
+        if (storage::exists(home + "/server-saves/" + id)) {
+            savemirror::forget(u, romId);
+            any = true;
+        }
+        if (any) ++people;
+    }
+    if (people)
+        std::fprintf(stderr, "[gone] %d: saves, states and screenshots removed for %d person(s), "
+                             "%d item(s), %.1f KB, %d of them owed; RomM deleted its own with "
+                             "the game\n", romId, people, files, bytes / 1024.0, owedGone);
+    return !left;
 }
 
 std::vector<int> owedIds() {
@@ -311,19 +416,39 @@ int test() {
     const std::string covers = covercache::dir() + "/" + storage::safeSegment("gone-test");
     put(covers + "/22/705/small.none.img");
     put(covers + "/55/100/small.none.img");
-    // An owed save of 705 and one of 100, each with its file.
-    auto owe = [&](int id, const std::string& file) {
+    // Saves, states and screenshots. Person a is signed in: an owed save of
+    // 705 with its file, a sent state, a screenshot and RomM's saves as last
+    // seen; an owed save of 100, which RomM has; a sent save of 2268. Person b:
+    // a sent save of 705 and one owed; 2268's saves still in an emulator's
+    // folder; a save of 3017.
+    auto owe = [&](const storage::User& u, int id, const std::string& file) {
         cache::Owed o;
         o.romId = id;
         o.emulator = "gone-test";
         o.fileName = file;
-        o.localPath = storage::savesDir(a, "FBNEO", id, "fbneo") + "/" + file;
+        o.localPath = storage::savesDir(u, "FBNEO", id, "fbneo") + "/" + file;
         put(o.localPath);
-        cache::markPending(a, o, 4096);
+        cache::markPending(u, o, 4096);
         return o.localPath;
     };
-    const std::string goneSave = owe(705, "gonefight.nv");
-    owe(100, "live.nv");
+    const std::string aOwed = owe(a, 705, "gonefight.nv");
+    const std::string aState = storage::statesDir(a, "FBNEO", 705, "fbneo") + "/1.state";
+    put(aState);
+    const std::string aShot = storage::screenshotsDir(a) + "/705/shot.png";
+    put(aShot);
+    const std::string aMirror = storage::userDir(a) + "/server-saves/705/saves.json";
+    put(aMirror);
+    owe(a, 100, "live.nv");
+    const std::string aKept = storage::savesDir(a, "Sony Playstation 3", 2268, "rpcs3") + "/x";
+    put(aKept);
+    const std::string bSent = storage::savesDir(b, "FBNEO", 705, "fbneo") + "/sent.nv";
+    put(bSent);
+    const std::string bOwed = owe(b, 705, "b.nv");
+    const std::string bNoted = storage::savesDir(b, "Sony Playstation 3", 2268, "rpcs3");
+    put(bNoted + "/hdd0/save.dat");
+    cab::standalone::writePlayingNote(bNoted, "2268\n");
+    const std::string bPlaying = storage::savesDir(b, "MAME2003", 3017, "mame2003") + "/hi";
+    put(bPlaying);
 
     setInUse(3017, 0);
     check(owedIds() == std::vector<int>({100, 705}), "the games owed for are listed for asking");
@@ -340,11 +465,35 @@ int test() {
     check(exists(live) && exists(storage::gamesDir() + "/100.json") &&
               exists(covers + "/55/100/small.none.img"),
           "a game RomM still has is untouched");
-    check(forgetOwed(705) == 1 && exists(goneSave), "a save owed for it stops being owed, its file kept");
+
+    std::set<std::string> refused;
+    int queued = 2;
+    setQueue({[&] { return queued; },
+              [&](const storage::User& u, int id, const std::string& f) {
+                  return refused.count(u.name + "/" + std::to_string(id) + "/" + f) > 0;
+              }});
+    check(uploadsPending(), "the upload queue still holding uploads is waited for");
+    queued = 0;
+    check(!uploadsPending(), "and an empty one is not");
+    check(!removeSaves(705, a) && exists(aOwed) && exists(aState) && exists(aShot) &&
+              cache::owed(a).size() == 2,
+          "the signed-in person's owed save before the queue has tried it: all theirs left");
+    check(!exists(bSent) && !exists(bOwed) && cache::owed(b).empty(),
+          "another person's, sent and owed, go: RomM answered 404 to them");
+    refused.insert(a.name + "/705/gonefight.nv");
+    check(removeSaves(705, a) && !exists(aOwed) && !exists(aState) && !exists(aShot) &&
+              !exists(aMirror),
+          "once RomM refused it this run: the save, the state, the screenshot and RomM's "
+          "copy go");
     const std::vector<cache::Owed> still = cache::owed(a);
-    check(still.size() == 1 && still[0].romId == 100, "and a live game's save is still owed");
+    check(still.size() == 1 && still[0].romId == 100, "and a live game's owed save stays owed");
+    check(!removeSaves(2268, a) && !exists(aKept) && exists(bNoted + "/hdd0/save.dat"),
+          "a person's saves still in an emulator's folder are left, the others go");
+    check(!removeSaves(3017, a) && exists(bPlaying), "a game being played keeps its saves");
     setInUse(0, 0);
-    check(removeCopy(3017) && !exists(running), "the played game goes once it is left");
+    check(removeCopy(3017) && !exists(running) && removeSaves(3017, a) && !exists(bPlaying),
+          "the played game and its saves go once it is left");
+    setQueue({});
 
     storage::removeEntry(root);
     std::printf("\ngone games: %d failure%s\n", failures, failures == 1 ? "" : "s");

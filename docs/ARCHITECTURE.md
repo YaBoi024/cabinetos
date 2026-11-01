@@ -58,7 +58,7 @@ is in the file named for its feature, and
 | PlayStation 2 | `ps2.cpp`, `ps2window.cpp`, `overlaywin.cpp`, and `frontend/ps2/` (its `CabinetPS2Bios.cpp` chooses each game's BIOS by the game's region) |
 | Emulators run as programs | `standalone.h`, `standalone.cpp`, `standalone_play.cpp` (also what the console draws over the game in play: the dim, and the pointer for a game touched through the console, the Vita's), `standalone_eden.cpp`, `standalone_xemu.cpp`, `standalone_rpcs3.cpp`, `standalone_xenia.cpp`, `standalone_cemu.cpp`, `standalone_vita3k.cpp`, `standalone_sm2emu.cpp` (Sega Model 2: sm2-emu's settings, written whole in the person's folder for the game, with a game's buttons on a fight stick where the stick's rules put them), `standalone_supermodel.cpp` (Sega Model 3: Supermodel's settings, written whole in its home, which is its working folder, with the person's NVRAM folder for the game linked in, and its buttons laid out the same way), `vpad.cpp`, `vtouch.cpp` (the virtual touch screen the pointer touches with, and gamescope passing touch through), `xtitles.cpp`, `xboxhdd.cpp`, `x360profile.cpp`, `dolphinprep.cpp` |
 | Saves and states | `savetable.cpp` (what each core writes, where, and its two tags on RomM: `emulatorTag` for states, `saveTag` for saves; which systems have states and rewind, `snapshotsAllowed` and `rewindAllowed`), `saves.cpp` (sending and restoring all three kinds of save: `syncSave`, `syncDirSave`, `syncFileSaves`), `dirsave.cpp` and `filesave.cpp` (their helpers), `states.cpp`, `statefile.cpp` (a state file's layout: the core's bytes alone, or RetroArch's RASTATE blocks with the achievement progress), `savemirror.cpp`, `uploader.cpp` (the queue), `pending.cpp` (the markers), `offline_sync.cpp`, `playtime.cpp`, `favorites.cpp`; the requests themselves are in `romm_playdata.cpp` |
-| Storage | `storage.h` (where everything lives), `storage_internal.h`, `locations.cpp`, `cache.cpp`, `drives.cpp`, `drives_fs.cpp`, `udisks.cpp`, `users.cpp`, `accounts.cpp`, `accountremove.cpp`, `fileio.cpp` (every file the console replaces goes through its `writeBytes`: a temporary, fsync, a rename), `prefs.cpp`, `gonegames.cpp` (a game RomM no longer has leaves the drive at a start with the server there, with its record and covers, and what was owed for it stops being owed, #625) |
+| Storage | `storage.h` (where everything lives), `storage_internal.h`, `locations.cpp`, `cache.cpp`, `drives.cpp`, `drives_fs.cpp`, `udisks.cpp`, `users.cpp`, `accounts.cpp`, `accountremove.cpp`, `fileio.cpp` (every file the console replaces goes through its `writeBytes`: a temporary, fsync, a rename), `prefs.cpp`, `gonegames.cpp` (a game RomM no longer has leaves the drive at a start with the server there, with its record, covers, saves, states and screenshots, #625) |
 | Controllers | `players.cpp`, `fightstick.cpp` (the table of known fight sticks, and an arcade game's buttons laid out on one), `controls.cpp` (Controls: an arcade game's buttons moved per game, kind of controller and person, kept in `users/<id> - <name>/controls/`; `play.cpp`'s readGameInput reads each pad through it, `launch.cpp`'s startPlaying reads the game's file), `controlsflow.cpp` (its panel over the pause menu, and the press it listens for, which `controllers.cpp` hands it before anything else sees it), `controllers.cpp`, `bluetooth.cpp`, `btagent.h`, `battery.cpp`, `batteryrow.cpp`, `shortcuts.cpp`, `wiiremote.cpp` (starts the Wii bridge), `wiipair.cpp`, `wiipanel.cpp`, `wiimii.cpp`, `wii.cpp`, `wiiu.cpp` |
 | The machine | `net.cpp`, `wifi.cpp`, `power.cpp`, `power_menu.cpp`, `powerprofile.cpp`, `volume.cpp`, `sound.cpp`, `gpu.cpp`, `cpus.cpp`, `idle.cpp`, `proc.cpp` (running a program with no shell), `unit.cpp` (asking systemd for a root job), `update.cpp` (System update, the console's side), `files.cpp` (File access, the console's side), `server.cpp` and `serveraddress.cpp` (the RomM server this console belongs to) |
 | RetroAchievements | `achievements.cpp` (the sign-in and rcheevos' client; its console table names every system), `achievements_ui.cpp`, `ra_list.cpp`, `ra_net.cpp`, `ra_state.h` |
@@ -125,7 +125,8 @@ is in the file named for its feature, and
 - **Storage** (`storage.h`) decides where everything lives. Eviction only ever
   walks `cache/`; kept games (`roms/`) and save data are never evicted. The
   one other removal is a game RomM no longer has, kept or played, at a start
-  with the server there (`gonegames.h`); its saves stay.
+  with the server there, with its saves, states and screenshots, once the
+  upload queue has tried what that start owed (`gonegames.h`).
   A save, a state or a screenshot owed to RomM is a marker on disk before
   the upload is tried (`pending.h`), so a crash or a power cut cannot lose
   it; time played and favourites are owed in their own files
@@ -269,8 +270,9 @@ power cut).
    next start (`startSync`). One that failed is sent again every five
    minutes, when the server comes back and after a person's next upload
    works; one RomM refused (an HTTP 4xx) keeps its marker and waits for the
-   next start or a new save of it, unless RomM no longer has the game: then
-   the marker goes at the backfill and the file stays (`gonegames.h`). States: the newest three per game and
+   next start or a new save of it, unless RomM no longer has the game: then,
+   once the queue has tried it that start, the file goes with the game
+   (`gonegames.h`). States: the newest three per game and
    emulator tag are kept on RomM.
 3. Each core's saves, where it writes them and the tag they carry on RomM are
    one table, `savetable.cpp`. A launch restores the newest row under its
@@ -336,7 +338,8 @@ Each with where it is recorded.
 - **Big emulators run as programs, played as games** (docs/PROJECT.md, open
   question 32).
 - **Pulled games are a cache; kept games stay** (docs/PROJECT.md, "The
-  backend model"; `cache.h`).
+  backend model"; `cache.h`), until RomM no longer has the game
+  (`docs/decisions/2026-11-01-game-gone-from-romm.md`).
 - **gamescope, not Bazzite's gamescope-session-plus** (cabinetos-session's
   header; docs/PROJECT.md, open question 3).
 - **The on-disk layout** (docs/PROJECT.md, open question 18; `storage.h`).

@@ -1,6 +1,7 @@
 // Games RomM no longer has (#625): the console's copies of them leave its
-// drive at a start with the server there, and what was owed for them stops
-// being owed. The player sees nothing.
+// drive at a start with the server there, with their saves, states and
+// screenshots (docs/decisions/2026-11-01-game-gone-from-romm.md). The
+// player sees nothing.
 //
 // WHY. A game deleted in RomM, or given a new entry by a folder RomM scanned
 // again, stayed on the drive: a kept one for ever, a played one until a
@@ -27,14 +28,23 @@
 // WHAT GOES, by the paths that already remove a game: every person's keep
 // (cache::unkeepForEveryone) and the cache's own removal (cache::evictGame),
 // so the manual, an installed PS3 or Vita game and an emulator's cache inside
-// the game's folder go with it; then its record and its covers. NEVER a game
-// being played or launched (setInUse), and never a folder still holding saves
-// not yet off it (the Xbox drive's note, standalone.h): both are left for a
-// later backfill or the next start. Saves are never removed: one owed for a
-// game that is gone stays on the drive and stops being owed. Time played and
-// favourites need nothing here: RomM 5.4.0 takes a play session for a game it
-// no longer has (filed under no game) and ignores a missing game added to a
-// collection, so neither is sent again.
+// the game's folder go with it; then its record and its covers; then every
+// person's saves, states and screenshots of it, sent or not, and the copy of
+// RomM's saves kept for offline. RomM 5.4.0 deletes a game's saves, states
+// and screenshots with the game (`RomAsset.rom_id`, ON DELETE CASCADE), so
+// nothing kept for it could ever be sent anywhere.
+//
+// NEVER BEFORE THE UPLOAD QUEUE HAS TRIED IT. The queue sends what the person
+// signed in owes at every start (Uploader::resendOwed); their owed file for a
+// game that is gone goes only once RomM has refused it this run, after the
+// queue has emptied. Another person's goes once RomM has answered 404 for the
+// game to them, which the rule below asks with their own sign-in. NEVER a
+// game being played or launched (setInUse), and never a folder still holding
+// saves not yet off it (the Xbox drive's note, a person's note for an
+// emulator of its own, standalone.h): each is left for a later backfill or
+// the next start. Time played and favourites need nothing here: RomM 5.4.0
+// takes a play session for a game it no longer has (filed under no game) and
+// ignores a missing game added to a collection, so neither is sent again.
 
 #pragma once
 
@@ -42,6 +52,8 @@
 #include <set>
 #include <string>
 #include <vector>
+
+#include "storage.h"
 
 namespace gone {
 
@@ -66,17 +78,33 @@ bool decide(const std::vector<int>& ids, const std::vector<int>& people, const A
 std::set<int> thisStart(const std::string& baseUrl, const std::vector<int>& ids);
 
 // The game on the screen and the game whose launch is under way, or 0. Set
-// by the frame thread once a frame (App::followServer); read by removeCopy.
+// by the frame thread once a frame (App::followServer); read by removeCopy
+// and removeSaves.
 void setInUse(int playing, int launching);
+
+// The upload queue, for removeSaves's order: how many uploads it still
+// holds, and whether RomM refused a person's file this run
+// (Uploader::refusedThisRun). Set by App::startSync; a stand-in in a test.
+struct Queue {
+    std::function<int()> pending;
+    std::function<bool(const storage::User& who, int romId, const std::string& fileName)> refused;
+};
+void setQueue(Queue q);
+// The queue holds something not yet tried.
+bool uploadsPending();
 
 // This console's copy of a game RomM no longer has, every one on every drive
 // here, its record and its covers: one line per game removed. False when it
 // was left, being played or launched or holding saves not yet off it.
 bool removeCopy(int romId);
 
-// Every save, state and screenshot anybody on this console owes RomM for the
-// game stops being owed. The files stay where they are. Returns how many.
-int forgetOwed(int romId);
+// Every person's saves, states and screenshots of a game RomM no longer has,
+// sent or not, their markers and the copy of RomM's saves for it: one line
+// per game. `signedIn` is the person the upload queue sends for, whose owed
+// file waits until RomM has refused it this run; a person whose files wait,
+// or whose save folder still holds an emulator's note, is left for a later
+// call. False when anything was left.
+bool removeSaves(int romId, const storage::User& signedIn);
 
 // Every game anybody on this console owes a save, state or screenshot for.
 std::vector<int> owedIds();

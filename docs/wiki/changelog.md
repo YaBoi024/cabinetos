@@ -8,12 +8,12 @@ one you install, so you only ever install the newest.
 
 - **Fixed:** a game you deleted in RomM, or one that got a new entry when
   RomM scanned its folder again, stayed on the console's drive. Now the
-  console removes its copy at the next start with your server there, a
-  played game and a downloaded one alike, so the room comes back. Its
-  pictures are no longer downloaded again at every start. A save made for
-  it while your server was away stays on the console and is no longer sent
-  at every start. A game that somebody else signed in on the console can
-  still see in RomM stays. ([#625](https://github.com/MMagTech/cabinetos/issues/625))
+  console removes it at the next start with your server there, a played
+  game and a downloaded one alike, so the room comes back, and its pictures
+  are no longer downloaded again at every start. Its saves, states and
+  screenshots on the console go with it: RomM deletes its own copies of
+  them along with the game, so they could never be sent anywhere. A game
+  that somebody else signed in on the console can still see in RomM stays. ([#625](https://github.com/MMagTech/cabinetos/issues/625))
 
 ## 2026.11.01.3 {#v2026-11-01-3}
 
