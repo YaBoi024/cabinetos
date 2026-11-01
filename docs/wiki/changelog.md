@@ -4,7 +4,7 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## Next
+## 2026.11.01.3 {#v2026-11-01-3}
 
 - **Fixed:** characters in Gears of War, Gears of War 2 and other Xbox 360
   games made with Unreal Engine 3, such as Mass Effect and the Batman Arkham
