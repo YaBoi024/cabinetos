@@ -13,7 +13,14 @@ one you install, so you only ever install the newest.
   are no longer downloaded again at every start. Its saves, states and
   screenshots on the console go with it: RomM deletes its own copies of
   them along with the game, so they could never be sent anywhere. A game
-  that somebody else signed in on the console can still see in RomM stays. ([#625](https://github.com/MMagTech/cabinetos/issues/625))
+  that somebody else signed in on the console can still see in RomM stays.
+  ([#625](https://github.com/MMagTech/cabinetos/issues/625))
+
+## 2026.11.01.4 {#v2026-11-01-4}
+
+- **Fixed:** Dirt Devils stopped at its network check (*Mode: Slave,
+  checking network*) and never started. It plays now.
+  ([#635](https://github.com/MMagTech/cabinetos/pull/635))
 
 ## 2026.11.01.3 {#v2026-11-01-3}
 
