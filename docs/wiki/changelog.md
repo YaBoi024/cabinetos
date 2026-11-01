@@ -14,6 +14,13 @@ one you install, so you only ever install the newest.
   also hides the File access password and Tailscale's sign-in link now. If
   you shared a report before this update, change any password you had typed
   on the console shortly before making it.
+- **Changed:** the diagnostic report says more about the newer systems: the
+  Switch, Wii U and PS3 emulators' own logs, everything the console noted
+  during each game you played, which firmware files are on the console (by
+  name and size only), which Switch and Xbox emulator versions are
+  installed, and the buttons you moved in an arcade game's **Controls**. A
+  profile name an emulator shortens, such as an Xbox 360 gamertag, is now
+  hidden like the name itself.
 
 ## 2026.10.30.2 {#v2026-10-30-2}
 
