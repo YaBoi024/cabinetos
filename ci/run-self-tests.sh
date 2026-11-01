@@ -53,6 +53,7 @@ TESTS=(
     --same-names-test
     --files-test
     --vectrex-sheets-test
+    --gone-games-test
 )
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
