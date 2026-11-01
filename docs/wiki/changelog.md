@@ -4,7 +4,7 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## Next
+## 2026.11.01.2 {#v2026-11-01-2}
 
 - **Fixed:** an arcade game made for MAME could stop on FinalBurn Neo's
   *romset is missing files* screen. PGM games such as DoDonPachi II, Knights
@@ -13,6 +13,9 @@ one you install, so you only ever install the newest.
   such a game plays in the next emulator its zip fits, usually MAME. No game
   that played before moves to another emulator, and your zips stay as they
   are. ([#631](https://github.com/MMagTech/cabinetos/pull/631))
+
+## 2026.11.01 {#v2026-11-01}
+
 - **Fixed:** a password typed on the console's on-screen keyboard, such as
   a Wi-Fi or RetroAchievements password, was written into the console's log
   when you finished typing with Start or Enter, and a diagnostic report made
