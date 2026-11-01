@@ -121,7 +121,7 @@ grep -q 'only continue if Supermodel is linked to itself' "$SRC/Src/Model3/SimNe
 echo "the console's ${#flags[@]} flags and ${#keys[@]} settings are all read at the pin"
 
 # --- the patch ---------------------------------------------------------------
-# A MACHINE LINKED TO ITSELF IS THE ONLY MACHINE. Tracked on #ISSUE; Supermodel
+# A MACHINE LINKED TO ITSELF IS THE ONLY MACHINE. Tracked on #634; Supermodel
 # declined it (trzy/Supermodel#360: on the hardware the operator sets such a
 # game to no link), so no release will carry it and it stays
 # (docs/decisions/2026-11-01-dirt-devils-supermodel-patch.md). Linked to

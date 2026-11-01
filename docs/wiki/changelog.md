@@ -8,7 +8,7 @@ one you install, so you only ever install the newest.
 
 - **Fixed:** Dirt Devils stopped at its network check (*Mode: Slave,
   checking network*) and never started. It plays now.
-  ([#PR](https://github.com/MMagTech/cabinetos/pull/PR))
+  ([#635](https://github.com/MMagTech/cabinetos/pull/635))
 
 ## 2026.11.01.2 {#v2026-11-01-2}
 

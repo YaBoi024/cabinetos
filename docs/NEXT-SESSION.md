@@ -44,7 +44,7 @@ RomM: keep test launches under a minute, or have his go.
    #613, "Arcade: Sega Model 2 games play in sm2-emu" (2026.10.29.7); and
    #616, "Arcade: Sega Model 3 games play in Supermodel" (2026.10.30), where
    16 of his 17 Model 3 games play; the 17th, Dirt Devils, plays by our
-   Supermodel patch (#PR, "PRTITLE"), since Supermodel declined it. In Later, each planned with him before anything is
+   Supermodel patch (#635, "Supermodel: a machine linked to itself runs as the only cabinet, so Dirt Devils plays"), since Supermodel declined it. In Later, each planned with him before anything is
    built: #617, "Arcade: a Controls row for Model 2 and Model 3 games",
    and #608, "FinalBurn Neo games keep no high scores".
 2. **The left stick in Naomi and Atomiswave lever games (his note,
