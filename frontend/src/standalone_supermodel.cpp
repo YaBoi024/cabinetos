@@ -22,8 +22,9 @@ namespace cab::standalone::detail {
 // --- Sega Model 3 (Supermodel) -----------------------------------------------
 //
 // Decided with MMagTech 2026-10-28 (docs/decisions/2026-10-28-model-2-and-model-3.md):
-// Supermodel at a pin, built here, never patched, drawing with OpenGL (it has
-// no Vulkan renderer), and run with no network like every emulator (Run::start's
+// Supermodel at a pin, built here with one patch of ours
+// (cores/build-supermodel.sh), drawing with OpenGL (it has no Vulkan
+// renderer), and run with no network like every emulator (Run::start's
 // sandbox). Its net board is on, linked to itself, which only that sandbox's
 // empty network ever sees (MMagTech, 2026-10-29,
 // docs/decisions/2026-10-29-model-3-net-board-linked-to-itself.md). No save
@@ -209,9 +210,9 @@ bool prepareSupermodel(const Emulator& e, const std::string& romPath, const std:
         // Daytona USA 2 stop at "Network board not present" without one. It
         // listens on 1970 and connects to 127.0.0.1:1970, inside the
         // sandbox's empty network (Run::start), so nothing outside sees it.
-        // Dirt Devils, set as a slave, waits for itself this way and plays
-        // when Supermodel takes trzy/Supermodel#360 (no patch of ours,
-        // MMagTech 2026-10-29).
+        // Dirt Devils, set as a slave, would wait for itself this way; our
+        // patch makes a machine linked to itself run as the only cabinet
+        // (cores/build-supermodel.sh, "the patch").
         {"Network", "true"},
         {"SimulateNet", "true"},
         {"PortIn", "1970"},
