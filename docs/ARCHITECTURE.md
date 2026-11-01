@@ -519,7 +519,7 @@ The area named is the one in `ci/base-watch.txt` whose checks a change asks for.
 | The power button | logind's inhibitor, and the power key reaching SDL through gamescope (`input.cpp`, `power.cpp`) | Not checked |
 | The desktop kept out, the builders in step | The packages the strip scripts remove; the builders' Fedora | `ci/check-base-update.sh`, in the pull request itself; `log:` (Apps CabinetOS removes) |
 | The Steam tile | The `steam` package and Steam's session file | `log:` and `tv:` (Steam) |
-| The diagnostic report | The text of many tools (`journalctl`, `nmcli`, `bluetoothctl`, `wpctl`, `tailscale`, `vulkaninfo`, `edid-decode` and others) read by `system_files/usr/libexec/cabinetos-report` | The build asserts the tools are there (`build_files/build.sh`); their text is not checked. A change shows as a missing part of the next report |
+| The diagnostic report | The text of many tools (`journalctl`, `nmcli`, `bluetoothctl`, `wpctl`, `tailscale`, `vulkaninfo`, `edid-decode`, `flatpak` and others) read by `system_files/usr/libexec/cabinetos-report`; and the frontend's own lines that mark a game's start and its return to Home, which its game section cuts at | The build asserts the tools are there (`build_files/build.sh`); their text is not checked. A change shows as a missing part of the next report |
 
 ### Moved by a pin of ours
 

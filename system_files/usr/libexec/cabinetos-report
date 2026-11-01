@@ -13,12 +13,14 @@
 # kind of fault is covered too (the Remote Play faults #294 and #296 would have
 # been missed by a list of facts with nothing of Sunshine in it):
 #   - a summary: versions, the machine, the features that are on
-#   - every setting
+#   - every setting, and the buttons moved in each arcade game's Controls
 #   - a section per part with its current state: the machine, graphics, the
-#     screen, drives and space, controllers and Bluetooth, sound, network and
-#     Tailscale, Remote Play, Steam, updates, the server, File access and
-#     Developer access, services
-#   - the games played in the two boots, and the emulators' own logs
+#     screen, drives and space, the firmware files (names and sizes only),
+#     controllers and Bluetooth, sound, network and Tailscale, Remote Play,
+#     Steam, updates and the emulators from Flathub, the server, File access
+#     and Developer access, services
+#   - everything the console said during each game played in the two boots,
+#     and each emulator's own last log
 #   - the whole system log of this boot and the one before, so a crash that
 #     forced a restart is in it. Routine audit lines and SSH logins are left
 #     out (SELinux refusals and SSH failures are kept), and a boot longer than
@@ -26,7 +28,8 @@
 #
 # PRIVATE DETAILS ARE REPLACED BEFORE ANYTHING IS WRITTEN. Two layers:
 #   1. Every private value the console knows is collected first (the server's
-#      address, profile and account names, tokens, Wi-Fi and connection names,
+#      address, profile and account names and the shortened forms emulators
+#      give them, tokens, Wi-Fi and connection names,
 #      Tailscale names and addresses, Remote Play device names, the names of
 #      Bluetooth devices that are not controllers, serial numbers, a changed
 #      hostname, Steam account names, the File access password) and replaced
@@ -238,6 +241,37 @@ class Secrets:
         if fold and len(value) >= 4:
             self.fold.add(value)
 
+    def alias(self, value, of):
+        """`value` replaced by the placeholder `of` has, when `of` is known."""
+        value = str(value or "").strip()
+        if len(value) < 2 or value in self.values or of not in self.values:
+            return
+        self.values[value] = self.values[of]
+        if of in self.fold and len(value) >= 4:
+            self.fold.add(value)
+
+
+def name_forms(name):
+    """The other forms a profile name takes where an emulator shows it: the
+    Xbox 360 gamertag (frontend/src/x360profile.cpp, gamertag), the name cut
+    to the PS3's 16 bytes (standalone_rpcs3.cpp) and to Eden's 32
+    (standalone_eden.cpp), and Vita3K's XML-escaped name
+    (standalone_vita3k.cpp)."""
+    tag = ""
+    for c in name:
+        if c.isascii() and c.isalnum():
+            tag += c
+        elif 0 < ord(c) < 0x7F and tag and tag[-1] != " ":
+            tag += " "
+        if len(tag) == 15:
+            break
+    raw = name.encode("utf-8")
+    forms = {tag.rstrip(" "), raw[:16].decode("utf-8", "ignore"), raw[:32].decode("utf-8", "ignore"),
+             name.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                 .replace('"', "&quot;").replace("'", "&apos;")}
+    forms.discard(name)
+    return sorted(f for f in forms if len(f.strip()) >= 2)
+
 
 def collect_secrets(root):
     s = Secrets()
@@ -253,15 +287,19 @@ def collect_secrets(root):
 
     # Profiles, in account order, so <profile 1> is the first account.
     accounts = read_json(os.path.join(root, "config", "accounts.json")) or {}
-    for a in accounts.get("accounts", []) or []:
-        s.add(a.get("name"), "profile", fold=True)
+    profiles = [a.get("name") for a in accounts.get("accounts", []) or []]
     user = read_json(os.path.join(root, "config", "user.json")) or {}
-    s.add(user.get("username"), "profile", fold=True)
+    profiles.append(user.get("username"))
     for d in glob.glob(os.path.join(root, "users", "*")):
-        name = os.path.basename(d)
-        m = re.match(r"\d+ - (.+)$", name)
+        m = re.match(r"\d+ - (.+)$", os.path.basename(d))
         if m:
-            s.add(m.group(1), "profile", fold=True)
+            profiles.append(m.group(1))
+    for p in profiles:
+        s.add(p, "profile", fold=True)
+    for p in profiles:
+        p = str(p or "").strip()
+        for form in name_forms(p):
+            s.alias(form, p)
 
     # Tokens and RetroAchievements names.
     adir = os.path.join(HOME, ".config", "cabinetos", "accounts")
@@ -684,10 +722,46 @@ def section_summary(root, settings, frontend_lines):
 def section_settings(root):
     out = []
     for name in ("settings.json", "first-run.json", "drives.json", "picture-quality.json",
-                 "accounts.json", "server.json"):
+                 "ps2-widescreen.json", "accounts.json", "server.json"):
         body = read(os.path.join(root, "config", name))
         out.append("--- %s\n%s\n" % (name, (body or "(none)").strip()))
+    # THE BUTTONS MOVED in an arcade game's Controls (frontend/src/controls.cpp),
+    # per profile, per game and per kind of controller: why a game's buttons
+    # are not where they start.
+    for path in sorted(glob.glob(os.path.join(root, "users", "*", "controls", "*.json"))):
+        out.append("--- %s\n%s\n" % (os.path.relpath(path, root), (read(path) or "").strip()))
     return "\n".join(out)
+
+
+def section_firmware(root):
+    # THE FIRMWARE FILES, by name and size and never their contents, two
+    # levels down: a Vita needs two files, a PS3, a Switch and a Naomi board
+    # theirs, and one missing or of the wrong size is the fault more often
+    # than the emulator.
+    base = os.path.join(root, "bios")
+    rows = []
+
+    def walk(folder, rel, deeper):
+        try:
+            entries = sorted(os.scandir(folder), key=lambda e: e.name.lower())
+        except OSError:
+            return
+        for e in entries:
+            try:
+                if e.is_symlink():
+                    rows.append((rel + e.name, "a link"))
+                elif e.is_dir():
+                    if deeper:
+                        walk(e.path, rel + e.name + "/", False)
+                    else:
+                        rows.append((rel + e.name + "/", "a folder"))
+                else:
+                    rows.append((rel + e.name, size_text(e.stat().st_size)))
+            except OSError:
+                rows.append((rel + e.name, "?"))
+
+    walk(base, "", True)
+    return kv(rows) if rows else "(no firmware files)\n"
 
 
 def section_machine():
@@ -915,7 +989,8 @@ def input_devices(frontend_lines):
             out += "\n".join(l for l in block.splitlines() if l[:2] in ("I:", "N:", "U:", "H:", "P:")) + "\n\n"
     out += "--- Keyboards\n" + keyboards()
     out += "\n--- What the frontend said about controllers and keys (last 60 lines)\n"
-    lines = [l for l in frontend_lines if re.match(r"\[(players|input|wiiremote|wii|wiibridge|shortcuts|vpad|volume)\]", l)]
+    lines = [l for l in frontend_lines if re.match(r"\[(players|input|wiiremote|wii|wiibridge|shortcuts|vpad|"
+                                                    r"volume|fightstick|bluetooth)\]", l)]
     out += "".join(l + "\n" for l in lines[-60:])
     return out
 
@@ -999,6 +1074,28 @@ def section_updates():
     out += "\n--- Signature policy for the image\n"
     policy = read("/etc/containers/policy.json") or ""
     out += policy if len(policy) < 4000 else policy[:4000] + "\n...\n"
+    # EDEN AND XEMU COME FROM FLATHUB, not the image: each at the commit
+    # /usr/share/cabinetos/flatpaks.list pins, which cabinetos-flatpak-setup
+    # puts in place, and a console that could not reach Flathub may not have.
+    out += "\n--- Emulators from Flathub, and their runtimes\n"
+    rows = []
+    for line in (read("/usr/share/cabinetos/flatpaks.list") or "").splitlines():
+        parts = line.split()
+        if len(parts) != 4 or parts[0] not in ("app", "runtime"):
+            continue
+        ref, branch, pinned = parts[1], parts[2], parts[3]
+        info = run(["flatpak", "info", "--system", "%s//%s" % (ref, branch)], timeout=10)
+        version = re.search(r"^\s*Version:\s*(\S+)", info, re.M)
+        have = re.search(r"^\s*Commit:\s*([0-9a-f]+)", info, re.M)
+        version = version.group(1) if version else branch
+        if not have:
+            state = "not installed"
+        elif have.group(1) == pinned:
+            state = "%s, the pinned commit" % version
+        else:
+            state = "%s, NOT the pinned commit (%s, pinned %s)" % (version, have.group(1)[:12], pinned[:12])
+        rows.append((ref, state))
+    out += kv(rows) if rows else "(none listed)\n"
     return out
 
 
@@ -1069,19 +1166,67 @@ def section_services():
     return out
 
 
+# A GAME, from the frontend's lines: it starts at "[launch] <name> (<system>)
+# via <emulator>" (frontend/src/launch.cpp) and is back on Home at one of
+# these (standalone_play.cpp; the pause menu's exit), with a few lines after.
+GAME_START = re.compile(r"^\[launch\] .+ via \S+$")
+GAME_HOME = re.compile(r"^\[(standalone\] back to Home|overlay\] exited to Home)")
+GAME_AFTER = 3
+GAME_HEAD, GAME_TAIL = 150, 100   # lines kept from a long game's start and end
+GAMES_CAP = 2000                  # lines in the section, the newest games
+
+
 def section_games(frontend_lines):
-    pat = re.compile(r"^\[(launch|quality|standalone|overlay|pace|offline|save|core|state|ra|playtime|"
-                     r"resume|rewind|firmware|downloads|ps2|wii|wiiu|xbox|sync|upload)\]|ended after")
-    lines = [l for l in frontend_lines if pat.search(l)]
-    return "".join(l + "\n" for l in lines[-400:]) or "(no game played in these two boots)\n"
+    # EVERY LINE FROM A GAME'S START TO ITS RETURN HOME, whatever its label.
+    # A list of labels missed what each new emulator brought (the arcade
+    # match, MAME, the 3DS, the network block); the full log below has them,
+    # but not when the middle of a long boot is cut.
+    games, cur, left = [], None, None
+    for l in frontend_lines:
+        if GAME_START.match(l):
+            if cur:
+                games.append(cur)
+            cur, left = [l], None
+            continue
+        if cur is None:
+            continue
+        cur.append(l)
+        if left is None:
+            if GAME_HOME.match(l):
+                left = GAME_AFTER
+        else:
+            left -= 1
+            if left == 0:
+                games.append(cur)
+                cur, left = None, None
+    if cur:
+        games.append(cur)
+    if not games:
+        return "(no game played in these two boots)\n"
+    blocks, total = [], 0
+    for g in reversed(games):
+        if len(g) > GAME_HEAD + GAME_TAIL:
+            g = g[:GAME_HEAD] + ["... %d lines from the middle of this game left out ..."
+                                 % (len(g) - GAME_HEAD - GAME_TAIL)] + g[-GAME_TAIL:]
+        if blocks and total + len(g) > GAMES_CAP:
+            break
+        blocks.append(g)
+        total += len(g)
+    note = "%d game(s) in these two boots" % len(games)
+    if len(blocks) < len(games):
+        note += "; the newest %d here, the rest in the system log" % len(blocks)
+    return note + ".\n\n" + "\n\n".join("\n".join(g) for g in reversed(blocks)) + "\n"
 
 
 def section_emulator_logs(root):
     files = glob.glob(os.path.join(root, "logs", "*.log"))
     files += glob.glob(os.path.join(root, "emulators", "**", "*.log"), recursive=True)
-    files += glob.glob(os.path.join(HOME, ".config", "rpcs3", "RPCS3.log"))
+    # logs/<emulator>.own.log is a link to the emulator's own log
+    # (frontend/src/standalone.cpp), which may also be under emulators/: each
+    # file once, named where it is.
+    files = {os.path.realpath(p) for p in files}
     out = []
-    for path in sorted(set(files), key=lambda p: os.path.getmtime(p) if os.path.exists(p) else 0,
+    for path in sorted(files, key=lambda p: os.path.getmtime(p) if os.path.exists(p) else 0,
                        reverse=True):
         try:
             mtime = os.path.getmtime(path)
@@ -1122,6 +1267,7 @@ def build(root, how, frontend_bin):
         ("Graphics", lambda: section_graphics(frontend)),
         ("The screen", lambda: section_screen(frontend)),
         ("Drives and space", lambda: section_drives(root)),
+        ("Firmware files", lambda: section_firmware(root)),
         ("Controllers and Bluetooth", lambda: section_controllers(frontend)),
         ("Sound", lambda: section_sound(frontend)),
         ("Network and Tailscale", section_network),
