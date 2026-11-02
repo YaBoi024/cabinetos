@@ -148,7 +148,21 @@ public:
     // ONE game, by its id, whatever list it is or is not on. For `--launch`,
     // which since 2026-09-22 can no longer find a game in the library unless
     // it is on Home: boot stopped fetching the whole catalogue.
-    bool fetchGame(int romId, Game* out, std::string* err);
+    //
+    // `*notFound`, on a false return, says RomM answered 404 for the game's
+    // own entry: read off the answer's status, never off `err`'s words. A
+    // server away, a timeout, a 401 or 403, a 5xx or any other answer leaves
+    // it false. On RomM 5.4.0 a 404 also means the game is hidden from the
+    // person asking (a hidden platform or game, or an age limit), in the same
+    // words, so it is "not there for this person" (gonegames.h).
+    bool fetchGame(int romId, Game* out, std::string* err, bool* notFound = nullptr);
+
+    // EVERY GAME ID THIS PERSON CAN SEE, in one answer (`GET
+    // /api/roms/identifiers`, RomM 5.0 and later, a JSON array of ids): 10.8 KB
+    // and 30 ms for 2,343 games on RomM 5.4.0. Hidden games are left out, as
+    // everywhere. False when it did not answer as a list: a server before
+    // 5.0 answers its `/api/roms/{id}` route, which refuses the word.
+    bool fetchGameIds(std::vector<int>* out, std::string* err);
 
     // A few facts about a game from RomM's merged metadata (`metadatum`), for
     // the launch screen: the year, the first company named, how many can
@@ -294,7 +308,9 @@ private:
                        const std::string& fileName, const std::vector<uint8_t>& data,
                        std::string* err, const std::string& shotName = "",
                        const std::vector<uint8_t>& shot = {}) const;
-    bool get(const std::string& path, std::string* body, std::string* err) const;
+    // `*status` is the answer's HTTP status, 0 when none came.
+    bool get(const std::string& path, std::string* body, std::string* err,
+             long* status = nullptr) const;
     bool postJson(const std::string& path, const std::string& json,
                   std::string* body, long* status, std::string* err) const;
     // postJson with another method: DELETE carries a body on RomM's
@@ -316,9 +332,10 @@ private:
     // without making it the address until it has answered, and says whether
     // what it met is reported (`report`, as probe's). A redirect off the
     // server is not followed (#380); with `movedTo` its address is put there
-    // instead of logged.
+    // instead of logged. `*status` as get's.
     bool getAt(const Where& at, const std::string& path, std::string* body,
-               std::string* err, bool report = true, std::string* movedTo = nullptr) const;
+               std::string* err, bool report = true, std::string* movedTo = nullptr,
+               long* status = nullptr) const;
 
     // GUARDS THE THREE BELOW. Nothing is done while holding it but a copy or
     // an assignment, never a request (see the head of this file).

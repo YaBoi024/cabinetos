@@ -34,6 +34,7 @@
 #include "fileio.h"
 #include "firstrun.h"
 #include "idlesleep.h"
+#include "gonegames.h"
 #include "offline_sync.h"
 #include "overlaywin.h"
 #include "prefs.h"
@@ -796,6 +797,12 @@ void App::startBrowsing() {
 
 void App::startSync() {
     uploader.start(&liveClient);
+    // A game RomM no longer has loses its saves only after this queue has
+    // tried what this start owes (gonegames.h).
+    gone::setQueue({[this] { return uploader.pending(); },
+                    [this](const storage::User& who, int romId, const std::string& file) {
+                        return uploader.refusedThisRun(who, romId, file);
+                    }});
     for (const storage::User& u : storage::knownUsers()) playtime::recover(u);
     // Whatever an earlier run could not send goes first.
     uploader.resendOwed();

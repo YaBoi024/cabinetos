@@ -4,6 +4,33 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.11.02.3 {#v2026-11-02-3}
+
+- **Fixed:** pressing Start on an empty Wi-Fi password tried to join with
+  no password, waited about 12 seconds, said *Wrong password* again and
+  saved the network a second time. Now nothing happens but a bump, and the
+  keyboard stays as it was. Messages in a field, such as *Wrong password*,
+  are now grey, so they no longer look like something you typed, and a
+  server address with no RomM at it now says *Can't connect*.
+  ([#640](https://github.com/MMagTech/cabinetos/pull/640))
+
+## 2026.11.02.2 {#v2026-11-02-2}
+
+- **Fixed:** a game you deleted in RomM, or one that got a new entry when
+  RomM scanned its folder again, stayed on the console's drive. Now the
+  console removes it at the next start with your server there, a played
+  game and a downloaded one alike, so the room comes back, and its pictures
+  are no longer downloaded again at every start. Its saves, states and
+  screenshots on the console go with it: RomM deletes its own copies of
+  them along with the game, so they could never be sent anywhere. A game
+  that somebody else signed in on the console can still see in RomM stays.
+  ([#625](https://github.com/MMagTech/cabinetos/issues/625))
+- **Fixed:** for the few seconds the console took to join a Wi-Fi network
+  with a password you typed, any other program running on it, such as a
+  game, could read that password. It now goes straight to the console's
+  network service, which no other program can read. Joining works as
+  before. ([#637](https://github.com/MMagTech/cabinetos/pull/637))
+
 ## 2026.11.01.5 {#v2026-11-01-5}
 
 - **Changed:** the system CabinetOS is built on moves to Bazzite

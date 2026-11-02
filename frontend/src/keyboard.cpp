@@ -175,7 +175,8 @@ void Keyboard::clampFocus() {
 // THE KEYBOARD SOUNDS LIKE THE REST OF THE CONSOLE (#389): a move is Move, a
 // move into the edge is Edge, and a key typed, Shift or a letter taken off is
 // the short Type tick. Finishing or leaving it (Done, Cancel, Start, B) is the caller's to
-// sound, because what that means depends on what the typing was for.
+// sound, because what that means depends on what the typing was for. A Done
+// that finishes nothing (Config::required) is the Edge bump, here.
 void Keyboard::moveFocus(int dx, int dy) {
     if (!open_) return;
     const int wasRow = row_, wasCol = col_;
@@ -324,6 +325,10 @@ void Keyboard::sayInField(const std::string& msg, bool problem, bool keep) {
 
 KeyboardResult Keyboard::commit() {
     if (busy_) return KeyboardResult::Typing;
+    if (config_.required && value_.empty() && held_.empty()) {
+        sound::play(sound::Cue::Edge);
+        return KeyboardResult::Typing;
+    }
     restoreHeld();
     open_ = false;
     return KeyboardResult::Committed;
@@ -492,8 +497,12 @@ void Keyboard::draw(Renderer& r, TextRenderer& text, float scale) {
         while (n < shown.size() && (static_cast<unsigned char>(shown[n]) & 0xC0) == 0x80) ++n;
         shown.erase(0, n);
     }
+    // WHITE IS WHAT YOU TYPED, GREY IS EVERYTHING ELSE, as in any operating
+    // system's text field. A problem ("Wrong password") is as grey as
+    // "Joining…" and says it is a problem by its shake; at 0.95 it read as
+    // typed text.
     text.draw(r, shown, panelX + pad + 20.0f + shakeX, fieldBaseline, TextStyle::Title3,
-              message ? Color::white(fieldProblem_ ? 0.95f : 0.60f)
+              message ? Color::white(0.60f)
                       : (empty ? Color::white(0.35f) : Color::white(1.0f)),
               scale);
     if (!empty) {
