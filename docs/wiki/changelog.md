@@ -4,7 +4,7 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## Next
+## 2026.11.02.4 {#v2026-11-02-4}
 
 - **New:** Model 2 and Model 3 arcade games with buttons, such as the
   fighting games, now have **Controls** in their pause menu, as other
