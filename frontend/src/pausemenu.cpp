@@ -90,7 +90,7 @@ void App::closeOverlay(bool cue) {
     if (cue && overlayOpen) powerCue(sound::Cue::Back);
     overlayOpen = false;
     overlayFade.retarget(0.0f, overlayFadeSeconds);
-    if (playing && choiceScreen.isOpen()) choiceScreen.closeWithMenu();
+    if ((playing || standalonePaused) && choiceScreen.isOpen()) choiceScreen.closeWithMenu();
 }
 
 // AS A SETTINGS CHOICE ROW BEHAVES (settings.cpp): left and right stop at
@@ -164,8 +164,10 @@ void App::toggleOverlay(SDL_JoystickID opener) {
     }
     overlayOpen = !overlayOpen;
     // A question asked over the menu goes with it (Change disc), and a
-    // level of it fades with its panel (Controls).
-    if (!overlayOpen && playing && choiceScreen.isOpen()) choiceScreen.closeWithMenu();
+    // level of it fades with its panel (Controls), over a game of ours or
+    // an emulator of its own.
+    if (!overlayOpen && (playing || standalonePaused) && choiceScreen.isOpen())
+        choiceScreen.closeWithMenu();
     // Only on the way IN: the list must not change under a panel that is
     // still fading out.
     if (overlayOpen) {
@@ -283,11 +285,12 @@ void App::toggleOverlay(SDL_JoystickID opener) {
             }
         }
         for (size_t i = 0; i < pauseChoices.size(); ++i) pauseItems.push_back(OvChoice);
-        // CONTROLS (controls.h), directly above Exit to Home: only in the two
-        // arcade cores, only for a game whose buttons give it a row, and only
-        // with a controller on to change them on. Not over an emulator of its
-        // own, which an arcade game played before it may have left offered.
-        if (playing && controls::offered() && !players::connected().empty())
+        // CONTROLS (controls.h), directly above Exit to Home: only in an
+        // arcade game whose buttons give it a row, sm2-emu's and Supermodel's
+        // among them, and only with a controller on to change them on. Every
+        // game's start says whether it has rows (controls::beginGame and
+        // beginProgram), so none are left from the last.
+        if (controls::offered() && !players::connected().empty())
             pauseItems.push_back(OvControls);
         pauseItems.push_back(OvExit);
     }
@@ -382,13 +385,15 @@ void App::drawPauseMenu(float sc) {
     const float ovl = overlayFade.value();
     // A LEVEL OF IT (Controls, choice.h, setOverPauseMenu) is drawn in this
     // panel, which stays: only the rows give way to the level's, and come
-    // back as it goes.
-    const bool level = playing && choiceScreen.overPauseMenu();
+    // back as it goes. Over an emulator of its own too, which is paused
+    // rather than playing (standalone_play.cpp).
+    const bool inGame = playing || standalonePaused;
+    const bool level = inGame && choiceScreen.overPauseMenu();
     choiceScreen.setMenuFade(ovl);
     const float rowsA = ovl * (level ? choiceScreen.menuRows() : 1.0f);
     // NOT UNDER A QUESTION ASKED FROM IT (Change disc, #162): the panel
     // takes its place, and the menu's words showed through the glass.
-    if (ovl > 0.001f && !(playing && choiceScreen.isOpen() && !level)) {
+    if (ovl > 0.001f && !(inGame && choiceScreen.isOpen() && !level)) {
         const int ovN = ovCount();
         const float panelH = pauseMenuHeight();
         const float px = (ui::kCanvasWidth - kOverlayPanelWidth) * 0.5f;

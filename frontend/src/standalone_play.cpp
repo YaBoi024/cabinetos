@@ -10,9 +10,12 @@
 #include <cmath>
 #include <cstdio>
 
+#include "arcadematch.h"
 #include "cache.h"
 #include "catalog.h"
+#include "controls.h"
 #include "dirsave.h"
+#include "fightstick.h"
 #include "overlaywin.h"
 #include "quality.h"
 #include "rumble.h"
@@ -52,6 +55,18 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     // THE GAME'S PICTURE QUALITY (#63), its own choice or the console's.
     const quality::Level level = quality::forGame(launchJob.romId);
     quality::logApplied(launchJob.coreName, launchJob.romId, level);
+    // A MODEL 2 OR MODEL 3 GAME'S BUTTONS AS THIS PERSON MOVED THEM
+    // (controls.h), read before the settings that put them there are
+    // written (controls::pressedWith). The rows come from the program's
+    // catalogue, since it declares nothing. Every program's start, so no
+    // earlier game's rows are left offered.
+    {
+        const std::string zip = launchJob.romPath.substr(launchJob.romPath.find_last_of('/') + 1);
+        const int buttons =
+            fightstick::isArcadeCore(emu.core) ? arcadematch::buttons(emu.core, zip) : 0;
+        controls::beginProgram(emu.core, launchJob.romId, launchJob.title,
+                               fightstick::programButtons(buttons));
+    }
     if (!cab::standalone::prepare(emu, launchJob.entryPath, launchJob.romPath, saveDir,
                                   user.name, pads, level, &missingKeys, &err)) {
         cab::vpad::close();
@@ -420,6 +435,9 @@ bool App::watchStandalone(float dt) {
     // (Exit to Home asked it to, or it fell over), and when the menu has
     // closed and faded right out, the controllers go back and it thaws.
     if (standaloneRun.active() && standalonePaused) {
+        // CONTROLS, OPEN OVER IT, kept true to the controllers on, as over a
+        // game of ours (play.cpp's readGameInput, which does not run here).
+        followControls();
         // THE VIRTUAL CONTROLLERS ARE STILL ANSWERED, rumble held off. An
         // emulator asks its controller to stop rumbling as it shuts down,
         // and the kernel holds that request until this process answers or

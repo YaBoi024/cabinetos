@@ -48,6 +48,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [hold-start-opens-arcade-settings](2026-10-25-hold-start-opens-arcade-settings.md): holding Start in an arcade game opens the emulator's own menu, never one of the console's.
 - [no-remapping](2026-09-26-no-remapping.md): no button remapping on any system but arcade games, which have Controls.
 - [arcade-controls](2026-10-25-arcade-controls.md): an arcade game's pause menu has a Controls row that moves its buttons, per game, kind of controller and person.
+- [model-2-and-model-3-controls](2026-10-30-model-2-and-model-3-controls.md): Model 2 and Model 3 games with buttons have Controls, numbered from their emulator's list, played from the next start.
 - [rewind-only-with-shortcuts](2026-10-29-rewind-only-with-shortcuts.md): a game keeps a rewind history only while In-game shortcuts are on, and rewind has no switch of its own.
 - [ds-3ds-screen-view](2026-10-26-ds-3ds-screen-view.md): L3 shows a DS or 3DS game's top screen alone, the bottom alone, then both, and the DS's lid moves to R2.
 - [controls-guide-is-a-pdf](2026-10-27-controls-guide-is-a-pdf.md): the printable one-page controls guide is a PDF on the wiki, made from an HTML file beside it.
