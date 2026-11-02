@@ -50,6 +50,12 @@ public:
         std::string initial;       // prefilled, e.g. "https://"
         std::string placeholder;   // shown greyed when the field is empty
         bool conceal = false;      // start with the value masked
+        // DONE ON AN EMPTY FIELD DOES NOTHING but bump, the sound backspace
+        // makes on one, and the panel stays as it was. For a field where
+        // empty is never an answer: a password keyboard only opens for a
+        // secured network, and an empty one waited 12 seconds to say
+        // "Wrong password" again (MMagTech on the TV, 2026-11-01).
+        bool required = false;
         // Extra keys worth having for this particular field. A URL wants
         // ".com" and "/"; a Wi-Fi passphrase wants neither.
         std::vector<std::string> shortcuts;
@@ -109,8 +115,9 @@ public:
     bool busy() const { return busy_; }
 
     // A MESSAGE IN THE FIELD ITSELF: it empties and says `msg` where the
-    // placeholder goes, until the first character is typed. `problem` makes
-    // it brighter and shakes it once ("Wrong password"). MMagTech's idea,
+    // placeholder goes, until the first character is typed, in grey: only
+    // typed text is white. `problem` shakes it once
+    // ("Wrong password"). MMagTech's idea,
     // 2026-09-24: a line under the title made the panel grow and jump, and
     // the pill at the foot of the screen was out of the line of sight.
     //

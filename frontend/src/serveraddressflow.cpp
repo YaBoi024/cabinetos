@@ -91,7 +91,7 @@ void App::takeServerCheck() {
             askServerAddress(addr,
                              r == server::Check::Different ? "A different server. Sign out first"
                              : r == server::Check::NoServer
-                                 ? "No RomM server there"
+                                 ? "Can't connect"
                                  : "Couldn't check it");
         }
     }

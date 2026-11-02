@@ -248,8 +248,9 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
   password is forget then join. The PIN is asked once per visit to Settings.
   The password is masked, the character just typed shown for a moment, with
   a "show" key. While it joins, the keyboard stays up and its field says
-  "Joining…"; a wrong password empties it to "Wrong password" (shaken) until
-  the next try is typed. A failed join leaves no saved network behind. The
+  "Joining…"; a wrong password empties it to "Wrong password" (shaken, grey
+  like every message in a field) until the next try is typed. Done on an
+  empty field only bumps: it never starts a join. A failed join leaves no saved network behind. The
   pill says "Connected to <name>". No signal bars: tried and dropped the
   same day, since a person joins their own network whatever its strength
   (MMagTech). 802.1X
@@ -271,7 +272,7 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
   proves it is the same server by asking the new address who the signed-in
   account's token belongs to; only the server that issued a token accepts
   it. Same user back: the address is saved, the covers move with it, and the
-  app starts again on it. Otherwise the field says "No RomM server there" or
+  app starts again on it. Otherwise the field says "Can't connect" or
   "A different server: use Sign out", with the typed address kept behind the
   message to correct. **Proved 2026-09-25** against a second, throwaway RomM
   (5.3.1): it refused the real token. **Only the signed-in account's token is
@@ -296,7 +297,7 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
   2026-09-25. **Built, #60**, judged on the TV the same day.
   - **A server that is simply off loses nothing.** It is tried every 2 s and
     the start carries on once it answers; the same address typed while it is
-    down says "No RomM server there", never "a different server".
+    down says "Can't connect", never "a different server".
   - **It waits for as long as it takes**, with no give-up: it used to quit
     at 90 s and the session started it again, a black flash every minute
     and a half while a server was off, which bought nothing once this screen
