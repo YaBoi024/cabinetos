@@ -51,11 +51,11 @@ COPY image_payload /payload
 # the digest is the actual pin. Moving this is a deliberate act: bump it in its
 # own commit and re-run the VM boot test.
 #
-# Resolved 2026-10-18:
-#   ghcr.io/ublue-os/bazzite:stable == 44.20261012.1
+# Resolved 2026-11-01:
+#   ghcr.io/ublue-os/bazzite-deck:stable == 44.20261026
 #
 # Variant choice: `bazzite-deck`.
-FROM ghcr.io/ublue-os/bazzite-deck:44.20261012.1@sha256:96301a1520b5bb63db95640896300c10ae3b1fcf8bf10681af154514395e1634
+FROM ghcr.io/ublue-os/bazzite-deck:44.20261026@sha256:278941ea67603e24e24ff18e8c418b91f2f326fffd3d24edcff9779f36fbdf4e
 # ---------------------------------------------------------------------------
 # Build
 # ---------------------------------------------------------------------------
