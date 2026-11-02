@@ -335,7 +335,7 @@ std::optional<int> App::waitForServer(char** argv) {
                         break;
                     }
                     case server::Check::NoServer:
-                        openKeyboard(addr, "No RomM server there");
+                        openKeyboard(addr, "Can't connect");
                         break;
                     case server::Check::Failed:
                         openKeyboard(addr, "Couldn't check it");

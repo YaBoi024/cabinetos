@@ -272,7 +272,7 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
   proves it is the same server by asking the new address who the signed-in
   account's token belongs to; only the server that issued a token accepts
   it. Same user back: the address is saved, the covers move with it, and the
-  app starts again on it. Otherwise the field says "No RomM server there" or
+  app starts again on it. Otherwise the field says "Can't connect" or
   "A different server: use Sign out", with the typed address kept behind the
   message to correct. **Proved 2026-09-25** against a second, throwaway RomM
   (5.3.1): it refused the real token. **Only the signed-in account's token is
@@ -297,7 +297,7 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
   2026-09-25. **Built, #60**, judged on the TV the same day.
   - **A server that is simply off loses nothing.** It is tried every 2 s and
     the start carries on once it answers; the same address typed while it is
-    down says "No RomM server there", never "a different server".
+    down says "Can't connect", never "a different server".
   - **It waits for as long as it takes**, with no give-up: it used to quit
     at 90 s and the session started it again, a black flash every minute
     and a half while a server was off, which bought nothing once this screen
