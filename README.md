@@ -46,9 +46,9 @@ adapted for handhelds (tested on Steam Deck OLEDs for now).
 
 ## Install
 
-There is no installer for CabinetOS Handheld yet. For now, install the original
-CabinetOS, then switch it to this image:
+Installer here: https://pub-e4881344a12f4bdfa25b269cea81a741.r2.dev/cabinetos.iso
 
+Or 
 1. Install [CabinetOS](https://github.com/MMagTech/cabinetos) by MMagTech on
    the handheld. This erases the drive.
 2. SSH into the handheld:
@@ -60,8 +60,7 @@ CabinetOS, then switch it to this image:
 3. Restart the handheld. It now runs CabinetOS Handheld and updates from this
    repository's image.
 
-The full steps are in [`docs/wiki/install.md`](docs/wiki/install.md). A
-bootable installer ISO is planned.
+The full steps are in [`docs/wiki/install.md`](docs/wiki/install.md).
 
 ## Thanks
 
