@@ -45,9 +45,9 @@ RomM: keep test launches under a minute, or have his go.
    #616, "Arcade: Sega Model 3 games play in Supermodel" (2026.10.30), where
    16 of his 17 Model 3 games play; the 17th, Dirt Devils, plays by our
    Supermodel patch (#635, "Supermodel: a machine linked to itself runs as the only cabinet, so Dirt Devils plays"), since Supermodel declined it. #617, "Arcade: a Controls row for Model 2 and Model 3 games",
-   is built in PR #641 (same title) and waits for his TV check, its steps
-   in the PR. In Later, planned with him before anything is built: #608,
-   "FinalBurn Neo games keep no high scores".
+   shipped in 2026.11.02.4 (PR #641, same title). In Later, planned with
+   him before anything is built: #608, "FinalBurn Neo games keep no high
+   scores".
 2. **The left stick in Naomi and Atomiswave lever games (his note,
    2026-10-28, at the TV).** Flycast feeds the analog stick only to a
    board's analog controls, so a game with a plain lever (Trigger Heart
