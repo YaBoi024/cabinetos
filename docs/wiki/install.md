@@ -16,16 +16,18 @@ your Steam games' saves.
 
 ## Get the installer
 
-**https://https://pub-e4881344a12f4bdfa25b269cea81a741.r2.dev.dev/cabinetos.iso**
+**https://pub-e4881344a12f4bdfa25b269cea81a741.r2.dev/cabinetos.iso**
 
-It is about 7 GB. No account is needed. The link never changes, and it always
-gives the newest installer. Next to it, `cabinetos.iso.sha256` holds the file's
-checksum, if you want to check the download.
+It is about 8 GB. No account is needed. The link never changes, and it always
+gives the newest installer.
 
-## Write it to a USB stick
+To check the download is complete, compare its checksum with the one in
+[cabinetos.iso.sha256](https://pub-e4881344a12f4bdfa25b269cea81a741.r2.dev/cabinetos.iso.sha256).
+The two should be identical:
 
-Any image writer works: [balenaEtcher](https://etcher.balena.io/), Fedora Media
-Writer, Rufus (in DD mode), or `dd` on Linux or a Mac:
+- Mac: `shasum -a 256 cabinetos.iso`
+- Linux: `sha256sum cabinetos.iso`
+- Windows: `certutil -hashfile cabinetos.iso SHA256`
 
 ## Install
 
