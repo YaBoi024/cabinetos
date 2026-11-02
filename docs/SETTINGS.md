@@ -248,8 +248,9 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
   password is forget then join. The PIN is asked once per visit to Settings.
   The password is masked, the character just typed shown for a moment, with
   a "show" key. While it joins, the keyboard stays up and its field says
-  "Joining…"; a wrong password empties it to "Wrong password" (shaken) until
-  the next try is typed. A failed join leaves no saved network behind. The
+  "Joining…"; a wrong password empties it to "Wrong password" (shaken, grey
+  like every message in a field) until the next try is typed. Done on an
+  empty field only bumps: it never starts a join. A failed join leaves no saved network behind. The
   pill says "Connected to <name>". No signal bars: tried and dropped the
   same day, since a person joins their own network whatever its strength
   (MMagTech). 802.1X

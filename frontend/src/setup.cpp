@@ -737,6 +737,9 @@ void Flow::openPassphrase(const std::string& why) {
     // open question 17); MMagTech reversed it once the brief reveal answered
     // the typo objection. keyboard.h.
     cfg.conceal = true;
+    // Only a secured network asks for one, so Done on an empty field bumps
+    // and starts no join (Keyboard::Config::required).
+    cfg.required = true;
     keyboard_.open(cfg);
     if (!why.empty()) keyboard_.sayInField(why, /*problem=*/true);
     typing_ = Typing::Passphrase;
