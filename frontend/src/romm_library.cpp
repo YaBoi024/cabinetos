@@ -329,9 +329,14 @@ bool Client::fetchRoms(const std::string& filter, int limit,
     return true;
 }
 
-bool Client::fetchGame(int romId, Game* out, std::string* err) {
+bool Client::fetchGame(int romId, Game* out, std::string* err, bool* notFound) {
+    if (notFound) *notFound = false;
     std::string body;
-    if (!get("/api/roms/" + std::to_string(romId), &body, err)) return false;
+    long status = 0;
+    if (!get("/api/roms/" + std::to_string(romId), &body, err, &status)) {
+        if (notFound) *notFound = status == 404;
+        return false;
+    }
     json_object* root = json_tokener_parse(body.c_str());
     if (!root) { if (err) *err = "rom response was not JSON"; return false; }
     const bool ok = parseGame(root, out);
@@ -344,6 +349,26 @@ bool Client::fetchGame(int romId, Game* out, std::string* err) {
         out->productCode = one[0].productCode;
     }
     return ok;
+}
+
+bool Client::fetchGameIds(std::vector<int>* out, std::string* err) {
+    out->clear();
+    std::string body;
+    if (!get("/api/roms/identifiers", &body, err)) return false;
+    json_object* root = json_tokener_parse(body.c_str());
+    if (!root || json_object_get_type(root) != json_type_array) {
+        if (root) json_object_put(root);
+        if (err) *err = "the game ids did not come back as a list";
+        return false;
+    }
+    const size_t n = json_object_array_length(root);
+    out->reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        json_object* v = json_object_array_get_idx(root, i);
+        if (json_object_get_type(v) == json_type_int) out->push_back(json_object_get_int(v));
+    }
+    json_object_put(root);
+    return true;
 }
 
 static bool parseRomFiles(json_object* root, std::vector<RomFile>* out);

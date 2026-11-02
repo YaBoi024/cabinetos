@@ -9,6 +9,7 @@
 #include <ctime>
 #include <map>
 #include <mutex>
+#include <set>
 #include <thread>
 #include <vector>
 
@@ -17,6 +18,7 @@
 #include "cache.h"
 #include "catalog.h"
 #include "covercache.h"
+#include "gonegames.h"
 #include "library.h"
 #include "romm.h"
 #include "savemirror.h"
@@ -38,6 +40,12 @@ static std::thread gReconnect;   // under gThreads
 // records existed, or kept with an older one), then the two covers of every
 // game on the drive that the cover cache does not hold. MMagTech, on #88:
 // "fetch covers once for games already kept", and cached games the same.
+// FIRST, THE GAMES RomM NO LONGER HAS (#625, gonegames.h): asked once per
+// start, the first time RomM answers, and removed before anything is fetched
+// for them, so their covers are not fetched back at every start. One left on
+// the drive (being played, or its saves still in its folder) is tried again at
+// the next backfill without asking again, and nothing is fetched for it.
+// Their saves go last, once the upload queue has tried what the start owed.
 void backfillDrive(const std::string& address) {
     static std::atomic<bool> running{false};
     if (gStop.load() || running.exchange(true)) return;
@@ -52,10 +60,18 @@ void backfillDrive(const std::string& address) {
             running = false;
             return;
         }
+        std::vector<int> toAsk = gone::owedIds();
+        for (const cache::OnDrive& d : cache::onDrive()) toAsk.push_back(d.romId);
+        const std::set<int> goneIds = gone::thisStart(c.baseUrl(), toAsk);
+        for (int id : goneIds) {
+            if (gStop.load()) break;
+            gone::removeCopy(id);
+        }
         int records = 0, covers = 0, missing = 0, saves = 0;
         std::map<int, std::string> saveTagOf;   // rom id -> the tag a launch restores
         for (const cache::OnDrive& d : cache::onDrive()) {
             if (gStop.load()) break;
+            if (goneIds.count(d.romId)) continue;
             const std::string note =
                 storage::gamesDir() + "/" + std::to_string(d.romId) + ".json";
             romm::Game g;
@@ -122,6 +138,16 @@ void backfillDrive(const std::string& address) {
                              "save(s) fetched%s\n", records, covers, saves,
                      missing ? (", " + std::to_string(missing) +
                                 " game(s) the server would not describe").c_str() : "");
+        // LAST, A GONE GAME'S SAVES, once the upload queue has tried what the
+        // start owed (gonegames.h): a minute at most, then the next backfill.
+        for (int i = 0; i < 240 && !goneIds.empty() && gone::uploadsPending() && !gStop.load();
+             ++i)
+            SDL_Delay(250);
+        if (!gone::uploadsPending())
+            for (int id : goneIds) {
+                if (gStop.load()) break;
+                gone::removeSaves(id, who);
+            }
         running = false;
     });
 }
@@ -235,6 +261,11 @@ void App::retryOwedUploads(float dt) {
 // only and never during a game or a launch, so nothing is replaced
 // under somebody's feet; the shelves come in as an account switch's do.
 void App::followServer(float dt) {
+    // WHAT IS IN USE, for the removal of games RomM no longer has, which runs
+    // on the backfill's thread (gonegames.h): the game on the screen, in a
+    // core or a program of its own, and the one whose launch is under way.
+    gone::setInUse(playing || standaloneRun.active() ? session.romId : 0,
+                   launchJob.busy() || launchJob.waiting() ? launchJob.romId : 0);
     if (rommAddress) {
         const bool away = romm::serverAway();
         if (away != shownAway) {

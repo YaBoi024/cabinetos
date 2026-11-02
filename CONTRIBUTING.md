@@ -222,6 +222,7 @@ with 0 when it passes, and CI runs every one ("What CI checks"):
 | `--disc-test` | the rules for games on several discs |
 | `--same-names-test` | the diagnostic report's list of games with the same name |
 | `--files-test` | that a full disk leaves the file it was replacing whole, credentials stay 0600, a cut save's marker is not counted as owed, two settings changed at once both stick, the cover sweeps spare the tile map, a cover being written and what a link points at, and a game's archive keeps its folders and refuses a name outside them or one that comes twice, and is not unpacked again at a later start, but is when a file that came out of it was changed or cut short, its unpacking was cancelled, or it was downloaded again |
+| `--gone-games-test` | a game RomM no longer has (#625, `gonegames.h`): gone only when its own entry answers 404 to every person on the console, never for a 5xx, a 403, no answer, a list that does not come or a game another person can see; and on a scratch drive, a played copy with its manual, a download kept by two people with both keeps, the record and the covers removed, a game being played or still holding Xbox saves left, a game RomM has untouched; then every person's saves, states, screenshots and copy of RomM's saves of it removed, the signed-in person's owed save only once RomM has refused it this run, a person's saves still in an emulator's folder left, and a live game's owed save still owed |
 | `--vectrex-sheets-test` | which Vectrex game takes which screen sheet: RomM's md5 first, then the longest name token, and the sheets that never shipped drawing nothing, against `frontend/data/vectrex-overlays.json` |
 | `--check-option-tables cores/options` | that every option the console sets (`coreoptions.cpp`, `quality.cpp`, `sysopts.cpp`, the Wii's rumble in `wii.cpp` and the Vectrex sheets' fit in `vectrexsheets.cpp`, with every answer that depends on the machine or a setting) exists in the core it is set on, and that every libretro core in `catalog.cpp`'s table has its list in `cores/options/` (CI runs it as a step of its own) |
 
@@ -230,7 +231,7 @@ under load, against the stand-in server `tools/racemock.py <port>` only
 (start it, then `--romm-race-test 127.0.0.1:<port> 30`; it exits 0 when
 nothing went out wrong); do not point it at a real RomM.
 
-**Every flag is in `frontend/src/cli.cpp`**, 110 of them plus
+**Every flag is in `frontend/src/cli.cpp`**, 116 of them plus
 `--check-option-tables` in `main.cpp`; there is no `--help`.
 `frontend/README.md` holds the build recipe and the storage tree. What it
 said about running and the flags in September 2026 is history, in

@@ -14,7 +14,9 @@
 //
 // NEVER ON A TIMER. A cached game on a half-empty disk costs nothing, and
 // deleting it only buys a re-download. Eviction happens when a download needs
-// the room and at no other moment.
+// the room and at no other moment. The one other removal is a game RomM no
+// longer has, at a start with the server there (gonegames.h, #625): there is
+// nothing left to re-download.
 //
 // OLDEST FIRST, AND THAT IS THE WHOLE ORDER. No size tiers, no exemptions for
 // small systems. Both were considered and are recorded as deferred.
@@ -203,6 +205,12 @@ std::vector<Entry> candidates(const std::string& location);
 // person.
 int64_t evictUntilFree(const std::string& location, int64_t needBytes,
                        int protectRomId = 0);
+
+// ONE GAME OUT OF THE CACHE, on every drive that is here, the way eviction
+// removes one: its entry and its manual, and never a folder holding saves not
+// yet off it (candidates). Returns the bytes freed. For a game RomM no longer
+// has (gonegames.h); a game somebody keeps is released instead (unkeep).
+int64_t evictGame(int romId);
 
 // The margin above, as a fraction. Freeing exactly enough means evicting on
 // every single launch once a disk sits near full, until the cache holds nothing

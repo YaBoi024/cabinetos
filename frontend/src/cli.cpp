@@ -21,6 +21,7 @@
 #include "fightstick.h"
 #include "files.h"
 #include "firstrun.h"
+#include "gonegames.h"
 #include "idle.h"
 #include "launch.h"
 #include "netblock.h"
@@ -299,6 +300,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             return netblock::test();
         } else if (SDL_strcmp(argv[i], "--idle-test") == 0) {
             return idle::test();
+        } else if (SDL_strcmp(argv[i], "--gone-games-test") == 0) {
+            return gone::test();
         } else if (SDL_strcmp(argv[i], "--battery-test") == 0) {
             batteryTestMode = true;
         } else if (SDL_strcmp(argv[i], "--volume-test") == 0) {
