@@ -51,13 +51,13 @@ COPY image_payload /payload
 # the digest is the actual pin. Moving this is a deliberate act: bump it in its
 # own commit and re-run the VM boot test.
 #
-# Resolved 2026-10-18:
-#   ghcr.io/ublue-os/bazzite:stable == 44.20261012.1
+# Resolved 2026-11-01:
+#   ghcr.io/ublue-os/bazzite:stable == 44.20261026
 #
 # Variant choice: plain `bazzite` (Fedora 44 / Kinoite base), not `bazzite-deck`.
 # See docs/PROJECT.md open question 3 — `bazzite-deck` carries session and
 # power-button infrastructure we may want in Phase 2.
-FROM ghcr.io/ublue-os/bazzite:44.20261012.1@sha256:5d49529cf809ff5b9e1ba52fd4833ec4099005673af4587b15d55b69210264e3
+FROM ghcr.io/ublue-os/bazzite:44.20261026@sha256:ee82a885dbb77cd4604a5ffa8278a0eef0bc84d16850045c7b9d847729da9949
 
 # ---------------------------------------------------------------------------
 # Build
