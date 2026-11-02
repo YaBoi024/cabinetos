@@ -723,12 +723,6 @@ void Flow::joinSelected(const std::string& passphrase) {
     noticeIsError_ = false;
     joinJob_.start([ssid, passphrase](bool& out, std::string& err) {
         out = net::join(ssid, passphrase, /*hidden=*/false, &err);
-        // A failed join with a typed password leaves a saved network holding
-        // the wrong one; remove it. The same as Settings' Wi-Fi.
-        if (!out && !passphrase.empty()) {
-            std::string ignored;
-            net::forget(ssid, &ignored);
-        }
         return out;
     });
 }
@@ -743,6 +737,9 @@ void Flow::openPassphrase(const std::string& why) {
     // open question 17); MMagTech reversed it once the brief reveal answered
     // the typo objection. keyboard.h.
     cfg.conceal = true;
+    // Only a secured network asks for one, so Done on an empty field bumps
+    // and starts no join (Keyboard::Config::required).
+    cfg.required = true;
     keyboard_.open(cfg);
     if (!why.empty()) keyboard_.sayInField(why, /*problem=*/true);
     typing_ = Typing::Passphrase;

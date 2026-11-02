@@ -38,6 +38,14 @@ network does not hang: it returns success and the screen moves on as though the
 join worked. That makes the *post-join* state easy to photograph and means this
 **cannot** be used to test a failed join.
 
+**Except a network with a password.** Its profile, password and all, goes to
+NetworkManager itself over D-Bus, not through `nmcli` (#629, `net.cpp`), and a
+script on `PATH` cannot stand in for that. From an SSH shell polkit refuses it,
+so the join fails with the "not permitted to save a network" message; in a
+console's own session it really saves the network, which Settings, Wi-Fi,
+Forget removes. Press the open network, `BTWiFi-with-FON`, for the post-join
+state.
+
 ## Why a script and not a flag in the binary
 
 A `--pretend-offline` would have to be a second source of truth for the facts,

@@ -63,6 +63,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [arcade-sets-non-merged](2026-09-27-arcade-sets-non-merged.md): arcade sets are non-merged, for every emulator.
 - [one-arcade-tile](2026-10-29-one-arcade-tile.md): every arcade folder is one Library tile, Arcade, whose grid names each game's folder; everywhere else an arcade game's system is Arcade.
 - [romm-owns-management](2026-10-21-romm-owns-management.md): the console uses what RomM offers and never manages it: no gallery, list or manager of its own.
+- [game-gone-from-romm](2026-11-01-game-gone-from-romm.md): a game deleted in RomM leaves the console at the next start with the server there, a played copy or a download, with its saves, states and screenshots.
 
 ### Screens and settings
 
@@ -72,9 +73,11 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 ### The image and updates
 
 - [access-password-is-the-admin-password](2026-11-01-access-password-is-the-admin-password.md): File access and Developer access share one password that is also the console user's admin password, readable by the console's own programs; accepted for now.
+- [sinden-software-in-the-image](2026-11-02-sinden-software-in-the-image.md): Sinden's light-gun software ships in the image with Sinden's permission, and source Sinden sends for its camera library is never shared.
 
 ### Building and checking
 
 ### How we work
 
+- [declined-patch-gets-no-issue](2026-11-01-declined-patch-gets-no-issue.md): a patch upstream declined, or one for no upstream fault, has no open issue; its row in docs/ARCHITECTURE.md section 8, its decision file and its recipe are its record.
 - [wiki-side-list-groups](2026-10-29-wiki-side-list-groups.md): the wiki's side list has five groups, Set it up, Playing, Systems, Settings and Help, each with one rule for what goes in it.

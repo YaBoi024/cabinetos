@@ -299,6 +299,28 @@ void sweep(const std::vector<int>& livePlatformIds) {
                      gone);
 }
 
+bool forgetGame(int romId) {
+    if (romId <= 0) return false;
+    std::string base;
+    {
+        std::lock_guard<std::mutex> lk(gMutex);
+        if (gServer.empty()) return false;
+        base = dir() + "/" + gServer;
+    }
+    DIR* d = ::opendir(base.c_str());
+    if (!d) return false;
+    bool any = false;
+    const std::string rid = std::to_string(romId);
+    while (dirent* e = ::readdir(d)) {
+        if (e->d_name[0] == '.' || std::atoi(e->d_name) <= 0) continue;
+        const std::string p = base + "/" + e->d_name + "/" + rid;
+        struct stat st;
+        if (::lstat(p.c_str(), &st) == 0 && storage::removeEntry(p)) any = true;
+    }
+    ::closedir(d);
+    return any;
+}
+
 void evict(int64_t budgetBytes) {
     std::string base;
     {

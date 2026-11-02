@@ -259,14 +259,18 @@ void App::handleEvent(const SDL_Event& e) {
                     case SDLK_UP: keyboardUp(); break;
                     case SDLK_DOWN: keyboard.moveFocus(0, +1); break;
                     case SDLK_BACKSPACE: keyboard.backspace(); break;
-                    case SDLK_RETURN:
+                    case SDLK_RETURN: {
                         // ITS LENGTH, NEVER THE TEXT: a Wi-Fi or
                         // RetroAchievements password reached the log, and a
-                        // diagnostic report on a public issue with it.
-                        std::fprintf(stderr, "[keyboard] committed %zu characters\n",
-                                     keyboard.value().size());
-                        keyboardResult(keyboard.commit());
+                        // diagnostic report on a public issue with it. Only
+                        // once sent: a password field refuses an empty Done.
+                        const ui::KeyboardResult res = keyboard.commit();
+                        if (res == ui::KeyboardResult::Committed)
+                            std::fprintf(stderr, "[keyboard] committed %zu characters\n",
+                                         keyboard.value().size());
+                        keyboardResult(res);
                         break;
+                    }
                     case SDLK_ESCAPE: keyboardResult(keyboard.cancel()); break;
                     default: break;
                 }
@@ -431,14 +435,18 @@ void App::handleEvent(const SDL_Event& e) {
                     case SDL_GAMEPAD_BUTTON_SOUTH: keyboardResult(keyboard.pressKey()); break;
                     case SDL_GAMEPAD_BUTTON_WEST: keyboard.backspace(); break;
                     case SDL_GAMEPAD_BUTTON_NORTH: keyboard.toggleShift(); break;
-                    case SDL_GAMEPAD_BUTTON_START:
+                    case SDL_GAMEPAD_BUTTON_START: {
                         // ITS LENGTH, NEVER THE TEXT: a Wi-Fi or
                         // RetroAchievements password reached the log, and a
-                        // diagnostic report on a public issue with it.
-                        std::fprintf(stderr, "[keyboard] committed %zu characters\n",
-                                     keyboard.value().size());
-                        keyboardResult(keyboard.commit());
+                        // diagnostic report on a public issue with it. Only
+                        // once sent: a password field refuses an empty Done.
+                        const ui::KeyboardResult res = keyboard.commit();
+                        if (res == ui::KeyboardResult::Committed)
+                            std::fprintf(stderr, "[keyboard] committed %zu characters\n",
+                                         keyboard.value().size());
+                        keyboardResult(res);
                         break;
+                    }
                     case SDL_GAMEPAD_BUTTON_EAST:
                         keyboardResult(keyboard.cancel()); break;
                     default: break;

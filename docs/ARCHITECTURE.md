@@ -15,7 +15,7 @@ a new file, a moved job, a renamed part, or a change to who calls whom.
 
 | Folder or file | What is in it | Where it ends up |
 |---|---|---|
-| `frontend/` | The console's one program, in C++20: `src/` (338 files, one folder; the Makefile compiles these and rcheevos), `data/` (shaders, controller lists, and `vectrex-overlays.json`, which Vectrex game takes which screen sheet), `third_party/rcheevos/` (RetroAchievements, vendored), `covers/` (the stand-in library's covers), `tools/fake-nmcli/` (a stand-in network tool for trying first run) | `/usr/bin/cabinetos-frontend` |
+| `frontend/` | The console's one program, in C++20: `src/` (341 files, one folder; the Makefile compiles these and rcheevos), `data/` (shaders, controller lists, and `vectrex-overlays.json`, which Vectrex game takes which screen sheet), `third_party/rcheevos/` (RetroAchievements, vendored), `covers/` (the stand-in library's covers), `tools/fake-nmcli/` (a stand-in network tool for trying first run) | `/usr/bin/cabinetos-frontend` |
 | `frontend/ps2/` | The PlayStation 2 host around PCSX2, compiled by `cores/build-pcsx2.sh` into `cabinetos-ps2.so`, not by the frontend's Makefile (so a pull request to `main` never compiles it) | `/usr/lib/cabinetos/cores/` |
 | `wiibridge/` | `cabinetos-wii-bridge`, a stand-in for each real Wii Remote; GPL, its own program | `/usr/libexec/cabinetos-wii-bridge` |
 | `cores/` | How every emulator the image carries is built: `build-core.sh` (23 libretro cores, each pinned by commit in its `case` arm), `fetch-mame.sh` (the 24th, MAME 0.289, libretro's own build fetched and checked at its pins, with its plugins and catalogue), `build-pcsx2.sh`, `build-cemu.sh`, `build-sm2emu.sh` (sm2-emu, Sega Model 2's emulator, a program of its own), `build-supermodel.sh` (Supermodel, Sega Model 3's, a program of its own too, with SDL2_net beside it), `build-sunshine.sh` and their builder containers; `options/<core>.txt`, every option each core declares at its pin; `arcade-sets.sh`, each arcade emulator's catalogue from its own list at its pin (CI) | `/usr/lib/cabinetos/cores/` and the emulators' folders |
@@ -58,13 +58,13 @@ is in the file named for its feature, and
 | PlayStation 2 | `ps2.cpp`, `ps2window.cpp`, `overlaywin.cpp`, and `frontend/ps2/` (its `CabinetPS2Bios.cpp` chooses each game's BIOS by the game's region) |
 | Emulators run as programs | `standalone.h`, `standalone.cpp`, `standalone_play.cpp` (also what the console draws over the game in play: the dim, and the pointer for a game touched through the console, the Vita's), `standalone_eden.cpp`, `standalone_xemu.cpp`, `standalone_rpcs3.cpp`, `standalone_xenia.cpp`, `standalone_cemu.cpp`, `standalone_vita3k.cpp`, `standalone_sm2emu.cpp` (Sega Model 2: sm2-emu's settings, written whole in the person's folder for the game, with a game's buttons on a fight stick where the stick's rules put them), `standalone_supermodel.cpp` (Sega Model 3: Supermodel's settings, written whole in its home, which is its working folder, with the person's NVRAM folder for the game linked in, and its buttons laid out the same way), `vpad.cpp`, `vtouch.cpp` (the virtual touch screen the pointer touches with, and gamescope passing touch through), `xtitles.cpp`, `xboxhdd.cpp`, `x360profile.cpp`, `dolphinprep.cpp` |
 | Saves and states | `savetable.cpp` (what each core writes, where, and its two tags on RomM: `emulatorTag` for states, `saveTag` for saves; which systems have states and rewind, `snapshotsAllowed` and `rewindAllowed`), `saves.cpp` (sending and restoring all three kinds of save: `syncSave`, `syncDirSave`, `syncFileSaves`), `dirsave.cpp` and `filesave.cpp` (their helpers), `states.cpp`, `statefile.cpp` (a state file's layout: the core's bytes alone, or RetroArch's RASTATE blocks with the achievement progress), `savemirror.cpp`, `uploader.cpp` (the queue), `pending.cpp` (the markers), `offline_sync.cpp`, `playtime.cpp`, `favorites.cpp`; the requests themselves are in `romm_playdata.cpp` |
-| Storage | `storage.h` (where everything lives), `storage_internal.h`, `locations.cpp`, `cache.cpp`, `drives.cpp`, `drives_fs.cpp`, `udisks.cpp`, `users.cpp`, `accounts.cpp`, `accountremove.cpp`, `fileio.cpp` (every file the console replaces goes through its `writeBytes`: a temporary, fsync, a rename), `prefs.cpp` |
+| Storage | `storage.h` (where everything lives), `storage_internal.h`, `locations.cpp`, `cache.cpp`, `drives.cpp`, `drives_fs.cpp`, `udisks.cpp`, `users.cpp`, `accounts.cpp`, `accountremove.cpp`, `fileio.cpp` (every file the console replaces goes through its `writeBytes`: a temporary, fsync, a rename), `prefs.cpp`, `gonegames.cpp` (a game RomM no longer has leaves the drive at a start with the server there, with its record, covers, saves, states and screenshots, #625) |
 | Controllers | `players.cpp`, `fightstick.cpp` (the table of known fight sticks, and an arcade game's buttons laid out on one), `controls.cpp` (Controls: an arcade game's buttons moved per game, kind of controller and person, kept in `users/<id> - <name>/controls/`; `play.cpp`'s readGameInput reads each pad through it, `launch.cpp`'s startPlaying reads the game's file), `controlsflow.cpp` (its panel over the pause menu, and the press it listens for, which `controllers.cpp` hands it before anything else sees it), `controllers.cpp`, `bluetooth.cpp`, `btagent.h`, `battery.cpp`, `batteryrow.cpp`, `shortcuts.cpp`, `wiiremote.cpp` (starts the Wii bridge), `wiipair.cpp`, `wiipanel.cpp`, `wiimii.cpp`, `wii.cpp`, `wiiu.cpp` |
 | The machine | `net.cpp`, `wifi.cpp`, `power.cpp`, `power_menu.cpp`, `powerprofile.cpp`, `volume.cpp`, `sound.cpp`, `gpu.cpp`, `cpus.cpp`, `idle.cpp`, `proc.cpp` (running a program with no shell), `unit.cpp` (asking systemd for a root job), `update.cpp` (System update, the console's side), `files.cpp` (File access, the console's side), `server.cpp` and `serveraddress.cpp` (the RomM server this console belongs to) |
 | RetroAchievements | `achievements.cpp` (the sign-in and rcheevos' client; its console table names every system), `achievements_ui.cpp`, `ra_list.cpp`, `ra_net.cpp`, `ra_state.h` |
 | Settings features | `settingsflow.cpp` (the rows and their dispatch), `settingsids.h`, `about.cpp`, `credits.h`, `access.cpp` (File access and Developer access), `wikiqrview.cpp` and `wikiqr.h` (the Wiki's and What's new's QR codes, made by `tools/make-wiki-qr.py`; How to and the link screen draw them), and one `*flow.cpp` per feature: `accountsflow.cpp`, `downloadsflow.cpp`, `drivesflow.cpp`, `pinflow.cpp`, `serveraddressflow.cpp`, `remoteplayflow.cpp`, `friendflow.cpp` (Play with a friend: the steps for a guest to join a stream), `joinflow.cpp` (Join a friend: this console as a stream's guest, through Moonlight, run as an emulator of its own is: overlay window, virtual pads) and `moonlight.cpp` (Moonlight's command lines and the hosts paired with), `tailscaleflow.cpp`, `steamflow.cpp`, `updateflow.cpp`, `reportflow.cpp`; `choiceflow.cpp` asks a question over any screen |
 | Remote Play, Steam, the report | `remoteplay.cpp`, `sunshinelog.cpp`, `tailscale.cpp`, `steam.cpp`, `report.cpp`, `samenames.cpp` |
-| Test instruments | `probes.cpp` (runs the probes and calls most self-tests; `--same-names-test`, `--arcade-tile-test`, `--fightstick-test`, `--arcade-settings-test`, `--screen-view-test`, `--controls-test`, `--idle-test` and `--romm-race-test` run from `cli.cpp`), `selftests.cpp`, `coretests.cpp`, `testhooks.cpp`, `discrig.cpp`, `optcheck.cpp` (the option-table check CI runs). Most self-tests live in their feature's own file (`players::test` in `players.cpp`, and so on). They ship in the program and run only from a flag |
+| Test instruments | `probes.cpp` (runs the probes and calls most self-tests; `--same-names-test`, `--arcade-tile-test`, `--fightstick-test`, `--arcade-settings-test`, `--screen-view-test`, `--controls-test`, `--idle-test`, `--gone-games-test` and `--romm-race-test` run from `cli.cpp`), `selftests.cpp`, `coretests.cpp`, `testhooks.cpp`, `discrig.cpp`, `optcheck.cpp` (the option-table check CI runs). Most self-tests live in their feature's own file (`players::test` in `players.cpp`, and so on). They ship in the program and run only from a flag |
 
 ### Where it starts
 
@@ -123,7 +123,10 @@ is in the file named for its feature, and
   run --unshare=network` for the Flatpaks. A new core or emulator program is
   covered by going through those, with nothing of its own.
 - **Storage** (`storage.h`) decides where everything lives. Eviction only ever
-  walks `cache/`; kept games (`roms/`) and save data are never evicted.
+  walks `cache/`; kept games (`roms/`) and save data are never evicted. The
+  one other removal is a game RomM no longer has, kept or played, at a start
+  with the server there, with its saves, states and screenshots, once the
+  upload queue has tried what that start owed (`gonegames.h`).
   A save, a state or a screenshot owed to RomM is a marker on disk before
   the upload is tried (`pending.h`), so a crash or a power cut cannot lose
   it; time played and favourites are owed in their own files
@@ -173,7 +176,10 @@ is in the file named for its feature, and
    15 seconds and tries the server in the background, otherwise it keeps
    waiting (`serverwait.cpp`).
 8. `startBrowsing`; `startSync`, which starts the upload queue and sends
-   first whatever an earlier run still owed (`uploader.resendOwed`);
+   first whatever an earlier run still owed (`uploader.resendOwed`), and
+   with the server there starts the backfill (`offline_sync.h`): the games
+   RomM no longer has asked about and removed first (`gonegames.h`), then
+   what offline needs fetched;
    `recoverPowerCutSaves`, which finishes the saves a power cut left in an
    emulator run as a program (an Xbox game's drive through
    `recoverDriveSaves`, which that game's launch also runs); then the rest
@@ -264,7 +270,9 @@ power cut).
    next start (`startSync`). One that failed is sent again every five
    minutes, when the server comes back and after a person's next upload
    works; one RomM refused (an HTTP 4xx) keeps its marker and waits for the
-   next start or a new save of it. States: the newest three per game and
+   next start or a new save of it, unless RomM no longer has the game: then,
+   once the queue has tried it that start, the file goes with the game
+   (`gonegames.h`). States: the newest three per game and
    emulator tag are kept on RomM.
 3. Each core's saves, where it writes them and the tag they carry on RomM are
    one table, `savetable.cpp`. A launch restores the newest row under its
@@ -330,7 +338,8 @@ Each with where it is recorded.
 - **Big emulators run as programs, played as games** (docs/PROJECT.md, open
   question 32).
 - **Pulled games are a cache; kept games stay** (docs/PROJECT.md, "The
-  backend model"; `cache.h`).
+  backend model"; `cache.h`), until RomM no longer has the game
+  (`docs/decisions/2026-11-01-game-gone-from-romm.md`).
 - **gamescope, not Bazzite's gamescope-session-plus** (cabinetos-session's
   header; docs/PROJECT.md, open question 3).
 - **The on-disk layout** (docs/PROJECT.md, open question 18; `storage.h`).
@@ -532,7 +541,7 @@ The area named is the one in `ci/base-watch.txt` whose checks a change asks for.
 | PPSSPP's shader cache, and its CPU engine named in the log | Two patches: the cache saved in `GPU_GLES::DeviceLost`, a log line in `MIPSState::Init` (`cores/build-core.sh`, the ppsspp block; Cabinet's) | Asserted. No issue (they predate the rule) |
 | Each 3DS game its own folders | A patch to Azahar's `SetUserPath` | Asserted; tracked on #534 ("Azahar patch: each game sets its own folders (until Azahar fixes SetUserPath)") |
 | PS2's sound through the console | A patch to PCSX2's `pcsx2/Host/AudioStream.cpp`, and `AudioStream`'s own members (`frontend/ps2/CabinetPS2Audio.cpp`) | The anchor is asserted (`cores/build-pcsx2.sh`); a changed member fails the build. Not an upstream fault, so no issue |
-| A game set as a slave cabinet, linked to itself (Dirt Devils) | A patch to Supermodel's `Src/Model3/SimNetBoard.cpp`: a machine linked to itself takes the master's path whatever its game is set to (`cores/build-supermodel.sh`, "the patch") | Asserted; tracked on #634 ("Supermodel patch: a machine linked to itself runs as the only cabinet (Dirt Devils)"). Not a wait: Supermodel declined it (trzy/Supermodel#360), so it stays |
+| A game set as a slave cabinet, linked to itself (Dirt Devils) | A patch to Supermodel's `Src/Model3/SimNetBoard.cpp`: a machine linked to itself takes the master's path whatever its game is set to (`cores/build-supermodel.sh`, "the patch") | Asserted. Not a wait: Supermodel declined it (trzy/Supermodel#360), so it stays, and its issue, #634 ("Supermodel patch: a machine linked to itself runs as the only cabinet (Dirt Devils)"), is closed (`docs/decisions/2026-11-01-declined-patch-gets-no-issue.md`) |
 | The PS2 host (`frontend/ps2/`) | PCSX2's internals, not a library interface: 55 `Host::` functions, `EmuFolders`, `VMManager`'s start order, `PadDualshock2`'s inputs, the settings keys it fills in memory (PCSX2 ignores unknown ones), the patch named "Widescreen 16:9", `GSSaveSnapshotToMemory`, the memory map RetroAchievements reads, and a linker wrap of `InputManager::SetPadVibrationIntensity` by its mangled name | A missing function fails the build (`-z defs`, the probe in `cores/build-pcsx2.sh`). The picture keys: `tools/check-applied.sh` reads the `[ps2] renderer` line. Not checked: the other keys, the rumble wrap (it links and does nothing), the memory map |
 | PS2's widescreen patches | `PCSX2/pcsx2_patches` at a pinned commit, packed as PCSX2 does | `cores/build-pcsx2.sh` asserts the commit and that `patches.zip` was made |
 | Every option the console sets on a libretro core | The option names and values each core declares | `--check-option-tables` in CI, and `cores/check-options.sh` at each core build (`cores/options/`); Dolphin's and FBNeo's lists by hand (`tools/check-applied.sh --lists`). Not checked: the defaults the console leaves alone and relies on (`coreoptions.cpp`) |

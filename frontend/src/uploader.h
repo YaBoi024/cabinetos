@@ -108,6 +108,10 @@ public:
     void sendPlay();
 
     int pending() const { return pending_.load(); }
+    // Whether RomM refused this file for good this run (refused_): the
+    // uploader has tried it since the start. A game RomM no longer has
+    // deletes this person's owed file only then (gonegames.h).
+    bool refusedThisRun(const storage::User& who, int romId, const std::string& fileName) const;
     // Something failed and is still owed: the frame loop tries again on a timer.
     bool owing() const { return owing_.load(); }
 
@@ -167,7 +171,7 @@ private:
 
     romm::Client* client_ = nullptr;
     std::thread worker_;
-    std::mutex mutex_;
+    mutable std::mutex mutex_;
     std::condition_variable wake_;
     std::deque<Job> queue_;
     std::set<std::string> queued_;

@@ -17,7 +17,8 @@ time.
 
 1. **Patches:** the rows of `docs/ARCHITECTURE.md`, "Moved by a pin of ours",
    that name a patch, with the issue and upstream report each names. A row
-   that says the patch is not an upstream fault is not a wait. A patch row
+   that says the patch is not an upstream fault, or that upstream declined
+   it, is not a wait. A patch row
    that names no upstream report goes on the list as cannot be checked.
 2. **Issues:** open issues that name another project's report:
 
