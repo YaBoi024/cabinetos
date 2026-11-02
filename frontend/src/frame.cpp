@@ -174,6 +174,7 @@ void App::runFrameLoop() {
         }
         askReadyWhenFree();
         pollJoin();   // FORK (handheld): joinflow.cpp
+        pollFriends();   // FORK (handheld): friendspanel.cpp
         noticeLowBattery(dt);
 	tickLevelBars(dt);   // FORK (handheld): levelbar.cpp
         sayUpdatedTo();
