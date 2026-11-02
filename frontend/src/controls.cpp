@@ -347,6 +347,9 @@ namespace {
 
 struct Game {
     bool arcade = false;
+    // A program of its own: the rows from `given`, at its start (beginProgram).
+    bool program = false;
+    std::vector<cab::InputDescriptor> given;
     std::string core, title;
     int romId = 0;
     storage::User user;
@@ -448,12 +451,7 @@ void write() {
 void sayRows() {
     std::string rows, hidden;
     SDL_Gamepad* gp = players::gamepad(0);
-    const Map def = [&] {
-        if (!gp) return plain();
-        const fightstick::Layout* l = fightstick::forPort(0, gp, gGame.core);
-        return l ? fromLayout(*l) : plain();
-    }();
-    const std::vector<int> a = current(gp ? fightstick::kind(gp) : std::string(), def);
+    const std::vector<int> a = current(gp ? fightstick::kind(gp) : std::string(), defaultFor(0, gp));
     for (size_t i = 0; i < gGame.rows.rows.size(); ++i)
         rows += (i ? ", " : "") + gGame.rows.rows[i].label + "=" + word(a[i]);
     for (size_t i = 0; i < gGame.rows.hidden.size(); ++i)
@@ -477,8 +475,19 @@ void beginGame(const std::string& core, int romId, const std::string& title) {
     read();
 }
 
-void follow() {
+void beginProgram(const std::string& core, int romId, const std::string& title,
+                  const std::vector<cab::InputDescriptor>& buttons) {
+    beginGame(core, romId, title);
     if (!gGame.arcade) return;
+    gGame.program = true;
+    gGame.given = buttons;
+    gGame.rows = rowsFrom(core, buttons);
+    resolveAll(!gGame.rows.rows.empty());
+    if (!gGame.rows.rows.empty()) sayRows();
+}
+
+void follow() {
+    if (!gGame.arcade || gGame.program) return;
     const cab::Core& c = cab::Core::shared();
     if (gGame.seenAny && c.inputDescriptorsVersion() == gGame.seen) return;
     gGame.seenAny = true;
@@ -491,8 +500,36 @@ void follow() {
 }
 
 bool offered() { return gGame.arcade && !gGame.rows.rows.empty(); }
+bool fromNextStart() { return gGame.program; }
 const std::vector<Row>& rows() { return gGame.rows.rows; }
 unsigned generation() { return gGame.generation; }
+
+Map defaultFor(int port, SDL_Gamepad* gp) {
+    if (!gp) return plain();
+    if (gGame.program) {
+        const std::optional<fightstick::Layout> l = fightstick::make(
+            players::stick(SDL_GetGamepadID(gp)), gGame.core, gGame.given, gGame.given);
+        return l ? fromLayout(*l) : plain();
+    }
+    const fightstick::Layout* l = fightstick::forPort(port, gp, gGame.core);
+    return l ? fromLayout(*l) : plain();
+}
+
+std::array<int, 16> pressedWith(int port, SDL_Gamepad* gp) {
+    std::array<int, 16> out;
+    for (size_t id = 0; id < out.size(); ++id) out[id] = static_cast<int>(id);
+    if (!gp || !offered()) return out;
+    const std::string k = fightstick::kind(gp);
+    const std::vector<int> a = current(k, defaultFor(port, gp));
+    std::string said;
+    for (size_t i = 0; i < gGame.rows.rows.size(); ++i) {
+        out[gGame.rows.rows[i].id] = a[i];
+        said += (i ? ", " : "") + gGame.rows.rows[i].label + "=" + word(a[i]);
+    }
+    std::fprintf(stderr, "[controls] %s: player %d (%s) from this start: %s\n",
+                 gGame.title.c_str(), port + 1, k.c_str(), said.c_str());
+    return out;
+}
 
 const Map* forPort(int port, SDL_Gamepad* gp, const fightstick::Layout* layout) {
     if (!offered() || port < 0 || port >= players::kMax || !gp) return nullptr;
@@ -820,6 +857,28 @@ int test() {
         const std::optional<fightstick::Layout> tl = fightstick::make(stick, fbneo, three, three);
         walk(rowsFrom(fbneo, three).rows, tl ? fromLayout(*tl) : plain(), false, false, 4 * 336 + 1680,
              "Three buttons and a combination on the stick");
+    }
+    {
+        // A PROGRAM OF ITS OWN: the rows the console declares from the
+        // catalogue's count (fightstick::programButtons), as its settings
+        // put them. Virtua Fighter 3 in Supermodel, four; Virtua Fighter 2
+        // in sm2-emu, three.
+        const D vf3 = fightstick::programButtons(4);
+        const Rows r = rowsFrom("supermodel", vf3);
+        check(r.rows.size() == 4 && r.rows[0].label == "Button 1" && r.rows[1].id == cab::A &&
+                  r.rows[3].id == cab::X && r.hidden.empty(),
+              "Virtua Fighter 3 in Supermodel: Button 1 to 4 on B, A, Y and X");
+        const std::optional<fightstick::Layout> l = fightstick::make(stick, "supermodel", vf3, vf3);
+        const Map def = l ? fromLayout(*l) : plain();
+        check(assignment(r.rows, def, {}) == std::vector<int>{cab::B, cab::A, cab::R2, cab::L2},
+              "and on the stick the bottom row, as its settings put them");
+        Changes ch;
+        check(assign(r.rows, plain(), ch, 1, cab::R) &&
+                  assignment(r.rows, plain(), ch) == std::vector<int>{cab::B, cab::R, cab::Y, cab::X},
+              "Button 2 moved to R on a pad, the other three where they were");
+        walk(r.rows, def, true, false, 1680, "Virtua Fighter 3 on the stick (8P4)");
+        walk(rowsFrom("sm2emu", fightstick::programButtons(3)).rows, plain(), true, true, 336,
+             "Virtua Fighter 2 on a pad (8P3)");
     }
 
     // ---- apply

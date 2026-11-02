@@ -96,8 +96,8 @@ void vita3kArgs(std::vector<std::string>& full, const Emulator& e, const std::st
 
 // Sega Model 2 (standalone_sm2emu.cpp).
 std::string sm2emuNvram(const std::string& saveDir);
-bool prepareSm2emu(const Emulator& e, const std::string& romPath, const std::string& saveDir,
-                   int players, quality::Level level, std::string* err);
+bool prepareSm2emu(const Emulator& e, const std::string& saveDir, int players,
+                   quality::Level level, std::string* err);
 // Run::start's arguments for sm2-emu, as for xeniaArgs: the environment
 // entries before the program, then its folders, the set and the game's zip.
 void sm2emuArgs(std::vector<std::string>& full, const std::string& dir,
