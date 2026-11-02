@@ -1,0 +1,222 @@
+diff --git a/ci/base-report.py b/ci/base-report.py
+--- a/ci/base-report.py
++++ b/ci/base-report.py
+@@ -10,8 +10,8 @@
+ 
+   * update notes, written so they also serve as the public notes for the
+     update: one line per area that changed, in plain words;
+-  * the checks for those areas only, split into what the A9's log answers
+-    and what needs MMagTech at the TV, each listed once;
++  * the checks for those areas only, split into what the Deck's log answers
++    and what needs a person by hand, each listed once;
+   * the kernel's fixes for the parts the console uses, from kernel.org's
+     stable changelogs and the OGC kernel's own patches, filtered by the
+     watch list's changelog: lines;
+@@ -22,7 +22,7 @@
+                                       area<TAB>name, log<TAB>check<TAB>command,
+                                       tv<TAB>check
+   base-report.py expect OLD NEW       NAME VERSION-RELEASE of every watched
+-                                      package the update brings, which the A9
++                                      package the update brings, which the Deck
+                                       must then have (not those CabinetOS
+                                       removes)
+ 
+@@ -436,7 +436,7 @@
+ 
+ # --- Checks -------------------------------------------------------------------
+ 
+-ALWAYS = "The A9 runs this base: the changed packages have their new versions"
++ALWAYS = "The Deck runs this base: the changed packages have their new versions"
+ 
+ 
+ def checks(changed):
+@@ -511,14 +511,14 @@
+ 
+     log, tv = checks(changed)
+     md += ["### Checks for this update", "",
+-           "Only for the areas above. Put the testing image on the A9, then "
++           "Only for the areas above. Put the testing image on the Deck, then "
+            "`tools/base-checks.sh <this branch>` runs the log checks there.", ""]
+     if changed:
+-        md += ["**From the A9's log** (the assistant):", ""]
++        md += ["**From the Deck's log** (the assistant):", ""]
+         md.append(f"- [ ] {ALWAYS}")
+         for (check, _), names in log.items():
+             md.append(f"- [ ] {check} ({', '.join(names)})")
+-        md += ["", "**At the TV** (MMagTech):", ""]
++        md += ["", "**By hand** (on the Deck, and on a TV when docked):", ""]
+         if tv:
+             md += [f"- [ ] {check} ({', '.join(names)})" for check, names in tv.items()]
+         else:
+diff --git a/ci/base-watch.txt b/ci/base-watch.txt
+--- a/ci/base-watch.txt
++++ b/ci/base-watch.txt
+@@ -1,5 +1,6 @@
+ # Packages CabinetOS actually cares about in the Bazzite base, in AREAS, and
+-# what to check on the A9 when an area changes.
++# what to check on the Deck when an area changes. (Fork: the original names
++# the maintainer's own console here; see FORK-CHANGES.md.)
+ #
+ # Used by ci/check-base-update.sh (through ci/base-report.py) to decide whether
+ # a Bazzite update is RELEVANT (a human should look at it before merging) or
+@@ -22,11 +23,12 @@
+ #                     replaced Fedora's in 44.20260929, and the old list called
+ #                     that "WirePlumber removed" and never showed the new one.
+ #   log: <check> :: <command>
+-#                     a check the A9's log answers, once it runs the testing
++#                     a check the Deck's log answers, once it runs the testing
+ #                     image. tools/base-checks.sh runs the command there in
+ #                     bash as `cabinet`, no sudo; exit 0 is a pass, and what
+ #                     it prints is shown on a fail.
+-#   tv: <check>       a check that needs MMagTech's eyes or hands.
++#   tv: <check>       a check that needs a person's eyes or hands, on the Deck's
++#                     screen or on a TV when docked.
+ #   changelog: <part> :: <regex>
+ #                     which kernel changelog lines (kernel.org's, and the OGC
+ #                     kernel's own patches) are about a part the console uses.
+@@ -64,7 +66,7 @@
+ # Its checks are the short broad ones: a kernel touches nearly everything,
+ # so boot, picture, sound, network, a Bluetooth pad and one heavy game.
+ area: Kernel and startup
+-log: The A9 booted the image's own kernel :: [ "$(uname -r)" = "$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' kernel-core)" ]
++log: The Deck booted the image's own kernel :: [ "$(uname -r)" = "$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' kernel-core)" ]
+ log: No service failed to start :: out=$(systemctl --failed --no-legend --plain); [ -z "$out" ] || { echo "$out"; exit 1; }
+ log: No kernel error this boot that the boot before did not have :: e() { journalctl -b "$1" -k -p err -o cat | sed -E 's/[0-9]+/N/g' | sort -u; }; new=$(comm -13 <(e -1) <(e 0)); [ -z "$new" ] || { echo "$new"; exit 1; }
+ log: The console came up on the GPU, not software drawing :: journalctl -b -t cabinetos-session -o cat | grep -q 'gamescope (drm) is up'
+@@ -157,7 +159,7 @@
+ # log check below runs as the update does. bootc answers only root, so its
+ # own output is the TV check.
+ area: System update
+-log: The A9 booted the image's own kernel :: [ "$(uname -r)" = "$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' kernel-core)" ]
++log: The Deck booted the image's own kernel :: [ "$(uname -r)" = "$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' kernel-core)" ]
+ log: No service failed to start :: out=$(systemctl --failed --no-legend --plain); [ -z "$out" ] || { echo "$out"; exit 1; }
+ log: The update check still finds every layer of the running image on the console :: r=$(rpm-ostree status --json | jq -r '.deployments[] | select(.booted) | (."container-image-reference" | sub(".*docker://"; "") | sub(":[^:/]*$"; "")) + "@" + ."container-image-reference-digest"'); m=$(skopeo inspect --raw "docker://$r") || { echo "skopeo could not read $r"; exit 1; }; if jq -e .manifests >/dev/null <<<"$m"; then m=$(skopeo inspect --raw "docker://${r%@*}@$(jq -r 'first(.manifests[] | select(.platform.architecture == "amd64") | .digest)' <<<"$m")") || exit 1; fi; n=$(ostree refs --repo=/sysroot/ostree/repo ostree/container/blob | jq -R -s --argjson m "$m" '(split("\n") | map(select(length > 0))) as $have | [$m.layers[] | select((.digest | sub(":"; "_3A_")) as $d | $have | index($d) | not)] | length'); [ "$n" = 0 ] || { echo "layers of $r the update would fetch again: ${n:-none counted}"; exit 1; }
+ # Which image and channel it booted the console reads itself
+@@ -179,8 +181,8 @@
+ # rules.d/); the rules read polkit's subject and action fields. polkit
+ # answers an ordinary user's question about another process only without
+ # the unit's name, so the check reads the console's own starts this boot
+-# (frontend/src/unit.cpp logs each); the A9 has Remote Play and File access
+-# on, so it starts at least one.
++# (frontend/src/unit.cpp logs each); a console with Remote Play or File access
++# on starts at least one, so the check needs one of them on.
+ area: What the console may do as root
+ log: polkit let the console start its own services this boot :: l=$(journalctl -b -o cat -t cabinetos-session | grep -E '^\[unit\] (Start|Stop|Reload)Unit '); [ -n "$l" ] || { echo "the console started no service this boot (Remote Play or File access on would)"; exit 1; }; bad=$(grep -v ': taken$' <<<"$l"); [ -z "$bad" ] || { echo "$bad"; exit 1; }
+ tv: System update: press System update in Settings, System; it checks, then says Up to date
+@@ -415,10 +417,11 @@
+ # --- Games drives, added 2026-10-21 ----------------------------------------
+ # The console mounts, claims and formats every drive itself through udisks
+ # (frontend/src/drives.cpp, udisks.cpp): ext4, exFAT and NTFS, formatted as
+-# ext4. Unwatched until this day. The A9 keeps its games on a drive the
+-# console mounts at start.
++# ext4. Unwatched until this day. The maintainer's console keeps its games on a drive the
++# console mounts at start. (Fork: the maintainer's log check for his games
++# drive is dropped; a Deck keeps its games on the SD card or the internal
++# drive, and there is no one place every Deck mounts them.)
+ area: Games drives
+-log: The A9's games drive is mounted where the console looks :: findmnt -rn -o TARGET | grep -q '^/run/media/cabinet/' || { echo "nothing mounted under /run/media/cabinet"; lsblk -o NAME,FSTYPE,LABEL,MOUNTPOINTS; exit 1; }
+ udisks2
+ libudisks2
+ libblockdev*
+diff --git a/ci/check-base-update.sh b/ci/check-base-update.sh
+--- a/ci/check-base-update.sh
++++ b/ci/check-base-update.sh
+@@ -14,7 +14,7 @@
+ #      relies on, in areas — and labels the result RELEVANT or ROUTINE. Since
+ #      2026-10-09 ci/base-report.py does this part, and writes what a person
+ #      reads: update notes that also serve as the public ones, the checks for
+-#      the changed areas only (the A9's log, and the TV), and the kernel's
++#      the changed areas only (the Deck's log, and by hand), and the kernel's
+ #      fixes for the parts the console uses.
+ #   3. Flags strip-list drift: removal targets in build_files/ that no longer
+ #      exist in the base, which means a strip script has silently become a
+@@ -390,8 +390,8 @@
+     echo
+     echo "**Do not merge on a green build alone.** A CabinetOS image that builds"
+     echo "is not the same as one that boots. Push this branch to \`testing\`, put"
+-    echo "that image on the A9, run \`tools/base-checks.sh base-update/${new_version}\`"
+-    echo "and do the TV checks above, per \`docs/PROJECT.md\` constraint 2."
++    echo "that image on the Deck, run \`tools/base-checks.sh base-update/${new_version}\`"
++    echo "and do the by-hand checks above, per \`docs/PROJECT.md\` constraint 2."
+ } > "${PR_BODY}"
+ 
+ # ---------------------------------------------------------------------------
+diff --git a/tools/base-checks.sh b/tools/base-checks.sh
+--- a/tools/base-checks.sh
++++ b/tools/base-checks.sh
+@@ -1,16 +1,20 @@
+ #!/usr/bin/env bash
+ #
+-# The A9 half of a base update's checks. Run from the Mac once the A9 runs
++# The Deck half of a base update's checks. Run from the Mac once the Deck runs
+ # the testing image built from the base-update branch.
+ #
+ # THE BASE-UPDATE PULL REQUEST LISTS ITS OWN CHECKS (MMagTech, 2026-10-09):
+ # only for the areas of ci/base-watch.txt the update changed, split into what
+-# the A9's log answers and what needs him at the TV. This does the first
++# the Deck's log answers and what needs a person by hand. This does the first
+ # half: it works out the changed areas the same way the pull request did
+-# (ci/base-report.py, main's manifest against the branch's), confirms the A9
++# (ci/base-report.py, main's manifest against the branch's), confirms the Deck
+ # really runs the new base, runs each area's log: check there as `cabinet`,
+-# and prints the TV checks to hand him. It changes nothing on the console and
+-# presses nothing, so it is safe while he is at the TV.
++# and prints the by-hand checks. It changes nothing on the console and
++# presses nothing.
++#
++# It connects the way tools/deck-loop.sh does: CABINETOS_DECK=cabinet@<address>
++# (CABINETOS_A9 still works), Developer access on in the Deck's Settings, About,
++# and the Deck's password asked once, because the connection is shared.
+ #
+ #   tools/base-checks.sh base-update/44.20261006.1
+ #
+@@ -19,9 +23,14 @@
+ export LC_ALL=C
+ 
+ BRANCH="${1:?usage: tools/base-checks.sh <base-update branch>}"
+-A9="${CABINETOS_A9:?set it to cabinet@<your console> (CLAUDE.local.example.md)}"
+-KEY="${CABINETOS_KEY:-$HOME/.ssh/cabinetos}"
+-SSH=(ssh -p 2222 -i "$KEY" -o ConnectTimeout=20 -o BatchMode=yes "$A9")
++DECK="${CABINETOS_DECK:-${CABINETOS_A9:-}}"
++[[ -n "$DECK" ]] || { echo "set CABINETOS_DECK to cabinet@<the Deck's address> (see tools/deck-loop.sh)" >&2; exit 2; }
++PORT="${CABINETOS_DECK_PORT:-2222}"
++SOCK="/tmp/base-checks-%C"
++SSHOPT=(-p "$PORT" -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new
++        -o ControlMaster=auto -o ControlPath="$SOCK" -o ControlPersist=15m)
++[[ -n "${CABINETOS_KEY:-}" ]] && SSHOPT+=(-i "$CABINETOS_KEY")
++SSH=(ssh "${SSHOPT[@]}" "$DECK")
+ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ TMP="$(mktemp -d)"
+ trap 'rm -rf "$TMP"' EXIT
+@@ -40,8 +49,8 @@
+ echo "== areas this update changed"
+ awk -F'\t' '$1 == "area" { print "      " $2 }' "$TMP/checks.tsv"
+ 
+-echo "== from the A9's log ($A9)"
+-# Proof first: the A9 runs THIS base, not the one before. Every package the
++echo "== from the Deck's log ($DECK)"
++# Proof first: the Deck runs THIS base, not the one before. Every package the
+ # update brings to a watched area must be installed at its new version (ones
+ # CabinetOS removes are left out).
+ want=$(python3 ci/base-report.py expect "$TMP/old.txt" "$TMP/new.txt" | sort)
+@@ -49,9 +58,9 @@
+     have=$("${SSH[@]}" "rpm -q --qf '%{NAME} %{VERSION}-%{RELEASE}\n' $(awk '{print $1}' <<<"$want" | tr '\n' ' ') 2>/dev/null")
+     missing=$(comm -23 <(echo "$want") <(grep -v 'not installed' <<<"$have" | sort -u))
+     if [[ -z "$missing" ]]; then
+-        ok "The A9 runs this base: the changed packages have their new versions"
++        ok "The Deck runs this base: the changed packages have their new versions"
+     else
+-        bad "The A9 runs this base: $(wc -l <<<"$missing" | tr -d ' ') packages are not at the branch's versions" \
++        bad "The Deck runs this base: $(wc -l <<<"$missing" | tr -d ' ') packages are not at the branch's versions" \
+             "$(head -8 <<<"$missing")"
+     fi
+ fi
+@@ -61,7 +70,7 @@
+     if out=$("${SSH[@]}" bash -s <<<"$command" 2>&1); then ok "$check"; else bad "$check" "$out"; fi
+ done < "$TMP/checks.tsv"
+ 
+-echo "== at the TV (MMagTech)"
++echo "== by hand (on the Deck, and on a TV when docked)"
+ n=0
+ while IFS=$'\t' read -r kind check _; do
+     [[ "$kind" == tv ]] || continue
