@@ -16,7 +16,7 @@ your Steam games' saves.
 
 ## Get the installer
 
-**https://pub-e4881344a12f4bdfa25b269cea81a741.r2.dev.dev/cabinetos.iso**
+**https://pub-e4881344a12f4bdfa25b269cea81a741.r2.dev/cabinetos.iso**
 
 It is about 7 GB. No account is needed. The link never changes, and it always
 gives the newest installer. Next to it, `cabinetos.iso.sha256` holds the file's
