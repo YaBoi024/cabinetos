@@ -1,10 +1,13 @@
 #include "net.h"
 
+#include <systemd/sd-bus.h>
 #include <unistd.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 
 #include "proc.h"
 
@@ -250,6 +253,226 @@ bool listWifi(bool rescan, std::vector<Network>* out, std::string* err) {
 bool scan(std::vector<Network>* out, std::string* err) { return listWifi(true, out, err); }
 bool cachedScan(std::vector<Network>* out, std::string* err) { return listWifi(false, out, err); }
 
+namespace {
+
+// What the screen shows for a failed join, from what the failure said.
+void sayWhy(const std::string& why, std::string* err) {
+    if (!err) return;
+    *err = why.empty() ? "could not join that network" : why;
+    // SAY WHEN THE PRIVILEGE IS THE PROBLEM, because it is the one failure
+    // whose message points nowhere near its cause. Joining succeeds and
+    // saving the profile does not, so the console comes up on a network it
+    // has no memory of, every boot, forever. NetworkManager's own refusal
+    // over D-Bus is "Insufficient privileges" (NM_UTILS_ERROR_MSG_INSUFF_PRIV).
+    if (why.find("not authorized") != std::string::npos ||
+        why.find("Not authorized") != std::string::npos ||
+        why.find("insufficient privileges") != std::string::npos ||
+        why.find("Insufficient privileges") != std::string::npos) {
+        *err += ". This console is not permitted to save a network "
+                "(polkit says " + polkitVerdict() + "); see "
+                "60-cabinetos-network.rules";
+    }
+}
+
+// The same, from a failed nmcli: its own words, less the "Hint:" line
+// `connection up` adds after them, as a journalctl command means nothing on
+// a television.
+void sayWhy(const proc::Result& r, std::string* err) {
+    if (r.timedOut) {
+        if (err) *err = "the network did not answer in time";
+        return;
+    }
+    std::string why;
+    for (const std::string& line : lines(trimmed(r.err).empty() ? r.out : r.err)) {
+        if (trimmed(line).empty() || line.compare(0, 5, "Hint:") == 0) continue;
+        if (!why.empty()) why += ' ';
+        why += trimmed(line);
+    }
+    sayWhy(why, err);
+}
+
+// The security a new profile is made with, from the list's SECURITY field
+// ("WPA2", "WPA2 WPA3", "WPA3", "WEP"): the answers NetworkManager itself
+// gives when it fills one in from the access point (nm-wifi-utils.c, 1.56),
+// which is what `device wifi connect` relied on. "wpa-psk" whenever WPA1 or
+// WPA2 is offered, a mixed WPA2/WPA3 network included, where NetworkManager
+// still lets the radio use WPA3. "sae" only when WPA3 is all there is,
+// because a "wpa-psk" profile does not match a WPA3-only network at all.
+// "none" is WEP. Empty: an open network.
+std::string keyMgmtFor(const std::string& security) {
+    if (security.find("WPA1") != std::string::npos ||
+        security.find("WPA2") != std::string::npos) return "wpa-psk";
+    if (security.find("WPA3") != std::string::npos) return "sae";
+    if (security.find("WEP") != std::string::npos) return "none";
+    return "";
+}
+
+// `ssid` as it is on the air: its key management, and the Wi-Fi device that
+// hears it, which `device wifi connect` tied its profile to. False when no
+// access point by that name is in the list. A mesh lists one name several
+// times: any that offers WPA2 decides, since "wpa-psk" joins them all.
+//
+// A HIDDEN NETWORK IS ASKED FOR BY NAME FIRST, as `device wifi connect ...
+// hidden yes` did, and the list read until it has it: an access point that
+// does not broadcast its name answers only a scan that says it.
+bool onAir(const std::string& ssid, bool hidden, std::string* keyMgmt, std::string* device) {
+    if (hidden) proc::run({"nmcli", "device", "wifi", "rescan", "ssid", ssid}, 15);
+    for (int tries = hidden ? 10 : 1; tries > 0; --tries) {
+        const proc::Result r = proc::run({"nmcli", "-t", "-f", "SSID,SECURITY,DEVICE",
+                                          "device", "wifi", "list", "--rescan", "no"}, 10);
+        bool seen = false;
+        for (const std::string& line : lines(r.out)) {
+            const std::vector<std::string> f = splitFields(line);
+            if (fieldAt(f, 0) != ssid) continue;
+            const std::string km = keyMgmtFor(fieldAt(f, 1));
+            if (!seen || km == "wpa-psk") {
+                *keyMgmt = km;
+                *device = fieldAt(f, 2);
+            }
+            seen = true;
+        }
+        if (seen) return true;
+        if (tries > 1) sleep(1);
+    }
+    return false;
+}
+
+// A new Wi-Fi profile, password and all, handed to NetworkManager on the
+// system bus (Settings.AddConnection2), which saves it. Its settings are
+// NetworkManager's own names (nm-settings-dbus(5)), and the same as the
+// profile `device wifi connect` made, setting for setting (compared on a
+// simulated radio, 2026-11-01): the device, "infrastructure" and, with
+// "wpa-psk", the auth-alg "open" were NetworkManager's from the access point.
+// Everything else is NetworkManager's default, as it was then. False, with
+// NetworkManager's words in `why`, when it refuses.
+bool addProfile(const std::string& ssid, const std::string& uuid, const std::string& device,
+                const std::string& keyMgmt, const std::string& passphrase, bool hidden,
+                std::string* why) {
+    sd_bus* bus = nullptr;
+    sd_bus_message* m = nullptr;
+    sd_bus_message* reply = nullptr;
+    sd_bus_error err = SD_BUS_ERROR_NULL;
+    int r = sd_bus_open_system(&bus);
+    if (r >= 0)
+        r = sd_bus_message_new_method_call(bus, &m, "org.freedesktop.NetworkManager",
+                                           "/org/freedesktop/NetworkManager/Settings",
+                                           "org.freedesktop.NetworkManager.Settings",
+                                           "AddConnection2");
+    // a{sa{sv}}, three groups. The SSID is bytes (ay), so its group is built
+    // a container at a time; the other two go in one call each.
+    if (r >= 0) r = sd_bus_message_open_container(m, 'a', "{sa{sv}}");
+    if (r >= 0)
+        r = device.empty()
+                ? sd_bus_message_append(m, "{sa{sv}}", "connection", 3,
+                                        "id", "s", ssid.c_str(),
+                                        "uuid", "s", uuid.c_str(),
+                                        "type", "s", "802-11-wireless")
+                : sd_bus_message_append(m, "{sa{sv}}", "connection", 4,
+                                        "id", "s", ssid.c_str(),
+                                        "uuid", "s", uuid.c_str(),
+                                        "type", "s", "802-11-wireless",
+                                        "interface-name", "s", device.c_str());
+    if (r >= 0) r = sd_bus_message_open_container(m, 'e', "sa{sv}");
+    if (r >= 0) r = sd_bus_message_append(m, "s", "802-11-wireless");
+    if (r >= 0) r = sd_bus_message_open_container(m, 'a', "{sv}");
+    if (r >= 0) r = sd_bus_message_open_container(m, 'e', "sv");
+    if (r >= 0) r = sd_bus_message_append(m, "s", "ssid");
+    if (r >= 0) r = sd_bus_message_open_container(m, 'v', "ay");
+    if (r >= 0) r = sd_bus_message_append_array(m, 'y', ssid.data(), ssid.size());
+    if (r >= 0) r = sd_bus_message_close_container(m);   // v
+    if (r >= 0) r = sd_bus_message_close_container(m);   // {sv}
+    if (r >= 0) r = sd_bus_message_append(m, "{sv}", "mode", "s", "infrastructure");
+    if (r >= 0 && hidden) r = sd_bus_message_append(m, "{sv}", "hidden", "b", 1);
+    if (r >= 0) r = sd_bus_message_close_container(m);   // a{sv}
+    if (r >= 0) r = sd_bus_message_close_container(m);   // {sa{sv}}
+    // What `device wifi connect` made of a typed WEP key: the key itself
+    // (wep-key-type 1), not a passphrase to hash.
+    if (r >= 0)
+        r = keyMgmt == "none"
+                ? sd_bus_message_append(m, "{sa{sv}}", "802-11-wireless-security", 3,
+                                        "key-mgmt", "s", "none",
+                                        "wep-key-type", "u", 1u,
+                                        "wep-key0", "s", passphrase.c_str())
+            : keyMgmt == "wpa-psk"
+                ? sd_bus_message_append(m, "{sa{sv}}", "802-11-wireless-security", 3,
+                                        "key-mgmt", "s", "wpa-psk",
+                                        "auth-alg", "s", "open",
+                                        "psk", "s", passphrase.c_str())
+                : sd_bus_message_append(m, "{sa{sv}}", "802-11-wireless-security", 2,
+                                        "key-mgmt", "s", keyMgmt.c_str(),
+                                        "psk", "s", passphrase.c_str());
+    if (r >= 0) r = sd_bus_message_close_container(m);   // the settings
+    // TO_DISK (0x1), so it outlives a reboot. BLOCK_AUTOCONNECT (0x20):
+    // autoconnect is on, as `device wifi connect` left it, but NetworkManager
+    // starts nothing with it by itself until it has been brought up once.
+    if (r >= 0) r = sd_bus_message_append(m, "u", 0x1u | 0x20u);
+    if (r >= 0) r = sd_bus_message_append(m, "a{sv}", 0);
+    if (r >= 0) r = sd_bus_call(bus, m, 30 * 1000000ULL, &err, &reply);
+    const bool ok = r >= 0;
+    if (!ok && why) *why = err.message ? err.message : std::strerror(-r);
+    sd_bus_error_free(&err);
+    sd_bus_message_unref(reply);
+    sd_bus_message_unref(m);
+    sd_bus_unref(bus);
+    return ok;
+}
+
+// JOINING WITH A PASSWORD WITHOUT PUTTING IT ON A COMMAND LINE (#629).
+// `device wifi connect <ssid> password <password>` carried it in nmcli's argv
+// for the seconds a join takes, and every process on the console can read
+// every other's argv through /proc/<pid>/cmdline. So:
+//
+//   1. The profile, password and all, goes to NetworkManager over the system
+//      bus (addProfile), which only NetworkManager reads.
+//   2. nmcli brings it up, with its own deadline and its own words for a
+//      failure. A wrong password fails within seconds with "Secrets were
+//      required, but not provided", as before: nmcli has no password to
+//      give when NetworkManager asks again.
+//
+// NOT nmcli's passwd-file, which would have kept all of it in nmcli: its
+// agent hands the same password back every time NetworkManager asks again,
+// so a wrong one is retried until the deadline, 45 seconds, and ends as
+// "Timeout expired" (measured on a simulated radio, 2026-11-01).
+//
+// Any failure deletes the profile, so a failed join leaves nothing saved.
+bool joinWithPassword(const std::string& ssid, const std::string& passphrase,
+                      const std::string& keyMgmt, const std::string& device, bool hidden,
+                      std::string* err, int timeoutSeconds) {
+    // Named by this program, so the steps after can say exactly which
+    // profile they mean: names need not be unique. (Not cab::readBytes,
+    // which sizes a file first, and a /proc file's size is 0.)
+    std::string uuid;
+    std::ifstream id("/proc/sys/kernel/random/uuid");
+    std::getline(id, uuid);
+    uuid = trimmed(uuid);
+    if (uuid.empty()) {
+        if (err) *err = "could not make a new network profile";
+        return false;
+    }
+    std::fprintf(stderr, "[wifi] joining %s as %s%s, the password over D-Bus\n",
+                 ssid.c_str(), keyMgmt.c_str(), hidden ? ", hidden" : "");
+
+    std::string why;
+    if (!addProfile(ssid, uuid, device, keyMgmt, passphrase, hidden, &why)) {
+        sayWhy(why, err);
+        return false;
+    }
+
+    // `--wait` is nmcli's own deadline and `run`'s is the backstop for nmcli
+    // itself wedging. The backstop is longer on purpose: a process killed at
+    // exactly its own timeout never gets to print why it failed, and that
+    // message is the only actionable thing a wrong passphrase produces.
+    const proc::Result r = proc::run({"nmcli", "--wait", std::to_string(timeoutSeconds),
+                                      "connection", "up", "uuid", uuid},
+                                     timeoutSeconds + 10);
+    if (r.ok()) return true;
+    sayWhy(r, err);
+    proc::run({"nmcli", "connection", "delete", "uuid", uuid}, 15);
+    return false;
+}
+
+}  // namespace
+
 bool join(const std::string& ssid, const std::string& passphrase, bool hidden,
           std::string* err, int timeoutSeconds) {
     if (ssid.empty()) {
@@ -261,43 +484,38 @@ bool join(const std::string& ssid, const std::string& passphrase, bool hidden,
         return false;
     }
 
-    // `--wait` is nmcli's own deadline and `run`'s is the backstop for nmcli
-    // itself wedging. The backstop is longer on purpose: a process killed at
-    // exactly its own timeout never gets to print why it failed, and that
-    // message is the only actionable thing a wrong passphrase produces.
+    if (!passphrase.empty()) {
+        std::string keyMgmt, device;
+        if (onAir(ssid, hidden, &keyMgmt, &device)) {
+            // Open on the air after all: the password has nothing to do,
+            // as `device wifi connect` ignored it.
+            if (!keyMgmt.empty())
+                return joinWithPassword(ssid, passphrase, keyMgmt, device, hidden, err,
+                                        timeoutSeconds);
+        } else if (hidden) {
+            // Never answered by name: WPA2 and mixed networks, nearly all of
+            // them, join as "wpa-psk", on whichever Wi-Fi device finds it.
+            return joinWithPassword(ssid, passphrase, "wpa-psk", "", true, err, timeoutSeconds);
+        } else {
+            // nmcli's own sentence for this, which `device wifi connect` gave.
+            if (err) *err = "Error: No network with SSID '" + ssid + "' found.";
+            return false;
+        }
+    }
+
+    // NOTHING SECRET TO HAND OVER: an open network, or one with a saved
+    // profile, which this activates. `--wait` and the backstop are as above.
     std::vector<std::string> args = {
         "nmcli", "--wait", std::to_string(timeoutSeconds),
         "device", "wifi", "connect", ssid,
     };
-    if (!passphrase.empty()) {
-        args.push_back("password");
-        args.push_back(passphrase);
-    }
     if (hidden) {
         args.push_back("hidden");
         args.push_back("yes");
     }
-
     const proc::Result r = proc::run(args, timeoutSeconds + 10);
     if (r.ok()) return true;
-
-    if (err) {
-        const std::string why = trimmed(r.err).empty() ? trimmed(r.out) : trimmed(r.err);
-        *err = r.timedOut ? "the network did not answer in time"
-               : why.empty() ? "could not join that network"
-                             : why;
-        // SAY WHEN THE PRIVILEGE IS THE PROBLEM, because it is the one failure
-        // whose message points nowhere near its cause. Joining succeeds and
-        // saving the profile does not, so the console comes up on a network it
-        // has no memory of, every boot, forever.
-        if (why.find("not authorized") != std::string::npos ||
-            why.find("Not authorized") != std::string::npos ||
-            why.find("insufficient privileges") != std::string::npos) {
-            *err += ". This console is not permitted to save a network "
-                    "(polkit says " + polkitVerdict() + "); see "
-                    "60-cabinetos-network.rules";
-        }
-    }
+    sayWhy(r, err);
     return false;
 }
 

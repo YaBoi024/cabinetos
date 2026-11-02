@@ -337,6 +337,37 @@ std::vector<Entry> candidates(const std::string& location) {
     return out;
 }
 
+namespace {
+
+// ONE CACHED GAME OUT, the one way eviction removes anything: the entry and
+// its manual. The space is not committed here; each caller syncs once.
+bool removeCached(const Entry& e) {
+    if (!removeTree(e.path)) return false;
+    dropManual(e.path, e.romId);
+    return true;
+}
+
+void syncLocation(const std::string& location) {
+    if (const int fd = ::open(location.c_str(), O_RDONLY | O_DIRECTORY); fd >= 0) {
+        ::syncfs(fd);
+        ::close(fd);
+    }
+}
+
+}  // namespace
+
+int64_t evictGame(int romId) {
+    int64_t freed = 0;
+    for (const std::string& loc : storage::locations()) {
+        int64_t here = 0;
+        for (const Entry& e : candidates(loc))
+            if (e.romId == romId && removeCached(e)) here += e.bytes;
+        if (here > 0) syncLocation(loc);
+        freed += here;
+    }
+    return freed;
+}
+
 int64_t evictUntilFree(const std::string& location, int64_t needBytes,
                        int protectRomId) {
     const int64_t target =
@@ -353,8 +384,7 @@ int64_t evictUntilFree(const std::string& location, int64_t needBytes,
         // be, and deleting it would be the one
         // eviction a person could actually notice.
         if (protectRomId != 0 && e.romId == protectRomId) continue;
-        if (!removeTree(e.path)) continue;
-        dropManual(e.path, e.romId);
+        if (!removeCached(e)) continue;
         freed += e.bytes;
         std::fprintf(stderr, "[cache] evicted %s (%lld bytes)\n", e.path.c_str(),
                      static_cast<long long>(e.bytes));
@@ -374,10 +404,7 @@ int64_t evictUntilFree(const std::string& location, int64_t needBytes,
         // syncfs rather than sync, so this is the one filesystem rather than
         // every mounted one. It happens once per eviction, on a path that is
         // about to move hundreds of megabytes over a network.
-        if (const int fd = ::open(location.c_str(), O_RDONLY | O_DIRECTORY); fd >= 0) {
-            ::syncfs(fd);
-            ::close(fd);
-        }
+        syncLocation(location);
         std::fprintf(stderr, "[cache] freed %lld bytes to make room for %lld\n",
                      static_cast<long long>(freed), static_cast<long long>(needBytes));
     }
@@ -543,10 +570,7 @@ bool unkeep(const storage::User& u, int romId, bool keepTheBytes, Release* out) 
     // leaves statvfs reporting the old figure until a transaction commits, so a
     // Storage screen refreshed a second later would show no change at all. Same
     // reason evictUntilFree does it.
-    if (const int fd = ::open(p.location.c_str(), O_RDONLY | O_DIRECTORY); fd >= 0) {
-        ::syncfs(fd);
-        ::close(fd);
-    }
+    syncLocation(p.location);
     std::fprintf(stderr, "[keep] %d released and removed, %lld bytes back\n", romId,
                  static_cast<long long>(bytes));
     r.what = Release::What::Deleted;
@@ -578,10 +602,7 @@ bool unkeepForEveryone(int romId, bool keepTheBytes, Release* out) {
             return true;
         }
         dropManual(p.entryPath, romId);
-        if (const int fd = ::open(p.location.c_str(), O_RDONLY | O_DIRECTORY); fd >= 0) {
-            ::syncfs(fd);
-            ::close(fd);
-        }
+        syncLocation(p.location);
         std::fprintf(stderr, "[keep] %d was kept by nobody; removed, %lld bytes back\n", romId,
                      static_cast<long long>(bytes));
         r.what = Release::What::Deleted;

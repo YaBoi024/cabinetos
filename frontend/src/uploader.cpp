@@ -96,6 +96,16 @@ void Uploader::push(Job job) {
     enqueue(std::move(job));
 }
 
+bool Uploader::refusedThisRun(const storage::User& who, int romId,
+                              const std::string& fileName) const {
+    Job j;
+    j.romId = romId;
+    j.fileName = fileName;
+    j.who = who;
+    std::lock_guard<std::mutex> lock(mutex_);
+    return refused_.count(whoKey(j)) > 0;
+}
+
 void Uploader::resendOwed() { resendOwedFor(storage::currentUser()); }
 void Uploader::sendFavorites() { sendFavoritesFor(storage::currentUser()); }
 void Uploader::sendPlay() { sendPlayFor(storage::currentUser()); }

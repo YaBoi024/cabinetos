@@ -4,8 +4,7 @@
 
 #include "standalone_internal.h"
 
-#include "arcadematch.h"
-#include "fightstick.h"
+#include "controls.h"
 #include "players.h"
 #include "storage.h"
 #include "vpad.h"
@@ -13,6 +12,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -63,9 +63,10 @@ std::string share(const Emulator& e) {
 // Supermodel's name for a pad control in its gamepad mode, InputSystem
 // sdlgamepad (Src/OSD/SDL/SDLInputSystem.cpp): BUTTON1 to 4 the south, east,
 // west and north face buttons, 5 and 6 the shoulders, 7 Select, 8 Start; the
-// triggers are the Z and RZ axes, the d-pad POV1.
-const char* partOf(cab::Button b) {
-    switch (b) {
+// triggers are the Z and RZ axes, the d-pad POV1. NONE, nothing, for none
+// (controls::kNone).
+const char* partOf(int control) {
+    switch (control) {
         case cab::B: return "BUTTON1";
         case cab::A: return "BUTTON2";
         case cab::Y: return "BUTTON3";
@@ -88,31 +89,17 @@ constexpr cab::Button kButtons[] = {cab::B, cab::A, cab::Y, cab::X};
 
 // One player's four game buttons, as Supermodel names them for its port: on
 // a pad, the layout above; on a fight stick the console knows, a game's
-// buttons where the stick's rules put them (fightstick.h), as for sm2-emu. A
-// game whose list gives it no buttons (a driving or gun game) plays a stick
-// as a pad, as an arcade core's does.
-std::vector<std::string> buttonsOf(int player, int players, int gameButtons) {
+// buttons where the stick's rules put them (fightstick.h); and either with
+// what this person moved in Controls for that kind of controller (controls.h,
+// pressedWith), as for sm2-emu. A game whose list gives it no buttons (a
+// driving or gun game) plays a stick as a pad, as an arcade core's does.
+std::vector<std::string> buttonsOf(int player, int players) {
+    const std::array<int, 16> on =
+        controls::pressedWith(player, player < players ? players::gamepad(player) : nullptr);
     std::vector<std::string> out;
     const std::string j = "JOY" + std::to_string(player + 1) + "_";
-    for (cab::Button b : kButtons) out.push_back(j + partOf(b));
-    SDL_Gamepad* gp = player < players ? players::gamepad(player) : nullptr;
-    const fightstick::Stick* stick = gp ? players::stick(SDL_GetGamepadID(gp)) : nullptr;
-    if (!stick || gameButtons <= 0) return out;
-    std::vector<cab::InputDescriptor> declared;
-    for (int k = 0; k < gameButtons && k < 4; ++k)
-        declared.push_back({static_cast<unsigned>(kButtons[k]), "Button " + std::to_string(k + 1)});
-    const std::optional<fightstick::Layout> l = fightstick::make(stick, "supermodel", declared, declared);
-    if (!l) return out;
-    std::string said;
-    for (int s = 0; s < fightstick::kSlots; ++s) {
-        for (int k = 0; k < gameButtons && k < 4; ++k) {
-            if (l->id[s] != static_cast<int>(kButtons[k])) continue;
-            out[k] = j + partOf(fightstick::slotButton(s));
-            said += (said.empty() ? "" : ", ") + l->label[s] + " on " + std::to_string(s + 1);
-        }
-    }
-    std::fprintf(stderr, "[standalone] Supermodel player %d on a fight stick (%s): %s\n",
-                 player + 1, stick->name, said.c_str());
+    for (cab::Button b : kButtons)
+        out.push_back(on[b] == controls::kNone ? std::string("NONE") : j + partOf(on[b]));
     return out;
 }
 
@@ -156,9 +143,8 @@ bool prepareSupermodel(const Emulator& e, const std::string& romPath, const std:
         return false;
     }
     const Picture pic = pictureFor(level);
-    const int buttons = arcadematch::buttons("supermodel", arcadeSet(romPath) + ".zip");
-    const std::vector<std::string> p1 = buttonsOf(0, players, buttons);
-    const std::vector<std::string> p2 = buttonsOf(1, players, buttons);
+    const std::vector<std::string> p1 = buttonsOf(0, players);
+    const std::vector<std::string> p2 = buttonsOf(1, players);
     auto j1 = [](const char* part) { return std::string("JOY1_") + part; };
     auto j2 = [](const char* part) { return std::string("JOY2_") + part; };
     // THE CONSOLE'S SETTINGS, written whole before every start, so nothing
@@ -434,8 +420,9 @@ bool prepareSupermodel(const Emulator& e, const std::string& romPath, const std:
         *err = "could not write Supermodel's settings in " + dir + "/Config";
         return false;
     }
-    std::fprintf(stderr, "[standalone] Supermodel at %dx%d%s, %d buttons for %s\n", pic.w, pic.h,
-                 pic.fullscreen ? "" : " in a window", buttons, arcadeSet(romPath).c_str());
+    std::fprintf(stderr, "[standalone] Supermodel at %dx%d%s, %zu buttons for %s\n", pic.w, pic.h,
+                 pic.fullscreen ? "" : " in a window", controls::rows().size(),
+                 arcadeSet(romPath).c_str());
     return true;
 }
 

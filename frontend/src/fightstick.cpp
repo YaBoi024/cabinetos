@@ -173,6 +173,8 @@ std::vector<cab::InputDescriptor> mameButtons(int count) {
     return out;
 }
 
+std::vector<cab::InputDescriptor> programButtons(int count) { return mameButtons(std::min(count, 4)); }
+
 const Stick* match(uint16_t vendor, uint16_t product, const std::string& device) {
     for (const Stick& s : kSticks)
         if (s.vendor == vendor && s.product == product && (!*s.device || device == s.device))
@@ -451,8 +453,12 @@ int test() {
     // Virtua Fighter 2 in sm2-emu: its three buttons, as the console lays
     // them out for it (standalone_sm2emu.cpp), the bottom row from the left
     // with a gap before the third, which sm2-emu is told is the left trigger.
+    check(programButtons(3).size() == 3 && programButtons(3)[2].id == cab::Y &&
+              programButtons(3)[2].label == "Button 3" && programButtons(8).size() == 4 &&
+              programButtons(8)[3].id == cab::X && programButtons(0).empty(),
+          "a Model 2 or Model 3 game's buttons: its catalogue's count, four at most, on B A Y X");
     {
-        const D vf2 = {{cab::B, "Button 1"}, {cab::A, "Button 2"}, {cab::Y, "Button 3"}};
+        const D vf2 = programButtons(3);
         const std::optional<Layout> l = make(stick, "sm2emu", vf2, vf2);
         check(slots(l) == ids({no, no, no, no, cab::B, cab::A, no, cab::Y}),
               "sm2-emu's three-button game takes the bottom row's 5, 6 and 8");
@@ -464,8 +470,7 @@ int test() {
     // Virtua Fighter 3 in Supermodel: Guard, Punch, Kick and Escape, four
     // buttons, the bottom row as a Neo Geo cabinet's (standalone_supermodel.cpp).
     {
-        const D vf3 = {{cab::B, "Button 1"}, {cab::A, "Button 2"}, {cab::Y, "Button 3"},
-                       {cab::X, "Button 4"}};
+        const D vf3 = programButtons(4);
         const std::optional<Layout> l = make(stick, "supermodel", vf3, vf3);
         check(slots(l) == ids({no, no, no, no, cab::B, cab::A, cab::Y, cab::X}),
               "Supermodel's four-button game takes the bottom row");

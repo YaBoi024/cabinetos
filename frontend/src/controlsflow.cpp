@@ -35,12 +35,10 @@ std::vector<App::ControlsKind> kindsOn() {
     return out;
 }
 
-// What a kind's pad sends with nothing moved: its fight-stick layout in this
-// game, or the plain table (the default the rows are shown against).
-controls::Map defaultFor(const App::ControlsKind& k, const std::string& core) {
-    SDL_Gamepad* gp = SDL_GetGamepadFromID(k.pad);
-    const fightstick::Layout* l = gp ? fightstick::forPort(k.player, gp, core) : nullptr;
-    return l ? controls::fromLayout(*l) : controls::plain();
+// What a kind's pad sends with nothing moved (controls::defaultFor): the
+// default the rows are shown against.
+controls::Map defaultFor(const App::ControlsKind& k) {
+    return controls::defaultFor(k.player, SDL_GetGamepadFromID(k.pad));
 }
 
 }  // namespace
@@ -74,7 +72,7 @@ void App::showControls(bool fresh) {
     const ControlsKind& k = cp.kinds[static_cast<size_t>(cp.shown)];
     SDL_Gamepad* gp = SDL_GetGamepadFromID(k.pad);
     const std::vector<controls::Row>& rows = controls::rows();
-    const std::vector<int> at = controls::current(k.kind, defaultFor(k, session.arcadeCore()));
+    const std::vector<int> at = controls::current(k.kind, defaultFor(k));
     const bool two = cp.kinds.size() >= 2;
     std::vector<std::string> labels, values;
     // TWO KINDS ON: the first row says only whose layout the rows are, and
@@ -125,6 +123,7 @@ void App::pickControlsRow(int answer) {
     }
     if (answer == first + count) {
         controls::reset();
+        if (controls::fromNextStart()) menuNotice.say("Exit and relaunch to apply", Tone::Done);
         showControls(false);
         return;
     }
@@ -158,16 +157,18 @@ void App::stepControlsKind(int dir, bool wrap) {
     showControls(false);
 }
 
-// THE ANSWER: given at once, written at once, played from the next frame.
-// The button the row is already on leaves it as it was, which is the way
-// out from a pad: it sounds as a step back.
+// THE ANSWER: given at once, written at once, played from the next frame,
+// or in a program of its own from the next start, which the pill says as
+// the Picture row's does. The button the row is already on leaves it as it
+// was, which is the way out from a pad: it sounds as a step back.
 void App::takeControl(int control) {
     ControlsPanel& cp = controlsPanel;
     const ControlsKind& k = cp.kinds[static_cast<size_t>(cp.shown)];
-    const bool moved =
-        controls::give(k.kind, k.name, defaultFor(k, session.arcadeCore()), cp.row, control);
+    const bool moved = controls::give(k.kind, k.name, defaultFor(k), cp.row, control);
     cp.listen = 0;
     cp.row = -1;
+    if (moved && controls::fromNextStart())
+        menuNotice.say("Exit and relaunch to apply", Tone::Done);
     sound::play(moved ? sound::Cue::Activate : sound::Cue::Back);
     showControls(false);
 }
@@ -230,7 +231,8 @@ bool App::interceptControls(const SDL_Event& e) {
     }
 }
 
-// EVERY FRAME OF A GAME (play.cpp, readGameInput): the core's buttons, and
+// EVERY FRAME OF A GAME (play.cpp, readGameInput), and of a program of its
+// own's pause (standalone_play.cpp, watchStandalone): the core's buttons, and
 // an open panel kept true to the controllers on. A pad that goes or comes
 // puts it right silently, on the kind it showed while that kind is still on;
 // a listening pad that went cancels the prompt; no pad left closes it, back
