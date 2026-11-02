@@ -723,12 +723,6 @@ void Flow::joinSelected(const std::string& passphrase) {
     noticeIsError_ = false;
     joinJob_.start([ssid, passphrase](bool& out, std::string& err) {
         out = net::join(ssid, passphrase, /*hidden=*/false, &err);
-        // A failed join with a typed password leaves a saved network holding
-        // the wrong one; remove it. The same as Settings' Wi-Fi.
-        if (!out && !passphrase.empty()) {
-            std::string ignored;
-            net::forget(ssid, &ignored);
-        }
         return out;
     });
 }

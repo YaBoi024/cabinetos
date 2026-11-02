@@ -188,12 +188,15 @@ Client::Where Client::where() const {
     return {base_, token_};
 }
 
-bool Client::get(const std::string& path, std::string* body, std::string* err) const {
-    return getAt(where(), path, body, err);
+bool Client::get(const std::string& path, std::string* body, std::string* err,
+                 long* status) const {
+    return getAt(where(), path, body, err, true, nullptr, status);
 }
 
 bool Client::getAt(const Where& at, const std::string& path, std::string* body,
-                   std::string* err, bool report, std::string* movedTo) const {
+                   std::string* err, bool report, std::string* movedTo,
+                   long* statusOut) const {
+    if (statusOut) *statusOut = 0;
     CURL* c = curl_easy_init();
     if (!c) { if (err) *err = "curl init failed"; return false; }
     const std::string url = at.base + path;
@@ -217,6 +220,7 @@ bool Client::getAt(const Where& at, const std::string& path, std::string* body,
     curl_easy_cleanup(c);
 
     if (rc != CURLE_OK) { if (err) *err = curl_easy_strerror(rc); return false; }
+    if (statusOut) *statusOut = status;
     if (status == 401 || status == 403) {
         if (err) *err = "not authorised: the token is missing, expired or lacks the scope";
         return false;
