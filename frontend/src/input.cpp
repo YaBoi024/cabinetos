@@ -233,7 +233,7 @@ void App::handleEvent(const SDL_Event& e) {
                 if (launchJob.busy()) launchJob.cancel = true;
                 // A question over the pause menu (Change disc) goes
                 // back first, as B does.
-                else if (playing && overlayOpen && choiceScreen.isOpen())
+                else if ((playing || standalonePaused) && overlayOpen && choiceScreen.isOpen())
                     navigate(screens::Nav::Back);
                 else if (playing) toggleOverlay();
                 // Back, while there is anywhere to go back to. Quitting

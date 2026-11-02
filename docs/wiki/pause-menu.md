@@ -50,8 +50,9 @@ Rows appear only where they apply:
 - **Change disc**: only on a game with several discs. Not on GameCube, which
   changes discs by itself; 3DO has Insert and restart only. On Saturn Insert
   goes through the console's CD player screen: press Start there.
-- **Controls**: only in arcade games that name their buttons; not yet in
-  Model 2 and Model 3 games.
+- **Controls**: only in arcade games that name their buttons. In Model 2
+  and Model 3 games, those whose emulator lists buttons for them, such as
+  the fighting games; driving and gun games have none.
 
 ## Controls
 
@@ -64,7 +65,9 @@ names, each with the button on your controller that presses it, such as
    If another of the game's buttons was there, the two swap.
 
 To leave it as it was, press the button it is already on. **B** on the list
-goes back to the pause menu. The change works as soon as you go back to the game, and is kept
+goes back to the pause menu. The change works as soon as you go back to the
+game (in a Model 2 or Model 3 game, from its next start: choose Exit to Home
+and start it again; the menu says *Exit and relaunch to apply*), and is kept
 for this game, for you, and for this kind of controller: every controller of
 the same kind uses it. The stick clicks, Start, Select, the d-pad and the
 shortcut button can't take a game's button. **Reset to default** puts every
