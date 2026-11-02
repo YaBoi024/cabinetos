@@ -4,6 +4,15 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## Next
+
+- **Fixed:** pressing Start on an empty Wi-Fi password tried to join with
+  no password, waited about 12 seconds, said *Wrong password* again and
+  saved the network a second time. Now nothing happens but a bump, and the
+  keyboard stays as it was. Messages in a field, such as *Wrong password*,
+  are now grey, so they no longer look like something you typed.
+  ([#640](https://github.com/MMagTech/cabinetos/pull/640))
+
 ## 2026.11.02.2 {#v2026-11-02-2}
 
 - **Fixed:** a game you deleted in RomM, or one that got a new entry when
