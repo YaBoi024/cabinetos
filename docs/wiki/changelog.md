@@ -16,6 +16,16 @@ one you install, so you only ever install the newest.
   [Controls](pause-menu.md#controls).
   ([#617](https://github.com/MMagTech/cabinetos/issues/617))
 
+## 2026.11.02.3 {#v2026-11-02-3}
+
+- **Fixed:** pressing Start on an empty Wi-Fi password tried to join with
+  no password, waited about 12 seconds, said *Wrong password* again and
+  saved the network a second time. Now nothing happens but a bump, and the
+  keyboard stays as it was. Messages in a field, such as *Wrong password*,
+  are now grey, so they no longer look like something you typed, and a
+  server address with no RomM at it now says *Can't connect*.
+  ([#640](https://github.com/MMagTech/cabinetos/pull/640))
+
 ## 2026.11.02.2 {#v2026-11-02-2}
 
 - **Fixed:** a game you deleted in RomM, or one that got a new entry when

@@ -117,6 +117,7 @@ void App::askWifiPassword(const std::string& ssid, bool forgetFirst, const std::
     cfg.title = ssid;
     cfg.placeholder = "Password";
     cfg.conceal = true;   // masked, last character shown; keyboard.h
+    cfg.required = true;  // only a secured network asks, so empty is never it
     // Opened over itself on a retry, in the same frame: no close, no cut.
     // WHY GOES IN THE FIELD ("Wrong password", shaken), not in a line
     // under the title that made the panel grow. Keyboard::sayInField.
