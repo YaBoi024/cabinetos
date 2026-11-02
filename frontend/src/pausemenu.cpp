@@ -282,11 +282,12 @@ void App::toggleOverlay(SDL_JoystickID opener) {
             }
         }
         for (size_t i = 0; i < pauseChoices.size(); ++i) pauseItems.push_back(OvChoice);
-        // CONTROLS (controls.h), directly above Exit to Home: only in the two
-        // arcade cores, only for a game whose buttons give it a row, and only
-        // with a controller on to change them on. Not over an emulator of its
-        // own, which an arcade game played before it may have left offered.
-        if (playing && controls::offered() && !players::connected().empty())
+        // CONTROLS (controls.h), directly above Exit to Home: only in an
+        // arcade game whose buttons give it a row, sm2-emu's and Supermodel's
+        // among them, and only with a controller on to change them on. Every
+        // game's start says whether it has rows (controls::beginGame and
+        // beginProgram), so none are left from the last.
+        if (controls::offered() && !players::connected().empty())
             pauseItems.push_back(OvControls);
         pauseItems.push_back(OvExit);
     }

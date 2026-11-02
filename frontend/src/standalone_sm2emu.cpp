@@ -4,14 +4,13 @@
 
 #include "standalone_internal.h"
 
-#include "arcadematch.h"
-#include "fightstick.h"
+#include "controls.h"
 #include "gpu.h"
 #include "players.h"
 #include "storage.h"
 #include "vpad.h"
 
-#include <cstdio>
+#include <array>
 #include <string>
 #include <vector>
 
@@ -45,9 +44,10 @@ namespace {
 
 // sm2-emu's number for a pad control (core/config.h): an SDL gamepad button's
 // own, or 100 + an SDL axis for that axis pushed past half travel, which is
-// how it hears a trigger.
-int bindingOf(cab::Button b) {
-    switch (b) {
+// how it hears a trigger; -1 for none (controls::kNone), which it never
+// reads as held (binding_held in src/osd/input.cpp).
+int bindingOf(int control) {
+    switch (control) {
         case cab::B: return SDL_GAMEPAD_BUTTON_SOUTH;
         case cab::A: return SDL_GAMEPAD_BUTTON_EAST;
         case cab::Y: return SDL_GAMEPAD_BUTTON_WEST;
@@ -72,37 +72,18 @@ constexpr cab::Button kButtons[] = {cab::B, cab::A, cab::Y, cab::X};
 
 // One player's buttons, for sm2-emu's [gamepad] section: on a pad, the
 // layout above; on a fight stick the console knows, a game's buttons where
-// the stick's rules put them (fightstick.h), the rest as on a pad. A game
-// whose list gives it no buttons (a driving or gun game) plays a stick as a
-// pad, as an arcade core's does.
-std::string padLines(int player, int players, int gameButtons) {
-    int button[4];
-    for (int k = 0; k < 4; ++k) button[k] = bindingOf(kButtons[k]);
-    SDL_Gamepad* gp = player < players ? players::gamepad(player) : nullptr;
-    const fightstick::Stick* stick = gp ? players::stick(SDL_GetGamepadID(gp)) : nullptr;
-    if (stick && gameButtons > 0) {
-        std::vector<cab::InputDescriptor> declared;
-        for (int k = 0; k < gameButtons && k < 4; ++k)
-            declared.push_back({static_cast<unsigned>(kButtons[k]), "Button " + std::to_string(k + 1)});
-        if (const std::optional<fightstick::Layout> l =
-                fightstick::make(stick, "sm2emu", declared, declared)) {
-            std::string said;
-            for (int s = 0; s < fightstick::kSlots; ++s) {
-                for (int k = 0; k < gameButtons && k < 4; ++k) {
-                    if (l->id[s] != static_cast<int>(kButtons[k])) continue;
-                    button[k] = bindingOf(fightstick::slotButton(s));
-                    said += (said.empty() ? "" : ", ") + l->label[s] + " on " +
-                            std::to_string(s + 1);
-                }
-            }
-            std::fprintf(stderr, "[standalone] sm2-emu player %d on a fight stick (%s): %s\n",
-                         player + 1, stick->name, said.c_str());
-        }
-    }
+// the stick's rules put them (fightstick.h), the rest as on a pad; and
+// either with what this person moved in Controls for that kind of
+// controller (controls.h, pressedWith). A game whose list gives it no buttons
+// (a driving or gun game) plays a stick as a pad, as an arcade core's does.
+std::string padLines(int player, int players) {
+    const std::array<int, 16> on =
+        controls::pressedWith(player, player < players ? players::gamepad(player) : nullptr);
     const std::string p = "pad" + std::to_string(player + 1) + "_button_";
     std::string x;
     for (int k = 0; k < 4; ++k)
-        x += p + "button" + std::to_string(k + 1) + " = " + std::to_string(button[k]) + "\n";
+        x += p + "button" + std::to_string(k + 1) + " = " +
+             std::to_string(bindingOf(on[kButtons[k]])) + "\n";
     x += p + "up = " + std::to_string(SDL_GAMEPAD_BUTTON_DPAD_UP) + "\n";
     x += p + "down = " + std::to_string(SDL_GAMEPAD_BUTTON_DPAD_DOWN) + "\n";
     x += p + "left = " + std::to_string(SDL_GAMEPAD_BUTTON_DPAD_LEFT) + "\n";
@@ -116,13 +97,12 @@ std::string padLines(int player, int players, int gameButtons) {
 
 }  // namespace
 
-bool prepareSm2emu(const Emulator& e, const std::string& romPath, const std::string& saveDir,
-                   int players, quality::Level level, std::string* err) {
+bool prepareSm2emu(const Emulator& e, const std::string& saveDir, int players,
+                   quality::Level level, std::string* err) {
     const std::string config = saveDir + "/config";
     storage::makeDirs(config);
     storage::makeDirs(sm2emuNvram(saveDir));
     storage::makeDirs(home(e) + "/screenshots");
-    const std::string set = arcadeSet(romPath);
     // THE CONSOLE'S SETTINGS, written whole before every start; sm2-emu
     // writes the file back as it quits, so nothing it kept can differ, and a
     // key left out is its own default. Names from core/config.cpp at the pin.
@@ -180,9 +160,8 @@ bool prepareSm2emu(const Emulator& e, const std::string& romPath, const std::str
     // Players by the order its SDL finds the pads, which sees only the
     // virtual ones, made in the console's order (sm2emuArgs).
     x += "pad1_device = \npad2_device = \n";
-    const int buttons = arcadematch::buttons("sm2emu", set + ".zip");
-    x += padLines(0, players, buttons);
-    x += padLines(1, players, buttons);
+    x += padLines(0, players);
+    x += padLines(1, players);
     if (!writeFile(config + "/sm2-emu.ini", x)) {
         *err = "could not write sm2-emu's settings in " + config;
         return false;

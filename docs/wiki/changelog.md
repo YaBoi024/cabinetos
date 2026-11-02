@@ -4,6 +4,18 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## Next
+
+- **New:** Model 2 and Model 3 arcade games with buttons, such as the
+  fighting games, now have **Controls** in their pause menu, as other
+  arcade games do. Highlight one of the game's buttons, press **A**, then
+  press the button you want it on; if another of the game's buttons was
+  there, the two swap. In these games a change works from the game's next
+  start: choose Exit to Home and start it again. Driving and gun games have
+  no buttons to move, so no Controls. See
+  [Controls](pause-menu.md#controls).
+  ([#617](https://github.com/MMagTech/cabinetos/issues/617))
+
 ## 2026.11.02.2 {#v2026-11-02-2}
 
 - **Fixed:** a game you deleted in RomM, or one that got a new entry when

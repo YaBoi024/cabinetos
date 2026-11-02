@@ -114,9 +114,8 @@ bool flycastBios(const std::string& fileName);
 
 // How many buttons a set's player 1 has, by an emulator's catalogue, or 0
 // when it does not say. Only MAME 0.289's, sm2-emu's and Supermodel's say:
-// none names a game's buttons to the console itself (fightstick::mameButtons,
-// and standalone_sm2emu.cpp and standalone_supermodel.cpp, which lay them out
-// on a fight stick).
+// none names a game's buttons to the console itself, so the console declares
+// them (fightstick::mameButtons, fightstick::programButtons).
 int buttons(const char* core, const std::string& fileName);
 
 // --arcade-match-test: the rule, every case, on catalogues written in the

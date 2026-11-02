@@ -475,7 +475,7 @@ bool prepare(const Emulator& e, const std::string& entryPath, const std::string&
     if (std::strcmp(e.core, "vita3k") == 0)
         return prepareVita3k(e, entryPath, saveDir, player, players, level, missingKeys, err);
     if (std::strcmp(e.core, "sm2emu") == 0)
-        return prepareSm2emu(e, romPath, saveDir, players, level, err);
+        return prepareSm2emu(e, saveDir, players, level, err);
     if (std::strcmp(e.core, "supermodel") == 0)
         return prepareSupermodel(e, romPath, saveDir, players, level, err);
     *err = std::string("nothing prepares ") + e.core;
