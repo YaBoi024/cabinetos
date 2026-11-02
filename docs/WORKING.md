@@ -120,12 +120,15 @@ patch applied in `cores/build-core.sh` or any other build script):
 - **Named before it is built.** The patch is put to MMagTech first, in plain
   words: what it changes, why, and what happens without it. A condition
   inside research does not count as naming it.
-- **Tracked on an issue.** Each patch he approves gets a CabinetOS issue that
-  links the bug or request filed upstream (filed on his go), names where the
-  patch lives in the recipe, and says what to check when the emulator's pin
-  moves: fixed upstream, so drop the patch and close the issue; or adjust
-  the patch to the new code. Every replacement in a patch is asserted, so a
-  pin move never quietly ships without it.
+- **Tracked on an issue while upstream might take it.** Each patch he
+  approves gets a CabinetOS issue that links the bug or request filed
+  upstream (filed on his go), names where the patch lives in the recipe, and
+  says what to check when the emulator's pin moves: fixed upstream, so drop
+  the patch and close the issue; or adjust the patch to the new code. When
+  upstream declines it, or it was never an upstream fault, the issue is
+  closed: the patch's row in docs/ARCHITECTURE.md section 8, its decision
+  file and its comment in the recipe are its record. Every replacement in a
+  patch is asserted, so a pin move never quietly ships without it.
 
 ## The image, the build and CI
 

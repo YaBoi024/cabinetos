@@ -78,4 +78,5 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 
 ### How we work
 
+- [declined-patch-gets-no-issue](2026-11-01-declined-patch-gets-no-issue.md): a patch upstream declined, or one for no upstream fault, has no open issue; its row in docs/ARCHITECTURE.md section 8, its decision file and its recipe are its record.
 - [wiki-side-list-groups](2026-10-29-wiki-side-list-groups.md): the wiki's side list has five groups, Set it up, Playing, Systems, Settings and Help, each with one rule for what goes in it.
