@@ -625,7 +625,7 @@ done
 # THE DIAGNOSTIC REPORT (#195) runs these. It survives any one being gone
 # (it says so in the report), but a report without the log or the hardware
 # list cannot find a fault, so a strip pass that removed one fails here.
-for needed in journalctl lspci lsusb lsblk lscpu nmcli bluetoothctl edid-decode vulkaninfo du; do
+for needed in journalctl lspci lsusb lsblk lscpu nmcli bluetoothctl edid-decode vulkaninfo du flatpak; do
     if ! command -v "${needed}" >/dev/null 2>&1; then
         log "  MISSING: ${needed}, which the diagnostic report runs"
         failed=1

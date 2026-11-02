@@ -1,0 +1,598 @@
+diff --git a/frontend/src/app.h b/frontend/src/app.h
+index 090b645..09d5978 100644
+--- a/frontend/src/app.h
++++ b/frontend/src/app.h
+@@ -59,6 +59,7 @@
+ #include "idle.h"
+ #include "image.h"
+ #include "job.h"
++#include "friends.h"   // FORK (handheld)
+ #include "keyboard.h"
+ #include "levelbar.h"
+ #include "libraryscreen.h"
+@@ -646,6 +647,16 @@ struct App {
+     std::atomic<bool> joinCancel{false};
+     cab::Job<int> joinPair;
+     std::string joinHost;
++    // FORK (handheld): THE FRIENDS LIST (friendspanel.cpp). The friends as
++    // the open list shows them, each one's last check (-1 not yet, 0 no, 1
++    // yes), the check on its worker with the list it was made for and when
++    // it started, and the friends the player said no to this session.
++    std::vector<friends::Friend> friendsShown;
++    std::vector<int> friendReady;
++    cab::Job<std::vector<int>> friendProbe;
++    std::string friendProbeKey;
++    uint64_t friendProbeMs = 0;
++    std::set<std::string> friendDeclined;
+     int joinPid = -1;
+     uint64_t joinStartMs = 0;
+     uint64_t joinStopMs = 0;
+@@ -2188,6 +2199,7 @@ struct App {
+     void pressJoin();
+     void askJoinAddress(const std::string& why);
+     void startJoinPair(const std::string& host);
++    void startJoin(const std::string& host);
+     void startJoinStream(const std::string& host);
+     void pollJoin();
+     bool takeJoinEvent(const SDL_Event& e);
+@@ -2195,6 +2207,14 @@ struct App {
+     void stopJoin();
+     void finishJoin(int status);
+     void closeJoinAtExit();
++    // friendspanel.cpp (FORK (handheld))
++    void openFriendsPanel(int focus);
++    void pollFriends();
++    void startFriendProbe();
++    void friendRows(std::vector<std::string>* options, std::vector<std::string>* values) const;
++    void askFriendHost(const std::string& why);
++    void askFriendName(const std::string& host, const std::string& current, bool isNew);
++    void offerSaveFriend(const std::string& host);
+     // tailscaleflow.cpp
+     void startTailscaleAtBoot();
+     void pollTailscale();
+diff --git a/frontend/src/frame.cpp b/frontend/src/frame.cpp
+index 879ca64..f158497 100644
+--- a/frontend/src/frame.cpp
++++ b/frontend/src/frame.cpp
+@@ -174,6 +174,7 @@ void App::runFrameLoop() {
+         }
+         askReadyWhenFree();
+         pollJoin();   // FORK (handheld): joinflow.cpp
++        pollFriends();   // FORK (handheld): friendspanel.cpp
+         noticeLowBattery(dt);
+ 	tickLevelBars(dt);   // FORK (handheld): levelbar.cpp
+         sayUpdatedTo();
+diff --git a/frontend/src/friends.cpp b/frontend/src/friends.cpp
+new file mode 100644
+index 0000000..7e8b8b0
+--- /dev/null
++++ b/frontend/src/friends.cpp
+@@ -0,0 +1,214 @@
++// FORK (handheld): the friends a player joins (friends.h).
++
++#include "friends.h"
++
++#include <netdb.h>
++#include <poll.h>
++#include <sys/socket.h>
++#include <unistd.h>
++
++#include <algorithm>
++#include <cerrno>
++#include <chrono>
++#include <cstdlib>
++
++#include "fileio.h"
++#include "moonlight.h"
++#include "storage.h"
++
++namespace friends {
++
++namespace {
++
++std::string filePath() { return storage::configDir() + "/friends"; }
++
++// An address is kept only as moonlight::cleanHost would leave it, so a file
++// edited by hand, or damaged, can never put a second argument or an option
++// into the Moonlight command line.
++bool goodHost(const std::string& host) {
++    return !host.empty() && moonlight::cleanHost(host) == host;
++}
++
++bool parsePort(const std::string& s, int* port) {
++    if (s.empty() || s.size() > 5) return false;
++    int v = 0;
++    for (const char ch : s) {
++        if (ch < '0' || ch > '9') return false;
++        v = v * 10 + (ch - '0');
++    }
++    if (v < 1 || v > 65535) return false;
++    *port = v;
++    return true;
++}
++
++}  // namespace
++
++std::string cleanName(const std::string& typed) {
++    std::string s;
++    for (const char ch : typed) {
++        const unsigned char u = static_cast<unsigned char>(ch);
++        if (u >= 0x20 && u != 0x7f) s += ch;
++    }
++    auto trim = [](std::string& t) {
++        while (!t.empty() && t.back() == ' ') t.pop_back();
++        size_t a = 0;
++        while (a < t.size() && t[a] == ' ') ++a;
++        t.erase(0, a);
++    };
++    trim(s);
++    if (s.size() > kNameMax) {
++        size_t cut = kNameMax;
++        // Back off a cut that would split a multi-byte character.
++        while (cut > 0 && (static_cast<unsigned char>(s[cut]) & 0xC0) == 0x80) --cut;
++        s.resize(cut);
++        trim(s);
++    }
++    return s;
++}
++
++std::vector<Friend> parse(const std::string& text) {
++    std::vector<Friend> out;
++    size_t pos = 0;
++    while (pos < text.size() && out.size() < kMax) {
++        size_t end = text.find('\n', pos);
++        if (end == std::string::npos) end = text.size();
++        const std::string line = text.substr(pos, end - pos);
++        pos = end + 1;
++        const size_t tab = line.find('\t');
++        const std::string host = tab == std::string::npos ? line : line.substr(0, tab);
++        if (!goodHost(host)) continue;
++        if (std::any_of(out.begin(), out.end(), [&](const Friend& f) { return f.host == host; }))
++            continue;
++        std::string name = tab == std::string::npos ? "" : cleanName(line.substr(tab + 1));
++        if (name.empty()) name = cleanName(host);
++        out.push_back({name, host});
++    }
++    return out;
++}
++
++std::string serialize(const std::vector<Friend>& v) {
++    std::string text;
++    for (const Friend& f : v) {
++        if (!goodHost(f.host)) continue;
++        text += f.host + "\t" + cleanName(f.name) + "\n";
++    }
++    return text;
++}
++
++std::vector<Friend> list() {
++    const std::vector<uint8_t> b = cab::readBytes(filePath());
++    return parse(std::string(b.begin(), b.end()));
++}
++
++bool has(const std::string& host) {
++    const std::vector<Friend> v = list();
++    return std::any_of(v.begin(), v.end(), [&](const Friend& f) { return f.host == host; });
++}
++
++namespace {
++bool save(const std::vector<Friend>& v) {
++    storage::makeDirs(storage::configDir());
++    // 0600: who a player plays with, and where, is theirs.
++    return cab::writeBytes(filePath(), serialize(v), 0600);
++}
++}  // namespace
++
++bool add(const Friend& f) {
++    if (!goodHost(f.host)) return false;
++    Friend e{cleanName(f.name), f.host};
++    if (e.name.empty()) e.name = cleanName(f.host);
++    if (e.name.empty()) return false;
++    std::vector<Friend> v = list();
++    v.erase(std::remove_if(v.begin(), v.end(),
++                           [&](const Friend& x) { return x.host == e.host; }),
++            v.end());
++    v.insert(v.begin(), e);
++    if (v.size() > kMax) v.resize(kMax);
++    return save(v);
++}
++
++bool rename(const std::string& host, const std::string& name) {
++    const std::string n = cleanName(name);
++    if (n.empty()) return false;
++    std::vector<Friend> v = list();
++    bool found = false;
++    for (Friend& f : v)
++        if (f.host == host) {
++            f.name = n;
++            found = true;
++        }
++    return found && save(v);
++}
++
++bool remove(const std::string& host) {
++    std::vector<Friend> v = list();
++    const size_t before = v.size();
++    v.erase(std::remove_if(v.begin(), v.end(), [&](const Friend& x) { return x.host == host; }),
++            v.end());
++    return v.size() != before && save(v);
++}
++
++bool splitHostPort(const std::string& typed, int fallback, std::string* host, int* port) {
++    std::string s;
++    for (const char ch : typed)
++        if (ch != ' ') s += ch;
++    if (s.empty()) return false;
++    *port = fallback;
++    if (s.front() == '[') {
++        const size_t close = s.find(']');
++        if (close == std::string::npos || close == 1) return false;
++        *host = s.substr(1, close - 1);
++        if (close + 1 < s.size()) {
++            if (s[close + 1] != ':' || !parsePort(s.substr(close + 2), port)) return false;
++        }
++        return true;
++    }
++    const size_t colons = static_cast<size_t>(std::count(s.begin(), s.end(), ':'));
++    if (colons == 1) {
++        const size_t c = s.find(':');
++        if (c == 0 || !parsePort(s.substr(c + 1), port)) return false;
++        *host = s.substr(0, c);
++        return true;
++    }
++    *host = s;   // a name, an IPv4 address, or a bare IPv6 literal
++    return true;
++}
++
++bool reachable(const std::string& typed, int timeoutMs) {
++    std::string host;
++    int port = kProbePort;
++    if (!splitHostPort(typed, kProbePort, &host, &port)) return false;
++
++    addrinfo hints{};
++    hints.ai_family = AF_UNSPEC;
++    hints.ai_socktype = SOCK_STREAM;
++    addrinfo* res = nullptr;
++    if (::getaddrinfo(host.c_str(), std::to_string(port).c_str(), &hints, &res) != 0 || !res)
++        return false;
++
++    using Clock = std::chrono::steady_clock;
++    const Clock::time_point deadline = Clock::now() + std::chrono::milliseconds(timeoutMs);
++    bool ok = false;
++    for (const addrinfo* ai = res; ai && !ok; ai = ai->ai_next) {
++        const int fd = ::socket(ai->ai_family, ai->ai_socktype | SOCK_NONBLOCK | SOCK_CLOEXEC,
++                                ai->ai_protocol);
++        if (fd < 0) continue;
++        int rc = ::connect(fd, ai->ai_addr, ai->ai_addrlen);
++        if (rc != 0 && errno == EINPROGRESS) {
++            const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(
++                                  deadline - Clock::now()).count();
++            pollfd p{fd, POLLOUT, 0};
++            if (left > 0 && ::poll(&p, 1, static_cast<int>(left)) == 1) {
++                int err = 0;
++                socklen_t len = sizeof(err);
++                if (::getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &len) == 0 && err == 0) rc = 0;
++            }
++        }
++        ok = rc == 0;
++        ::close(fd);
++    }
++    ::freeaddrinfo(res);
++    return ok;
++}
++
++}  // namespace friends
+diff --git a/frontend/src/friends.h b/frontend/src/friends.h
+new file mode 100644
+index 0000000..f9805d8
+--- /dev/null
++++ b/frontend/src/friends.h
+@@ -0,0 +1,70 @@
++// FORK (handheld): THE FRIENDS A PLAYER JOINS. A name and an address for each
++// console this one streams from (Settings, Remote Play, Join a friend), kept
++// in the console's config folder and nowhere else: no server holds the list,
++// nobody is told they were added, and the friend's console decides who may
++// stream from it, as it always did (the four digits typed on its PIN pad).
++//
++// WHAT AN ENTRY IS. A name the player chose, and the address typed for Join a
++// friend: a Tailscale address or name for a friend away from home, a Wi-Fi
++// address for one in the house. Neither is a secret and nothing here is a
++// credential, so a leaked list opens nothing; it does say who the player plays
++// with and where they are, so it is a file only the player can read (0600), at
++// most kMax entries, and the console never sends it anywhere.
++//
++// "READY" IS ONE QUESTION: does anything answer on the friend's streaming
++// port? It says the console is on, reachable (Tailscale up, or the same
++// network) and has Streaming on. It does not say the friend is at it. The
++// probe is a plain connection that sends nothing; the friend's Sunshine sees
++// one connection from this address, as it does from Moonlight.
++//
++// This file keeps the list and asks that question. It draws nothing and
++// starts no thread; friendspanel.cpp runs the probe on a worker.
++
++#pragma once
++
++#include <string>
++#include <vector>
++
++namespace friends {
++
++struct Friend {
++    std::string name;
++    std::string host;   // as moonlight::cleanHost leaves it
++};
++
++constexpr size_t kMax = 16;
++// The port Moonlight is given when none is typed: Sunshine's HTTP port.
++constexpr int kProbePort = 47989;
++// Longest name, in bytes, so a row stays one line on the Deck's screen.
++constexpr size_t kNameMax = 24;
++
++// The list, newest first. Empty when there is none or it cannot be read.
++std::vector<Friend> list();
++bool has(const std::string& host);
++
++// A name as the player may keep it: no control characters, spaces trimmed,
++// cut to kNameMax bytes at a character boundary. Empty when nothing is left.
++std::string cleanName(const std::string& typed);
++
++// Saves `f` as the newest entry, replacing one with the same address. False
++// when the address or name is empty or the file cannot be written. The oldest
++// entry goes when the list is full.
++bool add(const Friend& f);
++bool rename(const std::string& host, const std::string& name);
++bool remove(const std::string& host);
++
++// The list as the file holds it, one "address<TAB>name" line each, and back.
++// Exposed so the format can be tested without a file.
++std::string serialize(const std::vector<Friend>& v);
++std::vector<Friend> parse(const std::string& text);
++
++// "host", "host:port", "[v6]" or "[v6]:port" or a bare IPv6 literal, split.
++// `port` is `fallback` when none is given. False for an empty host.
++bool splitHostPort(const std::string& typed, int fallback, std::string* host, int* port);
++
++// Whether `typed` (an address as kept above) answers a connection on its
++// streaming port within `timeoutMs`. BLOCKS, name lookup included: a worker
++// only. Connects to the address the player typed, like Join a friend does.
++bool reachable(const std::string& typed, int timeoutMs);
++
++}  // namespace friends
+diff --git a/frontend/src/friendspanel.cpp b/frontend/src/friendspanel.cpp
+new file mode 100644
+index 0000000..95c9723
+--- /dev/null
++++ b/frontend/src/friendspanel.cpp
+@@ -0,0 +1,185 @@
++// FORK (handheld): THE FRIENDS LIST ON SCREEN. Settings, Remote Play, Join a
++// friend opens it when the player has friends saved (friends.h): each with
++// Ready or Not reachable beside it, kept up to date while it is open, and
++// Join, Rename and Remove for the one chosen. Add a friend keeps a name and an
++// address; Join someone new asks for an address once and offers to keep it
++// after the stream (joinflow.cpp). The same panel style as Paired devices
++// (remoteplayflow.cpp).
++//
++// The check runs on a worker, all friends at once, and never blocks a frame.
++
++#include "app.h"
++
++#include <future>
++
++#include "friends.h"
++#include "moonlight.h"
++
++using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
++
++namespace {
++constexpr const char* kPanelTitle = "Join a friend";
++constexpr int kProbeTimeoutMs = 1500;
++constexpr uint64_t kProbeEveryMs = 10000;
++
++std::string hostKey(const std::vector<friends::Friend>& v) {
++    std::string key;
++    for (const friends::Friend& f : v) key += f.host + "\n";
++    return key;
++}
++}  // namespace
++
++void App::startFriendProbe() {
++    if (friendProbe.busy()) {
++        friendProbeMs = 0;   // pollFriends starts it when the last one is done
++        return;
++    }
++    friendProbeMs = SDL_GetTicks();
++    friendProbeKey = hostKey(friendsShown);
++    std::vector<std::string> hosts;
++    for (const friends::Friend& f : friendsShown) hosts.push_back(f.host);
++    friendProbe.start([hosts](std::vector<int>& out, std::string&) {
++        std::vector<std::future<bool>> asks;
++        for (const std::string& h : hosts)
++            asks.push_back(std::async(std::launch::async,
++                                      [h] { return friends::reachable(h, kProbeTimeoutMs); }));
++        for (std::future<bool>& a : asks) out.push_back(a.get() ? 1 : 0);
++        return true;
++    });
++}
++
++// The rows as they read now: the friends, then the two ways to add one.
++void App::friendRows(std::vector<std::string>* options, std::vector<std::string>* values) const {
++    options->clear();
++    values->clear();
++    for (size_t i = 0; i < friendsShown.size(); ++i) {
++        options->push_back(friendsShown[i].name);
++        const int r = i < friendReady.size() ? friendReady[i] : -1;
++        values->push_back(r < 0 ? "Checking" : (r ? "Ready" : "Not reachable"));
++    }
++    options->push_back("Add a friend");
++    values->push_back("");
++    options->push_back("Join someone new");
++    values->push_back("");
++}
++
++void App::openFriendsPanel(int focus) {
++    friendsShown = friends::list();
++    if (friendsShown.empty()) {
++        choiceScreen.close();
++        return;
++    }
++    friendReady.assign(friendsShown.size(), -1);
++    std::vector<std::string> options, values;
++    friendRows(&options, &values);
++    const int last = static_cast<int>(options.size()) - 1;
++    askChoice(kPanelTitle, "", options, std::clamp(focus, 0, last), [&](int i) {
++        const int n = static_cast<int>(friendsShown.size());
++        if (i == n) {
++            choiceScreen.close();
++            askFriendHost("");
++            return;
++        }
++        if (i == n + 1) {
++            choiceScreen.close();
++            askJoinAddress("");
++            return;
++        }
++        if (i < 0 || i > n) return;
++        const friends::Friend f = friendsShown[static_cast<size_t>(i)];
++        askChoice(f.name, f.host, {"Join", "Rename", "Remove", "Cancel"}, 0, [&, f, i](int c) {
++            if (c == 0) {
++                choiceScreen.close();
++                startJoin(f.host);
++                return;
++            }
++            if (c == 1) {
++                choiceScreen.close();
++                askFriendName(f.host, f.name, false);
++                return;
++            }
++            if (c != 2) { openFriendsPanel(i); return; }
++            askChoice("Remove " + f.name + "?", "", {"Remove", "Cancel"}, 1, [&, f, i](int k) {
++                if (k == 0) {
++                    friends::remove(f.host);
++                    menuNotice.say("Removed " + f.name, Tone::Done);
++                }
++                openFriendsPanel(k == 0 ? 0 : i);
++            });
++            choiceBack = [&, i]() { openFriendsPanel(i); };
++        });
++        // B goes back to the list, as Cancel does.
++        choiceBack = [&, i]() { openFriendsPanel(i); };
++    });
++    choiceScreen.setValues(values);
++    choiceScreen.setStaysOpen(true);
++    startFriendProbe();
++}
++
++// Once a frame: a finished check lands in the open list, and an open list is
++// checked again every few seconds.
++void App::pollFriends() {
++    const bool open = choiceScreen.isOpen() && choiceScreen.title() == kPanelTitle;
++    std::vector<int> got;
++    std::string err;
++    bool ok = false;
++    if (friendProbe.take(&got, &err, &ok) && open && ok &&
++        friendProbeKey == hostKey(friendsShown) && got.size() == friendsShown.size()) {
++        friendReady = got;
++        std::vector<std::string> options, values;
++        friendRows(&options, &values);
++        choiceScreen.replace(options, values, "");
++    }
++    if (open && !friendProbe.busy() &&
++        (friendProbeMs == 0 || SDL_GetTicks() - friendProbeMs > kProbeEveryMs))
++        startFriendProbe();
++}
++
++void App::askFriendHost(const std::string& why) {
++    ui::Keyboard::Config cfg;
++    cfg.title = "Add a friend";
++    cfg.hint = "Their address, on their Play with a friend page";
++    cfg.placeholder = "192.168.0.20";
++    cfg.shortcuts = {".", ":"};
++    keyboard.open(cfg);
++    if (!why.empty()) keyboard.sayInField(why, /*problem=*/true, /*keep=*/true);
++    keyboardThen = [&](ui::KeyboardResult r) {
++        if (r != ui::KeyboardResult::Committed) {
++            openFriendsPanel(0);
++            return;
++        }
++        const std::string host = moonlight::cleanHost(keyboard.value());
++        if (host.empty()) {
++            askFriendHost("That isn't an address");
++            return;
++        }
++        askFriendName(host, "", true);
++    };
++}
++
++void App::askFriendName(const std::string& host, const std::string& current, bool isNew) {
++    ui::Keyboard::Config cfg;
++    cfg.title = isNew ? "Name this friend" : "Rename " + current;
++    cfg.initial = current;
++    cfg.placeholder = "Name";
++    keyboard.open(cfg);
++    keyboardThen = [&, host, current, isNew](ui::KeyboardResult r) {
++        if (r == ui::KeyboardResult::Committed) {
++            std::string name = friends::cleanName(keyboard.value());
++            if (name.empty()) name = current.empty() ? friends::cleanName(host) : current;
++            const bool saved = isNew ? friends::add({name, host}) : friends::rename(host, name);
++            if (saved) menuNotice.say(isNew ? "Saved " + name : "Renamed to " + name, Tone::Done);
++            else menuNotice.say("Couldn't save", Tone::Problem);
++        }
++        openFriendsPanel(0);
++    };
++}
++
++// After a stream with someone not on the list.
++void App::offerSaveFriend(const std::string& host) {
++    if (friends::has(host) || friendDeclined.count(host)) return;
++    askChoice("Save this friend?", host, {"Save", "Not now"}, 0, [&, host](int i) {
++        if (i == 0) askFriendName(host, "", true);
++        else friendDeclined.insert(host);
++    });
++}
+diff --git a/frontend/src/joinflow.cpp b/frontend/src/joinflow.cpp
+index 62efbcc..4f4813e 100644
+--- a/frontend/src/joinflow.cpp
++++ b/frontend/src/joinflow.cpp
+@@ -23,6 +23,7 @@
+ #include <algorithm>
+ #include <cstdio>
+ 
++#include "friends.h"
+ #include "moonlight.h"
+ #include "overlaywin.h"
+ #include "proc.h"
+@@ -47,7 +48,14 @@ void App::pressJoin() {
+         return;
+     }
+     sound::play(sound::Cue::Activate);
+-    askJoinAddress("");
++    if (friends::list().empty()) askJoinAddress("");
++    else openFriendsPanel(0);
++}
++
++void App::startJoin(const std::string& host) {
++    moonlight::setLastHost(host);
++    if (moonlight::isPaired(host)) startJoinStream(host);
++    else startJoinPair(host);
+ }
+ 
+ void App::askJoinAddress(const std::string& why) {
+@@ -66,9 +74,7 @@ void App::askJoinAddress(const std::string& why) {
+             askJoinAddress("That isn't an address");
+             return;
+         }
+-        moonlight::setLastHost(host);
+-        if (moonlight::isPaired(host)) startJoinStream(host);
+-        else startJoinPair(host);
++        startJoin(host);
+     };
+ }
+ 
+@@ -261,6 +267,7 @@ void App::finishJoin(int status) {
+         menuNotice.say("Couldn't join. Check the address and try again", Tone::Problem);
+     } else {
+         menuNotice.say("Left your friend's game", Tone::Done);
++        offerSaveFriend(joinHost);
+     }
+ }
+ 

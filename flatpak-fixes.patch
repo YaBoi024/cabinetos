@@ -1,0 +1,40 @@
+diff --git a/system_files/usr/libexec/cabinetos-flatpak-setup b/system_files/usr/libexec/cabinetos-flatpak-setup
+--- a/system_files/usr/libexec/cabinetos-flatpak-setup
++++ b/system_files/usr/libexec/cabinetos-flatpak-setup
+@@ -80,7 +80,10 @@
+ failures=0
+ installed=0
+ 
+-while read -r kind ref branch commit; do
++# `|| [[ -n "${kind:-}" ]]`: read fails on a last line with no newline, after
++# filling its variables, so without this the list's last line was never run
++# (FORK: Moonlight, the last line of flatpaks.list, was skipped on every boot).
++while read -r kind ref branch commit || [[ -n "${kind:-}" ]]; do
+     [[ -z "${kind:-}" || "${kind}" =~ ^# ]] && continue
+ 
+     if [[ -z "${ref:-}" || -z "${branch:-}" || -z "${commit:-}" ]]; then
+@@ -118,8 +121,13 @@
+ 
+     # The pin. Without this the machine has whatever Flathub served today, which
+     # is the thing this whole file exists to prevent.
++    # THE FULL REF, with its branch (FORK, Steam Deck). A bare name is taken to
++    # be whichever installed branch flatpak picks, and bazzite-deck carries
++    # several of org.freedesktop.Platform: it picked 26.08, which has no such
++    # commit ("Commit has no requested ref ... found 25.08"), so the pin failed
++    # on every run and the unit reported a failure each time.
+     if ! flatpak update --system --noninteractive --commit="${commit}" \
+-            "${ref}" 2>&1 | sed 's/^/      /'; then
++            "${full}" 2>&1 | sed 's/^/      /'; then
+         log "  ERROR: could not pin ${ref} to ${commit:0:12}"
+         failures=$((failures + 1))
+         continue
+diff --git a/system_files/usr/share/cabinetos/flatpaks.list b/system_files/usr/share/cabinetos/flatpaks.list
+--- a/system_files/usr/share/cabinetos/flatpaks.list
++++ b/system_files/usr/share/cabinetos/flatpaks.list
+@@ -63,4 +63,4 @@
+ # Nintendo Switch.
+ app  dev.eden_emu.eden  stable  88af3f795612d92099a71e4ed63d8219ee04088dcd9cfb5776ae595940425091
+ # Moonlight, for Join a friend (this console as a guest in another console's stream).
+-app  com.moonlight_stream.Moonlight  stable  d46a012e142b9b5eaad94e5549c042964f3029b03d555d3d5088057cd1ba6b9f
+\ No newline at end of file
++app  com.moonlight_stream.Moonlight  stable  d46a012e142b9b5eaad94e5549c042964f3029b03d555d3d5088057cd1ba6b9f

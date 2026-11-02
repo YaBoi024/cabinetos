@@ -59,6 +59,7 @@
 #include "idle.h"
 #include "image.h"
 #include "job.h"
+#include "friends.h"   // FORK (handheld)
 #include "keyboard.h"
 #include "levelbar.h"
 #include "libraryscreen.h"
@@ -646,6 +647,16 @@ struct App {
     std::atomic<bool> joinCancel{false};
     cab::Job<int> joinPair;
     std::string joinHost;
+    // FORK (handheld): THE FRIENDS LIST (friendspanel.cpp). The friends as
+    // the open list shows them, each one's last check (-1 not yet, 0 no, 1
+    // yes), the check on its worker with the list it was made for and when
+    // it started, and the friends the player said no to this session.
+    std::vector<friends::Friend> friendsShown;
+    std::vector<int> friendReady;
+    cab::Job<std::vector<int>> friendProbe;
+    std::string friendProbeKey;
+    uint64_t friendProbeMs = 0;
+    std::set<std::string> friendDeclined;
     int joinPid = -1;
     uint64_t joinStartMs = 0;
     uint64_t joinStopMs = 0;
@@ -2188,6 +2199,7 @@ struct App {
     void pressJoin();
     void askJoinAddress(const std::string& why);
     void startJoinPair(const std::string& host);
+    void startJoin(const std::string& host);
     void startJoinStream(const std::string& host);
     void pollJoin();
     bool takeJoinEvent(const SDL_Event& e);
@@ -2195,6 +2207,14 @@ struct App {
     void stopJoin();
     void finishJoin(int status);
     void closeJoinAtExit();
+    // friendspanel.cpp (FORK (handheld))
+    void openFriendsPanel(int focus);
+    void pollFriends();
+    void startFriendProbe();
+    void friendRows(std::vector<std::string>* options, std::vector<std::string>* values) const;
+    void askFriendHost(const std::string& why);
+    void askFriendName(const std::string& host, const std::string& current, bool isNew);
+    void offerSaveFriend(const std::string& host);
     // tailscaleflow.cpp
     void startTailscaleAtBoot();
     void pollTailscale();

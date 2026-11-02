@@ -1,14 +1,13 @@
 # CabinetOS
 #
 # A console operating system for x86-64 PC hardware, built as a bootc image on
-# top of Bazzite. The reference machine is a GEEKOM A9 Pro, but nothing here may
+# top of Bazzite. The reference machine is a Steam Deck OLED, but nothing here may
 # assume it.
 #
-# Bazzite is used for its kernel, graphics stack, controller drivers and power
+# Bazzite deck is used for its kernel, graphics stack, controller drivers and power
 # handling. Its desktop and its Steam integration are removed. See
 # docs/PROJECT.md for the full rationale.
 #
-# This file is never built on a Mac. Builds run in GitHub Actions. See README.md.
 
 # Build scripts are mounted, not copied, so they never end up in the final image.
 FROM scratch AS ctx

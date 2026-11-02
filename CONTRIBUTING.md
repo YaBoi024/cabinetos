@@ -420,6 +420,11 @@ runs `checks.yml`, a few seconds each:
   "not fixed", "still open" or "left for later" is a warning on the pull
   request and never a failure: a decision file holds no fault (CLAUDE.md,
   rule 7).
+- **Licences** (`ci/check-licences.sh`): a text in `licences/` that
+  `licences/SOURCES` lists and that is missing, or whose first line does not
+  name the repository, path and revision SOURCES pins, fails: a text added by
+  hand or a pin moved without running `tools/fetch-licences.py`. Nothing is
+  downloaded. Report only until 2026-11-08.
 
 **A check's first week is report only.** Until the end of the date in
 `checks.yml`'s `REPORT_ONLY_UNTIL` (2026-10-25, UTC; `build-frontend.yml`

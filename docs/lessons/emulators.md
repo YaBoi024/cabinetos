@@ -493,6 +493,13 @@ code.
   save "tampered" under any other ID. One ID on every console, for good, as
   the Xbox EEPROM is.
 
+- **A SETTING THAT DIFFERS BY GAME MAY HAVE ONE SAFE VALUE: THE OLD PIN'S.**
+  Gears needs Edge's `window_offset_in_edram` off and Halo 4 needs it on, so
+  no value suits every game. But the setting arrived after our earlier pin,
+  and off is the code path every game drew with there: set off for all, no
+  game draws worse than before. Read what the pin we ship does before
+  calling a per-game setting unavoidable.
+
 ## Wii (Dolphin)
 
 - **A FOLDER COPIED BY HAND ONTO THE REFERENCE CONSOLE HIDES ITS ABSENCE FROM

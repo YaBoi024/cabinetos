@@ -390,7 +390,7 @@ then `YDOTOOL_SOCKET=/tmp/ydotool.sock ydotool key 108:1 108:0` (Down; Up
 - **A SHORT YDOTOOL TAP CAN BE DROPPED.** 2026-10-19 (#253): with key-down
   and key-up 0.15 s apart, the Return after `ydotool type` into Search was
   dropped about half the time. Hold 0.25 s, and read the journal for the
-  result (`[keyboard] committed: ...`) before the next press.
+  result (`[keyboard] committed N characters`) before the next press.
 
 - **frames.py CANNOT SEE A REPEATED GAME FRAME.** (frames.py is a frame-time
   script kept on the reference console, not in this repository; it reads

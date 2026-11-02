@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -573,15 +574,27 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
     ::unlink(logPath_.c_str());
     logRead_ = 0;
 
-    // THE SANDBOX SEES THREE THINGS OF OURS: the emulator's own home, this
-    // person's save folder for this game, and the folder the game is in,
+    // A FLATPAK'S SANDBOX SEES THREE THINGS OF OURS: the emulator's own home,
+    // this person's save folder for this game, and the folder the game is in,
     // read-only. Nothing else of the console's and nobody else's saves. The
     // game may be on an external drive, which is why its folder is named per
-    // launch rather than granted once.
+    // launch rather than granted once. A program in the image sees all of it
+    // and only loses the network (below).
     std::string gameDir = romPath;
     if (const size_t slash = gameDir.find_last_of('/'); slash != std::string::npos)
         gameDir.erase(slash);
     storage::makeDirs(storage::logsDir());
+    // ITS OWN LOG, LINKED BESIDE WHAT IT PRINTS: the diagnostic report
+    // (system_files/usr/libexec/cabinetos-report) reads logs/*.log, and an
+    // emulator's own log is elsewhere, in the game's folder for RPCS3 and a
+    // .txt for Eden and Cemu.
+    if (e.log) {
+        const std::string link = storage::logsDir() + "/" + e.core + ".own.log";
+        ::unlink(link.c_str());
+        if (::symlink(logPath_.c_str(), link.c_str()) != 0)
+            std::fprintf(stderr, "[standalone] could not link %s: %s\n", link.c_str(),
+                         std::strerror(errno));
+    }
 
     // A PROGRAM IN THE IMAGE has no `flatpak run` to carry its settings, so
     // `env` does, and then becomes it, under bwrap: the emulator is bwrap's

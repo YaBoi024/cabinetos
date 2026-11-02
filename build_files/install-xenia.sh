@@ -23,17 +23,18 @@
 # UNPACKED, NOT RUN AS AN APPIMAGE, as RPCS3 is: `usr/bin/xenia_edge` runs
 # directly, finds its bundled libraries through its own RUNPATH
 # ($ORIGIN/../lib), and is a plain process called `xenia_edge` the console can
-# find and close. Measured on the A9 2026-09-29: 19 MB downloaded, 53 MB
-# unpacked, no library missing against the image, run exactly this way.
+# find and close. Measured on the A9 2026-11-01 for 4ad875a: 21 MB
+# downloaded, 55 MB unpacked, no library missing against the image, run
+# exactly this way.
 #
 # Its licence is BSD-3-Clause; see docs/LICENCES.md.
 
 set -euo pipefail
 source /ctx/lib.sh
 
-readonly XENIA_VERSION="a7c39fa"
+readonly XENIA_VERSION="4ad875a"
 readonly XENIA_URL="https://github.com/has207/xenia-edge/releases/download/${XENIA_VERSION}/xenia_edge_linux.AppImage"
-readonly XENIA_SHA256="5966be6ee2e1e438508d9d6a752e8d6e2a248019531e1db64701e0cc81ce668c"
+readonly XENIA_SHA256="80d562771186f074297f4c15522199e0f4ffad6a6db1ddf7d2f5113f71f10bee"
 readonly DEST=/usr/lib/cabinetos/xenia
 
 log "Xenia Edge ${XENIA_VERSION}"

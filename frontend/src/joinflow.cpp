@@ -23,6 +23,7 @@
 #include <algorithm>
 #include <cstdio>
 
+#include "friends.h"
 #include "moonlight.h"
 #include "overlaywin.h"
 #include "proc.h"
@@ -47,7 +48,14 @@ void App::pressJoin() {
         return;
     }
     sound::play(sound::Cue::Activate);
-    askJoinAddress("");
+    if (friends::list().empty()) askJoinAddress("");
+    else openFriendsPanel(0);
+}
+
+void App::startJoin(const std::string& host) {
+    moonlight::setLastHost(host);
+    if (moonlight::isPaired(host)) startJoinStream(host);
+    else startJoinPair(host);
 }
 
 void App::askJoinAddress(const std::string& why) {
@@ -66,9 +74,7 @@ void App::askJoinAddress(const std::string& why) {
             askJoinAddress("That isn't an address");
             return;
         }
-        moonlight::setLastHost(host);
-        if (moonlight::isPaired(host)) startJoinStream(host);
-        else startJoinPair(host);
+        startJoin(host);
     };
 }
 
@@ -261,6 +267,7 @@ void App::finishJoin(int status) {
         menuNotice.say("Couldn't join. Check the address and try again", Tone::Problem);
     } else {
         menuNotice.say("Left your friend's game", Tone::Done);
+        offerSaveFriend(joinHost);
     }
 }
 
