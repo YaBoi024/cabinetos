@@ -34,7 +34,9 @@ set -euo pipefail
 
 # Lowercase, and the published package's name. The package must be public, or
 # a console cannot pull its updates from it.
-readonly REPO=ghcr.io/yaboi024/cabinetos   # FORK (handheld): our own image, not MMagTech's
+# FORK (handheld): our own image, not MMagTech's. Keep this line exactly as it is:
+# build_files/require-signed-updates.sh matches it character for character.
+readonly REPO=ghcr.io/yaboi024/cabinetos
 readonly TARGET="${REPO}:latest"
 
 say() { echo "cabinetos-update-source: $*"; }
