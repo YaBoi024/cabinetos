@@ -157,7 +157,12 @@ download, `cabinetos.iso` and its SHA-256 in Cloudflare R2
 (`download.mmagtech.com`, the link the README and the wiki's Install page
 give), and reads the size back to check it. Build it once per release; an
 installed console updates itself. Try installer changes in a throwaway VM
-first with `tools/installer-vm.sh`.
+first with `tools/installer-vm.sh`. Before ticking `publish`, install the
+built ISO in the VM (`tools/installer-vm.sh install`) and look at its
+screens: the boot menu, the drive question, the summary, Time & Date,
+installing and first run. The build stops by itself if the installer changed
+under the branding (`ci/brand-installer-iso.sh` checks what it relies on); a
+change in the look shows only on screen.
 
 **Repository settings the build depends on.** Settings, Actions, General,
 Workflow permissions: **Read and write**, or the push to GHCR fails with a 403.
