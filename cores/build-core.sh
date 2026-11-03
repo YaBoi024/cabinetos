@@ -64,9 +64,8 @@ SYSTEM_OUT="${CABINETOS_SYSTEM_OUT:-$ROOT/cores/system}"
 
 # Per core: upstream, pinned commit, make directory, makefile, extra arguments.
 #
-# COMMIT values come from Cabinet's core-manifest.json `pinned_commit`, which is
-# the revision every platform must build from going forward. They are not to be
-# "updated" here; they move in Cabinet, and this follows.
+# A COMMIT moves only for one of the reasons in
+# docs/decisions/2026-10-23-when-an-emulator-pin-moves.md.
 #
 # EVERYTHING ABOUT ONE CORE GOES IN ITS ARM, or in a patch block of its own
 # below. CI caches each core under a hash of its own arm and blocks and of
@@ -365,8 +364,7 @@ mupen64plus)
     MAKEDIR=.
     MAKEFILE=Makefile
     # Nintendo 64, and one of the three cores that renders through a GL context
-    # the frontend has to own. It builds here; it cannot run here yet, and
-    # catalog.cpp says so rather than offering an N64 game that would fail.
+    # the frontend has to own.
     #
     # FOUR levers, which is the most of any core in the set, and the reason
     # this one is not a one-line diff against Cabinet:
@@ -404,10 +402,8 @@ mupen64plus)
     # floating point, so it is not obviously harmless — and it cannot be judged
     # until an N64 game can actually be run here.
     #
-    # WHICH IS WHY THE TAG IS NOT SHARED YET. catalog.cpp returns no emulator
-    # tag for this core, so nothing uploads a state that Cabinet might offer
-    # back. Settle it when the frontend can host a hardware-rendered core and
-    # there is something to compare.
+    # ITS TAG IS SHARED ANYWAY, BY DECISION: savetable.cpp gives it
+    # mupen64plus-native, and says why this difference was accepted.
     #
     # THE RECOMPILER IS ON, 2026-09-27 (#147). It was left out on 2026-09-13
     # to match Cabinet's Apple TV build, where Apple forbids a JIT; that is a
@@ -435,12 +431,13 @@ flycast)
     # CMake, like mGBA, but for the opposite reason: Flycast never had a
     # Makefile.libretro.
     #
-    # THE TAG IS NOT SHARED AND CANNOT BE, TODAY. The manifest's own patch entry
-    # says Flycast is built from "tools/build-flycast.sh, and UNSCRIPTED edits in
-    # the working tree", so commit a172e000 plus that script does not reproduce
-    # what Cabinet ships. There is no revision for our build to match, whatever
-    # flags we pass. Until that diff is captured in Cabinet, catalog.cpp returns
-    # no emulator tag for this core. See docs/PROJECT.md, open question 13.
+    # ITS TAG IS GIVEN ANYWAY, BY DECISION. The manifest's own patch entry says
+    # Flycast is built from "tools/build-flycast.sh, and UNSCRIPTED edits in the
+    # working tree", so commit a172e000 plus that script does not reproduce what
+    # Cabinet ships. There is no revision for our build to match, whatever flags
+    # we pass. savetable.cpp gives it flycast-native all the same (MMagTech,
+    # 2026-09-23): a state that does not load elsewhere is refused there, and one
+    # that never leaves the console is lost with it.
     #
     # The recompiler lever is real and is NOT the blocker: Cabinet builds
     # -DTARGET_NO_REC on iOS and tvOS and turns the recompilers on for the Mac,

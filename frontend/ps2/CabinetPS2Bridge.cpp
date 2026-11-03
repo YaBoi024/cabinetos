@@ -12,8 +12,8 @@
 //
 // The practical one is the build. PCSX2 needs about thirty development
 // packages the frontend's own builder image does not have and should not grow;
-// its Containerfile is small on purpose, because it also builds twenty-one
-// cores. Keeping the emulator behind a `.so` means the frontend's Makefile does
+// its Containerfile is small on purpose, because it also builds every libretro
+// core. Keeping the emulator behind a `.so` means the frontend's Makefile does
 // not change at all.
 //
 // So this is deliberately a C API and deliberately dull: no C++ types cross it,

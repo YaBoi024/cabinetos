@@ -495,8 +495,8 @@ void launchWorker(LaunchJob& job, romm::Client& client, const int id, const int 
         }
     }
 
-    // A GAME THAT IS INSTALLED BEFORE IT RUNS (a PS3 PKG; the row's
-    // `installs`). Its folder is fetched FILE BY FILE rather than as the
+    // A GAME THAT IS INSTALLED BEFORE IT RUNS (a PS3 PKG or a Vita zip; the
+    // row's `installs`). Its folder is fetched FILE BY FILE rather than as the
     // zip RomM makes of a folder, because the zip route would hold the
     // zip, the PKG out of it and the installed game at once: three times
     // a 20 GB game. This way it is twice, and only while the install

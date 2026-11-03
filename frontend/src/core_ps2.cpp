@@ -20,8 +20,8 @@ using namespace corestate;
 // placement (cpus.h) and returns at once, as it did with this inline.
 bool Core::startPs2Game(const std::string& romPath, const std::string& systemDir,
                         const std::string& saveDir) {
-    // THE CARD IS NAMED FROM THE ROM, HERE, BY THE SAME RULE main.cpp USES
-    // FOR EVERY OTHER SAVE. `catalog::saveFiles` says a PlayStation 2 card
+    // THE CARD IS NAMED FROM THE ROM, HERE, BY THE RULE EVERY OTHER SAVE
+    // GOES BY. `catalog::saveFiles` (savetable.cpp) says a PlayStation 2 card
     // is `<stem>.ps2` in the save directory, where the stem is the rom's
     // filename without its extension — and `filesave.cpp` already restores
     // that file before launch, captures it after, refuses to upload an
@@ -85,7 +85,7 @@ void Core::setPs2(const std::string& resourcesDir, float upscale, int anisotropy
 }
 
 void Core::setPaused(bool paused) {
-    // Every libretro core stops because main.cpp stops calling runFor. Only
+    // Every libretro core stops because pace.cpp stops calling runFor. Only
     // PCSX2 has a thread that needs telling.
     if (gIsPs2) ps2::setPaused(paused);
 }

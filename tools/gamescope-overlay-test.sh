@@ -13,8 +13,7 @@
 #
 # IT TAKES OVER THE TELEVISION for as long as it runs, by pointing the session's
 # CABINETOS_APP at a test program instead of the frontend. It puts the machine
-# back on every exit path, including failure and Ctrl-C. It does NOT touch
-# 20-heavy-systems.conf.
+# back on every exit path, including failure and Ctrl-C.
 #
 # WHY THERE IS NO CAPTURE IN HERE. `gamescopectl screenshot` does not capture
 # either overlay plane — not with type 1, and not with type 2 "all_real_layers".

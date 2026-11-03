@@ -173,10 +173,10 @@ bool add(const Account& a, const std::string& token, std::string* err) {
         return false;
     }
     if (token.empty()) {
-        // Refused rather than written, because the list is what `needsSetup`
-        // and the switcher both read: an entry with no credential behind it is
-        // a row that cannot be chosen and a console that may think it is
-        // configured when it is not.
+        // Refused rather than written, because the list is what firstrun's
+        // `alreadyConfigured` and `havePairedAccount` and the switcher read:
+        // an entry with no credential behind it is a row that cannot be chosen
+        // and a console that may think it is configured when it is not.
         if (err) *err = "refusing to add an account with no token";
         return false;
     }

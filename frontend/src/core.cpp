@@ -264,11 +264,11 @@ void Core::setDirectories(const std::string& systemDir, const std::string& saveD
 // it, which is the one thing every other emulator here has in common. What it
 // CAN do is take the finished picture, take the finished sound, hand over the
 // pad and stop it — and those are the same four things this class already does
-// for the other twenty-one.
+// for every libretro core.
 //
 // So the branch lives here, at the bottom, rather than as a second Core the
 // screens have to know about. Everything above this file — the launch screen,
-// the overlay, the save sync, the frame loop in main.cpp — is unchanged and
+// the overlay, the save sync, the frame loop in frame.cpp — is unchanged and
 // does not learn a new concept. See ps2.h.
 namespace corestate {
 bool gIsPs2 = false;

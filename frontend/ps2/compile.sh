@@ -64,8 +64,8 @@ done
 # It is fine HERE, because this probe is a development tool that is never
 # distributed and never enters the image. The shipping path is the one open
 # question 12's correction already chose for a different reason: each emulator
-# becomes its own .so behind a struct of function pointers, exactly like the
-# twenty-one libretro cores, which keeps the same arms-length arrangement
+# becomes its own .so behind a struct of function pointers, exactly like
+# every libretro core, which keeps the same arms-length arrangement
 # LICENCES.md already relies on. Do not "simplify" this into the frontend link.
 #
 # Order matters for static archives, and --start-group is how you avoid having
@@ -138,7 +138,7 @@ echo "host layer: linked $BUILD/cabinet-ps2-probe"
 # MEASURED RATHER THAN ASSUMED, on the reference console 2026-09-21: of
 # everything this links, the image is missing exactly ONE — libryml, rapidyaml,
 # which PCSX2 uses to read its game database. Everything else PCSX2 wants is
-# already there for the frontend and the twenty-one cores: shaderc, plutovg,
+# already there for the frontend and the libretro cores: shaderc, plutovg,
 # plutosvg, harfbuzz, pcap, SPIRV-Tools.
 #
 # So the emulator ships that one library beside itself rather than the image
