@@ -35,7 +35,7 @@ GameCube need Vulkan, and every system starts on the lowest picture level.
 ## Get the installer
 
 **[Download cabinetos.iso](https://download.mmagtech.com/cabinetos.iso)**
-(about 6.7 GB). No account needed; it is always the newest release. What
+(about 7 GB). No account needed; it is always the newest release. What
 has changed in each update: [What's new](changelog.md).
 
 Optional: check it is whole against [its SHA-256](https://download.mmagtech.com/cabinetos.iso.sha256)
