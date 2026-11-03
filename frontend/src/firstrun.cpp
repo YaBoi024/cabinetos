@@ -15,6 +15,7 @@
 #include "accounts.h"
 #include "fileio.h"
 #include "storage.h"
+#include "timezone.h"
 #include "firstrun_internal.h"
 
 namespace firstrun {
@@ -100,6 +101,7 @@ bool alreadyConfigured() {
 
 const char* name(Step s) {
     switch (s) {
+        case Step::TimeZone:   return "timezone";
         case Step::Network:    return "network";
         case Step::Server:     return "server";
         case Step::Pair:       return "pair";
@@ -183,6 +185,9 @@ bool markSignedOut(bool cleared, std::string* err) {
 
 Gate Machine::gate() const {
     switch (step_) {
+        case Step::TimeZone:
+            return facts_.zoneChosen ? Gate::Ready : Gate::Blocked;
+
         case Step::Network:
             // THE ONE HARD GATE. No skip, and none may ever be added: on the
             // far side of it there is no server, so there is nothing to show.
@@ -230,6 +235,11 @@ Gate Machine::gate() const {
 // obvious way to do them.
 std::string Machine::because() const {
     switch (step_) {
+        case Step::TimeZone:
+            // The city list says its own sentence (setup.cpp, prose); once a
+            // zone is set the screen names it.
+            return facts_.zoneChosen ? std::string() : "Choose your region.";
+
         case Step::Network:
             // SIX ANSWERS, AND THE WORD "REQUIRED" OR "OPTIONAL" IS IN ALL THE
             // ONES WHERE IT IS IN QUESTION.
@@ -318,7 +328,8 @@ bool Machine::skip() {
 }
 
 bool Machine::back() {
-    if (step_ == Step::Network) return false;
+    if (step_ == Step::TimeZone) return false;
+    if (step_ == Step::Network && !zoneAsked_) return false;
     if (step_ == Step::Done) return false;
     step_ = static_cast<Step>(static_cast<int>(step_) - 1);
     return true;
@@ -327,7 +338,11 @@ bool Machine::back() {
 bool Machine::openAt(const std::string& stepName) {
     for (int i = 0; i <= static_cast<int>(Step::Done); ++i) {
         const Step s = static_cast<Step>(i);
-        if (stepName == name(s)) { step_ = s; return true; }
+        if (stepName == name(s)) {
+            step_ = s;
+            if (s == Step::TimeZone) zoneAsked_ = true;
+            return true;
+        }
     }
     return false;
 }
@@ -336,6 +351,7 @@ bool Machine::openAt(const std::string& stepName) {
 
 Facts observeLocal(const romm::Client& client, int gamepadCount) {
     Facts f;
+    f.zoneChosen = tz::isSet();
     f.haveServerAddress = !serverAddress().empty();
     // Only something that has tried can set these two; see the header.
     f.serverChecked = false;

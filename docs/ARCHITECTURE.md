@@ -15,12 +15,12 @@ a new file, a moved job, a renamed part, or a change to who calls whom.
 
 | Folder or file | What is in it | Where it ends up |
 |---|---|---|
-| `frontend/` | The console's one program, in C++20: `src/` (341 files, one folder; the Makefile compiles these and rcheevos), `data/` (shaders, controller lists, and `vectrex-overlays.json`, which Vectrex game takes which screen sheet), `third_party/rcheevos/` (RetroAchievements, vendored), `covers/` (the stand-in library's covers), `tools/fake-nmcli/` (a stand-in network tool for trying first run) | `/usr/bin/cabinetos-frontend` |
+| `frontend/` | The console's one program, in C++20: `src/` (343 files, one folder; the Makefile compiles these and rcheevos), `data/` (shaders, controller lists, and `vectrex-overlays.json`, which Vectrex game takes which screen sheet), `third_party/rcheevos/` (RetroAchievements, vendored), `covers/` (the stand-in library's covers), `tools/fake-nmcli/` (a stand-in network tool for trying first run) | `/usr/bin/cabinetos-frontend` |
 | `frontend/ps2/` | The PlayStation 2 host around PCSX2, compiled by `cores/build-pcsx2.sh` into `cabinetos-ps2.so`, not by the frontend's Makefile (so a pull request to `main` never compiles it) | `/usr/lib/cabinetos/cores/` |
 | `wiibridge/` | `cabinetos-wii-bridge`, a stand-in for each real Wii Remote; GPL, its own program | `/usr/libexec/cabinetos-wii-bridge` |
 | `cores/` | How every emulator the image carries is built: `build-core.sh` (23 libretro cores, each pinned by commit in its `case` arm), `fetch-mame.sh` (the 24th, MAME 0.289, libretro's own build fetched and checked at its pins, with its plugins and catalogue), `build-pcsx2.sh`, `build-cemu.sh`, `build-sm2emu.sh` (sm2-emu, Sega Model 2's emulator, a program of its own), `build-supermodel.sh` (Supermodel, Sega Model 3's, a program of its own too, with SDL2_net beside it), `build-sunshine.sh` and their builder containers; `options/<core>.txt`, every option each core declares at its pin; `arcade-sets.sh`, each arcade emulator's catalogue from its own list at its pin (CI) | `/usr/lib/cabinetos/cores/` and the emulators' folders |
 | `build_files/` | The image build's scripts: `build.sh` and the scripts it calls (remove the desktop and the storefronts, set up the session, the branding), `install-*.sh` (one per piece the image carries; `install-mame.sh` puts MAME 0.289 beside the cores, in a layer of its own; `install-sm2emu.sh` puts sm2-emu in `/usr/lib/cabinetos/sm2emu` and its catalogue beside the cores, `install-supermodel.sh` Supermodel in `/usr/lib/cabinetos/supermodel` and its catalogue the same way), `require-*.sh` (checks that fail the build), `built-in-speaker.sh` (a speaker inside the case never takes the sound, #547), `sound-backup-output.sh` (pipewire-pulse starts at login, so a backup output catches the sound while the TV's is gone, #228) | run once, inside the image build |
-| `system_files/` | Files copied over the image as they are: the session script, systemd units, the root helpers in `usr/libexec/`, polkit rules, udev rules, the diagnostic report, which output plays the sound (`usr/share/wireplumber/`, a WirePlumber setting file), and a few files in `etc/` (the SSH settings, the update signing key) | `/usr` and `/etc` |
+| `system_files/` | Files copied over the image as they are: the session script, systemd units, the root helpers in `usr/libexec/`, polkit rules, udev rules, the diagnostic report, which output plays the sound (`usr/share/wireplumber/`, a WirePlumber setting file), and a few files in `etc/` (the SSH settings, the update signing key, `adjtime`: the PC's clock in local time where no installer set it) | `/usr` and `/etc` |
 | `ci/` | What the workflows run: collecting the build outputs (`stage-image-payload.sh`), the installer ISO repacked in CabinetOS's look after bootc-image-builder makes it (`brand-installer-iso.sh`, `build-disk.yml`; `tools/installer-vm.sh repack` runs it for test ISOs), the key each core's build is cached under (`core-cache-key.sh`, `build-core.yml`), version numbers, promoting the tested image, watching the Bazzite base, the checks every pull request runs (`checks.yml`: `check-romm-paths.sh`, `check-doc-paths.py`, `check-project-index.sh`, `check-long-files.sh`, `check-docs-list.sh`, `check-decisions.sh`, `check-licences.sh`), and the frontend's checks and reports (`build-frontend.yml`: `check-new-warnings.sh`, `run-self-tests.sh`, `list-arcade-changes.sh`, every arcade game whose emulator a catalogue change would move, `report-unused-code.sh`, which calls `warn-unused-touched.sh`) | GitHub Actions |
 | `.github/` | The workflows, the issue form for players, and the pull request template | GitHub |
 | `tools/` | Test and maintenance tools, run by hand; they take their machines from the environment (CONTRIBUTING.md, "Running and testing"). One also runs in the image build: `fetch-vectrex-overlays.py`, which `build.yml` runs to fetch the Vectrex screen sheets (#224) into the payload | nowhere |
@@ -60,7 +60,7 @@ is in the file named for its feature, and
 | Saves and states | `savetable.cpp` (what each core writes, where, and its two tags on RomM: `emulatorTag` for states, `saveTag` for saves; which systems have states and rewind, `snapshotsAllowed` and `rewindAllowed`), `saves.cpp` (sending and restoring all three kinds of save: `syncSave`, `syncDirSave`, `syncFileSaves`), `dirsave.cpp` and `filesave.cpp` (their helpers), `states.cpp`, `statefile.cpp` (a state file's layout: the core's bytes alone, or RetroArch's RASTATE blocks with the achievement progress), `savemirror.cpp`, `uploader.cpp` (the queue), `pending.cpp` (the markers), `offline_sync.cpp`, `playtime.cpp`, `favorites.cpp`; the requests themselves are in `romm_playdata.cpp` |
 | Storage | `storage.h` (where everything lives), `storage_internal.h`, `locations.cpp`, `cache.cpp`, `drives.cpp`, `drives_fs.cpp`, `udisks.cpp`, `users.cpp`, `accounts.cpp`, `accountremove.cpp`, `fileio.cpp` (every file the console replaces goes through its `writeBytes`: a temporary, fsync, a rename), `prefs.cpp`, `gonegames.cpp` (a game RomM no longer has leaves the drive at a start with the server there, with its record, covers, saves, states and screenshots, #625) |
 | Controllers | `players.cpp`, `fightstick.cpp` (the table of known fight sticks, and an arcade game's buttons laid out on one), `controls.cpp` (Controls: an arcade game's buttons moved per game, kind of controller and person, kept in `users/<id> - <name>/controls/`; `play.cpp`'s readGameInput reads each pad through it, `launch.cpp`'s startPlaying reads the game's file, and for sm2-emu and Supermodel `standalone_play.cpp`'s startStandalone reads it before `standalone_sm2emu.cpp` and `standalone_supermodel.cpp` write each player's buttons from it into the program's settings), `controlsflow.cpp` (its panel over the pause menu, and the press it listens for, which `controllers.cpp` hands it before anything else sees it), `controllers.cpp`, `bluetooth.cpp`, `btagent.h`, `battery.cpp`, `batteryrow.cpp`, `shortcuts.cpp`, `wiiremote.cpp` (starts the Wii bridge), `wiipair.cpp`, `wiipanel.cpp`, `wiimii.cpp`, `wii.cpp`, `wiiu.cpp` |
-| The machine | `net.cpp`, `wifi.cpp`, `power.cpp`, `power_menu.cpp`, `powerprofile.cpp`, `volume.cpp`, `sound.cpp`, `gpu.cpp`, `cpus.cpp`, `idle.cpp`, `proc.cpp` (running a program with no shell), `unit.cpp` (asking systemd for a root job), `update.cpp` (System update, the console's side), `files.cpp` (File access, the console's side), `server.cpp` and `serveraddress.cpp` (the RomM server this console belongs to) |
+| The machine | `net.cpp`, `wifi.cpp`, `power.cpp`, `power_menu.cpp`, `powerprofile.cpp`, `volume.cpp`, `sound.cpp`, `gpu.cpp`, `cpus.cpp`, `idle.cpp`, `proc.cpp` (running a program with no shell), `unit.cpp` (asking systemd for a root job), `timezone.cpp` (the time zone first run asks on a console with none: its regions and cities from the tz database, and setting one through `cabinetos-timezone@.service`), `update.cpp` (System update, the console's side), `files.cpp` (File access, the console's side), `server.cpp` and `serveraddress.cpp` (the RomM server this console belongs to) |
 | RetroAchievements | `achievements.cpp` (the sign-in and rcheevos' client; its console table names every system), `achievements_ui.cpp`, `ra_list.cpp`, `ra_net.cpp`, `ra_state.h` |
 | Settings features | `settingsflow.cpp` (the rows and their dispatch), `settingsids.h`, `about.cpp`, `credits.h`, `access.cpp` (File access and Developer access), `wikiqrview.cpp` and `wikiqr.h` (the Wiki's and What's new's QR codes, made by `tools/make-wiki-qr.py`; How to and the link screen draw them), and one `*flow.cpp` per feature: `accountsflow.cpp`, `downloadsflow.cpp`, `drivesflow.cpp`, `pinflow.cpp`, `serveraddressflow.cpp`, `remoteplayflow.cpp`, `tailscaleflow.cpp`, `steamflow.cpp`, `updateflow.cpp`, `reportflow.cpp`; `choiceflow.cpp` asks a question over any screen |
 | Remote Play, Steam, the report | `remoteplay.cpp`, `sunshinelog.cpp`, `tailscale.cpp`, `steam.cpp`, `report.cpp`, `samenames.cpp` |
@@ -170,7 +170,9 @@ is in the file named for its feature, and
    that need it.
 5. `startDisplay`: the window and the GL context.
 6. `runFirstRun`: first run, if the console is not set up (`firstrun.h` for
-   its rules, `setup.cpp` for its screens).
+   its rules, `setup.cpp` for its screens). On a console with no time zone
+   (one running from a USB drive) it opens at the time zone, before the
+   network.
 7. `startStartupScreen`, then `connectToServer`: the console waits for its
    server; when there is a game on the drive to play, it goes offline after
    15 seconds and tries the server in the background, otherwise it keeps
@@ -317,6 +319,34 @@ updated into the image it leaves as it is.
 How a change gets into that image is in CONTRIBUTING.md, "How a change
 reaches a console".
 
+### Running from a USB drive
+
+A portable install is the disk image written to a USB drive and booted on
+somebody's PC (`docs/decisions/2026-11-03-running-from-a-usb-drive.md`).
+What tells it apart is one test, `cabinetos-system-disk portable`: the drive
+the system is on can be unplugged (the console's own test,
+`storage::isExternalDevice`). Then, at each start:
+
+1. udev runs `/usr/libexec/cabinetos-system-disk` on every drive
+   (`90-cabinetos-system-disk.rules`). The console's own drive was hidden from
+   udisks already (#223); on a portable every drive of the PC that cannot be
+   unplugged is too. The console mounts, lists and formats only what udisks
+   does not ignore (`drives.cpp`, `consider`), Steam's Storage page leaves it
+   out, and Steam is given libraries only on drives the console mounted
+   (`cabinetos-steam-libraries`).
+2. `cabinetos-grow-root.service`, early, grows the system's partition and
+   filesystem into free space directly after it (`cabinetos-grow-root`); after
+   the first start it finds none.
+3. On a start with no time zone, chrony does not start
+   (`chronyd.service.d/50-cabinetos.conf`). First run opens at the time zone;
+   the city chosen starts `cabinetos-timezone@<zone>.service`
+   (`68-cabinetos-timezone.rules`), which sets the zone and reads the system
+   clock again from the PC's clock, which stays in local time
+   (`system_files/etc/adjtime`), and leaves that clock alone.
+
+An install from the ISO is on the PC's own drive and has the installer's
+zone and clock setting, so none of this happens there.
+
 ## 4. Where to look for the most common changes
 
 | To change | Look in |
@@ -361,6 +391,9 @@ Each with where it is recorded.
 - **First-time setup is the image's, not the installer's**: the account and
   the update source, so the ISO and a disk image share one copy
   (`docs/decisions/2026-11-03-first-time-setup-in-the-os.md`).
+- **A portable install leaves the PC alone**: its drives hidden through
+  udisks, its clock in local time, the time zone asked on first run
+  (`docs/decisions/2026-11-03-running-from-a-usb-drive.md`).
 - **No emulator settings page; three picture levels** (docs/SETTINGS.md, "The
   screen"; `quality.h`).
 - **Settings, as built** (docs/PROJECT.md, open question 31; docs/SETTINGS.md
@@ -533,6 +566,9 @@ The area named is the one in `ci/base-watch.txt` whose checks a change asks for.
 | System update | `bootc status --json`, the text of `bootc upgrade --check` and its progress lines, skopeo and jq, ostree's names for the layers it holds (`cabinetos-update`); `/proc/cmdline`'s `ostree=`, the deployment's `.origin`, `/usr/share/ublue-os/image-info.json`, which no package owns (`update.cpp`) | `log:` and `tv:` (System update) |
 | A new console's account and update source | systemd-sysusers and `cabinetos-update-source.service`'s `ConditionNeedsUpdate=/etc` holding at the first start of each deployment because ostree leaves `/etc/.updated` out of every new one; `bootc switch --mutate-in-place`, a flag bootc hides, rewriting the newest deployment's `.origin` and needing `/sysroot`, read-only on a running console, remounted read-write in a mount namespace of its own; the installer's own `%post` (bootc-image-builder's `osbuild-base.ks`) pointing a new console at the ISO's tag, unsigned; `bazzite-hardware-setup.service` making a second deployment, with the first one's `.origin`, on a new console's first start, after this step (`cabinetos-update-source`) | `log:` (System update): a console that updated was left as it was. Not checked: a new console's first start, which shows only by installing an ISO in the VM (`tools/installer-vm.sh`) |
 | Games drives | udisks's object paths (the console works out its own disk's, `udisks.cpp`), its properties, Format's `take-ownership` and `mkfs-args`, "busy" in its errors, mounts under `/run/media/<user>` (`drives.cpp`) | `log:` (Games drives): the A9's drive is mounted. Not checked: Format, Eject, the path naming |
+| A portable install hiding the PC's own drives | udev's `UDISKS_IGNORE` becoming udisks's `HintIgnore`, and Steam's Storage page leaving out a drive with it; `lsblk`'s `PKNAME`, `--inverse` and `TYPE`, and sysfs's `removable` (`cabinetos-system-disk`) | Not checked: seen only on a portable with a second drive (`tools/installer-vm.sh portable`) |
+| A portable install filling its drive | sfdisk growing the last partition to the drive's end and moving the GPT's backup there as it writes, `partx --update` resizing a partition in use, the filesystems' online resize (`cabinetos-grow-root`) | The image build asserts the tools. Not checked: seen as a portable's drive staying about 7 GB, said by `cabinetos-grow-root` in the journal |
+| The PC's clock on a portable install, and first run's time zone | The kernel writing the hardware clock in local time only when the first time zone it is told at a start is not UTC; chrony's `rtcsync` and its unit's name (`chronyd.service.d/50-cabinetos.conf`); the kernel's `/sys/class/rtc/rtc0/since_epoch` giving the clock's face as if it were UTC, and `timedatectl set-timezone` writing the hardware clock at once, which `cabinetos-timezone` avoids; systemd's first-boot wizard (`systemd-firstboot.service`, on in the base) skipping a disk image's first start because its `/etc/machine-id` is empty, not "uninitialized": the image has no language, keyboard or zone file, so it would otherwise ask for all three on the text console; tzdata's `zone.tab` and `iso3166.tab` (`timezone.cpp`) | The image build asserts the files and tools, no zone in the image and LOCAL in `/etc/adjtime`; `log:` (Kernel and startup): chrony's `rtcsync` and condition, the zone list. Not checked: the wizard, seen as a disk image's first start stopping at a text prompt, and the kernel's rule, seen as Windows showing a time hours off after a portable's first session |
 | Game manuals | pdfinfo's "Page N size" and "rot" lines and pdftoppm's PPM (`manual.cpp`) | `log:` (Game manuals) |
 | The type ramp | The font files' names (`startup.cpp`) | `log:` and `tv:` (Libraries the console's screens use) |
 | Covers in every format | SDL3_image loading its codecs when first needed (`imagecodec.cpp`) | The image build asserts their sonames (`build_files/require-frontend-libs.sh`); `tv:` Home's covers |

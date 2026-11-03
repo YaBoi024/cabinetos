@@ -144,6 +144,15 @@ systemd
 systemd-*
 grub2-*
 plymouth*
+# A portable install (a disk image on a USB drive) keeps the PC's hardware
+# clock in local time, as Windows does: chrony keeps that clock (`rtcsync`)
+# and starts only on a start that began with a time zone
+# (docs/decisions/2026-11-03-running-from-a-usb-drive.md). First run's Time
+# zone list is tzdata's zone.tab (frontend/src/timezone.cpp).
+log: Chrony keeps the hardware clock, and waits for a time zone :: out=$(grep -q '^rtcsync' /etc/chrony.conf || echo "no rtcsync in /etc/chrony.conf"; systemctl cat chronyd.service | grep -qx 'ConditionPathExists=/etc/localtime' || echo "chronyd.service lost its time zone condition"); [ -z "$out" ] || { echo "$out"; exit 1; }
+log: First run's Time zone list is there :: [ "$(grep -vc '^#' /usr/share/zoneinfo/zone.tab)" -gt 300 ] && [ -s /usr/share/zoneinfo/iso3166.tab ]
+chrony
+tzdata
 
 # --- System update ----------------------------------------------------------
 # bootc and ostree were under Kernel and startup until 2026-10-21. The

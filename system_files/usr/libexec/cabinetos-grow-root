@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+#
+# A portable install fills its drive: the partition the system is on, and
+# its filesystem, grow into the free space directly after it. Run by
+# cabinetos-grow-root.service at every start, only when the system's drive
+# can be unplugged (/usr/libexec/cabinetos-system-disk portable).
+#
+# WHY. The disk image a tester writes to a USB drive with Etcher or Rufus is
+# about 7 GB, whatever the drive's size, so without this a 128 GB drive would
+# keep 120 GB nobody can use. Kept games, Steam's slice and every save live on
+# that partition.
+#
+# WHAT IT TOUCHES: the system's own partition, made larger, only when nothing
+# but free space follows it on the drive; and the GPT's backup copy, which
+# goes to the drive's end, where a partition table belongs (the image put it
+# at the image's end). It never moves a partition, never touches another, and
+# never shrinks anything. After the first start there is no free space left,
+# so every later start ends at the first look. An ISO install is on the PC's
+# own drive, so the service never runs there.
+#
+# WHY NOT WHAT IS THERE ALREADY. systemd-repart works from partition types,
+# and an ISO install's partitions are all "Linux data", which it would match
+# as readily as the portable's; bootc's own grower is in Fedora's bootc
+# images, not in Bazzite. sfdisk, partx and the filesystem's own tool are in
+# the image (build_files/build.sh checks).
+#
+# THE FILESYSTEM GROWS WHILE IN USE, as btrfs, XFS and ext4 all can. It is
+# mounted read-only at /sysroot on a running console, so the resize runs in a
+# mount namespace of its own with /sysroot remounted read-write, as
+# cabinetos-update-source does.
+
+set -euo pipefail
+
+say() { echo "cabinetos-grow-root: $*"; }
+
+# Room smaller than this is left: partitions start on whole MiB, so a grown
+# partition still leaves up to a MiB behind it.
+readonly MIN_BYTES=$((64 * 1024 * 1024))
+# A GPT keeps its backup copy, 32 sectors of entries and a header, in the
+# drive's last 33 sectors.
+readonly GPT_TAIL=33
+
+part=$(findmnt -n -o SOURCE /sysroot)
+part=${part%%[*}
+[[ "${part}" == /dev/* ]] || { say "the system is on ${part:-nothing}, not a partition: left as it is"; exit 0; }
+name=$(lsblk -n -d -o KNAME "${part}")
+disk=$(lsblk -n -d -o PKNAME "${part}")
+sys=/sys/class/block/${name}
+[[ -n "${disk}" && -r "${sys}/partition" ]] ||
+    { say "${part} is not a partition: left as it is"; exit 0; }
+[[ "$(lsblk -n -d -o PTTYPE "/dev/${disk}")" == gpt ]] ||
+    { say "/dev/${disk} has no GPT: left as it is"; exit 0; }
+
+number=$(<"${sys}/partition")
+start=$(<"${sys}/start")
+end=$((start + $(<"${sys}/size")))
+total=$(<"/sys/class/block/${disk}/size")   # 512-byte sectors, as start and size are
+
+# NOTHING BUT FREE SPACE AFTER IT: no partition starts past this one.
+for other in /sys/class/block/"${disk}"/*/partition; do
+    o=${other%/partition}
+    if (( $(<"${o}/start") > start )); then
+        say "${part} is followed by /dev/${o##*/}: left as it is"
+        exit 0
+    fi
+done
+free=$(( (total - GPT_TAIL - end) * 512 ))
+if (( free < MIN_BYTES )); then
+    say "${part} fills /dev/${disk}: nothing to do"
+    exit 0
+fi
+
+fstype=$(findmnt -n -o FSTYPE /sysroot)
+case "${fstype}" in
+    btrfs | xfs | ext4) ;;
+    *) say "${part} is ${fstype}, which this does not grow: left as it is"; exit 0 ;;
+esac
+
+before=$(findmnt -n -b -o SIZE /sysroot)
+say "${part} (${fstype}) grows into $((free / 1000000000)) GB of free space on /dev/${disk}"
+
+# THE PARTITION, to the end of the drive. sfdisk moves the GPT's backup to the
+# drive's end as it writes ("will be corrected by write"). --no-reread: the
+# drive is in use, so the kernel is told of the one partition's new size by
+# partx instead of rereading the whole table.
+echo ', +' | sfdisk --quiet --no-reread --no-tell-kernel -N "${number}" "/dev/${disk}"
+partx --update --nr "${number}" "/dev/${disk}"
+
+# THE FILESYSTEM, to the partition's new end.
+# shellcheck disable=SC2016 # $1 and $2 are the inner shell's, given after the script
+unshare --mount --propagation slave -- sh -ec \
+    'mount -o remount,rw /sysroot
+     case "$1" in
+         btrfs) btrfs filesystem resize max /sysroot >/dev/null ;;
+         xfs) xfs_growfs /sysroot >/dev/null ;;
+         ext4) resize2fs "$2" >/dev/null 2>&1 ;;
+     esac' \
+    _ "${fstype}" "${part}"
+
+# Checked, not assumed: read back the filesystem's size.
+after=$(findmnt -n -b -o SIZE /sysroot)
+if (( after > before )); then
+    say "${part} is now $((after / 1000000000)) GB (was $((before / 1000000000)) GB)"
+else
+    say "ERROR: ${part}'s filesystem is still $((after / 1000000000)) GB"
+    exit 1
+fi

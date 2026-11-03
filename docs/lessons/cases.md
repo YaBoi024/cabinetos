@@ -271,7 +271,7 @@ buys the same thing — the whole flow can be walked at any point in it, on a
 machine with nothing attached.
 
 **Which made the rules testable, and the test found a real deadlock on its first
-run.** `--first-run-rules` walks all 96 [144 today] reachable combinations of facts and
+run.** `--first-run-rules` walks all 96 [576 today] reachable combinations of facts and
 asserts the REFUSALS rather than the happy path. What it caught: the Wi-Fi
 step's skip was keyed on **Ethernet** being up rather than on being **online**,
 and those coincide only while this console knows about exactly two kinds of
