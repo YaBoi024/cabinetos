@@ -78,6 +78,8 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 
 ### Building and checking
 
+- [installer-iso-repacked](2026-11-02-installer-iso-repacked.md): the installer ISO is repacked after the builder, for CabinetOS's boot menu and look, with nothing the builder made rebuilt.
+
 ### How we work
 
 - [declined-patch-gets-no-issue](2026-11-01-declined-patch-gets-no-issue.md): a patch upstream declined, or one for no upstream fault, has no open issue; its row in docs/ARCHITECTURE.md section 8, its decision file and its recipe are its record.

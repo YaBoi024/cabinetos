@@ -67,8 +67,9 @@ during the logo) and change two things:
 ## Install
 
 1. Plug in the stick and the keyboard. Start the PC and open its boot menu (on
-   the A9 Max: **F7** during the logo). Pick the USB stick, then
-   **Install CabinetOS**.
+   the A9 Max: **F7** during the logo) and pick the USB stick. The stick
+   shows **Install CabinetOS** and starts by itself after a few seconds
+   (**Enter** starts it at once).
 2. The installer lists the internal drives (USB drives are never offered). With
    more than one, type the number of the one to use.
 3. It asks once: *This will erase this machine's 2.0 TB drive (model).

@@ -111,9 +111,9 @@ down. "Look now at" is where the code or a later decision moved on.
   at: questions 21 and 32.
 - **5. Anaconda ISO vs. a plain disk image for installing to real
   hardware.** "ANSWERED 2026-10-07: keep the ISO, automated down to one
-  question", and built the same day. What the ISO builder will not change is
-  #284 ("Installer: what the ISO builder will not let us change"), closed as
-  cosmetic. Look now at: `disk_config/iso.toml`.
+  question", and built the same day. What the ISO builder will not change
+  (#284) is done since 2026-11-02 by repacking its ISO:
+  [decisions/2026-11-02-installer-iso-repacked.md](decisions/2026-11-02-installer-iso-repacked.md). Look now at: `disk_config/`.
 - **6. `/opt` mutability.** "Left at Bazzite's default". Nothing needed it:
   the emulators built into the image live under `/usr/lib/cabinetos/`.
 - **7. OS branding in `/usr/lib/os-release`.** Its status line, "Deferred to
@@ -6952,9 +6952,9 @@ throwaway VM on the A9 (`tools/installer-vm.sh`: QEMU in podman with
 `/dev/kvm`, an empty NVMe disk, no network, pictures of every screen) and then
 on the real CI-built ISO. What a person sees:
 
-1. The boot menu: **Install CabinetOS 44**. The stick is labelled `CabinetOS`
-   (`[customizations.iso] volume_id`).
-2. Startup text, then a black screen with: *This will erase this machine's
+1. The boot menu: **Install CabinetOS** (its look since 2026-11-02: below,
+   last paragraph). The stick is labelled `CabinetOS`.
+2. A black screen, then: *This will erase this machine's
    2.0 TB drive (WPBSN4M8-2TGP). Continue? (y/n)*. Asked by the kickstart's
    `%pre` on tty8, in double-size text on any screen 1600 pixels wide or
    more. Two or more internal drives: a numbered list, then the same question
@@ -6983,13 +6983,8 @@ firmware is, in first run (#136's plan).
 to osbuild/image-builder on 2026-10-01, so `:latest` will not move by itself
 again, and a new builder is a deliberate change. The ISO is built once per
 release. Its config cannot touch the boot menu, the kernel command line or the
-installer's own files, so four things stay (#284, after first release): the
-Network & Host Name screen is still drawn (module off, screen shown); the
-**Test this media** entry stays, though not as the default, and it passes on a
-perfect copy (the 2026-09-19 failure was the USB read); the startup text is
-not quiet beyond the `quiet` the builder adds; and Fedora's logo strip and
-"44" stay. Each would need the ISO repacked or the successor builder's
-`bootc-installer` type; MMagTech, 2026-10-07: skip what needs repacking.
+installer's own files (#284); since 2026-11-02 its ISO is repacked for them:
+[decisions/2026-11-02-installer-iso-repacked.md](decisions/2026-11-02-installer-iso-repacked.md).
 
 #### The installer runtime carries no firmware — 2026-09-19
 

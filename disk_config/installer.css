@@ -1,0 +1,98 @@
+/* CabinetOS's look for the installer, in place of Fedora's (fedora.css).
+ * Anaconda loads it as its custom stylesheet (disk_config/installer.conf);
+ * ci/brand-installer-iso.sh puts it in the ISO's product image as
+ * /usr/share/anaconda/pixmaps/cabinetos.css, with the logo beside it.
+ *
+ * The colours are the console's default backdrop (frontend/src/ui.h,
+ * palette::kBackdropTop, kBackdropMid at 0.55, kBackdropBottom), so the
+ * installer reads as the same machine as the screens after it. Its own
+ * blue becomes the backdrop's purple.
+ */
+
+@define-color cabinetos_top #3a2268;
+@define-color cabinetos_mid #120c26;
+@define-color cabinetos_bottom #090614;
+@define-color cabinetos_lit #4b2d85;
+
+/* The left strip of the summary and the progress screen: the backdrop, and
+ * the cabinet and its name over it (tools/make-installer-logo.py). */
+.logo-sidebar {
+    background-color: @cabinetos_mid;
+    background-image: linear-gradient(to bottom, @cabinetos_top, @cabinetos_mid 55%, @cabinetos_bottom);
+}
+
+.logo {
+    background-image: -gtk-scaled(url('/usr/share/anaconda/pixmaps/cabinetos-logo.png'),
+                                  url('/usr/share/anaconda/pixmaps/cabinetos-logo@2x.png'));
+    background-position: 50% 48px;
+    background-repeat: no-repeat;
+    background-color: transparent;
+}
+
+.product-logo {
+    background-image: none;
+    background-color: transparent;
+}
+
+/* The bar across the top of a screen such as Time & Date. */
+AnacondaSpokeWindow #nav-box {
+    background-color: @cabinetos_mid;
+    background-image: linear-gradient(to right, @cabinetos_top, @cabinetos_mid);
+    color: white;
+}
+
+/* The buttons that go on, Begin Installation and Done, are the console's
+ * pills: filled purple on the light page, outlined white on the top bar, as
+ * first run's Continue. */
+button.suggested-action {
+    border-radius: 999px;
+    padding-left: 18px;
+    padding-right: 18px;
+    background-color: @cabinetos_top;
+    background-image: none;
+    border-color: @cabinetos_top;
+    color: white;
+    text-shadow: none;
+    box-shadow: none;
+}
+
+button.suggested-action:hover {
+    background-color: @cabinetos_lit;
+}
+
+button.suggested-action:disabled {
+    background-color: transparent;
+    border-color: alpha(@cabinetos_top, 0.25);
+    color: alpha(black, 0.35);
+}
+
+AnacondaSpokeWindow #nav-box button.suggested-action {
+    background-color: transparent;
+    border: 2px solid white;
+}
+
+AnacondaSpokeWindow #nav-box button.suggested-action:hover {
+    background-color: alpha(white, 0.15);
+}
+
+/* The item the keyboard is on, and a chosen line in a list: a pale purple,
+ * so the summary's dark icons still show on it. */
+*:selected,
+*:selected:focus {
+    background-color: #e4ddf3;
+    color: @cabinetos_mid;
+}
+
+radio:checked,
+check:checked {
+    background-color: @cabinetos_top;
+    background-image: none;
+    border-color: @cabinetos_top;
+    color: white;
+}
+
+progressbar progress {
+    background-color: @cabinetos_top;
+    background-image: none;
+    border-color: @cabinetos_top;
+}
