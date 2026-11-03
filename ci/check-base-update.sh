@@ -14,7 +14,7 @@
 #      relies on, in areas — and labels the result RELEVANT or ROUTINE. Since
 #      2026-10-09 ci/base-report.py does this part, and writes what a person
 #      reads: update notes that also serve as the public ones, the checks for
-#      the changed areas only (the A9's log, and the TV), and the kernel's
+#      the changed areas only (the Deck's log, and by hand), and the kernel's
 #      fixes for the parts the console uses.
 #   3. Flags strip-list drift: removal targets in build_files/ that no longer
 #      exist in the base, which means a strip script has silently become a
@@ -390,8 +390,8 @@ emit summary "${summary}"
     echo
     echo "**Do not merge on a green build alone.** A CabinetOS image that builds"
     echo "is not the same as one that boots. Push this branch to \`testing\`, put"
-    echo "that image on the A9, run \`tools/base-checks.sh base-update/${new_version}\`"
-    echo "and do the TV checks above, per \`docs/PROJECT.md\` constraint 2."
+    echo "that image on the Deck, run \`tools/base-checks.sh base-update/${new_version}\`"
+    echo "and do the by-hand checks above, per \`docs/PROJECT.md\` constraint 2."
 } > "${PR_BODY}"
 
 # ---------------------------------------------------------------------------
