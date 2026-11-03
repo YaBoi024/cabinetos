@@ -97,7 +97,10 @@ unsquashfs -cat "$work/install.img" usr/lib/kbd/consolefonts/Lat2-Terminus16.psf
   > "$w/usr/lib/kbd/consolefonts/Lat2-Terminus16.psfu.gz" || fail "no Lat2-Terminus16 font in the installer image"
 (cd "$w" && find . | cpio -o -H newc -R 0:0 --quiet) > "$work/cabinetos-wait.img"
 rm -f "$work/install.img"
-grep -qx 'product = CabinetOS' "$work/buildstamp" || fail ".buildstamp does not name CabinetOS"
+# FORK (handheld): the builder takes the product from the image's os-release NAME,
+# which build_files/brand-os-release.sh sets to "CabinetOS Handheld".
+grep -qxE 'product = CabinetOS( Handheld)?' "$work/buildstamp" ||
+  fail ".buildstamp does not name CabinetOS: $(grep '^product' "$work/buildstamp" || echo 'no product line')"
 grep -qx 'version = .*' "$work/buildstamp" || fail ".buildstamp has no version line"
 # FORK (handheld): the product's name is "CabinetOS Handheld", so the title reads
 # "CABINETOS HANDHELD INSTALLATION".
