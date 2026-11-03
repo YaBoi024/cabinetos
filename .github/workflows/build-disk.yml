@@ -152,7 +152,7 @@ jobs:
 
       # THE DOWNLOAD (#308). One file people can get without an account:
       # GitHub takes at most 2 GB per release file and the ISO is about
-      # 6.7 GB, so it lives in Cloudflare R2, which charges nothing for
+      # 7 GB, so it lives in Cloudflare R2, which charges nothing for
       # downloads (MMagTech, 2026-10-10). ONE NAME, REPLACED EACH RELEASE:
       # the link never changes, and the bucket only ever holds one ISO,
       # inside R2's free storage. Its SHA-256 beside it, for the release
