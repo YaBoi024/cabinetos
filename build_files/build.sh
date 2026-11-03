@@ -104,7 +104,6 @@ for expected in \
     /usr/lib/systemd/system/cabinetos-timezone@.service \
     /usr/share/polkit-1/rules.d/68-cabinetos-timezone.rules \
     /usr/lib/systemd/system/chronyd.service.d/50-cabinetos.conf \
-    /usr/lib/systemd/system/systemd-firstboot.service.d/50-cabinetos.conf \
     /usr/libexec/cabinetos-steam-download \
     /usr/libexec/cabinetos-steam-libraries \
     /usr/libexec/cabinetos-report \
@@ -638,8 +637,9 @@ done
 # (docs/decisions/2026-11-03-running-from-a-usb-drive.md): it fills its drive
 # at its first start, it hides the PC's own drives, and it keeps the PC's
 # hardware clock in local time, asking the time zone on first run's first
-# screen. An image with a zone of its own would never ask.
-for needed in sfdisk partx btrfs xfs_growfs resize2fs unshare lsblk realpath hwclock; do
+# screen. An image with a zone of its own would never ask. The zone's helper
+# reads the PC's clock from the kernel's rtc0.
+for needed in sfdisk partx btrfs xfs_growfs resize2fs unshare lsblk realpath; do
     if ! command -v "${needed}" >/dev/null 2>&1; then
         log "  MISSING: ${needed}, which a portable install runs (cabinetos-grow-root, cabinetos-system-disk, cabinetos-timezone)"
         failed=1

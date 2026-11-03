@@ -76,6 +76,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [access-password-is-the-admin-password](2026-11-01-access-password-is-the-admin-password.md): File access and Developer access share one password that is also the console user's admin password, readable by the console's own programs; accepted for now.
 - [sinden-software-in-the-image](2026-11-02-sinden-software-in-the-image.md): Sinden's light-gun software ships in the image with Sinden's permission, and source Sinden sends for its camera library is never shared.
 - [first-time-setup-in-the-os](2026-11-03-first-time-setup-in-the-os.md): the account and the update source are the image's, not the installer's, so the ISO and a disk image share one copy; a new console follows `latest`, signed, and one that updated is never moved.
+- [running-from-a-usb-drive](2026-11-03-running-from-a-usb-drive.md): a portable install hides the PC's own drives through udisks, fills its USB drive at its first start, asks the time zone on first run's first screen, and keeps the PC's clock in local time as Windows does.
 
 ### Building and checking
 

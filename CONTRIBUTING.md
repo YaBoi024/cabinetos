@@ -181,7 +181,9 @@ the server for a real code, which expires by itself: `--setup` walked to
 the pairing step, or `--setup --setup-step pair`, reaches your real server,
 so point it at the read-only relay, which refuses that request (a POST), unless
 a real code is what you are checking. `--setup-step <name>`
-opens it at `network`, `server`, `pair`, `controller` or `done`; Wi-Fi is
+opens it at `timezone`, `network`, `server`, `pair`, `controller` or `done`
+(first run itself opens at `timezone` only on a console with no time zone,
+`timezone.h`); Wi-Fi is
 part of `network`.
 
 **Reports that print and quit before a window opens**, so over SSH they
@@ -204,7 +206,7 @@ with 0 when it passes, and CI runs every one ("What CI checks"):
 
 | Flag | What it checks |
 |---|---|
-| `--first-run-rules` | all 144 combinations of facts first run can be handed, asserting what it must refuse |
+| `--first-run-rules` | all 576 combinations of facts first run can be handed, from the network and from the time zone, asserting what it must refuse |
 | `--first-run-writes` | that finishing first run actually sticks |
 | `--accounts-test` | the rules for the people on a console and switching between them |
 | `--players-test` | the rules for which controller is which player |

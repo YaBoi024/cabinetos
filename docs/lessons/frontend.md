@@ -217,7 +217,7 @@ Read before working on a screen, the network, Bluetooth, pairing or first run.
   same job is what let one of them go unwired.
 
 - **WALK EVERY COMBINATION RATHER THAN RE-READING THE RULES.** The state
-  machine's exhaustive check (`--first-run-rules`) is 144 cases, needs
+  machine's exhaustive check (`--first-run-rules`) is 576 cases, needs
   nothing, and found a deadlock the code read as correct. Assert the
   REFUSALS: the happy path is the part that already works.
 
