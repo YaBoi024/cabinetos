@@ -114,6 +114,28 @@ jobs:
           # image built before that file existed.
           additional-args: --use-librepo=True --rootfs=btrfs
 
+      # THE INSTALLER'S LOOK. The builder has no setting for the boot menu or
+      # the installer's own files (#284), so its ISO is repacked here: the
+      # boot menu, and a product image the installer lays over itself with
+      # CabinetOS's colours, logo and title, and Network & Host Name hidden.
+      # Nothing the builder made is rebuilt.
+      # docs/decisions/2026-11-02-installer-iso-repacked.md says why. The ISO
+      # is replaced where it lies, so the upload and the publish below take
+      # the repacked one.
+      - name: Brand the installer ISO
+        if: matrix.disk-type == 'anaconda-iso'
+        env:
+          OUT: ${{ steps.build.outputs.output-directory }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xorriso mtools squashfs-tools gettext grub-common >/dev/null
+          iso=$(find "${OUT}" -name '*.iso' -type f | head -n1)
+          [[ -n "${iso}" ]] || { echo "no ISO in ${OUT}"; exit 1; }
+          df -h "${RUNNER_TEMP}" "$(dirname "${iso}")"
+          ci/brand-installer-iso.sh "${iso}" "${RUNNER_TEMP}/branded.iso"
+          mv "${RUNNER_TEMP}/branded.iso" "${iso}"
+
       - name: Upload disk image
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:

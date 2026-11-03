@@ -151,7 +151,8 @@ stored spare of Steam's session (`build_files/terra-fallback/`) current.
 None of the three merges anything.
 
 **`build-disk.yml`**, by hand only: the installer ISO (`anaconda-iso`, an
-artifact kept 90 days) or a qcow2. With `publish` ticked it also replaces the
+artifact kept 90 days, repacked in CabinetOS's look by
+`ci/brand-installer-iso.sh`) or a qcow2. With `publish` ticked it also replaces the
 download, `cabinetos.iso` and its SHA-256 in Cloudflare R2
 (`download.mmagtech.com`, the link the README and the wiki's Install page
 give), and reads the size back to check it. Build it once per release; an
