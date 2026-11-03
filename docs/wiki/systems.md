@@ -1,8 +1,8 @@
 # Systems, formats and BIOS
 
-CabinetOS plays **35 systems**, from the Atari 2600 to the Xbox 360, Switch,
+CabinetOS Handheld plays **35 systems**, from the Atari 2600 to the Xbox 360, Switch,
 PS3, Wii U and PS Vita. Everything comes from your RomM server: games, BIOS, firmware
-and keys. CabinetOS ships none of them.
+and keys. CabinetOS Handheld ships none of them.
 
 ## How the console finds your games
 

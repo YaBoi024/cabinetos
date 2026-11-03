@@ -9,8 +9,11 @@ Files marked `FORK (handheld)` in their comments are the fork's.
 - **Base image: bazzite-deck**, pinned by tag and digest, for the Deck's hardware support (speaker
   tuning, built-in controls, power controls, OLED panel correction). `Containerfile`
 - **Own image owner and signing key** (`ghcr.io/yaboi024/cabinetos`). Details in section 2.
-- **Shown as "CabinetOS Handheld"**, with a fork watermark on the boot screen.
-  `about.cpp`, `startscreen.cpp`, `build_files/assets/make-boot-watermark.py`
+- **Shown as "CabinetOS Handheld"**, with the cabinet and a handheld on the start screen and
+  the boot watermark, and the fork's own README, wiki and landing page text.
+  `about.cpp`, `startscreen.cpp`, `build_files/assets/make-boot-watermark.py`,
+  `build_files/assets/handheld_art.py` (the one list of shapes the start screen, the
+  watermark and `docs/assets/mark-handheld.svg` are made from)
 - **Staying in sync with CabinetOS.** A daily check keeps one issue open while upstream has commits
   the fork has not merged: a trial merge's conflicting files, the changed files on the watch list,
   and the commits. `.github/workflows/watch-upstream.yml`, `.github/upstream-watch.txt`;

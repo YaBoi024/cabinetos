@@ -1,8 +1,8 @@
 # Your RomM server
 
-Everything CabinetOS plays comes from [RomM](https://github.com/rommapp/romm):
+Everything CabinetOS Handheld plays comes from [RomM](https://github.com/rommapp/romm):
 games, covers, BIOS, firmware and keys. Your saves, states, screenshots and play
-time go back to it. CabinetOS ships none of them.
+time go back to it. CabinetOS Handheld ships none of them.
 
 - **RomM 5.1 or newer.** Tested with 5.1.0 and 5.3.1.
 - One server per console. Every person on the console is a user on that server.
@@ -10,7 +10,7 @@ time go back to it. CabinetOS ships none of them.
 ## Setting RomM up for the console
 
 Follow [RomM's own documentation](https://docs.romm.app) to install it and add
-your library. These things matter to CabinetOS:
+your library. These things matter to CabinetOS Handheld:
 
 1. **Platform folders.** The console finds a system by RomM's platform slug.
    The slugs it plays are listed in [Systems, formats and BIOS](systems.md).

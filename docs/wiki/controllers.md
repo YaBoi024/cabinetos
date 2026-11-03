@@ -6,7 +6,7 @@
 
 **Officially supported: Xbox, PlayStation (PS4 and PS5) and Switch
 controllers**, over Bluetooth or USB, and the **8BitDo Arcade Stick** (see
-[Fight sticks](#fight-sticks)). These are the ones CabinetOS is built and
+[Fight sticks](#fight-sticks)). These are the ones CabinetOS Handheld is built and
 tested around.
 
 Other pads in the [SDL controller list](https://github.com/mdqinc/SDL_GameControllerDB)

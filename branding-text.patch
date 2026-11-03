@@ -1,0 +1,273 @@
+diff --git a/FORK-CHANGES.md b/FORK-CHANGES.md
+index f8adf68..c56f73a 100644
+--- a/FORK-CHANGES.md
++++ b/FORK-CHANGES.md
+@@ -9,8 +9,11 @@ Files marked `FORK (handheld)` in their comments are the fork's.
+ - **Base image: bazzite-deck**, pinned by tag and digest, for the Deck's hardware support (speaker
+   tuning, built-in controls, power controls, OLED panel correction). `Containerfile`
+ - **Own image owner and signing key** (`ghcr.io/yaboi024/cabinetos`). Details in section 2.
+-- **Shown as "CabinetOS Handheld"**, with a fork watermark on the boot screen.
+-  `about.cpp`, `startscreen.cpp`, `build_files/assets/make-boot-watermark.py`
++- **Shown as "CabinetOS Handheld"**, with the cabinet and a handheld on the start screen and
++  the boot watermark, and the fork's own README, wiki and landing page text.
++  `about.cpp`, `startscreen.cpp`, `build_files/assets/make-boot-watermark.py`,
++  `build_files/assets/handheld_art.py` (the one list of shapes the start screen, the
++  watermark and `docs/assets/mark-handheld.svg` are made from)
+ - **Staying in sync with CabinetOS.** A daily check keeps one issue open while upstream has commits
+   the fork has not merged: a trial merge's conflicting files, the changed files on the watch list,
+   and the commits. `.github/workflows/watch-upstream.yml`, `.github/upstream-watch.txt`;
+diff --git a/README.md b/README.md
+index 97fe908..daee9be 100644
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,4 @@
+-<p align="center"><img src="docs/assets/mark.svg" alt="" width="72"></p>
++<p align="center"><img src="docs/assets/mark-handheld.svg" alt="CabinetOS Handheld logo" width="96"></p>
+ 
+ <h1 align="center">CabinetOS Handheld</h1>
+ 
+@@ -46,22 +46,12 @@ adapted for handhelds (tested on Steam Deck OLEDs for now).
+ 
+ ## Install
+ 
+-There is no installer for CabinetOS Handheld yet. For now, install the original
+-CabinetOS, then switch it to this image:
++Download the installer, write it to a USB stick, and boot the handheld from it.
++It asks which drive to erase, then installs by itself. The steps, the download
++and its checksum are in [`docs/wiki/install.md`](docs/wiki/install.md).
+ 
+-1. Install [CabinetOS](https://github.com/MMagTech/cabinetos) by MMagTech on
+-   the handheld. This erases the drive.
+-2. SSH into the handheld:
+-
+-   ```bash
+-   sudo bootc switch ghcr.io/yaboi024/cabinetos:latest
+-   ```
+-
+-3. Restart the handheld. It now runs CabinetOS Handheld and updates from this
+-   repository's image.
+-
+-The full steps are in [`docs/wiki/install.md`](docs/wiki/install.md). A
+-bootable installer ISO is planned.
++Already running CabinetOS on the handheld? You can switch to this image
++without a stick (`sudo bootc switch`), as the same page explains.
+ 
+ ## Thanks
+ 
+diff --git a/docs/wiki/README.md b/docs/wiki/README.md
+index aa354b6..27c7148 100644
+--- a/docs/wiki/README.md
++++ b/docs/wiki/README.md
+@@ -1,6 +1,6 @@
+-# CabinetOS wiki
++# CabinetOS Handheld wiki
+ 
+-How to set up CabinetOS and use every part of it. Start at the top and you go
++How to set up CabinetOS Handheld and use every part of it. Start at the top and you go
+ from a blank PC to playing.
+ 
+ ![Home on the TV](../media/home.webp)
+@@ -46,10 +46,9 @@ from a blank PC to playing.
+ 
+ ## In one paragraph
+ 
+-CabinetOS is a console operating system for a small PC under the TV. It starts
++CabinetOS Handheld is a console operating system for handhelds like the Steam Deck. It starts
+ straight into its own menus, plays 34 systems with emulators chosen and set up
+ for each, and takes every game, cover, BIOS and save from your own
+ [RomM](https://github.com/rommapp/romm) server. A controller does everything
+ after the first run. It is built on [Bazzite](https://bazzite.gg) and updates
+-itself as a single image. The only machine it has been tested on is the
+-GEEKOM A9 Max.
++itself as a single image. It is tested on the Steam Deck OLED so far.
+diff --git a/docs/wiki/achievements.md b/docs/wiki/achievements.md
+index 4a9eb0a..e92b723 100644
+--- a/docs/wiki/achievements.md
++++ b/docs/wiki/achievements.md
+@@ -1,6 +1,6 @@
+ # Achievements
+ 
+-CabinetOS earns [RetroAchievements](https://retroachievements.org) in the
++CabinetOS Handheld earns [RetroAchievements](https://retroachievements.org) in the
+ built-in emulators: every system from the Atari 2600 to the Dreamcast, PS1,
+ PSP, DS, GameCube, Wii and PS2. In arcade games, only where FinalBurn Neo
+ plays the game, since RetroAchievements' arcade sets are written for it. Not
+diff --git a/docs/wiki/arcade.md b/docs/wiki/arcade.md
+index 8f4ff75..6613767 100644
+--- a/docs/wiki/arcade.md
++++ b/docs/wiki/arcade.md
+@@ -1,6 +1,6 @@
+ # Arcade
+ 
+-How to set out arcade games in RomM for CabinetOS, and what each one gets.
++How to set out arcade games in RomM for CabinetOS Handheld, and what each one gets.
+ 
+ - **One folder for each system**, named the way RomM knows it. All of them are one Library tile, **Arcade**, in RomM's title order. The line beside its heading names the focused game's folder: *Metal Slug · NeoGeoMVS*. Everywhere else an arcade game's system is *Arcade*. A game in two folders shows twice. For one board on its own, make a RomM collection of it.
+ 
+diff --git a/docs/wiki/controllers.md b/docs/wiki/controllers.md
+index dcdd595..e2e35f8 100644
+--- a/docs/wiki/controllers.md
++++ b/docs/wiki/controllers.md
+@@ -6,7 +6,7 @@
+ 
+ **Officially supported: Xbox, PlayStation (PS4 and PS5) and Switch
+ controllers**, over Bluetooth or USB, and the **8BitDo Arcade Stick** (see
+-[Fight sticks](#fight-sticks)). These are the ones CabinetOS is built and
++[Fight sticks](#fight-sticks)). These are the ones CabinetOS Handheld is built and
+ tested around.
+ 
+ Other pads in the [SDL controller list](https://github.com/mdqinc/SDL_GameControllerDB)
+diff --git a/docs/wiki/discs.md b/docs/wiki/discs.md
+index cb507d2..876b725 100644
+--- a/docs/wiki/discs.md
++++ b/docs/wiki/discs.md
+@@ -1,6 +1,6 @@
+ # Games on several discs
+ 
+-A game on several discs is one game on CabinetOS: one entry in the library,
++A game on several discs is one game on CabinetOS Handheld: one entry in the library,
+ one save, and a **Change disc** row in its pause menu. Single-disc games show
+ none of this.
+ 
+diff --git a/docs/wiki/file-access.md b/docs/wiki/file-access.md
+index 03c288b..581a5bb 100644
+--- a/docs/wiki/file-access.md
++++ b/docs/wiki/file-access.md
+@@ -41,7 +41,7 @@ copied in by hand is only used for a game that has no save on the server.
+ 
+ ## Developer access
+ 
+-For people working on CabinetOS itself: Settings, **About**, press **Version**
++For people working on CabinetOS Handheld itself: Settings, **About**, press **Version**
+ seven times and **Developer access** appears. It opens a full shell over SSH on
+ port 2222, with the same user name and password. It needs a PIN to be set. Seven
+ more presses on Version hide it and turn it off.
+diff --git a/docs/wiki/first-run.md b/docs/wiki/first-run.md
+index 6e81332..ac2374e 100644
+--- a/docs/wiki/first-run.md
++++ b/docs/wiki/first-run.md
+@@ -1,6 +1,6 @@
+ # First run
+ 
+-The first time CabinetOS starts, it walks through four steps. Keep the USB
++The first time CabinetOS Handheld starts, it walks through four steps. Keep the USB
+ keyboard plugged in until a controller is paired.
+ 
+ **On the keyboard:** arrows move, Return or Space selects, Escape or Backspace
+diff --git a/docs/wiki/install.md b/docs/wiki/install.md
+index 418f85a..68f383c 100644
+--- a/docs/wiki/install.md
++++ b/docs/wiki/install.md
+@@ -1,6 +1,6 @@
+ # Install
+ 
+-CabinetOS replaces everything on the drive you install it to. It is a whole
++CabinetOS Handheld replaces everything on the drive you install it to. It is a whole
+ operating system, not an app. Back up anything you want to keep first, such as
+ your Steam games' saves.
+ 
+@@ -34,7 +34,7 @@ The two should be identical:
+ 1. Plug the USB stick and the keyboard into the Deck (through the hub/dock). Switch
+    the Deck off. Hold **Volume Down** and press **Power**, and keep holding
+    Volume Down until the boot menu appears. Choose your USB stick, then
+-   **Install CabinetOS**.
++   the entry that starts with **Install**.
+ 2. The installer lists the internal drives (USB drives are never offered). With
+    more than one, type the number of the one to use.
+ 3. It asks once: *This will erase this machine's drive (model). Continue?
+@@ -44,16 +44,16 @@ The two should be identical:
+ 4. **Time & Date**: pick your time zone (it is what the console's dark hours
+    follow), **Done**, then **Begin Installation**. Nothing else is asked, and no
+    network is needed.
+-5. The Deck restarts by itself into CabinetOS. Take the stick out.
++5. The Deck restarts by itself into CabinetOS Handheld. Take the stick out.
+ 6. On the first start the console installs Eden and xemu, which needs the
+    internet for about two minutes. If there is no sound the first time, restart
+    the Deck once.
+ 7. Go to Settings > System > System Update and update your system if necessary.
+ 
+-## Already running CabinetOS? No stick needed
++## Already running CabinetOS or CabinetOS Handheld? No stick needed
+ 
+ On a console that already runs CabinetOS (from the original project's main
+-image), you can switch to this version without writing a USB stick. Open a
++image) or an earlier CabinetOS Handheld, you can switch to this version without writing a USB stick. Open a
+ terminal and run:
+ 
+ ```bash
+diff --git a/docs/wiki/romm.md b/docs/wiki/romm.md
+index aef8e15..52628e3 100644
+--- a/docs/wiki/romm.md
++++ b/docs/wiki/romm.md
+@@ -1,8 +1,8 @@
+ # Your RomM server
+ 
+-Everything CabinetOS plays comes from [RomM](https://github.com/rommapp/romm):
++Everything CabinetOS Handheld plays comes from [RomM](https://github.com/rommapp/romm):
+ games, covers, BIOS, firmware and keys. Your saves, states, screenshots and play
+-time go back to it. CabinetOS ships none of them.
++time go back to it. CabinetOS Handheld ships none of them.
+ 
+ - **RomM 5.1 or newer.** Tested with 5.1.0 and 5.3.1.
+ - One server per console. Every person on the console is a user on that server.
+@@ -10,7 +10,7 @@ time go back to it. CabinetOS ships none of them.
+ ## Setting RomM up for the console
+ 
+ Follow [RomM's own documentation](https://docs.romm.app) to install it and add
+-your library. These things matter to CabinetOS:
++your library. These things matter to CabinetOS Handheld:
+ 
+ 1. **Platform folders.** The console finds a system by RomM's platform slug.
+    The slugs it plays are listed in [Systems, formats and BIOS](systems.md).
+diff --git a/docs/wiki/steam.md b/docs/wiki/steam.md
+index 2b031ac..516e08f 100644
+--- a/docs/wiki/steam.md
++++ b/docs/wiki/steam.md
+@@ -1,6 +1,6 @@
+ # Steam
+ 
+-CabinetOS can hand the TV over to Steam's Big Picture for your PC games, and
++CabinetOS Handheld can hand the TV over to Steam's Big Picture for your PC games, and
+ take it back when Steam closes.
+ 
+ ![Steam's Big Picture on the console](../media/steam-bigpicture.webp)
+diff --git a/docs/wiki/systems.md b/docs/wiki/systems.md
+index fa185e8..25599e9 100644
+--- a/docs/wiki/systems.md
++++ b/docs/wiki/systems.md
+@@ -1,8 +1,8 @@
+ # Systems, formats and BIOS
+ 
+-CabinetOS plays **35 systems**, from the Atari 2600 to the Xbox 360, Switch,
++CabinetOS Handheld plays **35 systems**, from the Atari 2600 to the Xbox 360, Switch,
+ PS3, Wii U and PS Vita. Everything comes from your RomM server: games, BIOS, firmware
+-and keys. CabinetOS ships none of them.
++and keys. CabinetOS Handheld ships none of them.
+ 
+ ## How the console finds your games
+ 
+diff --git a/docs/wiki/troubleshooting.md b/docs/wiki/troubleshooting.md
+index 353169b..e7beb39 100644
+--- a/docs/wiki/troubleshooting.md
++++ b/docs/wiki/troubleshooting.md
+@@ -88,5 +88,5 @@ If the console does not get as far as Settings, a report from the next boot
+ still has the boot that failed. With Developer access, `cabinetos-report`
+ makes the same file.
+ 
+-CabinetOS is tested on the GEEKOM A9 Max only, so reports from other machines
+-are how it gets better on them.
++CabinetOS Handheld is tested on the Steam Deck OLED so far, so reports from
++other handhelds are how it gets better on them.
+diff --git a/docs/wiki/updates.md b/docs/wiki/updates.md
+index ef70f14..02a8298 100644
+--- a/docs/wiki/updates.md
++++ b/docs/wiki/updates.md
+@@ -2,7 +2,7 @@
+ 
+ ![System in Settings](../media/settings-system.webp)
+ 
+-CabinetOS updates as one piece: the system, the console and its emulators
++CabinetOS Handheld updates as one piece: the system, the console and its emulators
+ arrive together as a single image, so they always match. (Eden and xemu come
+ from Flathub, at the versions the image names.) A small change downloads small.
+ 

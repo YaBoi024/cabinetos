@@ -1,6 +1,6 @@
-# CabinetOS wiki
+# CabinetOS Handheld wiki
 
-How to set up CabinetOS and use every part of it. Start at the top and you go
+How to set up CabinetOS Handheld and use every part of it. Start at the top and you go
 from a blank PC to playing.
 
 ![Home on the TV](../media/home.webp)
@@ -46,10 +46,9 @@ from a blank PC to playing.
 
 ## In one paragraph
 
-CabinetOS is a console operating system for a small PC under the TV. It starts
+CabinetOS Handheld is a console operating system for handhelds like the Steam Deck. It starts
 straight into its own menus, plays 34 systems with emulators chosen and set up
 for each, and takes every game, cover, BIOS and save from your own
 [RomM](https://github.com/rommapp/romm) server. A controller does everything
 after the first run. It is built on [Bazzite](https://bazzite.gg) and updates
-itself as a single image. The only machine it has been tested on is the
-GEEKOM A9 Max.
+itself as a single image. It is tested on the Steam Deck OLED so far.

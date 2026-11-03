@@ -2,7 +2,7 @@
 
 ![System in Settings](../media/settings-system.webp)
 
-CabinetOS updates as one piece: the system, the console and its emulators
+CabinetOS Handheld updates as one piece: the system, the console and its emulators
 arrive together as a single image, so they always match. (Eden and xemu come
 from Flathub, at the versions the image names.) A small change downloads small.
 

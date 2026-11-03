@@ -3,17 +3,19 @@
 # the wordmark in Noto Sans Bold, white, on transparent. Bazzite's is 149x43.
 import sys
 from PIL import Image, ImageDraw, ImageFont
-H = 43                  # final height, as Bazzite's
+import handheld_art   # FORK (handheld): the handheld in front of the cabinet
+H = 64                  # final height (Bazzite's is 43: FORK (handheld), taller so the handheld reads)
 SS = 8                  # supersampling
-ICON_H = 36             # icon height inside H
+ICON_H = 58             # icon height inside H
 font_path, out = sys.argv[1], sys.argv[2]
 
 def rgb(h, a=1.0): return ((h >> 16) & 255, (h >> 8) & 255, h & 255, int(a * 255))
 
 def icon(px_h):
     s = px_h / 720.0                       # icon spans y 130..850
-    ox, oy = -248 * s, -130 * s
-    w, h = int(527 * s + 2), int(px_h + 2)
+    X0, X1 = 248, 775                      # the cabinet's own width (the handheld sits inside it)
+    ox, oy = -X0 * s, -130 * s
+    w, h = int((X1 - X0) * s + 2), int(px_h + 2)
     im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     def layer(): return Image.new("RGBA", im.size, (0, 0, 0, 0))
     def R(x, y, ww, hh, rad, c):
@@ -40,15 +42,22 @@ def icon(px_h):
     dot(692, 656, 54, rgb(0xFFB27A, .10)); dot(692, 656, 40, rgb(0xFFB27A, .16)); dot(692, 656, 28, rgb(0xFFB27A, .22))
     R(668, 646, 48, 20, 10, rgb(0xFFF0E2))
     R(303, 795, 419, 55, 14, panel)
+    for sh in handheld_art.shapes():
+        if sh[0] == "R":
+            R(*sh[1:6], rgb(sh[6]))
+        elif sh[0] == "dot":
+            dot(*sh[1:4], rgb(sh[4]))
+        else:
+            ramp(*sh[1:6], rgb(0xFEE08F), rgb(0xEB5736), True)
     return im
 
 ic = icon(ICON_H * SS)
-font = ImageFont.truetype(font_path, int(28 * SS))
+font = ImageFont.truetype(font_path, int(30 * SS))
 text = "CabinetOS"
 bb = font.getbbox(text)
 tw, th = bb[2] - bb[0], bb[3] - bb[1]
 # FORK (handheld): a smaller second line under the name.
-sub_font = ImageFont.truetype(font_path, int(15 * SS))
+sub_font = ImageFont.truetype(font_path, int(16 * SS))
 sub_text = "Handheld"
 sbb = sub_font.getbbox(sub_text)
 sw, sh = sbb[2] - sbb[0], sbb[3] - sbb[1]

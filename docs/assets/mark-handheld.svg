@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="170 110 684 780" role="img" aria-label="CabinetOS Handheld">
+<defs><linearGradient id="m" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FF96CA"/><stop offset="1" stop-color="#FFCB6E"/></linearGradient>
+<linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FEE08F"/><stop offset="1" stop-color="#EB5736"/></linearGradient></defs>
+<rect x="268.0" y="130.0" width="488.0" height="670.0" rx="42.0" fill="#F2EEE8" fill-opacity="1"/>
+<rect x="318.0" y="176.0" width="390.0" height="84.0" rx="16.0" fill="url(#m)"/>
+<rect x="316.0" y="292.0" width="394.0" height="284.0" rx="18.0" fill="url(#s)"/>
+<rect x="248.0" y="600.0" width="527.0" height="112.0" rx="20.0" fill="#D7D1C8" fill-opacity="1"/>
+<circle cx="348.0" cy="656.0" r="30.0" fill="#3A3444" fill-opacity="1"/>
+<circle cx="500.0" cy="656.0" r="25.0" fill="#EC405C" fill-opacity="1"/>
+<circle cx="583.0" cy="656.0" r="24.0" fill="#FFC457" fill-opacity="1"/>
+<circle cx="692.0" cy="656.0" r="54.0" fill="#FFB27A" fill-opacity="0.1"/>
+<circle cx="692.0" cy="656.0" r="40.0" fill="#FFB27A" fill-opacity="0.16"/>
+<circle cx="692.0" cy="656.0" r="28.0" fill="#FFB27A" fill-opacity="0.22"/>
+<rect x="668.0" y="646.0" width="48.0" height="20.0" rx="10.0" fill="#FFF0E2" fill-opacity="1"/>
+<rect x="303.0" y="795.0" width="419.0" height="55.0" rx="14.0" fill="#D7D1C8" fill-opacity="1"/>
+<rect x="355.0" y="627.0" width="314.0" height="148.0" rx="60.6" fill="#F2EEE8" fill-opacity="1"/>
+<rect x="362.0" y="634.0" width="300.0" height="134.0" rx="53.6" fill="#3A3444" fill-opacity="1"/>
+<rect x="434.0" y="650.1" width="156.0" height="88.4" rx="9.0" fill="url(#s)"/>
+<rect x="390.5" y="674.2" width="12.1" height="40.2" rx="3.0" fill="#9A93A6" fill-opacity="1"/>
+<rect x="376.4" y="687.6" width="40.2" height="12.1" rx="3.0" fill="#9A93A6" fill-opacity="1"/>
+<circle cx="627.5" cy="675.5" r="7.4" fill="#FFC457" fill-opacity="1"/>
+<circle cx="608.7" cy="694.3" r="7.4" fill="#EC405C" fill-opacity="1"/>
+<circle cx="646.3" cy="694.3" r="7.4" fill="#EC405C" fill-opacity="1"/>
+<circle cx="627.5" cy="713.1" r="7.4" fill="#FFC457" fill-opacity="1"/>
+<circle cx="491.0" cy="754.6" r="4.7" fill="#9A93A6" fill-opacity="1"/>
+<circle cx="533.0" cy="754.6" r="4.7" fill="#9A93A6" fill-opacity="1"/>
+
+</svg>

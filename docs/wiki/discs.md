@@ -1,6 +1,6 @@
 # Games on several discs
 
-A game on several discs is one game on CabinetOS: one entry in the library,
+A game on several discs is one game on CabinetOS Handheld: one entry in the library,
 one save, and a **Change disc** row in its pause menu. Single-disc games show
 none of this.
 

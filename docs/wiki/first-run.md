@@ -1,6 +1,6 @@
 # First run
 
-The first time CabinetOS starts, it walks through four steps. Keep the USB
+The first time CabinetOS Handheld starts, it walks through four steps. Keep the USB
 keyboard plugged in until a controller is paired.
 
 **On the keyboard:** arrows move, Return or Space selects, Escape or Backspace
