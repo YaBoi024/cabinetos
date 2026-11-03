@@ -320,14 +320,17 @@ int firstRunRules() {
     int cases = 0, failures = 0;
     auto fail = [&](const char* what, const firstrun::Facts& f) {
         ++failures;
-        std::printf("  FAIL  %s\n        online=%d wired=%d wifiHw=%d wifiUp=%d "
+        std::printf("  FAIL  %s\n        zone=%d online=%d wired=%d wifiHw=%d wifiUp=%d "
                     "addr=%d checked=%d answered=%d token=%d pads=%d\n",
-                    what, f.online, f.wiredOnline, f.wifiPresent, f.wifiConfigured,
-                    f.haveServerAddress, f.serverChecked, f.serverAnswered,
-                    f.havePairedToken, f.gamepadCount);
+                    what, f.zoneChosen, f.online, f.wiredOnline, f.wifiPresent,
+                    f.wifiConfigured, f.haveServerAddress, f.serverChecked,
+                    f.serverAnswered, f.havePairedToken, f.gamepadCount);
     };
 
-    for (int bits = 0; bits < 512; ++bits) {
+    // Each set of facts twice: from the network, as on a console that has a
+    // time zone, and from the time zone, as on one that had none (setup.cpp
+    // opens there; the bit is the run's start, not a fact).
+    for (int bits = 0; bits < 2048; ++bits) {
         firstrun::Facts f;
         f.online          = bits & 1;
         f.wiredOnline     = bits & 2;
@@ -338,6 +341,8 @@ int firstRunRules() {
         f.havePairedToken = bits & 64;
         f.gamepadCount    = (bits & 128) ? 1 : 0;
         f.serverChecked   = bits & 256;
+        f.zoneChosen      = bits & 512;
+        const bool askZone = bits & 1024;
 
         // Nonsense the machine can never be handed: a wired link that is up
         // while nothing is online, or a radio connected with no radio. Skipped
@@ -358,6 +363,19 @@ int firstRunRules() {
 
         firstrun::Machine m;
         m.update(f);
+        if (askZone) m.openAt("timezone");
+
+        // BACK REACHES THE TIME ZONE ONLY IN A RUN THAT ASKED IT: a console
+        // with a zone of its own (an install from the ISO) never sees it.
+        {
+            firstrun::Machine copy = m;
+            if (copy.step() == firstrun::Step::TimeZone) copy.advance();
+            if (copy.step() == firstrun::Step::Network &&
+                copy.back() != askZone)
+                fail(askZone ? "Back from the network did not reach the time zone it asked"
+                             : "Back from the network reached a time zone this run never asked",
+                     f);
+        }
 
         int guard = 0;
         for (; guard < 16 && !m.finished(); ++guard) {
@@ -386,22 +404,27 @@ int firstRunRules() {
         if (guard >= 16) fail("the chain did not terminate", f);
 
         // THE THREE HARD GATES. Finishing setup without any one of them is a
-        // console with nothing to show, which is the thing 15b forbids.
+        // console with nothing to show, which is the thing 15b forbids. And a
+        // run that asked the time zone does not finish without one.
         if (m.finished()) {
             if (!f.online)          fail("finished setup while offline", f);
             if (!f.serverAnswered)  fail("finished setup with no server answering", f);
             if (!f.havePairedToken) fail("finished setup with no token", f);
+            if (askZone && !f.zoneChosen) fail("finished setup with no time zone", f);
         }
+        if (askZone && !f.zoneChosen && m.step() != firstrun::Step::TimeZone)
+            fail("got past the time zone with none chosen", f);
 
         // A machine with a radio, no cable and no Wi-Fi must not get past the
         // network step at all.
-        if (!f.online && m.step() != firstrun::Step::Network)
+        if (!f.online && static_cast<int>(m.step()) > static_cast<int>(firstrun::Step::Network))
             fail("got past the network step while offline", f);
 
         // The one soft gate, and it has to STAY soft: refusing to finish
         // without a controller would break the keyboard guarantee the whole
         // flow exists to make.
-        if (f.online && f.serverAnswered && f.havePairedToken && !m.finished())
+        if (f.online && f.serverAnswered && f.havePairedToken && (f.zoneChosen || !askZone) &&
+            !m.finished())
             fail("a fully configured machine could not finish setup", f);
     }
 

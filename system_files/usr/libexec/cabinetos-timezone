@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+#
+# Sets the time zone a new console is in, from first run's Time zone screen
+# (frontend/src/setup.cpp; the list is frontend/src/timezone.cpp's). Run by
+# cabinetos-timezone@<zone>.service, the zone as its instance:
+# `cabinetos-timezone America/New_York`.
+#
+# ONLY ON A CONSOLE WITH NO ZONE, which is a portable install: an install from
+# the ISO has the one its Time & Date screen set, and first run never asks
+# there. A zone this same start set may be replaced, for a person who went
+# Back to change it; any other zone is left as it is, so this is no way to
+# change one later (there is none in Settings either).
+#
+# NOT `timedatectl set-timezone`, which writes the PC's hardware clock from
+# the system clock at once when that clock is kept in local time
+# (/etc/adjtime, LOCAL: the way Windows keeps it). On this start the system
+# clock was read from the hardware clock as if it were UTC, since there was
+# no zone, so it is hours off, and that would be written into the clock
+# Windows reads. Here the hardware clock is left alone: the zone is set, then
+# the system clock is read again from the hardware clock in that zone
+# (`hwclock --hctosys`). Chrony did not start on a start without a zone
+# (chronyd.service.d/50-cabinetos.conf says why), so nothing writes the
+# hardware clock before the next start, which begins with the zone.
+
+set -euo pipefail
+
+say() { echo "cabinetos-timezone: $*"; }
+
+readonly ZONES=/usr/share/zoneinfo
+readonly MARK=/run/cabinetos-timezone/chosen   # this start's own choice
+
+zone=${1:-}
+# One of the zones first run lists: the tz database's zone.tab, third column.
+if [[ ! "${zone}" =~ ^[A-Za-z]+(/[A-Za-z0-9_+-]+)+$ ]] ||
+   ! cut -f3 "${ZONES}/zone.tab" | grep -qxF -- "${zone}" ||
+   [[ ! -f "${ZONES}/${zone}" ]]; then
+    say "no time zone called '${zone}'"
+    exit 1
+fi
+
+if [[ -e /etc/localtime || -L /etc/localtime ]]; then
+    if [[ ! -e "${MARK}" ]]; then
+        say "this console already has a time zone ($(readlink /etc/localtime || echo "a file")): left as it is"
+        exit 1
+    fi
+    rm -f /etc/localtime
+fi
+# As systemd writes it: a link into the database, relative.
+ln -s "../usr/share/zoneinfo/${zone}" /etc/localtime
+mkdir -p "${MARK%/*}"
+echo "${zone}" > "${MARK}"
+
+hwclock --hctosys
+say "the time zone is ${zone}; the clock, read again from the PC's clock in it, is $(date '+%Y-%m-%d %H:%M %Z')"
