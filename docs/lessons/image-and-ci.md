@@ -32,7 +32,7 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
   fallback visible rather than catastrophic, but the tmpfiles rule is the fix.
 
 - **`ldd` prints "not found" and exits 0.** `build_files/install-frontend.sh`
-  reads its output, not its status, for the frontend and all 22 cores.
+  reads its output, not its status, for the frontend and all 23 cores.
   **Run the control** — the same script into a bare `fedora:44` names all six
   libraries the frontend needs, plus `libGL` for melonDS and **`libX11` and
   `libXext` for PPSSPP**, which nothing had written down anywhere.
@@ -111,7 +111,7 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
   invalid `concurrency` expression is a workflow that does not parse.
 
 - **A workflow that build.yml CALLS must not also trigger itself where
-  build.yml runs**, or one change queues the same 22 core builds
+  build.yml runs**, or one change queues the same 23 core builds
   twice. That is not merely wasteful: the runner concurrency cap means the
   duplicate starves the image build of the runners it is waiting for, and it
   doubled the wall clock of the change that introduced it. Cancelling one by
@@ -187,7 +187,7 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
 
 - **A core build failing is not always the core.** `Curl error (28)` is the
   network. Re-run before reading anything into a single red core. This matters
-  more now: 22 core builds gate every image build.
+  more now: 23 core builds gate every image build.
 
 - **GitHub serves some repositories at 55 KB/s over git and 9.8 MB/s over
   HTTPS.** `build-core.sh` clones `--filter=blob:none` — but **NOT for

@@ -409,7 +409,7 @@ code.
 
 - **A SEPARATE BUILDER CONTAINER WAS THE RIGHT CALL.** PCSX2 needs about thirty
   packages the frontend does not. Putting them in `frontend/Containerfile` would
-  have slowed every one of the 22 core builds to serve one thing.
+  have slowed every one of the 23 core builds to serve one thing.
 
 - **PCSX2'S DEFAULT BUILD IS FOR THE BUILD MACHINE'S PROCESSOR ONLY**
   (`-march=native` unless `DISABLE_ADVANCE_SIMD=ON`). Every image until

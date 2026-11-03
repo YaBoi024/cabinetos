@@ -64,7 +64,7 @@ is in the file named for its feature, and
 | RetroAchievements | `achievements.cpp` (the sign-in and rcheevos' client; its console table names every system), `achievements_ui.cpp`, `ra_list.cpp`, `ra_net.cpp`, `ra_state.h` |
 | Settings features | `settingsflow.cpp` (the rows and their dispatch), `settingsids.h`, `about.cpp`, `credits.h`, `access.cpp` (File access and Developer access), `wikiqrview.cpp` and `wikiqr.h` (the Wiki's and What's new's QR codes, made by `tools/make-wiki-qr.py`; How to and the link screen draw them), and one `*flow.cpp` per feature: `accountsflow.cpp`, `downloadsflow.cpp`, `drivesflow.cpp`, `pinflow.cpp`, `serveraddressflow.cpp`, `remoteplayflow.cpp`, `tailscaleflow.cpp`, `steamflow.cpp`, `updateflow.cpp`, `reportflow.cpp`; `choiceflow.cpp` asks a question over any screen |
 | Remote Play, Steam, the report | `remoteplay.cpp`, `sunshinelog.cpp`, `tailscale.cpp`, `steam.cpp`, `report.cpp`, `samenames.cpp` |
-| Test instruments | `probes.cpp` (runs the probes and calls most self-tests; `--same-names-test`, `--arcade-tile-test`, `--fightstick-test`, `--arcade-settings-test`, `--screen-view-test`, `--controls-test`, `--idle-test`, `--gone-games-test` and `--romm-race-test` run from `cli.cpp`), `selftests.cpp`, `coretests.cpp`, `testhooks.cpp`, `discrig.cpp`, `optcheck.cpp` (the option-table check CI runs). Most self-tests live in their feature's own file (`players::test` in `players.cpp`, and so on). They ship in the program and run only from a flag |
+| Test instruments | `probes.cpp` (runs the probes and calls most self-tests; `--same-names-test`, `--arcade-tile-test`, `--fightstick-test`, `--arcade-settings-test`, `--arcade-match-test`, `--arcade-changes`, `--screen-view-test`, `--controls-test`, `--netblock-test`, `--idle-test`, `--gone-games-test` and `--romm-race-test` run from `cli.cpp`), `selftests.cpp`, `coretests.cpp`, `testhooks.cpp`, `discrig.cpp`, `optcheck.cpp` (the option-table check CI runs). Most self-tests live in their feature's own file (`players::test` in `players.cpp`, and so on). They ship in the program and run only from a flag |
 
 ### Where it starts
 
@@ -119,9 +119,12 @@ is in the file named for its feature, and
   console's own requests alone; a library is an emulator's because
   `Core::load` or `ps2::load` loaded it. An emulator run as a program is
   started with no network by the three `proc::spawn` calls that start one
-  (`standalone.cpp`, `standalone_xemu.cpp`): bwrap for the image's, `flatpak
-  run --unshare=network` for the Flatpaks. A new core or emulator program is
-  covered by going through those, with nothing of its own.
+  (`standalone.cpp`, `standalone_xemu.cpp`): bwrap for the image's
+  (`noNetwork`), `flatpak run --unshare=network` for the Flatpaks. A PS3 or
+  Vita install, the one time an emulator runs to do anything but play, goes
+  under the same bwrap (`noNetworkInstall`; `rpcs3Headless`, `vitaHeadless`).
+  A new core or emulator program is covered by going through those, with
+  nothing of its own.
 - **Storage** (`storage.h`) decides where everything lives. Eviction only ever
   walks `cache/`; kept games (`roms/`) and save data are never evicted. The
   one other removal is a game RomM no longer has, kept or played, at a start
@@ -141,7 +144,7 @@ is in the file named for its feature, and
   Exceptions today: the `--first-run-writes` and `--playtime-test` self-tests
   remove their scratch folders with `std::system`; the Wii bridge is started
   with `fork` and `execl` (`wiiremote.cpp`); and the frontend restarts itself
-  with `execv("/proc/self/exe")` (`startup.cpp`).
+  with `execv("/proc/self/exe")` (`startup.cpp`, `serverwait.cpp`).
 - **The image** (`Containerfile`, `build_files/`) puts what it installs in
   `/usr`, which every update replaces, and a few settings files in `/etc`
   (`system_files/etc/`, and the signing policy written by
@@ -160,9 +163,9 @@ is in the file named for its feature, and
 
 1. `parseCommandLine` (`cli.cpp`). A flag that exits ends the parse there.
 2. `resolveCoresAndServer` (`cli.cpp`): where the cores are (`--core-dir`,
-   else `cores/build` when it exists in the working folder, else
-   `/usr/lib/cabinetos/cores`), and the server's address: `--romm`, else
-   `CABINETOS_ROMM`, else `/etc/cabinetos/session.env`, else the console's
+   else `cores/build` or `../cores/build` when it exists from the working
+   folder, else `/usr/lib/cabinetos/cores`), and the server's address:
+   `--romm`, else `CABINETOS_ROMM`, else `/etc/cabinetos/session.env`, else the console's
    `config/server.json` (`serveraddress.cpp`).
 3. `earlyProbe` (`probes.cpp`): the tests and probes that need no storage
    and no window run and exit here.
@@ -206,7 +209,8 @@ is in the file named for its feature, and
    worker.
 2. The worker (`launch_routes.cpp`) fetches the platform's firmware from RomM
    first, then takes one of four routes, in this order: a game on several
-   discs, a game installed before it runs (PS3), a folder of files, one file.
+   discs, a game installed before it runs (PS3, Vita), a folder of files, one
+   file.
    The bytes go straight to disk: under `cache/` for a game pulled to play,
    under `roms/` for a game kept, on the console's own storage or a drive.
    An archive the core does not open itself is unpacked beside it
@@ -411,8 +415,10 @@ Each with where it is recorded.
   cache's key (`covercache.cpp`). They should move into the client.
   `ci/check-romm-paths.sh` lists them and fails a pull request that adds
   another.
-- **CI runs one self-test** (`--check-option-tables`); the others are run by
-  hand. No Python is tested, and neither are `tools/` and `disk_config/`.
+- **CI runs the option tables and the 20 self-tests in
+  `ci/run-self-tests.sh`;** the tests it lists as needing a screen, a core, a
+  game or a server are run by hand. No Python is tested, and neither are
+  `tools/` and `disk_config/`.
   A pull request to `main` never builds the cores, `frontend/ps2`, Cemu,
   sm2-emu, Supermodel, Sunshine or the image, so a fault there first shows at the maintainer's
   testing push, including a core's options list that no longer matches
@@ -427,8 +433,7 @@ Each with where it is recorded.
   (CONTRIBUTING.md, "Running and testing").
 - **Some of the maintainer's own details are still in the code:** the empty server
   address field on first run shows his server's address as its example
-  (`setup.cpp`), and comments carry his controllers' Bluetooth addresses
-  (`bluetooth.cpp`, `bluetooth.h`, `players.cpp`, `players.h`).
+  (`setup.cpp`).
 - **A fork's image carries the project's key and image name until the fork
   edits them:** they are written into tracked files (CONTRIBUTING.md,
   "Generate a signing key", lists them).
@@ -454,51 +459,22 @@ Each with where it is recorded.
   member order (app.h), `Uploader::Job`'s field order (uploader.h), and the
   rows of catalog.cpp's table.
 - **Building leaves files in the tree:** the Makefile writes `.o` and `.d`
-  files beside the sources, and the `.d` files are not ignored by git.
+  files beside the sources, not in `build/`; git ignores them
+  (`frontend/.gitignore`).
 - **The faults the audit recorded** are on #398, Parts 3 to 5, and become
   pull requests or issues next.
 
 ## 7. Where the docs and the code disagree
 
-The audit (#398, Part 5 sections 44 and 45) found the docs and the code
-apart in many places. The docs were brought into line in the docs tidy
-(#427, "Docs tidy: every doc true to the code, or marked as history
-(#398)", 2026-10-17): frontend/README.md cut down to the build; the
-2026-09-20 snapshot, the three history files and the old frontend README in
-`docs/history/`; the stale lines fixed where they stand, and in
-docs/PROJECT.md noted under the stale line with a date, since its rule then
-was to record a reversal rather than edit history; an index at the top of
-PROJECT.md giving where each question ended. What is left is in code
-comments, which the faults step fixes. Until then, trust the code:
+None is known. The audit (#398, Part 5 sections 44 and 45) found the two
+apart in many places. The docs tidy (#427, "Docs tidy: every doc true to the
+code, or marked as history (#398)", 2026-10-17) put the docs right, and moved
+what describes the project as it was to `docs/history/`. The code comments
+it left were put right by 2026-11-03.
 
-- **Code comments:** 59 point at the wrong place, most saying "in main.cpp"
-  for code the restructure moved (app.h's own header among them). Several
-  scripts say twenty-one cores (`Containerfile`, `.gitignore`,
-  `cores/build-pcsx2.sh`, which also says it applies no patches and applies
-  one); `build_files/build.sh` and `build_files/require-cec.sh` call HDMI-CEC
-  a hard requirement, though it was shelved on 2026-09-24; several workflow
-  headers say pull requests to `main` build the image, which they do not.
-  Others: `frontend/Containerfile` cites an `archive.h` that `frontend/src/`
-  does not have; `selftests.cpp` says `--first-run-rules` runs in CI (it does
-  not); `samplelibrary.h` says main.cpp is its only user (startup.cpp is);
-  `cores/check-options.sh` names catalog.cpp for what is now
-  `coreoptions.cpp`; `cores/build-core.sh` says core pins follow Cabinet's
-  manifest and "are not to be updated here", which predates both Cabinet
-  ceasing to be a constraint (2026-10-11) and the stability rule for moving
-  pins (`docs/decisions/2026-10-23-when-an-emulator-pin-moves.md`; first set
-  2026-10-14), which is the rule now.
-- **More code comments the docs tidy found:** Developer access placed in
-  "Settings, System" (`system_files/etc/ssh/sshd_config.d/30-cabinetos.conf`,
-  `cabinetos-developer.service`, `enable-ssh.sh`, `app.h`; it is the last row
-  of About); `frontend/Makefile` points to README.md for the loop, which is
-  CONTRIBUTING.md, "Running and testing"; `frontend/ps2/CabinetPS2Host.cpp`
-  and `.h` cite docs/PCSX2-HOST-SURFACE.md, now in `docs/history/` (a stub
-  keeps the old path); `storage.h`'s layout comment, which
-  frontend/README.md's tree corrects; Flycast said to have no shared tag
-  (`gamesession.h`, `cores/build-core.sh`; `savetable.cpp` gives it one);
-  `savetable.cpp`'s own claim that only cores built as Cabinet builds them
-  are listed; "twenty-one cores" in the workflows too (`build.yml`,
-  `build-core.yml`, `build-pcsx2.yml`, `build-frontend.yml`).
+`docs/PROJECT.md` is frozen, so an old line there can still differ from the
+code; its index gives where each question ended. A disagreement found from
+now on is fixed in the same pull request, or listed here until it is.
 
 ## 8. What leans on other projects
 

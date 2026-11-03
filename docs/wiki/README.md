@@ -47,7 +47,7 @@ from a blank PC to playing.
 ## In one paragraph
 
 CabinetOS is a console operating system for a small PC under the TV. It starts
-straight into its own menus, plays 34 systems with emulators chosen and set up
+straight into its own menus, plays 35 systems with emulators chosen and set up
 for each, and takes every game, cover, BIOS and save from your own
 [RomM](https://github.com/rommapp/romm) server. A controller does everything
 after the first run. It is built on [Bazzite](https://bazzite.gg) and updates
