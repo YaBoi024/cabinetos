@@ -19,7 +19,10 @@
 # image is left alone, whatever it follows (the testing channel, a version it
 # was pinned to by hand, a build of somebody's own). And a console that
 # already follows a signed CabinetOS image is left alone even when new, so a
-# way onto a drive that sets its own signed channel keeps it.
+# way onto a drive that sets its own signed channel keeps it. A new console
+# has a second deployment within seconds of its first start (Bazzite's
+# hardware setup adds kernel arguments and restarts), so the unit runs before
+# that; the second deployment copies the source this set.
 #
 # OFFLINE. `bootc switch --mutate-in-place` rewrites the booted deployment's
 # .origin and downloads nothing; the next update check pulls from the new

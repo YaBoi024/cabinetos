@@ -311,10 +311,20 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
 
 - **`bootc switch --mutate-in-place` cannot write on a running console.**
   It is meant for an installer's `%post`; it skips the mount namespace
-  bootc's other commands enter, and `/sysroot` is read-only once booted
-  (`[sysroot] readonly = true`). Remount it read-write in a namespace of its
-  own (`unshare --mount --propagation slave`), as bootc itself does. It
-  rewrites the newest deployment's `.origin`, so it is safe only with one.
+  bootc's other commands enter (bootc 1.17.1's `cli.rs`), and `/sysroot` is
+  read-only once booted (`[sysroot] readonly = true`). Remount it read-write
+  in a namespace of its own (`unshare --mount --propagation slave`), as
+  bootc itself does; that is how `cabinetos-update-source` wrote the VM's
+  `.origin` on 2026-11-03, in about a second. It rewrites the newest
+  deployment's `.origin`, so it is safe only with one.
+
+- **A new console restarts itself once, seconds into its first start.**
+  `bazzite-hardware-setup.service` adds kernel arguments (Bluetooth's among
+  them), which makes a second deployment of the same image with the booted
+  one's `.origin` copied, and reboots into it. Seen in the VM on
+  2026-11-03: two boots before first run, two deployments on the drive. So
+  "one deployment" means "new" only before that service runs; anything that
+  tells a new console by it must be ordered before it.
 
 - **After an install the VM boots the ISO again**, because QEMU's
   `bootindex` overrides the boot order the installer wrote. Real firmware
