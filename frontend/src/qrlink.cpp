@@ -90,7 +90,6 @@ void QrLinkScreen::draw(Ctx& c) {
     constexpr float kPanelY = 168.0f;
     constexpr float kPanelW = ui::kCanvasWidth - kPanelX - kInset;
     constexpr float kPanelH = 660.0f;
-    constexpr float kFooterY = 900.0f;
 
     // --- the left column: what is happening and why --------------------------
     float y = kTitleTop;
