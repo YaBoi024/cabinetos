@@ -1,0 +1,30 @@
+[Unit]
+Description=CabinetOS: a new console takes signed updates from CabinetOS's releases
+Documentation=https://github.com/MMagTech/cabinetos/blob/main/docs/decisions/2026-11-03-first-time-setup-in-the-os.md
+# At the first start of each deployment, the moment systemd-sysusers makes the
+# account (ostree drops /etc/.updated in every new deployment). On a console
+# that updated into this image it finds the deployment before beside it and
+# does nothing; /usr/libexec/cabinetos-update-source says why.
+#
+# Early, like ldconfig.service: ConditionNeedsUpdate holds only until
+# systemd-update-done.service writes /etc/.updated, and that runs before
+# sysinit.target, so this cannot wait for the usual dependencies. It needs
+# only the drive (/sysroot) and bootc, and downloads nothing; before the
+# session, which reads the source for System update.
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=local-fs.target
+Before=sysinit.target systemd-update-done.service shutdown.target
+ConditionNeedsUpdate=/etc
+ConditionPathExists=/run/ostree-booted
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/cabinetos-update-source
+# bootc reads its status twice and writes one small file; a minute is
+# generous.
+TimeoutStartSec=60
+
+[Install]
+WantedBy=sysinit.target

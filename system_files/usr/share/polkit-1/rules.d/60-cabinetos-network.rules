@@ -15,11 +15,11 @@
 //     to create system-wide connections ... to maintain backwards
 //     compatibility ... This is discouraged otherwise."
 //
-// The CabinetOS session user is in `wheel` (the installer adds it), so Wi-Fi
-// also works by inheritance. `wheel` is also what grants sudo; the day the
-// session user leaves it, Wi-Fi configuration would stop working with no
-// error anybody would connect to the cause: it presents as a network bug on a
-// machine whose network is fine.
+// The CabinetOS session user is in `wheel` (the image's sysusers.d adds it),
+// so Wi-Fi also works by inheritance. `wheel` is also what grants sudo; the
+// day the session user leaves it, Wi-Fi configuration would stop working with
+// no error anybody would connect to the cause: it presents as a network bug on
+// a machine whose network is fine.
 //
 // So the grant is written down here, naming the one action and the one user,
 // and it decouples "may configure the network" from "may become root". Those

@@ -6966,12 +6966,7 @@ on the real CI-built ISO. What a person sees:
    layout the A9 got by hand).
 4. It reboots into the console, which starts first run.
 
-**The account is made by the kickstart, not a screen.** `%post` runs
-`useradd --uid 1000 --groups wheel --home-dir /var/home/cabinet`, then locks
-it. Not left to `sysusers.d`: that makes `cabinet` a system account with no
-home, and every console so far got uid 1000, wheel and a home from the old
-Users screen. Checked on the VM's disk: uid 1000, wheel, home present, root
-and `cabinet` both locked, updates from `ghcr.io/mmagtech/cabinetos:latest`.
+**The account, and the update source, moved to the image on 2026-11-03:** [decisions/2026-11-03-first-time-setup-in-the-os.md](decisions/2026-11-03-first-time-setup-in-the-os.md).
 
 **The install needs no network: proved.** In a VM with no network device at
 all, the real ISO installed and the console came up in first run (*Connect to
