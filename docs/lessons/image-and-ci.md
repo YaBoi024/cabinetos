@@ -283,9 +283,48 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
   QEMU in podman on the A9 (`/dev/kvm` is open to all), an empty NVMe disk,
   no network unless `--net`, and a picture of the screen after each step.
   `repack` puts this checkout's `disk_config/iso.toml` into an existing ISO
-  (kickstart as `/osbuild.ks`, the module list as `images/updates.img`) for a
-  try in minutes; the ISO that ships is always CI's. Open question 5, *Built
-  2026-10-07*, has what the installer does now and why.
+  (kickstart as `/osbuild.ks`, the module list as `images/updates.img`) and
+  then its look, with `ci/brand-installer-iso.sh` as CI does, for a try in
+  minutes; the ISO that ships is always CI's. Open question 5, *Built
+  2026-10-07*, has what the installer does and why; its look is
+  decisions/2026-11-02-installer-iso-repacked.md, and the setup it no longer
+  does decisions/2026-11-03-first-time-setup-in-the-os.md.
+
+- **The ISO builder points a new console at the tag the ISO was built
+  from, unsigned.** Its `osbuild-base.ks` (read off the 2026.11.02.4 ISO)
+  ends in a `%post` of its own, `bootc switch --mutate-in-place --transport
+  registry ghcr.io/mmagtech/cabinetos:<tag>`, before anything of ours runs.
+  So a new console's source is "ours, unsigned" whatever the ISO, and
+  keeping its tag would pin a console installed from a version-built ISO to
+  that version for good: `cabinetos-update-source` sends every new console
+  to `latest`, as the installer's own step did.
+
+- **On these images `systemd-sysusers` runs at the first start of every
+  deployment, not only the first boot.** `/usr` is dated 1970 on ostree, so
+  `ConditionNeedsUpdate=/etc` could never hold again, but ostree leaves
+  `/etc/.updated` out of each new deployment: on the A9 sysusers ran on the
+  first boot after each update of 2026-11-02 and was skipped on the next. A
+  unit gated on that condition is therefore not "once per machine"; it must
+  tell a new console from an updated one itself (one deployment, nothing
+  beside it), and it must run before `systemd-update-done.service`, so with
+  `DefaultDependencies=no`, as ldconfig.service does.
+
+- **`bootc switch --mutate-in-place` cannot write on a running console.**
+  It is meant for an installer's `%post`; it skips the mount namespace
+  bootc's other commands enter (bootc 1.17.1's `cli.rs`), and `/sysroot` is
+  read-only once booted (`[sysroot] readonly = true`). Remount it read-write
+  in a namespace of its own (`unshare --mount --propagation slave`), as
+  bootc itself does; that is how `cabinetos-update-source` wrote the VM's
+  `.origin` on 2026-11-03, in about a second. It rewrites the newest
+  deployment's `.origin`, so it is safe only with one.
+
+- **A new console restarts itself once, seconds into its first start.**
+  `bazzite-hardware-setup.service` adds kernel arguments (Bluetooth's among
+  them), which makes a second deployment of the same image with the booted
+  one's `.origin` copied, and reboots into it. Seen in the VM on
+  2026-11-03: two boots before first run, two deployments on the drive. So
+  "one deployment" means "new" only before that service runs; anything that
+  tells a new console by it must be ordered before it.
 
 - **After an install the VM boots the ISO again**, because QEMU's
   `bootindex` overrides the boot order the installer wrote. Real firmware
@@ -299,6 +338,42 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
 - **Switching an Anaconda module off does not always hide its screen.** The
   Network module was off and the installer said so, and Network & Host Name
   was still drawn. Users really did go. Check the screen, not the config.
+  The screen goes with `hidden_spokes = NetworkSpoke` in a conf.d file in
+  the product image (`disk_config/installer.conf`).
+
+- **THE UEFI BOOT MENU IS NOT IN THE ISO'S FILE TREE.** UEFI boots a FAT
+  image appended after the ISO9660 tree (GPT partition 2), and
+  `xorriso -boot_image any replay` copies that partition from the old ISO,
+  so a new `/EFI/BOOT/grub.cfg` in the tree changes nothing. The FAT image
+  is edited with mtools and given back with `-append_partition 2`;
+  `ci/brand-installer-iso.sh` reads the partition back to prove it.
+
+- **GRUB'S SCRIPT HAS NO `&&`.** `if [ a ] && b; then` is a syntax error,
+  the block is skipped (or half run) and the menu still appears, so it
+  looked as if it worked. `grub2-script-check` (Ubuntu: `grub-script-check`)
+  catches it; the branding script runs it.
+
+- **Fedora's signed EFI GRUB has no `background_image`**, only themes
+  (gfxmenu), and a theme always opens a terminal box of at least 80 by 24
+  characters over the picture when an entry starts, which the kernel then
+  keeps on screen until something prints. `fbcon=nodefer` clears it. Under
+  UEFI, GRUB's graphical screen keeps the firmware's mode (efi_gop.c, "Keep
+  current mode if possible"), so a theme does not change the installer's
+  resolution.
+
+- **`quiet` is not quiet in the installer.** systemd turns its status lines
+  on once a step is slow (finding the stick is), Plymouth has only its text
+  themes and repeats them, and dracut's warnings come through journald. The
+  installer's line has `loglevel=0 systemd.show_status=error
+  systemd.journald.max_level_console=crit rd.plymouth=0 plymouth.enable=0`.
+
+- **A LINE WRITTEN TO THE CONSOLE EARLY IN THE INITRD STOPS MOVING.** The
+  console's setup runs a second time when the kernel's console moves to the
+  graphics driver, which cuts off a console opened before it and puts the
+  normal font back. `disk_config/installer-wait.sh` opens the console again
+  for every frame. And a unit wanted by `sysinit.target` runs in the initrd
+  only: after the switch to the installer's root that target is already
+  reached, so the second copy is wanted by `anaconda.target`.
 
 - **Keys typed into the VM go to whatever has focus.** An `n` in a shell
   command typed before the console switch landed answered the erase question

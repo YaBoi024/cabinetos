@@ -137,7 +137,7 @@ case "$CMD" in
   setup)
     "${SSH[@]}" "mkdir -p ~/$DIR && cd ~/$DIR && printf '%s\n' \
       'FROM registry.fedoraproject.org/fedora:44' \
-      'RUN dnf -y install --setopt=install_weak_deps=False qemu-system-x86-core qemu-img edk2-ovmf qemu-device-display-virtio-vga qemu-device-display-virtio-gpu qemu-device-usb-host xorriso cpio guestfs-tools && dnf clean all' \
+      'RUN dnf -y install --setopt=install_weak_deps=False qemu-system-x86-core qemu-img edk2-ovmf qemu-device-display-virtio-vga qemu-device-display-virtio-gpu qemu-device-usb-host xorriso cpio guestfs-tools mtools squashfs-tools gettext grub2-tools && dnf clean all' \
       > Containerfile && podman build -t $NAME:latest ." ;;
   install)
     ISO=${1:?install needs the ISO path on the A9}
@@ -155,11 +155,14 @@ case "$CMD" in
     # A TEST ISO, never a shipping one: an existing ISO with this checkout's
     # disk_config/iso.toml put into it the way bootc-image-builder would (the
     # kickstart as /osbuild.ks, the module list as the installer's
-    # 90-osbuild.conf). Minutes instead of a CI build per try. The ISO that
-    # ships is always CI's, built from the same file.
+    # 90-osbuild.conf), then this checkout's look put on it by
+    # ci/brand-installer-iso.sh, as build-disk.yml does. Minutes instead of a
+    # CI build per try. The ISO that ships is always CI's, built from the same
+    # files.
     SRC=${1:?repack needs a source ISO in ~/installer-vm}
     OUT=${2:?and an output name}
     scp -q -i "$KEY" -P 2222 "$(dirname "$0")/../disk_config/iso.toml" "$A9:$DIR/iso.toml" || exit 1
+    (cd "$(dirname "$0")/.." && rsync -aR --delete -e "ssh -i $KEY -p 2222" ci/brand-installer-iso.sh disk_config "$A9:$DIR/repo/") || exit 1
     "${SSH[@]}" "cd ~/$DIR && python3 - <<'PY'
 import tomllib
 d = tomllib.load(open('iso.toml', 'rb'))['customizations']['installer']
@@ -178,9 +181,11 @@ PY
         mkdir -p /tmp/u/etc/anaconda/conf.d && cd /tmp/u
         cp /work/90-osbuild.conf etc/anaconda/conf.d/90-osbuild.conf
         find . | cpio -o -H newc --quiet | gzip > /tmp/updates.img
-        rm -f /work/$OUT
-        xorriso -indev /work/$SRC -outdev /work/$OUT -boot_image any replay \
-          -map /work/osbuild.ks /osbuild.ks -map /tmp/updates.img /images/updates.img 2>&1 | tail -1'" ;;
+        rm -f /work/$OUT /work/.branded.iso
+        /work/repo/ci/brand-installer-iso.sh /work/$SRC /work/.branded.iso
+        xorriso -indev /work/.branded.iso -outdev /work/$OUT -boot_image any replay \
+          -map /work/osbuild.ks /osbuild.ks -map /tmp/updates.img /images/updates.img 2>&1 | tail -1
+        rm -f /work/.branded.iso'" ;;
   shot)
     OUT=${1:?shot needs a file name}
     qmp shot && scp -q -i "$KEY" -P 2222 "$A9:$DIR/shot.png" "$OUT" && echo "$OUT" ;;

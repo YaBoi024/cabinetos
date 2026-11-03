@@ -5,14 +5,24 @@
 # erase, and keeps one screen, Time & Date; everything else is answered here.
 # See docs/PROJECT.md open question 5, and #105, #106, #107, #136.
 #
+# IT ONLY PUTS THE IMAGE ON THE DRIVE. The first-time setup is the image's,
+# so every way onto a drive shares one copy
+# (docs/decisions/2026-11-03-first-time-setup-in-the-os.md): the account and
+# its home come from system_files/usr/lib/sysusers.d/ and tmpfiles.d/, and the
+# update source, ghcr.io/mmagtech/cabinetos:latest and signed, is set at the
+# first start by cabinetos-update-source.service.
+#
 # Try a change in the VM before building an ISO for it: tools/installer-vm.sh.
 #
 # WHAT THE ISO BUILDER ADDS. bootc-image-builder writes /osbuild.ks on the ISO
 # as `%include /run/install/repo/osbuild-base.ks` followed by `contents` below,
 # verbatim. The base file installs the image carried on the ISO
-# (`ostreecontainer --url=/run/install/repo/container`) and switches it to the
-# reference the ISO was built from. So the install needs no network at all,
-# which is why the Network screen is gone (#136).
+# (`ostreecontainer --url=/run/install/repo/container`) and, in a %post of its
+# own, switches it to the reference the ISO was built from, unsigned
+# (`bootc switch --mutate-in-place --transport registry
+# ghcr.io/mmagtech/cabinetos:<tag>`), which the first start then replaces. So
+# the install needs no network at all, which is why the Network screen is
+# gone (#136).
 [customizations.installer.kickstart]
 contents = """
 # THE ONE QUESTION. Anaconda has no screen that names a drive and asks once,
@@ -76,12 +86,12 @@ while read -r name type ro tran bytes; do
 done < <(lsblk -dnbo NAME,TYPE,RO,TRAN,SIZE)
 
 if [ ${#names[@]} -eq 0 ]; then
-  off "CabinetOS Handheld found no drive to install on. Switching off."
+  off "CabinetOS found no drive to install on. Switching off."
 fi
 
 pick=0
 if [ ${#names[@]} -gt 1 ]; then
-  printf '\\n  CabinetOS Handheld can be installed on:\\n\\n'
+  printf '\\n  CabinetOS can be installed on:\\n\\n'
   for i in "${!names[@]}"; do printf '    %d  %s\\n' $((i + 1)) "${labels[$i]}"; done
   while :; do
     printf '\\n  Which drive? '
@@ -116,41 +126,13 @@ EOF
 
 # The installer reboots into the console when it is done.
 reboot
-
-# THE ACCOUNT, made here and not on a screen. The image's sysusers.d makes
-# `cabinet` only if it does not exist, and as a system account with no home
-# (system_files/usr/lib/sysusers.d/cabinetos.conf); every console so far got
-# its account from the installer's Users screen instead: uid 1000, wheel, home
-# /var/home/cabinet. This makes exactly that, with no password: File access
-# sets one when it is turned on, and the session logs in by itself.
-%post --erroronfail
-set -e
-if ! getent passwd cabinet >/dev/null; then
-  useradd --uid 1000 --user-group --groups wheel --comment CabinetOS \\
-    --home-dir /var/home/cabinet --create-home cabinet
-fi
-passwd --lock cabinet
-%end
-
-# After installation, point the installed system at the CabinetOS image on GHCR
-# rather than at whatever tag the ISO was built from. From that moment on, the
-# machine updates by pulling this reference. It downloads nothing.
-#
-# IMPORTANT: this must be lowercase and must match the published package. If the
-# GHCR package is private, the installed machine cannot pull updates.
-#
-# --enforce-container-sigpolicy: the machine only accepts updates signed with
-# CabinetOS's key (#135; the rule is build_files/require-signed-updates.sh).
-%post
-bootc switch --mutate-in-place --enforce-container-sigpolicy --transport registry ghcr.io/yaboi024/cabinetos:latest
-%end
 """
 
 # The stick's name, which a computer shows when it is plugged in, and which the
 # installer finds itself by. bootc-image-builder's default is
 # "Container-Installer-x86_64". Letters, digits, "-" and "_" only.
 [customizations.iso]
-volume_id = "CabinetOS-Handheld"
+volume_id = "CabinetOS"
 
 # The installer's screens. bootc-image-builder always enables Users, Services,
 # Security, Network, Payloads, Runtime and Storage, and a module in `disable`
@@ -159,7 +141,7 @@ volume_id = "CabinetOS-Handheld"
 # - Timezone: KEPT. The network gives the console the time but not its zone,
 #   and the zone set here is what makes Appearance's scheduled dark hours
 #   switch at the right local hour (#107's comment, #129).
-# - Users: off. The account is made by the %post above.
+# - Users: off. The account is the image's (sysusers.d).
 # - Network: off. The install needs none (#136); Wi-Fi is set up in the
 #   console's own first run, where its firmware is.
 [customizations.installer.modules]

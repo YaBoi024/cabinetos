@@ -310,7 +310,7 @@ something besides `.md` files and `docs/`):
 
 - **Lint**: shellcheck over every `.sh` in `build_files/`, `ci/` and
   `cores/`, over every shell script in `system_files/` (picked by its
-  first line), and over the installer's `%pre` and `%post` in
+  first line), and over the installer's `%pre` in
   `disk_config/iso.toml`; and every Python file, the ones that ship
   included, is parsed. `just lint` runs the first two commands.
 - **The frontend** (`build-frontend.yml`): it compiles the frontend and the
@@ -511,16 +511,17 @@ signed with MMagTech's key, whose secret half is never in the repository
    files that use it for updates: `build_files/require-signed-updates.sh`
    (`REPO`, the policy's rule),
    `system_files/etc/containers/registries.d/cabinetos.yaml` (where the
-   signatures are found) and `disk_config/iso.toml` (the image the installer
-   points a console at for its updates). The diagnostic report names it too,
-   in `cabinetos-report`'s `PUBLIC` list of words it never scrubs.
+   signatures are found) and `system_files/usr/libexec/cabinetos-update-source`
+   (`REPO`, the image a new console is pointed at for its updates at its
+   first start). The diagnostic report names it too, in `cabinetos-report`'s
+   `PUBLIC` list of words it never scrubs.
 
 The image name itself needs no edit: `build.yml` publishes to
 `ghcr.io/<owner>/cabinetos`, from the repository's owner in lower case and
 `IMAGE_NAME` in `cabinetos.env`. The key and the image name in the four
 files above are written into tracked files today, so a fork edits them.
 Until it does, its image carries MMagTech's key and a rule for his image,
-and its installer points every console it installs at his image.
+and points every new console at his image.
 
 ### Going back to an earlier version
 
