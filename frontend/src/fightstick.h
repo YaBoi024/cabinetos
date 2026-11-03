@@ -79,9 +79,8 @@ const Stick* match(uint16_t vendor, uint16_t product, const std::string& device)
 std::string kind(SDL_Gamepad* gp);
 
 // Whether a core is an arcade core, FBNeo, MAME 2003-Plus, MAME 0.289 or
-// Flycast, or sm2-emu or Supermodel: the games a stick gets a layout in, and,
-// but for those two, whose pause menus have no Controls row, Controls is
-// offered in (controls.h).
+// Flycast, or sm2-emu or Supermodel: the games a stick gets a layout in, and
+// Controls is offered in (controls.h).
 // Callers pass the session's arcadeCore (gamesession.h), which is empty for a
 // game that is not an arcade game, Flycast's Dreamcast discs among them.
 bool isArcadeCore(const std::string& core);
@@ -98,6 +97,14 @@ bool readsClassic(const std::string& core);
 // its joypad gives them, B, A, Y, X, L, R, then L3 and R3 for the 7th and
 // 8th (its per-game profiles off). Core::declareButtons hands them on.
 std::vector<cab::InputDescriptor> mameButtons(int count);
+
+// A Model 2 or Model 3 game's buttons, which sm2-emu and Supermodel declare
+// to nobody: `count` of them (their catalogues', arcadematch::buttons), at
+// most four, named and placed as MAME 0.289's first four, "Button 1" on B,
+// "Button 2" on A, then Y and X, where both programs' settings put a game's
+// buttons 1 to 4 on a pad (standalone_sm2emu.cpp, standalone_supermodel.cpp).
+// What a stick's layout and Controls are made from (controls::beginProgram).
+std::vector<cab::InputDescriptor> programButtons(int count);
 
 constexpr int kSlots = 8;
 constexpr int kNone = -1;

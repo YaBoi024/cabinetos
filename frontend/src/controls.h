@@ -4,12 +4,15 @@
 // menu's row and its panel are the App's, in controlsflow.cpp.
 //
 // ONLY AN ARCADE GAME (fightstick::isArcadeCore, given the session's
-// arcadeCore): FinalBurn Neo, MAME 2003-Plus, and Flycast playing a Naomi or
-// Atomiswave board. Every other system plays by position, as before, with
-// nothing to change.
+// arcadeCore): FinalBurn Neo, MAME 2003-Plus, MAME 0.289, Flycast playing a
+// Naomi or Atomiswave board, and the two programs of their own, sm2-emu for
+// Model 2 and Supermodel for Model 3. Every other system plays by position,
+// as before, with nothing to change.
 //
 // A ROW IS ONE OF THE GAME'S BUTTONS, as the core declared it for port 0
-// (core.h, inputDescriptors) with an id among the ten below. The lever,
+// (core.h, inputDescriptors) with an id among the ten below; for sm2-emu and
+// Supermodel, which declare nothing, as the console declares them from their
+// catalogues' count (fightstick::programButtons, "Button 1" on). The lever,
 // Select and Start are never rows. Labels are the core's own words with a
 // leading "B<n>: " taken off (MAME 2003-Plus's "B1: Jab Punch" reads "Jab
 // Punch"); MAME 2003-Plus's rows are put in its Classic table's order, as a
@@ -34,7 +37,15 @@
 // PER KIND OF CONTROLLER (fightstick::kind): every pad of a kind shares one
 // set of changes. The changes are made over what the pad already does, the
 // fight-stick layout for a stick the console knows and the plain table for
-// any other pad, and applied in play.cpp's readGameInput in its place.
+// any other pad (defaultFor), and applied in play.cpp's readGameInput in its
+// place.
+//
+// IN A PROGRAM OF ITS OWN, FROM THE NEXT START. sm2-emu and Supermodel read
+// where each button is only from the settings the console writes before
+// they start (standalone_sm2emu.cpp, standalone_supermodel.cpp, through
+// standalone.cpp's gameButtons), so a change is kept at once and played from
+// the game's next start, as the Picture row's is (agreed with MMagTech
+// 2026-10-30, #617).
 //
 // KEPT AS ONE FILE PER GAME, users/<id> - <name>/controls/<romId> -
 // <title>.json (storage::controlsDir), for a person to read over File
@@ -144,18 +155,44 @@ KindLines linesFor(const std::string& name, const std::vector<Row>& rows, const 
 // A game starts (launch.cpp, startPlaying): its file is read for the person
 // playing when it is an arcade game, and everything of the last game goes.
 void beginGame(const std::string& core, int romId, const std::string& title);
+// A game in a program of its own starts (standalone_play.cpp,
+// startStandalone), before its settings are written: as beginGame, with the
+// rows made from `buttons` (fightstick::programButtons), and logged, since
+// the program declares nothing while it runs. Every program's start calls
+// it, so nothing of a game played before is left offered.
+void beginProgram(const std::string& core, int romId, const std::string& title,
+                  const std::vector<cab::InputDescriptor>& buttons);
 // Once a frame while a game plays (play.cpp): the core's newest buttons, the
-// rows made again and logged each time it declares them anew.
+// rows made again and logged each time it declares them anew. Nothing in a
+// program of its own.
 void follow();
 // Whether the game has rows: the pause menu's row is offered only then.
 bool offered();
+// Whether a change plays only from the game's next start: in a program of
+// its own (the pause menu says so).
+bool fromNextStart();
 const std::vector<Row>& rows();
 // Bumped whenever the rows or the changes do, for a screen showing them.
 unsigned generation();
 
+// What the pad in `port` sends in this game with nothing moved: its
+// fight-stick layout (fightstick.h) or the plain table. In a core, the
+// layout the game in play gives the port (fightstick::forPort); in a program
+// of its own, the one its buttons make.
+Map defaultFor(int port, SDL_Gamepad* gp);
+
 // The map for the pad in `port` (fightstick's layout for it, or null), or
 // null when its kind has no changes, which leaves the pad as it was.
 const Map* forPort(int port, SDL_Gamepad* gp, const fightstick::Layout* layout);
+
+// AS A PROGRAM OF ITS OWN'S SETTINGS ARE WRITTEN (standalone_sm2emu.cpp,
+// standalone_supermodel.cpp), after beginProgram: the control each of the
+// game's buttons is pressed with on the pad in `port`, by the button's id,
+// over defaultFor with its kind's changes; kNone for a row a hand edit left
+// on none. An id that is no row's, and every id with no pad, is pressed with
+// its own control. A line in the log for each pad: the proof a move reached
+// the program.
+std::array<int, 16> pressedWith(int port, SDL_Gamepad* gp);
 
 // The panel's side: what `def` gives each row with this kind's changes,
 // and a press giving one a control, written at once. `name` is the
