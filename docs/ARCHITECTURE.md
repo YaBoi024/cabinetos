@@ -303,6 +303,17 @@ power cut).
 4. Download starts `cabinetos-update-download.service`, which stages the new
    image; the next restart or power off applies it.
 
+Where a console takes its updates from is set once, at the first start of a
+new console, however the image reached its drive: the installer ISO, or a
+disk image (`docs/decisions/2026-11-03-first-time-setup-in-the-os.md`).
+`cabinetos-update-source.service` runs `/usr/libexec/cabinetos-update-source`
+at the first start of each deployment, alongside systemd-sysusers, which
+makes the account (`system_files/usr/lib/sysusers.d/cabinetos.conf`; its
+home is `tmpfiles.d/cabinetos.conf`'s). On a console with one deployment
+that does not follow a signed CabinetOS image yet, it points it at
+`ghcr.io/mmagtech/cabinetos:latest`, signed, offline; every console that
+updated into the image it leaves as it is.
+
 How a change gets into that image is in CONTRIBUTING.md, "How a change
 reaches a console".
 
@@ -347,6 +358,9 @@ Each with where it is recorded.
 - **The tested image is what ships**; a merge promotes it instead of building
   again (docs/SETTINGS.md, System, "THE TESTED IMAGE IS WHAT SHIPS").
 - **Updates are signed, and the console checks** (`build_files/require-signed-updates.sh`).
+- **First-time setup is the image's, not the installer's**: the account and
+  the update source, so the ISO and a disk image share one copy
+  (`docs/decisions/2026-11-03-first-time-setup-in-the-os.md`).
 - **No emulator settings page; three picture levels** (docs/SETTINGS.md, "The
   screen"; `quality.h`).
 - **Settings, as built** (docs/PROJECT.md, open question 31; docs/SETTINGS.md
@@ -517,6 +531,7 @@ The area named is the one in `ci/base-watch.txt` whose checks a change asks for.
 | Remote Play away from home | `tailscale status --json`'s fields and state words, `tailscale up` refusing unless every setting is named (`tailscale.cpp`, `tailscaleflow.cpp`), `tailscale set`'s flags (`system_files/usr/lib/systemd/system/tailscaled.service.d/50-cabinetos.conf`) | `log:` and `tv:` (Remote Play away from home). Not checked: `up`'s rule |
 | Every root job | Our polkit rules, reading polkit's subject and action fields (`system_files/usr/share/polkit-1/rules.d/`) | `log:` and `tv:` (What the console may do as root) |
 | System update | `bootc status --json`, the text of `bootc upgrade --check` and its progress lines, skopeo and jq, ostree's names for the layers it holds (`cabinetos-update`); `/proc/cmdline`'s `ostree=`, the deployment's `.origin`, `/usr/share/ublue-os/image-info.json`, which no package owns (`update.cpp`) | `log:` and `tv:` (System update) |
+| A new console's account and update source | systemd-sysusers and `cabinetos-update-source.service`'s `ConditionNeedsUpdate=/etc` holding at the first start of each deployment because ostree leaves `/etc/.updated` out of every new one; `bootc switch --mutate-in-place`, a flag bootc hides, rewriting the newest deployment's `.origin` and needing `/sysroot`, read-only on a running console, remounted read-write in a mount namespace of its own; the installer's own `%post` (bootc-image-builder's `osbuild-base.ks`) pointing a new console at the ISO's tag, unsigned; `bazzite-hardware-setup.service` making a second deployment, with the first one's `.origin`, on a new console's first start, after this step (`cabinetos-update-source`) | `log:` (System update): a console that updated was left as it was. Not checked: a new console's first start, which shows only by installing an ISO in the VM (`tools/installer-vm.sh`) |
 | Games drives | udisks's object paths (the console works out its own disk's, `udisks.cpp`), its properties, Format's `take-ownership` and `mkfs-args`, "busy" in its errors, mounts under `/run/media/<user>` (`drives.cpp`) | `log:` (Games drives): the A9's drive is mounted. Not checked: Format, Eject, the path naming |
 | Game manuals | pdfinfo's "Page N size" and "rot" lines and pdftoppm's PPM (`manual.cpp`) | `log:` (Game manuals) |
 | The type ramp | The font files' names (`startup.cpp`) | `log:` and `tv:` (Libraries the console's screens use) |

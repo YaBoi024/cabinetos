@@ -74,6 +74,8 @@ for expected in \
     /usr/lib/systemd/system/cabinetos-flatpak-setup.timer \
     /usr/share/cabinetos/flatpaks.list \
     /usr/libexec/cabinetos-update \
+    /usr/libexec/cabinetos-update-source \
+    /usr/lib/systemd/system/cabinetos-update-source.service \
     /usr/lib/systemd/system/cabinetos-update-check.service \
     /usr/lib/systemd/system/cabinetos-update-download.service \
     /usr/share/polkit-1/rules.d/61-cabinetos-update.rules \

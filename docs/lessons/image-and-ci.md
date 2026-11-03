@@ -287,7 +287,44 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
   then its look, with `ci/brand-installer-iso.sh` as CI does, for a try in
   minutes; the ISO that ships is always CI's. Open question 5, *Built
   2026-10-07*, has what the installer does and why; its look is
-  decisions/2026-11-02-installer-iso-repacked.md.
+  decisions/2026-11-02-installer-iso-repacked.md, and the setup it no longer
+  does decisions/2026-11-03-first-time-setup-in-the-os.md.
+
+- **The ISO builder points a new console at the tag the ISO was built
+  from, unsigned.** Its `osbuild-base.ks` (read off the 2026.11.02.4 ISO)
+  ends in a `%post` of its own, `bootc switch --mutate-in-place --transport
+  registry ghcr.io/mmagtech/cabinetos:<tag>`, before anything of ours runs.
+  So a new console's source is "ours, unsigned" whatever the ISO, and
+  keeping its tag would pin a console installed from a version-built ISO to
+  that version for good: `cabinetos-update-source` sends every new console
+  to `latest`, as the installer's own step did.
+
+- **On these images `systemd-sysusers` runs at the first start of every
+  deployment, not only the first boot.** `/usr` is dated 1970 on ostree, so
+  `ConditionNeedsUpdate=/etc` could never hold again, but ostree leaves
+  `/etc/.updated` out of each new deployment: on the A9 sysusers ran on the
+  first boot after each update of 2026-11-02 and was skipped on the next. A
+  unit gated on that condition is therefore not "once per machine"; it must
+  tell a new console from an updated one itself (one deployment, nothing
+  beside it), and it must run before `systemd-update-done.service`, so with
+  `DefaultDependencies=no`, as ldconfig.service does.
+
+- **`bootc switch --mutate-in-place` cannot write on a running console.**
+  It is meant for an installer's `%post`; it skips the mount namespace
+  bootc's other commands enter (bootc 1.17.1's `cli.rs`), and `/sysroot` is
+  read-only once booted (`[sysroot] readonly = true`). Remount it read-write
+  in a namespace of its own (`unshare --mount --propagation slave`), as
+  bootc itself does; that is how `cabinetos-update-source` wrote the VM's
+  `.origin` on 2026-11-03, in about a second. It rewrites the newest
+  deployment's `.origin`, so it is safe only with one.
+
+- **A new console restarts itself once, seconds into its first start.**
+  `bazzite-hardware-setup.service` adds kernel arguments (Bluetooth's among
+  them), which makes a second deployment of the same image with the booted
+  one's `.origin` copied, and reboots into it. Seen in the VM on
+  2026-11-03: two boots before first run, two deployments on the drive. So
+  "one deployment" means "new" only before that service runs; anything that
+  tells a new console by it must be ordered before it.
 
 - **After an install the VM boots the ISO again**, because QEMU's
   `bootindex` overrides the boot order the installer wrote. Real firmware
