@@ -330,6 +330,14 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
   installer's line has `loglevel=0 systemd.show_status=error
   systemd.journald.max_level_console=crit rd.plymouth=0 plymouth.enable=0`.
 
+- **A LINE WRITTEN TO THE CONSOLE EARLY IN THE INITRD STOPS MOVING.** The
+  console's setup runs a second time when the kernel's console moves to the
+  graphics driver, which cuts off a console opened before it and puts the
+  normal font back. `disk_config/installer-wait.sh` opens the console again
+  for every frame. And a unit wanted by `sysinit.target` runs in the initrd
+  only: after the switch to the installer's root that target is already
+  reached, so the second copy is wanted by `anaconda.target`.
+
 - **Keys typed into the VM go to whatever has focus.** An `n` in a shell
   command typed before the console switch landed answered the erase question
   and switched the VM off (correctly, with nothing written). Take a picture

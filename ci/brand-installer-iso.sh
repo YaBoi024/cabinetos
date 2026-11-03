@@ -13,7 +13,7 @@
 # command line or the installer's own files (#284), so the ISO it makes is
 # changed afterwards (docs/decisions/2026-11-02-installer-iso-repacked.md).
 # Nothing it built is unpacked or rebuilt: the installer's image, its initrd
-# and the kernel stay byte for byte. Three things change:
+# and the kernel stay byte for byte. Three things are added or changed:
 #
 # 1. The boot menu, disk_config/grub.cfg, in all three places it lives: the
 #    EFI boot partition (a FAT image appended after the ISO9660 tree, which
@@ -29,8 +29,12 @@
 #    INSTALLATION" rather than "CABINETOS 44 INSTALLATION";
 #    disk_config/installer.conf as /etc/anaconda/conf.d/95-cabinetos.conf;
 #    and the stylesheet and logo.
-# 3. Nothing else. The kickstart, the payload and the volume label are the
-#    builder's.
+# 3. images/cabinetos-wait.img, a small initrd the boot menu loads after the
+#    builder's, with the waiting line (disk_config/installer-wait.sh), which
+#    the product image also carries for after the switch to the installer's
+#    root.
+# Nothing else: the kickstart, the payload and the volume label are the
+# builder's.
 set -euo pipefail
 
 src=${1:?usage: brand-installer-iso.sh SOURCE.iso OUTPUT.iso}
@@ -80,6 +84,18 @@ helpers=$(unsquashfs -l "$work/install.img" | sed -n 's|^squashfs-root/||; /site
 title=$(sed -n 's/^msgid "\(.*INSTALLATION\)"$/\1/p' "$dc/installer-en.po")
 unsquashfs -cat "$work/install.img" "$helpers" | grep -qF "\"$title\"" \
   || fail "Anaconda no longer has the title line installer-en.po rewords: $title"
+# The waiting line (disk_config/installer-wait.sh and its unit), as a small
+# initrd of its own that the boot menu loads after the builder's, which the
+# kernel unpacks over it. The console font it doubles is the one the drive
+# question uses; the builder's initrd does not carry it.
+w=$work/wait
+mkdir -p "$w/etc/systemd/system/sysinit.target.wants" "$w/usr/libexec" "$w/usr/lib/kbd/consolefonts"
+install -m 0755 "$dc/installer-wait.sh" "$w/usr/libexec/cabinetos-installer-wait"
+cp "$dc/installer-wait.service" "$w/etc/systemd/system/cabinetos-installer-wait.service"
+ln -s ../cabinetos-installer-wait.service "$w/etc/systemd/system/sysinit.target.wants/cabinetos-installer-wait.service"
+unsquashfs -cat "$work/install.img" usr/lib/kbd/consolefonts/Lat2-Terminus16.psfu.gz \
+  > "$w/usr/lib/kbd/consolefonts/Lat2-Terminus16.psfu.gz" || fail "no Lat2-Terminus16 font in the installer image"
+(cd "$w" && find . | cpio -o -H newc -R 0:0 --quiet) > "$work/cabinetos-wait.img"
 rm -f "$work/install.img"
 grep -qx 'product = CabinetOS' "$work/buildstamp" || fail ".buildstamp does not name CabinetOS"
 grep -qx 'version = .*' "$work/buildstamp" || fail ".buildstamp has no version line"
@@ -89,6 +105,11 @@ cp "$dc/installer.css" "$p/usr/share/anaconda/pixmaps/cabinetos.css"
 cp "$dc/installer-logo.png" "$p/usr/share/anaconda/pixmaps/cabinetos-logo.png"
 cp "$dc/installer-logo@2x.png" "$p/usr/share/anaconda/pixmaps/cabinetos-logo@2x.png"
 msgfmt -o "$p/usr/share/locale/en/LC_MESSAGES/anaconda.mo" "$dc/installer-en.po"
+# The waiting line again, for after the switch to the installer's root.
+mkdir -p "$p/etc/systemd/system/anaconda.target.wants" "$p/usr/libexec"
+install -m 0755 "$dc/installer-wait.sh" "$p/usr/libexec/cabinetos-installer-wait"
+cp "$dc/installer-wait.service" "$p/etc/systemd/system/cabinetos-installer-wait.service"
+ln -s ../cabinetos-installer-wait.service "$p/etc/systemd/system/anaconda.target.wants/cabinetos-installer-wait.service"
 (cd "$p" && find . | cpio -o -H newc -R 0:0 --quiet) | gzip -9 > "$work/product.img"
 
 # The EFI boot partition is replaced by the edited image, the same size, and
@@ -101,7 +122,8 @@ xorriso -indev "$src" -outdev "$out" -boot_image any replay \
   -map "$dc/grub.cfg" /boot/grub2/grub.cfg \
   -map "$dc/grub-theme.txt" /boot/grub2/themes/cabinetos/theme.txt \
   -map "$dc/grub-background.png" /boot/grub2/themes/cabinetos/background.png \
-  -map "$work/product.img" /images/product.img 2>&1 | tail -n 3
+  -map "$work/product.img" /images/product.img \
+  -map "$work/cabinetos-wait.img" /images/cabinetos-wait.img 2>&1 | tail -n 3
 
 # Read it back: the EFI partition the firmware boots (GPT partition 2, in
 # 512-byte sectors) is the edited image, and El Torito's EFI entry is it.
