@@ -14,7 +14,7 @@ fonts) writes, in disk_config/:
 - grub-background.png: the boot menu under UEFI (disk_config/grub-theme.txt),
   1920x1080, laid out as the console's start screen draws itself
   (startscreen.cpp, drawStartScreen): the backdrop, the cabinet, the wordmark,
-  and the one entry, "Install CabinetOS", as a pill like first run's buttons.
+  and the one entry, "Install CabinetOS Handheld", as a pill like first run's buttons.
 
 The cabinet's shapes and colours are build_files/assets/make-boot-watermark.py's,
 which are startscreen.cpp's drawCabinet in its 1024 space. They are repeated
@@ -26,8 +26,15 @@ import sys
 
 from PIL import Image, ImageDraw, ImageFont
 
+# FORK (handheld): the handheld drawn in front of the cabinet. Its shapes are
+# the one list in build_files/assets/handheld_art.py (read here, not edited, so
+# no image layer rebuilds), so every picture of the mark agrees.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "build_files", "assets"))
+import handheld_art  # noqa: E402
+
 WIDTH = 132            # the logo's width at 1x, in pixels
 SS = 8                 # supersampling
+SUB = "Handheld"       # FORK (handheld): the second line under the name
 
 
 def rgb(h, a=1.0):
@@ -74,6 +81,13 @@ def cabinet(px_w):
     dot(692, 656, 54, rgb(0xFFB27A, .10)); dot(692, 656, 40, rgb(0xFFB27A, .16)); dot(692, 656, 28, rgb(0xFFB27A, .22))
     R(668, 646, 48, 20, 10, rgb(0xFFF0E2))
     R(303, 795, 419, 55, 14, panel)
+    for sh in handheld_art.shapes():
+        if sh[0] == "R":
+            R(*sh[1:6], rgb(sh[6]))
+        elif sh[0] == "dot":
+            dot(*sh[1:4], rgb(sh[4]))
+        else:
+            ramp(*sh[1:6], rgb(0xFEE08F), rgb(0xEB5736), True)
     return im
 
 
@@ -92,10 +106,17 @@ def logo(font_path, width):
     gap = W * 56 / (ref.getbbox(text)[2] - ref.getbbox(text)[0])
     cab = cabinet(W)
     top = cab.height + gap
-    H = int(top + bb[3]) + SS
+    # FORK (handheld): a smaller second line under the name, as the boot
+    # watermark has it (build_files/assets/make-boot-watermark.py).
+    sub_font = ImageFont.truetype(font_path, int(font.size * 0.46))
+    sbb = sub_font.getbbox(SUB)
+    sub_top = top + bb[3] + font.size * 0.12
+    H = int(sub_top + sbb[3]) + SS
     canvas = Image.new("RGBA", (W + 2 * SS, H), (0, 0, 0, 0))
     canvas.alpha_composite(cab, (SS, 0))
-    ImageDraw.Draw(canvas).text((SS - bb[0], top), text, font=font, fill=(255, 255, 255, 255))
+    d = ImageDraw.Draw(canvas)
+    d.text((SS - bb[0], top), text, font=font, fill=(255, 255, 255, 255))
+    d.text((SS + (W - (sbb[2] - sbb[0])) / 2 - sbb[0], sub_top), SUB, font=sub_font, fill=(255, 255, 255, 190))
     return canvas
 
 
@@ -140,10 +161,15 @@ def menu_picture(fonts):
     d.text((x0 - mb[0], y), "CabinetOS", font=mark, fill=(255, 255, 255, 240))
     ascent, descent = mark.getmetrics()
     y += ascent + descent
+    # FORK (handheld): the second line, centred under the name.
+    subf = ImageFont.truetype(bold, 34)
+    sb = subf.getbbox(SUB)
+    d.text(((W - (sb[2] - sb[0])) // 2 - sb[0], y - 6), SUB, font=subf, fill=(255, 255, 255, 190))
+    y += 34 + 6
 
     # The one entry, as a focused pill (Title3, 38, SemiBold; a white rim).
     label = ImageFont.truetype(semi, 38)
-    lb = label.getbbox("Install CabinetOS")
+    lb = label.getbbox("Install CabinetOS Handheld")
     pw, ph = lb[2] - lb[0] + 2 * 40, 76
     py = int(y + 56)
     pill = Image.new("RGBA", (pw * SS, ph * SS), (0, 0, 0, 0))
@@ -151,7 +177,7 @@ def menu_picture(fonts):
                                            outline=(255, 255, 255, 217), width=3 * SS)
     over.alpha_composite(pill.resize((pw, ph), Image.LANCZOS), ((W - pw) // 2, py))
     la, ld = label.getmetrics()
-    d.text(((W - (lb[2] - lb[0])) // 2 - lb[0], py + (ph - (la + ld)) // 2), "Install CabinetOS",
+    d.text(((W - (lb[2] - lb[0])) // 2 - lb[0], py + (ph - (la + ld)) // 2), "Install CabinetOS Handheld",
            font=label, fill=(255, 255, 255, 255))
 
     im.alpha_composite(over)

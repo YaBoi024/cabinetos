@@ -99,7 +99,9 @@ unsquashfs -cat "$work/install.img" usr/lib/kbd/consolefonts/Lat2-Terminus16.psf
 rm -f "$work/install.img"
 grep -qx 'product = CabinetOS' "$work/buildstamp" || fail ".buildstamp does not name CabinetOS"
 grep -qx 'version = .*' "$work/buildstamp" || fail ".buildstamp has no version line"
-sed 's/^version = .*/version =/' "$work/buildstamp" > "$p/.buildstamp"
+# FORK (handheld): the product's name is "CabinetOS Handheld", so the title reads
+# "CABINETOS HANDHELD INSTALLATION".
+sed -e 's/^version = .*/version =/' -e 's/^product = .*/product = CabinetOS Handheld/' "$work/buildstamp" > "$p/.buildstamp"
 cp "$dc/installer.conf" "$p/etc/anaconda/conf.d/95-cabinetos.conf"
 cp "$dc/installer.css" "$p/usr/share/anaconda/pixmaps/cabinetos.css"
 cp "$dc/installer-logo.png" "$p/usr/share/anaconda/pixmaps/cabinetos-logo.png"

@@ -82,3 +82,6 @@ system_files/usr/libexec/cabinetos-report
 frontend/src/report.cpp
 frontend/src/report.h
 frontend/src/reportflow.cpp
+system_files/usr/libexec/cabinetos-update-source
+system_files/usr/lib/sysusers.d/
+system_files/usr/lib/tmpfiles.d/

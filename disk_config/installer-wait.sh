@@ -37,6 +37,6 @@ for ((n = 0; n < 1200; n++)); do
   if [ "$width" -ge 1600 ] && ((n % 4 == 0)); then
     setfont -d -C "$tty" /usr/lib/kbd/consolefonts/Lat2-Terminus16.psfu.gz 2>/dev/null
   fi
-  printf '\033[?25l\033[3;3HStarting the CabinetOS installer%-3s' "${dots[n % 4]}" > "$tty" 2>/dev/null
+  printf '\033[?25l\033[3;3HStarting the CabinetOS Handheld installer%-3s' "${dots[n % 4]}" > "$tty" 2>/dev/null
   sleep 0.5
 done

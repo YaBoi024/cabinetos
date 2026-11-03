@@ -33,8 +33,9 @@ The two should be identical:
 
 1. Plug the USB stick and the keyboard into the Deck (through the hub/dock). Switch
    the Deck off. Hold **Volume Down** and press **Power**, and keep holding
-   Volume Down until the boot menu appears. Choose your USB stick, then
-   the entry that starts with **Install**.
+   Volume Down until the boot menu appears. Choose your USB stick. The stick
+   shows **Install CabinetOS Handheld** and starts by itself after a few
+   seconds (**Enter** starts it at once).
 2. The installer lists the internal drives (USB drives are never offered). With
    more than one, type the number of the one to use.
 3. It asks once: *This will erase this machine's drive (model). Continue?

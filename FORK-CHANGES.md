@@ -14,6 +14,15 @@ Files marked `FORK (handheld)` in their comments are the fork's.
   `about.cpp`, `startscreen.cpp`, `build_files/assets/make-boot-watermark.py`,
   `build_files/assets/handheld_art.py` (the one list of shapes the start screen, the
   watermark and `docs/assets/mark-handheld.svg` are made from)
+- **The installer says "CabinetOS Handheld" too**: the boot menu entry and its picture, the waiting
+  line, the installer's logo and title, and the drive question. The stick's volume label stays
+  `CabinetOS` because the boot menu and `ci/brand-installer-iso.sh` find the stick by it.
+  `disk_config/` (`grub.cfg`, `installer-wait.sh`, `iso.toml`, the three pictures),
+  `tools/make-installer-art.py` (draws the handheld from `handheld_art.py`),
+  `ci/brand-installer-iso.sh` (product name)
+- **A new console follows our image**, not MMagTech's: `REPO` in
+  `system_files/usr/libexec/cabinetos-update-source` is `ghcr.io/yaboi024/cabinetos`.
+  `build_files/require-signed-updates.sh` fails the build if it and its own `REPO` differ.
 - **Staying in sync with CabinetOS.** A daily check keeps one issue open while upstream has commits
   the fork has not merged: a trial merge's conflicting files, the changed files on the watch list,
   and the commits. `.github/workflows/watch-upstream.yml`, `.github/upstream-watch.txt`;

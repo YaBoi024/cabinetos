@@ -9,7 +9,7 @@
 # so every way onto a drive shares one copy
 # (docs/decisions/2026-11-03-first-time-setup-in-the-os.md): the account and
 # its home come from system_files/usr/lib/sysusers.d/ and tmpfiles.d/, and the
-# update source, ghcr.io/mmagtech/cabinetos:latest and signed, is set at the
+# update source, this fork's ghcr.io/yaboi024/cabinetos:latest and signed, is set at the
 # first start by cabinetos-update-source.service.
 #
 # Try a change in the VM before building an ISO for it: tools/installer-vm.sh.
@@ -86,12 +86,12 @@ while read -r name type ro tran bytes; do
 done < <(lsblk -dnbo NAME,TYPE,RO,TRAN,SIZE)
 
 if [ ${#names[@]} -eq 0 ]; then
-  off "CabinetOS found no drive to install on. Switching off."
+  off "CabinetOS Handheld found no drive to install on. Switching off."
 fi
 
 pick=0
 if [ ${#names[@]} -gt 1 ]; then
-  printf '\\n  CabinetOS can be installed on:\\n\\n'
+  printf '\\n  CabinetOS Handheld can be installed on:\\n\\n'
   for i in "${!names[@]}"; do printf '    %d  %s\\n' $((i + 1)) "${labels[$i]}"; done
   while :; do
     printf '\\n  Which drive? '
@@ -132,6 +132,9 @@ reboot
 # installer finds itself by. bootc-image-builder's default is
 # "Container-Installer-x86_64". Letters, digits, "-" and "_" only.
 [customizations.iso]
+# FORK (handheld): must stay "CabinetOS". The boot menu (grub.cfg) and
+# ci/brand-installer-iso.sh find the stick by this exact label; the name the
+# person sees is "Install CabinetOS Handheld", set there.
 volume_id = "CabinetOS"
 
 # The installer's screens. bootc-image-builder always enables Users, Services,
