@@ -33,6 +33,8 @@ constexpr const char* kPs3User = "00000001";
 
 // Defined in standalone.cpp, each with what it does and why.
 std::string binaryOf(const Emulator& e);
+std::vector<std::string> noNetwork();
+std::vector<std::string> noNetworkInstall();
 int64_t nowMs();
 bool isDir(const std::string& p);
 std::string readFile(const std::string& path);
