@@ -431,9 +431,6 @@ Each with where it is recorded.
   `tools/check-applied.sh` (the builder image) and the disc rig
   (`tools/disc-rig/README.md`). Their machines come from the environment
   (CONTRIBUTING.md, "Running and testing").
-- **Some of the maintainer's own details are still in the code:** the empty server
-  address field on first run shows his server's address as its example
-  (`setup.cpp`).
 - **A fork's image carries the project's key and image name until the fork
   edits them:** they are written into tracked files (CONTRIBUTING.md,
   "Generate a signing key", lists them).
