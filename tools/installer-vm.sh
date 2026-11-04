@@ -19,10 +19,11 @@
 #                                            (ISO is a file in ~/installer-vm)
 #   tools/installer-vm.sh boot               boot what was installed, no ISO
 #   tools/installer-vm.sh iso ISO            boot the ISO, keeping the disks
-#   tools/installer-vm.sh portable IMAGE     boot a disk image (a qcow2 in the
-#                                            folder) as a USB drive: a portable
-#                                            install, the folder's disk*.qcow2
-#                                            beside it as the PC's own drives
+#   tools/installer-vm.sh portable IMAGE     boot a disk image (a qcow2 or an
+#                                            unpacked .img in the folder) as a
+#                                            USB drive: a portable install, the
+#                                            folder's disk*.qcow2 beside it as
+#                                            the PC's own drives
 #   tools/installer-vm.sh windows-disk N     make diskN.qcow2 a 16 GB drive laid
 #                                            out as Windows leaves one: EFI
 #                                            system, Microsoft reserved, an NTFS
@@ -136,7 +137,11 @@ run_vm() {   # $1 = ISO path on the A9, or empty to boot the disk; $2 = a disk i
   local iso=$1 usb=${2:-} net="-nic none" extra="" rtc="" tz=""
   ((NET)) && net="-nic user,model=virtio-net-pci"
   [[ -n $iso ]] && extra="-drive file=/work/$iso,media=cdrom,readonly=on,if=none,id=cd0 -device ide-cd,drive=cd0,bus=ide.0,bootindex=1"
-  [[ -n $usb ]] && extra="-drive file=/work/$usb,if=none,id=usb0 -device usb-storage,drive=usb0,removable=on,bootindex=1"
+  # A raw file named as raw: left to guess, QEMU refuses writes to its first
+  # sector, which is the partition table growing into the drive.
+  local format=""
+  [[ $usb == *.img ]] && format=",format=raw"
+  [[ -n $usb ]] && extra="-drive file=/work/$usb$format,if=none,id=usb0 -device usb-storage,drive=usb0,removable=on,bootindex=1"
   # The A9's own zone for QEMU's idea of local time.
   [[ $CLOCK == local ]] && rtc="-rtc base=localtime" && tz="-e TZ=\$(timedatectl show -p Timezone --value)"
   local disks="" i
@@ -176,7 +181,7 @@ case "$CMD" in
     # As a tester's PC boots one: the image is the only USB drive, the
     # firmware boots it first, and the folder's disks are the PC's own NVMe
     # drives (windows-disk makes one). The image is the drive: grow it
-    # first (qemu-img resize) to try a larger stick.
+    # first (qemu-img resize, or truncate for a .img) to try a larger stick.
     run_vm "" "${1:?portable needs a disk image in the folder}" ;;
   windows-disk)
     # What Windows leaves on a PC's drive, with a file on its volume, built
