@@ -32,7 +32,7 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
   fallback visible rather than catastrophic, but the tmpfiles rule is the fix.
 
 - **`ldd` prints "not found" and exits 0.** `build_files/install-frontend.sh`
-  reads its output, not its status, for the frontend and all 22 cores.
+  reads its output, not its status, for the frontend and all 23 cores.
   **Run the control** — the same script into a bare `fedora:44` names all six
   libraries the frontend needs, plus `libGL` for melonDS and **`libX11` and
   `libXext` for PPSSPP**, which nothing had written down anywhere.
@@ -111,7 +111,7 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
   invalid `concurrency` expression is a workflow that does not parse.
 
 - **A workflow that build.yml CALLS must not also trigger itself where
-  build.yml runs**, or one change queues the same 22 core builds
+  build.yml runs**, or one change queues the same 23 core builds
   twice. That is not merely wasteful: the runner concurrency cap means the
   duplicate starves the image build of the runners it is waiting for, and it
   doubled the wall clock of the change that introduced it. Cancelling one by
@@ -187,7 +187,7 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
 
 - **A core build failing is not always the core.** `Curl error (28)` is the
   network. Re-run before reading anything into a single red core. This matters
-  more now: 22 core builds gate every image build.
+  more now: 23 core builds gate every image build.
 
 - **GitHub serves some repositories at 55 KB/s over git and 9.8 MB/s over
   HTTPS.** `build-core.sh` clones `--filter=blob:none` — but **NOT for
@@ -439,6 +439,47 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
   image on the A9, its last line named a variable that no longer existed and
   the image build would have failed at the very end. Five minutes, against a
   wasted image build.
+
+## Running from a USB drive (learned 2026-11-03, the portable install)
+
+- **A disk image boots with `console=tty0 console=ttyS0`**, so `/dev/console`
+  is the serial port: systemd's messages, and anything that asks on the
+  console, go there, and the screen sits on the last kernel line as if
+  frozen. `tools/installer-vm.sh` writes the serial port to `serial.log` in
+  the VM's folder; read that first. An ISO install has no serial console.
+- **A new console's first start is slow in the VM and nothing is wrong:**
+  Bazzite's hardware setup took 3.5 minutes from a USB-attached disk image
+  (it adds kernel arguments, then restarts), and the Flatpak setup downloads
+  the emulators meanwhile; the session starts only after the hardware setup.
+  A hard power-off in that time loses the journal's unsynced tail: press the
+  power button (`system_powerdown`) and wait.
+- **The kernel writes the hardware clock in local time only when the first
+  time zone it is told at a start is not UTC** (`persistent_clock_is_local`,
+  set once per start). The journal says which: "RTC configured in
+  localtime, applying delta of 0 minutes to system time" on a start with no
+  zone. So a start without a zone must not let chrony's `rtcsync` write the
+  clock, and the zone chosen later cannot change that until the next start.
+- **`hwclock --hctosys` waits for the clock's once-a-second interrupt** and
+  fails after ten seconds ("select() to /dev/rtc0 to wait for clock tick
+  timed out") where it never comes: QEMU's clock, and some boards.
+  `/sys/class/rtc/rtc0/since_epoch` reads the clock's face with no wait.
+- **systemd's first-boot wizard is on in the base, and the image has no
+  language, keyboard or zone file**, so a first boot would stop at a text
+  prompt asking for all three. A disk image's first start is not a first
+  boot to systemd: its `/etc/machine-id` is empty, not "uninitialized", so
+  the wizard was skipped (the journal says "unmet condition check
+  ConditionFirstBoot=yes"). A disk build that writes "uninitialized" would
+  bring the prompt.
+- **An ISO install keeps the PC's clock in local time, written by the
+  installer**: its `/etc/adjtime` says LOCAL with the install's own time on
+  it (the image's copy is dated 1970), as the A9's does from 2026-09-19. The
+  kickstart has no timezone line. The installer's own Time & Date screen
+  still read the clock as UTC (04:26 at 09:26 Eastern, in the VM with a
+  local-time clock); the installed console's first start was right.
+- **A disk image written to a bigger drive keeps its GPT's backup at the
+  image's end.** sfdisk says so ("GPT PMBR size mismatch", "The backup GPT
+  table is not on the end of the device") and moves it as it writes, so one
+  `sfdisk -N` grows the last partition to the drive's real end.
 
 ## The release download (learned 2026-10-10, the first release)
 

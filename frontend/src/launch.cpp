@@ -129,7 +129,7 @@ static bool loadCore(const LaunchJob& job, const std::string& fsName) {
     // it on the server under the name Cabinet's Mac used) works on it
     // unchanged.
     if (job.coreName == "pcsx2") {
-        // The level's values, unless a --ps2-upscale or --ps2-anisotropy
+        // The level's values, unless a --ps2-upscale or --ps2-aniso
         // given for a measurement says otherwise.
         const quality::Ps2 q = quality::ps2(quality::forGame(job.romId));
         core.setPs2(storage::imageAssetsDir() + "/pcsx2/resources",

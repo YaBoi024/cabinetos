@@ -13,7 +13,7 @@ fonts) writes, in disk_config/:
   the installer's screens (disk_config/installer.css).
 - grub-background.png: the boot menu under UEFI (disk_config/grub-theme.txt),
   1920x1080, laid out as the console's start screen draws itself
-  (startscreen.cpp, drawStartScreen): the backdrop, the cabinet, the wordmark,
+  (startscreen.cpp, drawStartup): the backdrop, the cabinet, the wordmark,
   and the one entry, "Install CabinetOS Handheld", as a pill like first run's buttons.
 
 The cabinet's shapes and colours are build_files/assets/make-boot-watermark.py's,

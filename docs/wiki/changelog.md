@@ -4,6 +4,14 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.11.03.6 {#v2026-11-03-6}
+
+- **Fixed:** while a PlayStation 3 or Vita game was installing, its emulator
+  could reach the internet, which no emulator is meant to. It now has no
+  network during an install, as when a game plays. Games install and play as
+  before.
+  ([#650](https://github.com/MMagTech/cabinetos/pull/650))
+
 ## 2026.11.02.4 {#v2026-11-02-4}
 
 - **New:** Model 2 and Model 3 arcade games with buttons, such as the

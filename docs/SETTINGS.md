@@ -233,6 +233,17 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
   menu, while a state loads, during rewind and when the game ends; every
   send lasts 250 ms and is renewed while it holds, so a crash cannot leave
   a pad buzzing. Pads without motors ignore it.
+- **In-game shortcuts: Off / On, off by default** (#76 to #80). Below Rumble.
+  With it on, a tap of the shortcut button opens the pause menu, and holding
+  it with a second button runs a shortcut; the combinations are fixed
+  (docs/wiki/navigation.md). **Built.**
+- **"Shortcuts use: Home"**, under the switch while it is on and a pad is
+  connected, read with it as one sentence, for the pad in hand, which it names
+  (#313). Pressing it, then a spare button, adds that button to Home, for a
+  pad whose Home the console cannot see, and is remembered for that kind of
+  pad. B cancels. A button games or the shortcuts need is ignored, and it goes
+  on listening; Select, Start, L3 and R3 are refused, and the row says why
+  ("Games use Select"). **Built.**
 
 ## Network
 

@@ -130,7 +130,7 @@ struct App {
     int initialFocus = -1;
     // Which row to start on, so each of Home's rows can be photographed without
     // a controller. 0 Recent, 1 Favorites. The bar is not a row any more — see
-    // the Row enum — so a capture of it wants --focus-bar, not --row 0.
+    // the Row enum — so a capture of it wants --focus-bar, not --focus-row 0.
     int initialRow = -1;
     // What to type into Search for a capture. See the route below.
     const char* searchQuery = nullptr;

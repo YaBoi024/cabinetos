@@ -388,8 +388,9 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
         // cover among the platform's games, which cost a fetch per platform —
         // 1.55 s of a 1.8 s boot, measured against the reference server. The
         // tiles come up in their colour and the covers are filled in behind
-        // Home; see fillTileCovers. MMagTech chose that over both paying for
-        // them at boot and using RomM's platform logo, 2026-09-22.
+        // Home; see App::startCoverFill (coverfill.cpp). MMagTech chose that
+        // over both paying for them at boot and using RomM's platform logo,
+        // 2026-09-22.
         lib.platformTiles.push_back(std::move(tile));
     }
 

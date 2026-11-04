@@ -39,7 +39,9 @@
 namespace setup {
 
 struct Options {
-    // Open at a named step — network, wifi, server, pair, controller, done.
+    // Open at a named step — timezone, network, server, pair, controller,
+    // done. With none, first run opens at the time zone on a console that has
+    // no zone, and at the network on any other.
     //
     // The same reasoning as `--screen`: every screen has to be photographable
     // from a machine with no controller and nobody to describe it. What it does
