@@ -165,7 +165,6 @@ int App::run(int argc, char** argv) {
 
     leaveGameAtExit();
 
-    closeJoinAtExit();   // FORK (handheld)
     closeStandaloneAtExit();
     reportAndUnloadCore();
     if (audioStream) SDL_DestroyAudioStream(audioStream);

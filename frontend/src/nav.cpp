@@ -131,8 +131,6 @@ auto App::navigate(screens::Nav n) -> bool {
         case Screen::Search: apply(searchScreen.key(n)); return true;
         case Screen::AddAccount: apply(addAccountScreen.key(n)); return true;
         case Screen::TailscaleSignIn: apply(tsSignInScreen.key(n)); return true;
-        case Screen::Friend: apply(friendScreen.key(n)); return true;
-        case Screen::Join: apply(joinScreen.key(n)); return true;
         case Screen::Report: apply(reportScreen.key(n)); return true;
         case Screen::WhatsNew: apply(whatsNewScreen.key(n)); return true;
         case Screen::HowTo: apply(howToScreen.key(n)); return true;
@@ -177,8 +175,6 @@ void App::tickScreens(float dt, screens::Ctx& ctx) {
     accountScreen.tick(dt);
     addAccountScreen.tick(dt);
     tsSignInScreen.tick(dt);
-    friendScreen.tick(dt);
-    joinScreen.tick(dt);
     reportScreen.tick(dt);
     whatsNewScreen.tick(dt);
     howToScreen.setHasFocus(!barFocused && !accountsOpen);
@@ -235,8 +231,6 @@ void App::drawScreen(float sc) {
         case Screen::Search: searchScreen.draw(ctx); break;
         case Screen::AddAccount: addAccountScreen.draw(ctx); break;
         case Screen::TailscaleSignIn: tsSignInScreen.draw(ctx); break;
-        case Screen::Friend: friendScreen.draw(ctx); break;
-        case Screen::Join: joinScreen.draw(ctx); break;
         case Screen::Report: reportScreen.draw(ctx); break;
         case Screen::WhatsNew: whatsNewScreen.draw(ctx); break;
         case Screen::HowTo: howToScreen.draw(ctx); break;
@@ -278,8 +272,6 @@ void App::drawScreenGlass(bool gameUp, float sc) {
             // on this screen for glass to blur.
             case Screen::AddAccount: break;
             case Screen::TailscaleSignIn: break;
-            case Screen::Friend: break;
-            case Screen::Join: break;
             case Screen::Report: break;
             case Screen::WhatsNew: break;
             case Screen::HowTo: howToScreen.drawGlass(ctx); break;

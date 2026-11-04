@@ -10,7 +10,6 @@
 
 #include "chargelimit.h"
 #include "idlesleep.h"
-#include "moonlight.h"
 #include "prefs.h"
 #include "quality.h"
 #include "rumble.h"
@@ -227,11 +226,6 @@ void App::buildSettings() {
              "Paired devices", "",
              n == 0 ? "None" : std::to_string(n) + " paired"},
             tailscaleRow(on, streamingNow),
-            // FORK (handheld): the walk-through for a friend (friendflow.cpp).
-            {on ? K::Action : K::Disabled, SetFriend, "Play with a friend", "", ""},
-            // FORK (handheld): this console as the guest (joinflow.cpp).
-            {moonlight::installed() && !streamingNow ? K::Action : K::Disabled, SetJoin,
-             "Join a friend", moonlight::installed() ? "" : "Needs Moonlight", ""},
         }});
     }
 
@@ -600,10 +594,6 @@ void App::applySetting(const screens::Result& res) {
         pressTailscale();
     } else if (res.value == SetPairedDevices) {
         pressPairedDevices();
-    } else if (res.value == SetFriend) {
-        pressFriend();
-    } else if (res.value == SetJoin) {
-        pressJoin();
     } else if (res.value == SetSteam) {
         pressSteam();
     } else if (res.value == SetSteamShow) {
