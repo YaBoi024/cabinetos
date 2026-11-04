@@ -457,7 +457,7 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
 - **SHIM ON A DRIVE'S FALLBACK PATH WRITES TO THE PC'S FIRMWARE.** With
   `EFI/BOOT/fbx64.efi` there, the VM's firmware gained `\EFI\fedora\shimx64.efi`
   on its first boot. `strings -el vars.fd` shows it. Without that file and with
-  grub copied beside shim, the firmware gained nothing and the VM booted the
+  grub copied beside shim, the firmware gained no entry and the VM booted the
   same, from a drive with no other change.
 - **A `journalctl --follow` started before the journal moves to the drive stops
   at the move.** The first boot check's log ended at
