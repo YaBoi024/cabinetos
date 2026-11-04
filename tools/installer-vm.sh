@@ -34,7 +34,9 @@
 #                                            y, n, f1 ... ; ctrl-alt-f2 chords)
 #   tools/installer-vm.sh type 'text'        type text
 #   tools/installer-vm.sh click X Y          click at a pixel of a 1280x800 shot
-#   tools/installer-vm.sh stop               switch the VM off
+#   tools/installer-vm.sh off                press the power button, so its
+#                                            journal reaches the drive
+#   tools/installer-vm.sh stop               switch the VM off at once
 #
 #   --net     give the VM a network (user-mode NAT). Without it the VM has no
 #             network device at all, which is the point: the install is meant
@@ -51,8 +53,9 @@
 #
 # The VM's disk is an NVMe drive, as on the A9, so the installer sees a model
 # name ("QEMU NVMe Ctrl") and a size, the two things its question must name.
-# The serial port is written to serial.log in the folder: a disk image boots
-# with console=ttyS0 last, so systemd's messages go there, not to the screen.
+# The serial port is written to serial.log in the folder: a qcow2 boots with
+# console=ttyS0 last, so systemd's messages go there, not to the screen. The
+# portable .img has no serial console; read its journal from the drive.
 set -uo pipefail
 
 A9=${CABINETOS_A9:?set it to cabinet@<your console> (CLAUDE.local.example.md)}
@@ -128,6 +131,8 @@ elif op == "click":
     call("input-send-event", events=[{"type": "btn", "data": {"down": True, "button": "left"}}])
     time.sleep(0.08)
     call("input-send-event", events=[{"type": "btn", "data": {"down": False, "button": "left"}}])
+elif op == "powerdown":
+    call("system_powerdown")
 elif op == "quit":
     call("quit")
 PY
@@ -261,6 +266,7 @@ PY
   key)  qmp key "$@" ;;
   type) qmp type "$@" ;;
   click) qmp click "$1" "$2" "${3:-1280}" "${4:-800}" ;;
+  off) qmp powerdown ;;
   stop) qmp quit 2>/dev/null; "${SSH[@]}" "podman rm -f $DIR >/dev/null 2>&1; echo stopped" ;;
   *) sed -n '2,40p' "$0"; exit 1 ;;
 esac

@@ -143,7 +143,7 @@ xz --threads=0 -6 --check=crc32 --stdout "$raw" >"$out"
 chown --reference="$raw" "$out" "$out.sha256"
 
 {
-  echo "Written to a drive: $(stat -c %s "$raw") bytes ($(($(stat -c %s "$raw") / 1000000000)) GB)"
-  echo "Download: $(stat -c %s "$out") bytes ($(($(stat -c %s "$out") / 1000000000)) GB)"
+  echo "Written to a drive: $(stat -c %s "$raw") bytes"
+  echo "Download: $(stat -c %s "$out") bytes"
   cat "$out.sha256"
 } | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"

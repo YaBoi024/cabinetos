@@ -442,11 +442,37 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
 
 ## Running from a USB drive (learned 2026-11-03, the portable install)
 
-- **A disk image boots with `console=tty0 console=ttyS0`**, so `/dev/console`
-  is the serial port: systemd's messages, and anything that asks on the
-  console, go there, and the screen sits on the last kernel line as if
+- **The builder's disks boot with `console=tty0 console=ttyS0`**, so
+  `/dev/console` is the serial port: systemd's messages, and anything that asks
+  on the console, go there, and the screen sits on the last kernel line as if
   frozen. `tools/installer-vm.sh` writes the serial port to `serial.log` in
-  the VM's folder; read that first. An ISO install has no serial console.
+  the VM's folder; read that first on a qcow2. An ISO install has no serial
+  console, and neither has the portable file, which takes it out
+  (`ci/make-portable-image.sh`).
+- **A QCOW2'S SIZE SAYS NOTHING OF WHAT A DRIVE NEEDS.** The builder's qcow2
+  artifact was 6.6 GB and the plan said a portable would write about 7 GB; the
+  qcow2 is compressed. The same image as a raw disk is 28.9 GB, twice the
+  image's size whatever the settings ask, holding about 10 GB. Measure the raw
+  file.
+- **SHIM ON A DRIVE'S FALLBACK PATH WRITES TO THE PC'S FIRMWARE.** With
+  `EFI/BOOT/fbx64.efi` there, the VM's firmware gained `\EFI\fedora\shimx64.efi`
+  on its first boot. `strings -el vars.fd` shows it. Without that file and with
+  grub copied beside shim, the firmware gained nothing and the VM booted the
+  same, from a drive with no other change.
+- **A `journalctl --follow` started before the journal moves to the drive stops
+  at the move.** The first boot check's log ended at
+  `systemd-journal-flush.service` on both starts and looked like a hang, while
+  the console went on to first run. Order the unit after that service.
+- **A RAW FILE LEFT FOR QEMU TO GUESS CANNOT BE WRITTEN IN ITS FIRST SECTOR.**
+  That is where a partition table grows. Say `format=raw`, as
+  `tools/installer-vm.sh portable` does for a `.img`.
+- **A GPT CUT SHORT IS NOT READ AGAIN, BY SFDISK.** Its last usable sector is
+  then past the end. Dump the table, truncate the file and write the dump back,
+  without `device:` and `last-lba:`: every id stays, and nothing warns.
+  `sgdisk -e` also copes, with warnings and a gap for alignment.
+- **GitHub's Ubuntu runner has `/dev/kvm`**, group `kvm`, so `chmod 666` it
+  first (measured 2026-11-03): a portable's first start took about 4 minutes
+  there, and the next start 45 seconds to first run.
 - **A new console's first start is slow in the VM and nothing is wrong:**
   Bazzite's hardware setup took 3.5 minutes from a USB-attached disk image
   (it adds kernel arguments, then restarts), and the Flatpak setup downloads
