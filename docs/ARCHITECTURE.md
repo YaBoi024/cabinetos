@@ -330,7 +330,7 @@ somebody's PC (`docs/decisions/2026-11-03-running-from-a-usb-drive.md`).
 `build-disk.yml`'s `portable` type makes that file: bootc-image-builder makes
 a raw disk with no account and no size (`disk_config/portable.toml`),
 `ci/make-portable-image.sh` shrinks it, gives it an ISO install's boot line,
-takes out the boot file that would write to the PC's firmware and compresses
+takes out the boot file that would add an entry to the PC's boot list and compresses
 it, and `ci/check-portable-boots.sh` boots the result in a VM and fails the
 run unless it reaches first run
 (`docs/decisions/2026-11-03-portable-disk-image.md`).
