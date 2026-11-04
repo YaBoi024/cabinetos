@@ -86,7 +86,10 @@ entries=("$work"/boot/loader/entries/*.conf)
 [[ ${#entries[@]} == 1 ]] || fail "expected one boot entry, found ${#entries[@]}"
 grep -qE '^options .* console=tty0 console=ttyS0( |$)' "${entries[0]}" ||
   fail "the builder's boot line no longer has its serial console: $(grep '^options' "${entries[0]}")"
-sed -i -E '/^options /{s/ console=tty0 console=ttyS0//; s/^options /options rhgb quiet /}' "${entries[0]}"
+# Written back into the same file, not by `sed -i`: a new file on this runner
+# would have no SELinux label.
+entry=$(sed -E '/^options /{s/ console=tty0 console=ttyS0//; s/^options /options rhgb quiet /}' "${entries[0]}")
+printf '%s\n' "$entry" >"${entries[0]}"
 umount "$work/boot"
 
 # 1. THE SIZE. Packed first, so the chunks hold no free space to carry along.

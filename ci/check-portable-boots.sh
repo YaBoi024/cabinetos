@@ -26,7 +26,7 @@
 # drive: a `journalctl --follow` started before that stops at the move.
 set -euo pipefail
 
-image=${1:?usage: check-portable-boots.sh IMAGE.img.xz WORK}
+image=$(realpath "${1:?usage: check-portable-boots.sh IMAGE.img.xz WORK}")
 work=${2:?usage: check-portable-boots.sh IMAGE.img.xz WORK}
 
 # The first start took 4 minutes 10 seconds on the runner and the second 45
