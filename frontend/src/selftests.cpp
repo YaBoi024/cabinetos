@@ -434,7 +434,7 @@ int firstRunRules() {
     const struct { const char* host; bool local; } schemes[] = {
         {"100.101.1.2", true},   {"100.101.1.2:8080", true}, {"100.64.0.1", true},
         {"100.127.255.254", true}, {"100.128.0.1", false},   {"100.63.0.1", false},
-        {"192.168.1.10:6005", true}, {"romm", true},         {"romm.example.com", false},
+        {"192.168.77.20:7070", true}, {"romm", true},        {"romm.example.com", false},
     };
     for (const auto& c : schemes) {
         ++cases;

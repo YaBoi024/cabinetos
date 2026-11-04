@@ -201,6 +201,34 @@ std::string binaryOf(const Emulator& e) {
     return e.binary ? e.binary : "";
 }
 
+// NO EMULATOR REACHES THE NETWORK (#557; the ones inside the console's
+// program, netblock.h). This is the sandbox for a program in the image, up to
+// its "--", the emulator's command to follow. bwrap gives it a network of its
+// own with nothing in it, and hides systemd-resolved's folder, whose Unix
+// socket otherwise still answers a name lookup there: measured on the A9, the
+// Mario Kart Wii server's name resolved in 0.1 s; hidden, a lookup failed in
+// 8 ms and a connection in 1 ms. Everything else is the console's own, devices
+// included, and gamescope's X11 socket is a path, so it is reached as before.
+// A Flatpak is given --unshare=network instead (Run::start, startXemu), whose
+// sandbox already hides the folder.
+std::vector<std::string> noNetwork() {
+    return {"bwrap", "--dev-bind", "/", "/", "--unshare-net",
+            "--tmpfs", "/run/systemd/resolve", "--"};
+}
+
+// THE SAME FOR A RUN THAT ONLY INSTALLS SOMETHING (rpcs3Headless,
+// vitaHeadless), which proc::run waits for, up to the emulator's `env`.
+// proc::run stops what it started, and that is bwrap, with the emulator below
+// it, so --die-with-parent takes the emulator with it on a cancel. Without it
+// the install goes on writing into a folder the console is deleting. No core
+// file either: RPCS3 aborts on the way out of every install (rpcs3Headless).
+std::vector<std::string> noNetworkInstall() {
+    std::vector<std::string> args = noNetwork();
+    args.insert(args.begin() + 1, "--die-with-parent");
+    args.insert(args.end(), {"prlimit", "--core=0", "--"});
+    return args;
+}
+
 int64_t nowMs() {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -601,17 +629,7 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
     // child, found as a Flatpak's is. Its settings are in its home
     // (XDG_CONFIG_HOME); what it builds per game goes in the game's folder
     // (XDG_CACHE_HOME, when `cacheInGame`), which is how a removed game takes
-    // its cache with it.
-    //
-    // NO EMULATOR REACHES THE NETWORK (#557; the ones inside the console's
-    // program, netblock.h). bwrap gives it a network of its own with nothing
-    // in it, and hides systemd-resolved's folder, whose Unix socket otherwise
-    // still answers a name lookup there: measured on the A9, the Mario Kart
-    // Wii server's name resolved in 0.1 s; hidden, a lookup failed in 8 ms
-    // and a connection in 1 ms. Everything else is the console's own,
-    // devices included, and gamescope's X11 socket is a path, so it is
-    // reached as before. A Flatpak is given --unshare=network instead
-    // (below, and startXemu), whose sandbox already hides the folder.
+    // its cache with it. It has no network (noNetwork).
     if (e.binary) {
         // THE GRAPHICS DRIVER'S MEMORY STAYS SHARED, where the console's own
         // is, even though RPCS3's cache moves into the game's folder: Mesa
@@ -627,9 +645,8 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
         const std::string mesaCache = xdgCache && *xdgCache
                                           ? std::string(xdgCache)
                                           : std::string(userHome ? userHome : "") + "/.cache";
-        const std::vector<std::string> args = {
-            "bwrap", "--dev-bind", "/", "/", "--unshare-net",
-            "--tmpfs", "/run/systemd/resolve", "--",
+        std::vector<std::string> full = noNetwork();
+        full.insert(full.end(), {
             "env",
             "XDG_CONFIG_HOME=" + dir,
             "XDG_CACHE_HOME=" + (e.cacheInGame ? entryPath : dir),
@@ -639,8 +656,7 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
             "QT_QPA_PLATFORM=xcb",
             "SDL_JOYSTICK_HIDAPI=0",
             binaryOf(e),
-        };
-        std::vector<std::string> full = args;
+        });
         if (std::strcmp(e.core, "xenia") == 0) {
             xeniaArgs(full, dir, saveDir, logPath_, level, romPath);
         } else if (std::strcmp(e.core, "cemu") == 0) {

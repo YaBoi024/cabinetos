@@ -97,8 +97,7 @@ docs/WORKING.md and docs/NEXT-SESSION.md.
 ## Machine details
 
 This repository is public, so no new address, host name, password or home
-path of anybody's machines goes in a tracked file. The ones still there are
-being moved out (docs/ARCHITECTURE.md, "Known gaps"). The maintainer's are in
+path of anybody's machines goes in a tracked file. The maintainer's are in
 a file in his home folder, loaded here:
 
 @~/.claude/cabinetos.local.md

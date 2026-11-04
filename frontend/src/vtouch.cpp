@@ -131,8 +131,6 @@ void close() {
     std::fprintf(stderr, "[vtouch] touch screen gone\n");
 }
 
-bool isOpen() { return gFd >= 0; }
-
 void touch(int f, float x, float y) {
     if (gFd < 0 || f < 0 || f >= kFingers) return;
     const int px = toRange(x), py = toRange(y);

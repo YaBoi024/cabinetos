@@ -83,7 +83,7 @@ bool qmpCommand(int fd, const std::string& cmd) {
 }
 
 // What the image carries for xemu: `xbox_hdd.qcow2`, xemu's own blank drive
-// (xemu-project/xemu-dashboard, pinned by build_files/install-xemu-assets.sh),
+// (xemu-project/xemu-dashboard, pinned by build_files/install-xemu-drive.sh),
 // and `eeprom.bin`, the one EEPROM every CabinetOS console uses. For
 // development, `CABINETOS_XEMU_ASSETS` points somewhere else.
 std::string xemuAssets() {

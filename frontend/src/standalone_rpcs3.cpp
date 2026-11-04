@@ -78,15 +78,16 @@ std::string newestPup(const std::string& biosDir) {
 // IT EXITS 134 AFTER A SUCCESSFUL INSTALL: an abort in a static destructor,
 // after it has logged "Successfully installed" (lessons, the PS3 notes;
 // measured again 2026-09-28 on the pinned build). So the log line decides,
-// never the exit code. `prlimit --core=0` because every one of those aborts
-// would otherwise leave a core file of a process with gigabytes mapped.
+// never the exit code. `prlimit --core=0` (in noNetworkInstall) because every
+// one of those aborts would otherwise leave a core file of a process with
+// gigabytes mapped.
 std::string rpcs3Headless(const Emulator& e, const std::string& configHome,
                           const std::vector<std::string>& what, const std::atomic<bool>& cancel) {
-    std::vector<std::string> args = {
-        "prlimit", "--core=0", "--",
+    std::vector<std::string> args = noNetworkInstall();
+    args.insert(args.end(), {
         "env", "XDG_CONFIG_HOME=" + configHome, "XDG_CACHE_HOME=" + configHome,
         binaryOf(e), "--headless",
-    };
+    });
     args.insert(args.end(), what.begin(), what.end());
     // Half an hour: 20 GB went in at 161 MB/s on the VM's slow disk; a USB
     // hard drive could be a fifth of that.

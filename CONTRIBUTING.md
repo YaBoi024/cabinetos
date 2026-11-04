@@ -5,9 +5,9 @@ CabinetOS, build it, test it, and change one thing safely. A small fix needs
 no asking; anything that decides something new is raised on an issue first
 ("Pull requests and issues", below). It is written from what the code does today. Where an older doc
 describes the code differently, the code wins; docs/decisions/, and
-docs/PROJECT.md before it, stay the record of what was decided. The known
-disagreements are listed at the end of
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+docs/PROJECT.md before it, stay the record of what was decided. Any known
+disagreement is listed in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
+section 7.
 
 **Read in this order:**
 
@@ -40,11 +40,11 @@ downloads a whole new image and boots into it.
   layer of its own, no toolkit). It draws every screen, and it hosts the
   emulators: 24 libretro cores and PCSX2 (PlayStation 2, built as a library)
   run inside its process.
-- **Seven emulators run as separate programs**, started and stopped by the
+- **Eight emulators run as separate programs**, started and stopped by the
   frontend like a game: Eden (Switch) and xemu (Xbox) from Flathub, and RPCS3
   (PlayStation 3), Xenia Edge (Xbox 360), Cemu (Wii U), Vita3K (PlayStation
   Vita), sm2-emu (Sega Model 2) and Supermodel (Sega Model 3) built into the
-  image. Steam's Big Picture is a seventh,
+  image. Steam's Big Picture is a ninth,
   an optional entry that hands the screen over and comes back.
 - **Everything comes from RomM:** games, covers, firmware, saves and save
   states. The console keeps a cache of downloaded games and its own
@@ -596,10 +596,7 @@ here, not reworded; follow the link for the full text.
 - **Emulators favour stability over the newest version**: a pin moves only
   for one of five named reasons, with its evidence, and the question is
   asked out loud on the issue or pull request
-  (`docs/decisions/2026-10-23-when-an-emulator-pin-moves.md`). This is the
-  rule for moving a core's pin; the older comment in
-  `cores/build-core.sh` saying pins follow Cabinet's manifest is out of date
-  (docs/ARCHITECTURE.md, section 7).
+  (`docs/decisions/2026-10-23-when-an-emulator-pin-moves.md`).
 - **Fewer settings; no emulator settings page** (docs/SETTINGS.md, "The screen";
   "fewer settings is the rule", docs/PROJECT.md, the glow decision of
   2026-10-04).

@@ -5,7 +5,8 @@
 // `Host` namespace, three `InputManager::ConvertHostKeyboard*`, and the
 // `g_host_hotkeys` table — which is a VARIABLE, not a function, and is the one
 // a dlopen of an incomplete layer fails on before naming any of the others.
-// docs/PCSX2-HOST-SURFACE.md, and `cores/build-pcsx2.sh` re-derives the list.
+// docs/history/PCSX2-HOST-SURFACE.md, and `cores/build-pcsx2.sh` re-derives the
+// list.
 //
 // MOST OF THEM ARE DELIBERATELY EMPTY, and that is not laziness. A console has
 // no clipboard, no file selector, no achievements login, no Big Picture mode to
@@ -649,7 +650,7 @@ static bool RunOnCPUThread(const CabinetPS2::Config& config, std::string* error)
 	::Pad::ClearPortBindings(s_settings, 0);
 	s_settings.ClearSection("Hotkeys");
 
-	// Audio is the frontend's, as it is for all twenty-one libretro cores.
+	// Audio is the frontend's, as it is for every libretro core.
 	// Null rather than absent: it is a real backend that produces silence, so
 	// the emulator runs correctly rather than pretending.
 	// "SDL" NAMES CABINET'S STREAM HERE, NOT SDL'S. The patch in

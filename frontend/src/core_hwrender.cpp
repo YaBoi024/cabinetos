@@ -562,7 +562,7 @@ std::optional<bool> environmentHWRender(unsigned cmd, void* data) {
             //
             // A core that cannot do Vulkan is unaffected: it ignores an answer
             // it has no path for and asks for GLES anyway, which canServe
-            // still accepts. Nothing about the twenty-one cores changes.
+            // still accepts. Nothing about those cores changes.
             *static_cast<unsigned*>(data) =
                 vk::available() ? RETRO_HW_CONTEXT_VULKAN : RETRO_HW_CONTEXT_OPENGLES3;
             return true;
