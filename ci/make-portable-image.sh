@@ -24,7 +24,12 @@
 # 2. THE BOOT LINE. The builder always adds `console=tty0 console=ttyS0`, which
 #    sends systemd's messages to a serial port a tester's PC does not have and
 #    leaves the TV on the last kernel line for the minutes a first start takes.
-#    It gets what an ISO install has instead, `rhgb quiet`: the boot splash.
+#    It gets what an ISO install has instead, `rhgb quiet`: the boot splash. It
+#    also gets `bluetooth.disable_ertm=1`, the one setting Bazzite's hardware setup
+#    adds on a normal PC. Without it the first start writes a whole new deployment
+#    for that one word, minutes on a USB stick, then restarts, and a restart on a
+#    tester's PC follows that PC's own boot order. Measured in the VM on 2026-11-04:
+#    54 s to first run with no restart, against about 2 minutes with one.
 # 3. THE PC'S FIRMWARE. Booted from a drive's fallback path, shim runs
 #    EFI/BOOT/fb*.efi when it is there, which writes a "Fedora" entry into the
 #    PC's own boot list, first in the order, and that entry stays after the
@@ -95,7 +100,7 @@ grep -qE '^options .* console=tty0 console=ttyS0( |$)' "${entries[0]}" ||
   fail "the builder's boot line no longer has its serial console: $(grep '^options' "${entries[0]}")"
 # Written back into the same file, not by `sed -i`: a new file on this runner
 # would have no SELinux label.
-entry=$(sed -E '/^options /{s/ console=tty0 console=ttyS0//; s/^options /options rhgb quiet /}' "${entries[0]}")
+entry=$(sed -E '/^options /{s/ console=tty0 console=ttyS0//; s/^options /options rhgb quiet /; s/$/ bluetooth.disable_ertm=1/}' "${entries[0]}")
 printf '%s\n' "$entry" >"${entries[0]}"
 
 # 4. SECURE BOOT. bootupd's grub.cfg reads custom.cfg after the boot entries. A

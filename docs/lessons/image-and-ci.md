@@ -487,6 +487,12 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
 - **GitHub's Ubuntu runner has `/dev/kvm`**, group `kvm`, so `chmod 666` it
   first (measured 2026-11-03): a portable's first start took about 4 minutes
   there, and the next start 45 seconds to first run.
+- **A PORTABLE'S SLOWEST STEP WAS ONE BOOT SETTING.** Bazzite's hardware setup adds
+  `bluetooth.disable_ertm=1` with `rpm-ostree kargs`: a whole deployment and a
+  restart for one word. With the word already on the boot line it says "No karg
+  changes needed" and takes under a second: 54 s to first run in the VM, no restart.
+- **A VM CANNOT SHOW A RESTART LANDING IN WINDOWS.** `bootindex` keeps USB first. A
+  real PC started from its one-time boot menu follows its own order at the next start.
 - **A new console's first start is slow in the VM and nothing is wrong:**
   Bazzite's hardware setup took 3.5 minutes from a USB-attached disk image
   (it adds kernel arguments, then restarts), and the Flatpak setup downloads
