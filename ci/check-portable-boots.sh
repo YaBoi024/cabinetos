@@ -15,9 +15,10 @@
 # up by itself, the keys a tester presses enrol the key on the drive, and the
 # kernel then starts and reaches first run. With it off: the VM reaches first
 # run's time zone screen (the console's own line, `[first-run] starting at
-# timezone`) with something on the screen, with no restart for a boot setting; the
-# system grew into its drive; no account has a password that can log in; and nothing
-# wrote a boot entry into the PC's firmware.
+# timezone`) with something on the screen, with no restart for a boot setting, the
+# update source already set, and the emulators not started; the system grew into
+# its drive; no account has a password that can log in; and nothing wrote a boot
+# entry into the PC's firmware.
 #
 # WHAT IT CANNOT PROVE: a real USB stick, a real GPU (the console runs on its
 # software rendering here), a real PC's firmware, BitLocker, or Etcher and Rufus
@@ -226,6 +227,11 @@ start_vm serial.log /usr/share/OVMF/OVMF_CODE_4M.fd vars.fd usb.img raw -machine
 first_run serial.log first-run.png
 grep -aqF 'No karg changes needed' serial.log ||
   fault "Bazzite's hardware setup wants another boot setting: add it to make-portable-image.sh's boot line, or a first start writes a deployment and restarts"
+grep -aqF 'cabinetos-update-source: follows ghcr.io/mmagtech/cabinetos:latest, signed: nothing to do' serial.log ||
+  fault "the first start had to set the update source: on a stick that job can time out and never run again"
+if grep -aqF 'Starting cabinetos-flatpak-setup.service' serial.log; then
+  fault "the emulators started with the first start: on a stick that starves everything else"
+fi
 stop_vm
 
 # What it left on the drive, read as a person would read it from another PC.

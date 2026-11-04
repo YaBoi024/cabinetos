@@ -487,6 +487,14 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
 - **GitHub's Ubuntu runner has `/dev/kvm`**, group `kvm`, so `chmod 666` it
   first (measured 2026-11-03): a portable's first start took about 4 minutes
   there, and the next start 45 seconds to first run.
+- **A FAST DRIVE HIDES ALL OF THIS. BOOT THE REAL STICK.** A VM on the A9's NVMe reached first
+  run in 2 minutes while the same file on a SanDisk 3.2 stick had not after 23: services hit
+  their limits, `rpm-ostree` gave up, logind came up at 22 minutes. That stick writes 58 MB/s
+  in a row and about one scattered 4K synced write per 1.5 s. A VM on the A9 can boot the
+  stick itself (`-drive file=/dev/sda,cache=none`): that is the test.
+- **A JOB THAT TIMES OUT ON A FIRST START MAY NEVER RUN AGAIN.** `cabinetos-update-source` has
+  `ConditionNeedsUpdate=/etc`, and `systemd-update-done` marks that done regardless.
+- **THE LOG IS NOT WHAT MADE IT SLOW.** Storing it in memory saved 5 s of 283 on that stick.
 - **A PORTABLE'S SLOWEST STEP WAS ONE BOOT SETTING.** Bazzite's hardware setup adds
   `bluetooth.disable_ertm=1` with `rpm-ostree kargs`: a whole deployment and a
   restart for one word. With the word already on the boot line it says "No karg

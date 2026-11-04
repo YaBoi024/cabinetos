@@ -150,7 +150,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq btrfs-progs xz-utils sbsigntool qemu-system-x86 qemu-utils ovmf >/dev/null
+          sudo apt-get install -y -qq btrfs-progs xz-utils attr sbsigntool qemu-system-x86 qemu-utils ovmf >/dev/null
           raw=$(find "${OUT}" -name '*.raw' -type f | head -n1)
           [[ -n "${raw}" ]] || { echo "no raw disk in ${OUT}"; exit 1; }
           sudo --preserve-env=GITHUB_STEP_SUMMARY ci/make-portable-image.sh "${raw}" "${OUT}/cabinetos-portable.img.xz"

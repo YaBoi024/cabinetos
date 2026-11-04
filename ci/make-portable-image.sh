@@ -7,13 +7,14 @@
 #   sudo ci/make-portable-image.sh DISK.raw OUTPUT.img.xz
 #
 # Run by .github/workflows/build-disk.yml, type `portable`. Needs root (a loop
-# device and its mounts), btrfs-progs, util-linux, xz, openssl and sbsigntool.
+# device and its mounts), btrfs-progs, util-linux, xz, attr, openssl and
+# sbsigntool.
 # DISK.raw is changed
 # in place. OUTPUT.img.xz.sha256 is written beside the file.
 #
 # WHY A SECOND STEP. The builder has no setting for any of these
 # (docs/decisions/2026-11-03-portable-disk-image.md). What it installed stays
-# as it is; four things change:
+# as it is; five things change:
 #
 # 1. THE SIZE. The builder makes the disk twice the size of the image, 28.9 GB
 #    on 2026-11-03 with about 10 GB in it, and a tester's tool writes every
@@ -43,6 +44,14 @@
 #    place that screen looks, for the tester to pick. With Secure Boot off none of
 #    this is seen
 #    (docs/decisions/2026-11-04-portable-secure-boot.md).
+# 5. THE FIRST START. A USB stick takes scattered small writes about 600 times
+#    slower than writes in a row (a SanDisk 3.2 stick, about 1 every 1.5 s against
+#    416 a second, 2026-11-04), and a first start is full of them, so what a PC
+#    would write then is done here, or waits. The update source is written signed;
+#    the filesystem keeps one copy of its metadata and writes it in long runs; the
+#    emulators wait for their timer, 15 minutes in, at idle priority. On that stick
+#    the time zone screen came after 4 min 43 s, where without this it had not come
+#    after 23 min (docs/decisions/2026-11-04-portable-first-start.md).
 #
 # THE FORMAT. .xz is the smallest format both tools open directly (their own
 # lists: Etcher's supported-formats.ts has no .zst). -6 because -9 saved 2.4%
@@ -100,7 +109,9 @@ grep -qE '^options .* console=tty0 console=ttyS0( |$)' "${entries[0]}" ||
   fail "the builder's boot line no longer has its serial console: $(grep '^options' "${entries[0]}")"
 # Written back into the same file, not by `sed -i`: a new file on this runner
 # would have no SELinux label.
-entry=$(sed -E '/^options /{s/ console=tty0 console=ttyS0//; s/^options /options rhgb quiet /; s/$/ bluetooth.disable_ertm=1/}' "${entries[0]}")
+entry=$(sed -E '/^options /{s/ console=tty0 console=ttyS0//; s/^options /options rhgb quiet /; s#rootflags=subvol=/root( |$)#rootflags=subvol=/root,noatime,ssd_spread\1#; s/$/ bluetooth.disable_ertm=1/}' "${entries[0]}")
+grep -q 'rootflags=subvol=/root,noatime,ssd_spread ' <<<"$entry" ||
+  fail "the builder's boot line no longer has rootflags=subvol=/root: $(grep '^options' "${entries[0]}")"
 printf '%s\n' "$entry" >"${entries[0]}"
 
 # 4. SECURE BOOT. bootupd's grub.cfg reads custom.cfg after the boot entries. A
@@ -132,12 +143,44 @@ fi
 EOF
 umount "$work/boot"
 
-# 1. THE SIZE. Packed first, so the chunks hold no free space to carry along.
-# The room left is what the first start needs before it grows; the smallest
-# that shrinks at all is taken, since a shrink that has nowhere to move a chunk
-# fails and changes nothing.
 mount "${loop}p4" "$work/root"
-btrfs balance start -dusage=100 -musage=100 "$work/root" >/dev/null
+
+# 5. THE FIRST START. What cabinetos-update-source would write (it then finds
+# nothing to do), into the same file for the reason above. The two services start
+# from their timer instead, whose unit stays; Bazzite's adds the Flathub remote the
+# emulators need, so it comes along with them.
+deployments=("$work"/root/root/ostree/deploy/default/deploy/*.0)
+[[ ${#deployments[@]} == 1 && -f ${deployments[0]}.origin ]] ||
+  fail "expected one deployment and its .origin, found ${deployments[*]}"
+origin=$(sed -E 's#^container-image-reference=.*ghcr\.io/mmagtech/cabinetos:.*#container-image-reference=ostree-image-signed:docker://ghcr.io/mmagtech/cabinetos:latest#' "${deployments[0]}.origin")
+grep -q '^container-image-reference=ostree-image-signed:' <<<"$origin" ||
+  fail "the builder's .origin no longer names this image: $(cat "${deployments[0]}.origin")"
+printf '%s\n' "$origin" >"${deployments[0]}.origin"
+units=${deployments[0]}/etc/systemd/system
+for unit in cabinetos-flatpak-setup.service flatpak-add-fedora-repos.service; do
+  [[ -L $units/multi-user.target.wants/$unit ]] || fail "$unit is no longer enabled in /etc: the first start changed"
+  rm "$units/multi-user.target.wants/$unit"
+done
+[[ -L $units/timers.target.wants/cabinetos-flatpak-setup.timer ]] || fail "the emulators' timer is no longer enabled: they would never install"
+ln -sfn /dev/null "$units/setroubleshootd.service"
+mkdir "$units/cabinetos-flatpak-setup.service.d"
+cat >"$units/cabinetos-flatpak-setup.service.d/50-portable.conf" <<'EOF'
+# A portable's emulators wait for the timer, at idle priority: docs/decisions/2026-11-04-portable-first-start.md
+[Unit]
+Wants=flatpak-add-fedora-repos.service
+After=flatpak-add-fedora-repos.service
+[Service]
+Nice=19
+IOSchedulingClass=idle
+EOF
+setfattr -n security.selinux -v system_u:object_r:systemd_unit_file_t:s0 \
+  "$units/cabinetos-flatpak-setup.service.d" "$units/cabinetos-flatpak-setup.service.d/50-portable.conf"
+
+# 1. THE SIZE. Packed first, so the chunks hold no free space to carry along, and
+# with one copy of the metadata. The room left is what the first start needs
+# before it grows; the smallest that shrinks at all is taken, since a shrink that
+# has nowhere to move a chunk fails and changes nothing.
+btrfs balance start -f -dusage=100 -mconvert=single -sconvert=single "$work/root" >/dev/null
 allocated=$(btrfs filesystem usage -b "$work/root" | awk '/Device allocated:/{print $3}')
 mib=$((1024 * 1024))
 size=""

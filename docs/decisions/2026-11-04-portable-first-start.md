@@ -1,0 +1,7 @@
+# A portable's first start: done beforehand, or later
+
+- **Decided:** What a first start would write on a USB drive is done when the file is made, or waits. Done beforehand (`ci/make-portable-image.sh`): Bazzite's one boot setting, the signed update source, `noatime` and `ssd_spread` on the root filesystem, one copy of its metadata, and no `setroubleshootd`. Later: the emulators and the Flathub remote they need start from their existing timer, 15 minutes in, at idle priority, not with the first start. The log stays on the drive. The boot check fails if any of this stops being true.
+- **Date:** 2026-11-04
+- **Why:** On a real PC from a real stick the first start did not reach first run in 23 minutes, and core services hit their limits: the stick takes scattered small writes about 600 times slower than writes in a row. With these it took 4 min 43 s on the same stick, with no restart. A restart matters on its own, since on a PC started from its one-time boot menu it follows that PC's boot order, into Windows. Each is a setting in the file, so consoles and their updates are unchanged and nothing is left to maintain per release. Storing the log in memory saved 5 s and would lose the record of an earlier start, so it was not taken. Requiring an SSD was not taken: nobody here has one to test on, and a portable that could harm a PC is not tried by others first.
+- **Numbers:** PR #653, "Portable install, step 3: the disk image and its boot check".
+- **Replaces:** none.
