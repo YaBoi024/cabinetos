@@ -7,12 +7,13 @@
 #   sudo ci/make-portable-image.sh DISK.raw OUTPUT.img.xz
 #
 # Run by .github/workflows/build-disk.yml, type `portable`. Needs root (a loop
-# device and its mounts), btrfs-progs, util-linux and xz. DISK.raw is changed
+# device and its mounts), btrfs-progs, util-linux, xz, openssl and sbsigntool.
+# DISK.raw is changed
 # in place. OUTPUT.img.xz.sha256 is written beside the file.
 #
 # WHY A SECOND STEP. The builder has no setting for any of these
 # (docs/decisions/2026-11-03-portable-disk-image.md). What it installed stays
-# as it is; three things change:
+# as it is; four things change:
 #
 # 1. THE SIZE. The builder makes the disk twice the size of the image, 28.9 GB
 #    on 2026-11-03 with about 10 GB in it, and a tester's tool writes every
@@ -31,6 +32,12 @@
 #    loads grub from its own folder, so grub is copied there. A portable treats
 #    the PC as somebody else's
 #    (docs/decisions/2026-11-03-running-from-a-usb-drive.md).
+# 4. SECURE BOOT. With it on, the kernel is refused until the PC holds the key
+#    that signed it, and grub stops at its menu. So grub falls through to shim's
+#    key screen, and the key sits at the top of the EFI partition, the first
+#    place that screen looks, for the tester to pick. With Secure Boot off none of
+#    this is seen
+#    (docs/decisions/2026-11-04-portable-secure-boot.md).
 #
 # THE FORMAT. .xz is the smallest format both tools open directly (their own
 # lists: Etcher's supported-formats.ts has no .zst). -6 because -9 saved 2.4%
@@ -90,6 +97,34 @@ grep -qE '^options .* console=tty0 console=ttyS0( |$)' "${entries[0]}" ||
 # would have no SELinux label.
 entry=$(sed -E '/^options /{s/ console=tty0 console=ttyS0//; s/^options /options rhgb quiet /}' "${entries[0]}")
 printf '%s\n' "$entry" >"${entries[0]}"
+
+# 4. SECURE BOOT. bootupd's grub.cfg reads custom.cfg after the boot entries. A
+# key that does not verify this kernel stops the build: Universal Blue changing
+# its key would otherwise ship a screen that enrols a key nothing is signed with.
+mount -o ro "${loop}p4" "$work/root"
+keys=("$work"/root/root/ostree/deploy/default/deploy/*.0/etc/pki/akmods/certs/akmods-ublue.der)
+kernels=("$work"/boot/ostree/default-*/vmlinuz-*)
+[[ ${#keys[@]} == 1 && -f ${keys[0]} && ${#kernels[@]} == 1 && -f ${kernels[0]} ]] ||
+  fail "expected one signing key and one kernel, found ${keys[*]} and ${kernels[*]}"
+openssl x509 -inform DER -in "${keys[0]}" -out "$work/key.pem"
+sbverify --cert "$work/key.pem" "${kernels[0]}" >/dev/null ||
+  fail "$(basename "${keys[0]}") does not verify $(basename "${kernels[0]}")"
+mount "${loop}p2" "$work/esp"
+[[ -f $efi/fedora/mmx64.efi && $(blkid -o value -s LABEL "${loop}p2") == EFI-SYSTEM ]] ||
+  fail "no EFI/fedora/mmx64.efi on a partition labelled EFI-SYSTEM: custom.cfg names both"
+cp "${keys[0]}" "$work/esp/cabinetos-key.cer"
+umount "$work/esp"
+umount "$work/root"
+cat >"$work/boot/grub2/custom.cfg" <<'EOF'
+# Secure Boot on and the key not enrolled yet: the kernel will not load, so this comes next.
+if [ "$grub_platform" = "efi" ]; then
+  menuentry 'Set up this PC to start CabinetOS' --id 'cabinetos-secure-boot' {
+    search --no-floppy --label EFI-SYSTEM --set=esp
+    chainloader ($esp)/EFI/fedora/mmx64.efi
+  }
+  set fallback='cabinetos-secure-boot'
+fi
+EOF
 umount "$work/boot"
 
 # 1. THE SIZE. Packed first, so the chunks hold no free space to carry along.

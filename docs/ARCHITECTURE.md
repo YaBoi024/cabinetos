@@ -330,9 +330,11 @@ somebody's PC (`docs/decisions/2026-11-03-running-from-a-usb-drive.md`).
 `build-disk.yml`'s `portable` type makes that file: bootc-image-builder makes
 a raw disk with no account and no size (`disk_config/portable.toml`),
 `ci/make-portable-image.sh` shrinks it, gives it an ISO install's boot line,
-takes out the boot file that would add an entry to the PC's boot list and compresses
-it, and `ci/check-portable-boots.sh` boots the result in a VM and fails the
-run unless it reaches first run
+takes out the boot file that would add an entry to the PC's boot list, adds
+the key screen a PC with Secure Boot on needs
+(`docs/decisions/2026-11-04-portable-secure-boot.md`) and compresses it, and
+`ci/check-portable-boots.sh` boots the result in a VM, with Secure Boot on and
+with it off, and fails the run unless both reach first run
 (`docs/decisions/2026-11-03-portable-disk-image.md`).
 What tells a portable apart at run time is one test, `cabinetos-system-disk portable`: the drive
 the system is on can be unplugged (the console's own test,
@@ -406,6 +408,8 @@ Each with where it is recorded.
   udisks, its clock in local time, the time zone asked on first run
   (`docs/decisions/2026-11-03-running-from-a-usb-drive.md`), and no boot entry
   written into its firmware (`docs/decisions/2026-11-03-portable-disk-image.md`).
+  The one thing that can stay is the key a tester enrols on a PC with Secure
+  Boot on (`docs/decisions/2026-11-04-portable-secure-boot.md`).
 - **No emulator settings page; three picture levels** (docs/SETTINGS.md, "The
   screen"; `quality.h`).
 - **Settings, as built** (docs/PROJECT.md, open question 31; docs/SETTINGS.md
@@ -549,7 +553,7 @@ The area named is the one in `ci/base-watch.txt` whose checks a change asks for.
 | Games drives | udisks's object paths (the console works out its own disk's, `udisks.cpp`), its properties, Format's `take-ownership` and `mkfs-args`, "busy" in its errors, mounts under `/run/media/<user>` (`drives.cpp`) | `log:` (Games drives): the A9's drive is mounted. Not checked: Format, Eject, the path naming |
 | A portable install hiding the PC's own drives | udev's `UDISKS_IGNORE` becoming udisks's `HintIgnore`, and Steam's Storage page leaving out a drive with it; `lsblk`'s `PKNAME`, `--inverse` and `TYPE`, and sysfs's `removable` (`cabinetos-system-disk`) | Not checked: seen only on a portable with a second drive (`tools/installer-vm.sh portable`) |
 | A portable install filling its drive | sfdisk growing the last partition to the drive's end and moving the GPT's backup there as it writes, `partx --update` resizing a partition in use, the filesystems' online resize (`cabinetos-grow-root`) | The image build asserts the tools. Not checked: seen as a portable's drive staying at the image's size, said by `cabinetos-grow-root` in the journal. `ci/check-portable-boots.sh` fails the disk build if it did not grow |
-| The portable disk image | bootc-image-builder's raw layout (BIOS boot, vfat EFI, ext4 `/boot`, btrfs root last) and its boot line's `console=tty0 console=ttyS0`; shim on a drive's fallback path running `EFI/BOOT/fb*.efi` when it is there and otherwise `grub*.efi` beside it; Fedora's grub finding its `grub.cfg` in `EFI/fedora` when started from `EFI/BOOT`; btrfs shrinking while mounted; sfdisk rewriting a table from its own dump, ids kept (`ci/make-portable-image.sh`). systemd reading a unit from QEMU's SMBIOS table (`ci/check-portable-boots.sh`). bootupd rewrites the boot files it tracks when a new shim or grub arrives, so a later shim brings the fallback back on a drive already written | The script stops the disk build when the layout, the boot line or the boot files change; the boot check fails the build if the file does not reach first run or the firmware gained an entry. Not checked: real firmware and a real stick, which are a person's test |
+| The portable disk image | bootc-image-builder's raw layout (BIOS boot, vfat EFI, ext4 `/boot`, btrfs root last) and its boot line's `console=tty0 console=ttyS0`; shim on a drive's fallback path running `EFI/BOOT/fb*.efi` when it is there and otherwise `grub*.efi` beside it; Fedora's grub finding its `grub.cfg` in `EFI/fedora` when started from `EFI/BOOT`; bootupd's `grub.cfg` reading `custom.cfg`, grub's `fallback` when the kernel is refused, and shim's `EFI/fedora/mmx64.efi`; the kernel being signed with `/etc/pki/akmods/certs/akmods-ublue.der`; btrfs shrinking while mounted; sfdisk rewriting a table from its own dump, ids kept (`ci/make-portable-image.sh`). systemd reading a unit from QEMU's SMBIOS table (`ci/check-portable-boots.sh`). bootupd rewrites the boot files it tracks when a new shim or grub arrives, so a later shim brings the fallback back on a drive already written | The script stops the disk build when the layout, the boot line or the boot files change, or the key no longer verifies the kernel; the boot check fails the build if the file does not reach first run with Secure Boot on and off, or the firmware gained an entry. Not checked: real firmware, BitLocker and a real stick, which are a person's test |
 | The PC's clock on a portable install, and first run's time zone | The kernel writing the hardware clock in local time only when the first time zone it is told at a start is not UTC; chrony's `rtcsync` and its unit's name (`chronyd.service.d/50-cabinetos.conf`); the kernel's `/sys/class/rtc/rtc0/since_epoch` giving the clock's face as if it were UTC, and `timedatectl set-timezone` writing the hardware clock at once, which `cabinetos-timezone` avoids; systemd's first-boot wizard (`systemd-firstboot.service`, on in the base) skipping a disk image's first start because its `/etc/machine-id` is empty, not "uninitialized": the image has no language, keyboard or zone file, so it would otherwise ask for all three on the text console; tzdata's `zone.tab` and `iso3166.tab` (`timezone.cpp`) | The image build asserts the files and tools, no zone in the image and LOCAL in `/etc/adjtime`; `log:` (Kernel and startup): chrony's `rtcsync` and condition, the zone list. Not checked: the wizard, seen as a disk image's first start stopping at a text prompt, and the kernel's rule, seen as Windows showing a time hours off after a portable's first session |
 | Game manuals | pdfinfo's "Page N size" and "rot" lines and pdftoppm's PPM (`manual.cpp`) | `log:` (Game manuals) |
 | The type ramp | The font files' names (`startup.cpp`) | `log:` and `tv:` (Libraries the console's screens use) |

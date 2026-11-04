@@ -459,6 +459,20 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
   on its first boot. `strings -el vars.fd` shows it. Without that file and with
   grub copied beside shim, the firmware gained no entry and the VM booted the
   same, from a drive with no other change.
+- **"NOTHING WRITTEN TO THE FIRMWARE" IS NOT WHAT THAT CHECK SHOWS.** Searching
+  `vars.fd` for `shim` and `fedora` finds boot entries. Shim also stores
+  `SbatLevel` on every start, as it does from any Linux USB drive. Compare the
+  whole list of names before saying what a start left behind.
+- **WITH SECURE BOOT ON, A BAZZITE KERNEL STOPS AT GRUB, NOT AT SHIM.** Microsoft's
+  signature passes shim and Fedora's passes grub, then `bad shim signature`, and
+  grub falls back to its menu: MokManager does not come by itself, as it does
+  where shim refuses grub. Grub's `fallback` in `custom.cfg` brings it. The
+  screen counts down ten seconds, and missing it lands on grub's menu, which
+  has the entry.
+- **MOKMANAGER'S FILE PICKER OPENS AT THE TOP OF THE PARTITION**, in directory
+  order, not sorted. A key at the top sits below `EFI/` and nothing else; in
+  `EFI/BOOT` it is among boot files, where it lands depends on what was deleted
+  first, and a tester has two more folders to find.
 - **A `journalctl --follow` started before the journal moves to the drive stops
   at the move.** The first boot check's log ended at
   `systemd-journal-flush.service` on both starts and looked like a hang, while

@@ -1,0 +1,7 @@
+# A portable drive with Secure Boot on: the key screen, once per PC
+
+- **Decided:** With Secure Boot on, a portable drive brings up shim's key screen by itself, and the tester enrols the key at the top of its EFI partition, `cabinetos-key.cer`, with a keyboard, once per PC. With Secure Boot off none of this is seen. The steps tell testers to save their BitLocker recovery key first, and do not ask them to change Secure Boot.
+- **Date:** 2026-11-04
+- **Why:** A portable is for a PC that keeps Windows, and changing the Secure Boot setting on such a PC is what makes Windows ask for its BitLocker recovery key, so telling every tester with it on to turn it off puts that risk on exactly these people. The kernel is signed with Universal Blue's key, so the PC refuses it until that key is added. A Microsoft-signed shim of our own would boot silently, but needs months, a paid certificate and our signature on every Bazzite kernel. Batocera's disk image does the same as this, and Bazzite's own install shows the same screen. What it costs: the key stays on the PC, which then trusts anything signed with it, the one exception to a portable treating the PC as somebody else's (`2026-11-03-running-from-a-usb-drive.md`), made by the tester on that screen; the screen needs a keyboard; and where a board never shows it, turning Secure Boot off remains. The build stops if the key no longer verifies the kernel.
+- **Numbers:** PR #653, "Portable install, step 3: the disk image and its boot check".
+- **Replaces:** none.
