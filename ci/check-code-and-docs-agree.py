@@ -84,8 +84,7 @@ C_FILES = (".c", ".cc", ".cpp", ".h", ".hpp", ".inc")
 # Not code, so no comments to read and no lines to pair a name with.
 NO_COMMENTS = (".md", ".json", ".xml", ".patch", ".pub", ".svg", ".csv")
 
-# Not read for addresses: package versions, which can look like one
-# (`10.2.1.4-1.fc44`).
+# Not read for addresses: package versions, four numbers of which can start 10.
 NO_ADDRESSES = ("base-manifest.txt",)
 
 # The addresses the docs and the code use as examples, none of them a machine.
@@ -138,8 +137,9 @@ BARE_FILE = re.compile(r"(?<![\w/.@$-])([\w+-][\w.+-]*\.(?:cpp|cc|c|hpp|h|inc|sh
 QUALIFIED = re.compile(r"(?<![\w:])((?:[A-Za-z_]\w*::)+~?[A-Za-z_]\w*)(\*)?")
 NAME_WORD = r"`?((?:[A-Za-z_]\w*::)*~?[A-Za-z_]\w*)(\(\))?`?"
 # Each with the group of its file and of its name, and whether a name the
-# comment's own file has is that file's, which the pair only points beside:
-# "(quality.h, pictureFor)" with pictureFor in the comment's own file.
+# comment's own file has is that file's, which the pair only points beside: a
+# comment in standalone_supermodel.cpp lists quality.h and that file's own
+# pictureFor in one bracket.
 PAIRS = (
     (re.compile(r"(?<![\w/.-])`?(" + FILE_WORD + r")`?'s\s+(?:own\s+)?" + NAME_WORD), 1, 2, False),
     (re.compile(NAME_WORD + r",?\s+in\s+`?(" + FILE_WORD + r")`?(?![\w/-])"), 3, 1, False),
