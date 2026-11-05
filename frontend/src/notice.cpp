@@ -35,6 +35,12 @@ void App::drawNotice(float sc) {
         ui::Rect pill{x, y, w, kPillH, kPillH * 0.5f, fill};
         pill.border = 1.5f;
         pill.borderColor = ui::Color::white(0.14f * na);
+        if (menuNotice.tone == Tone::Invite) {
+            // Somebody reaching you, in the colour an invite has on their tile.
+            pill.border = 3.0f;
+            pill.borderColor = ui::palette::kMarqueeAmber;
+            pill.borderColor.a = na;
+        }
         pill.edgeLight = ui::Color::white(0.18f * na);
         pill.shadowBlur = 26.0f;
         pill.shadowOffsetY = 10.0f;
@@ -54,6 +60,7 @@ void App::drawNotice(float sc) {
             }
             case Tone::Info: break;
             case Tone::Problem: dot = ui::palette::kMarqueeAmber; break;
+            case Tone::Invite: dot = ui::palette::kMarqueeAmber; break;
         }
         dot.a *= na;
         renderer.draw(ui::Rect{x + kPad, y + (kPillH - kDot) * 0.5f, kDot, kDot,

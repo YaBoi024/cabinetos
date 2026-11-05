@@ -34,13 +34,19 @@
 // same and `--notice-gallery` can show every one of them on the panel.
 struct MenuNotice {
     // The dot's colour says which kind of answer it is before the words do.
-    enum class Tone { Done, Busy, Info, Problem };
+    enum class Tone { Done, Busy, Info, Problem, Invite };
     std::string text;
     Tone tone = Tone::Info;
     float life = 0.0f;
     float age = 0.0f;
-    // A pill nobody may be there for: its time starts at the next press (App::handleEvent).
+    // A pill nobody may be there for: it stays until the next press (App::handleEvent),
+    // then has what is left of its time, and goes soon if that has already passed.
     bool holdUntilPress = false;
+    void pressed() {
+        if (!holdUntilPress) return;
+        holdUntilPress = false;
+        life = std::max(0.8f, life - age);
+    }
     void say(std::string t, Tone k) {
         holdUntilPress = false;
         text = std::move(t);

@@ -97,7 +97,7 @@ void App::handleEvent(const SDL_Event& e) {
     const bool powerKey = e.type == SDL_EVENT_KEY_DOWN &&
                           (e.key.key == SDLK_POWER || e.key.key == SDLK_SLEEP);
     if (touched) playClock.touch();
-    if (touched) menuNotice.holdUntilPress = false;
+    if (touched) menuNotice.pressed();
     // ON THE WAY DOWN NOTHING TAKES A PRESS (#393): the picture is fading
     // to black over Restart or Power off, and the machine goes when it has.
     if (poweringDown && (touched || powerKey)) return;
