@@ -65,12 +65,25 @@ public:
     enum class Look {
         Platform, // a Library platform's tile: a wash of their colour, and where the
                   // cover would sit, a panel of it with their letter
+        Wash,     // a dark tile washed with their colour from the top, with no panel
+        Rise,     // a dark tile with their colour rising from the foot
         Colour,   // the tile filled, bright at the top and falling to dark
         Fade,     // a dark tile with their colour fading down from its top edge
         Disc,     // a dark tile with a letter in a circle of their colour, ringed by status
         Cabinet,  // the console's own mark, lit or dark. Rejected, kept to compare
     };
-    void setLook(Look look) { look_ = look; }
+    // Where a friend's colour comes from. Being compared.
+    enum class Palette {
+        Bright,   // the first eight, kept to compare
+        Soft,     // anywhere on the colour wheel, low in strength
+        Themes,   // the console's sixteen menu colours, softened
+        Dusk,     // only the blues, purples and pinks the console's own purple sits among
+        Jewel,    // anywhere on the wheel, deep and dark rather than pale
+    };
+    void setLook(Look look, Palette palette = Palette::Soft) {
+        look_ = look;
+        palette_ = palette;
+    }
     void setState(const linkup::State& state, bool inUse);
     void enter();
     void settleArrival() { appear_.settle(1.0f); }
@@ -93,7 +106,8 @@ private:
     ui::Color roomWanted() const;
     void drawTile(Ctx& c, const Cab& cab, float x, float y, float w, float h, float f);
 
-    Look look_ = Look::Platform;
+    Look look_ = Look::Wash;
+    Palette palette_ = Palette::Soft;
     std::vector<Cab> cabs_;
     std::string pill_, emptyLine_;
     int at_ = -1;          // the focused friend, or -1 on Status

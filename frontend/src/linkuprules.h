@@ -50,6 +50,11 @@ std::string nameOnList(const std::vector<Friend>& list, int index);
 // Which of `count` colours is theirs, worked out from who they are, so a person is
 // the same colour every time on every console and nothing has to be stored or sent.
 int colourOf(const Friend& f, int count);
+// Which of `count` colours each friend on a list gets: colourOf, moved along until it
+// is at least `apart` from everybody already placed, in name order, so that adding a
+// friend leaves nearly everyone where they were. It always finds room while `apart`
+// is at most count / (2 * friends), which is what a caller should ask for.
+std::vector<int> coloursApart(const std::vector<Friend>& list, int count, int apart);
 
 inline const std::string kInUse = "In use";
 // The switch: what friends see you as. It is Appear Offline by another name.

@@ -6,6 +6,7 @@
 #include <cctype>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 
 namespace linkup {
@@ -60,6 +61,37 @@ int colourOf(const Friend& f, int count) {
     add(f.name);
     add(f.from);
     return count > 0 ? static_cast<int>(hash % static_cast<uint32_t>(count)) : 0;
+}
+
+std::vector<int> coloursApart(const std::vector<Friend>& list, int count, int apart) {
+    std::vector<int> out(list.size(), 0);
+    std::vector<int> order(list.size());
+    for (size_t i = 0; i < order.size(); ++i) order[i] = static_cast<int>(i);
+    auto lower = [](std::string s) {
+        for (char& ch : s) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        return s;
+    };
+    std::stable_sort(order.begin(), order.end(), [&](int a, int b) {
+        const Friend& x = list[static_cast<size_t>(a)];
+        const Friend& y = list[static_cast<size_t>(b)];
+        return lower(x.name + x.from) < lower(y.name + y.from);
+    });
+    std::vector<int> taken;
+    for (int i : order) {
+        int c = colourOf(list[static_cast<size_t>(i)], count);
+        for (int tries = 0; tries < count; ++tries) {
+            bool clear = true;
+            for (int t : taken) {
+                const int gap = std::abs(t - c);
+                if (std::min(gap, count - gap) < apart) clear = false;
+            }
+            if (clear) break;
+            c = (c + 1) % count;
+        }
+        taken.push_back(c);
+        out[static_cast<size_t>(i)] = c;
+    }
+    return out;
 }
 
 std::string invitedYou(const std::string& who) { return "LinkUp invite from " + who; }
@@ -156,6 +188,23 @@ int test() {
         check(colourOf(alex, 8) == colourOf(alexAgain, 8), "a person keeps their colour, whatever their status");
         check(colourOf(alex, 8) >= 0 && colourOf(alex, 8) < 8, "a colour is one of those on offer");
         check(colourOf(alex, 0) == 0, "no colours on offer is not a crash");
+        std::vector<Friend> eight;
+        for (const char* name : {"Riley", "Sam", "Alex", "Jordan", "admin", "Maya", "Theo", "Lily"})
+            eight.push_back({name, "", Status::Online, ""});
+        const std::vector<int> hues = coloursApart(eight, 360, 180 / 8);
+        bool spread = true;
+        for (size_t a = 0; a < hues.size(); ++a)
+            for (size_t b = a + 1; b < hues.size(); ++b) {
+                const int gap = std::abs(hues[a] - hues[b]);
+                if (std::min(gap, 360 - gap) < 180 / 8) spread = false;
+            }
+        check(spread, "no two friends on a list are close in colour");
+        const std::vector<int> themes = coloursApart(eight, 16, 1);
+        bool different = true;
+        for (size_t a = 0; a < themes.size(); ++a)
+            for (size_t b = a + 1; b < themes.size(); ++b)
+                if (themes[a] == themes[b]) different = false;
+        check(different, "no two friends share one of a few colours while there are enough");
     }
     std::vector<Friend> nobody;
     check(groups(nobody).empty(), "nobody means no headings");

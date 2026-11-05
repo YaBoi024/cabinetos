@@ -137,6 +137,15 @@ struct Scene {
 };
 
 using Play = screens::LinkUpPlayScreen::Shows;
+using GridLook = screens::LinkUpGrid::Look;
+using GridPalette = screens::LinkUpGrid::Palette;
+
+template <GridLook look, GridPalette palette>
+void gridVariant(App& a) {
+    a.linkupLayout = App::LinkUpLayout::Grid;
+    a.linkupGrid.setLook(look, palette);
+    a.goToDestination(App::BarLinkUp);
+}
 
 // Alex has started a game and picked you; Riley's invite makes way for his.
 void alexInvites(App& a) {
@@ -194,26 +203,22 @@ void noServerYet(App& a) {
 
 const Scene kScenes[] = {
     {"LinkUp in the top bar", [](App& a) { a.goToDestination(App::BarHome); }},
-    {"LinkUp's screen, A: like a platform's tile (later scenes keep the one you left on)", [](App& a) {
-         a.linkupLayout = App::LinkUpLayout::Grid;
-         a.linkupGrid.setLook(screens::LinkUpGrid::Look::Platform);
-         a.goToDestination(App::BarLinkUp);
-     }},
-    {"LinkUp's screen, D: a letter in a circle of their colour", [](App& a) {
-         a.linkupLayout = App::LinkUpLayout::Grid;
-         a.linkupGrid.setLook(screens::LinkUpGrid::Look::Disc);
-         a.goToDestination(App::BarLinkUp);
-     }},
-    {"LinkUp's screen, B: a tile filled with their colour", [](App& a) {
-         a.linkupLayout = App::LinkUpLayout::Grid;
-         a.linkupGrid.setLook(screens::LinkUpGrid::Look::Colour);
-         a.goToDestination(App::BarLinkUp);
-     }},
-    {"LinkUp's screen, C: their colour fading down a dark tile", [](App& a) {
-         a.linkupLayout = App::LinkUpLayout::Grid;
-         a.linkupGrid.setLook(screens::LinkUpGrid::Look::Fade);
-         a.goToDestination(App::BarLinkUp);
-     }},
+    {"1 Wash, Soft (later scenes keep the one you left on)", gridVariant<GridLook::Wash, GridPalette::Soft>},
+    {"2 Wash, Themes", gridVariant<GridLook::Wash, GridPalette::Themes>},
+    {"3 Wash, Dusk", gridVariant<GridLook::Wash, GridPalette::Dusk>},
+    {"4 Wash, Jewel", gridVariant<GridLook::Wash, GridPalette::Jewel>},
+    {"5 Rise, Soft", gridVariant<GridLook::Rise, GridPalette::Soft>},
+    {"6 Rise, Themes", gridVariant<GridLook::Rise, GridPalette::Themes>},
+    {"7 Rise, Dusk", gridVariant<GridLook::Rise, GridPalette::Dusk>},
+    {"8 Rise, Jewel", gridVariant<GridLook::Rise, GridPalette::Jewel>},
+    {"9 Filled, Soft", gridVariant<GridLook::Colour, GridPalette::Soft>},
+    {"10 Filled, Themes", gridVariant<GridLook::Colour, GridPalette::Themes>},
+    {"11 Filled, Dusk", gridVariant<GridLook::Colour, GridPalette::Dusk>},
+    {"12 Filled, Jewel", gridVariant<GridLook::Colour, GridPalette::Jewel>},
+    {"Earlier: like a platform, with the letter panel", gridVariant<GridLook::Platform, GridPalette::Bright>},
+    {"Earlier: a letter in a circle", gridVariant<GridLook::Disc, GridPalette::Bright>},
+    {"Earlier: filled, bright", gridVariant<GridLook::Colour, GridPalette::Bright>},
+    {"Earlier: a fade", gridVariant<GridLook::Fade, GridPalette::Bright>},
     {"LinkUp's screen, earlier: as rows", [](App& a) {
          a.linkupLayout = App::LinkUpLayout::Rows;
          a.goToDestination(App::BarLinkUp);
@@ -224,7 +229,7 @@ const Scene kScenes[] = {
      }},
     {"LinkUp's screen, earlier: cabinets", [](App& a) {
          a.linkupLayout = App::LinkUpLayout::Grid;
-         a.linkupGrid.setLook(screens::LinkUpGrid::Look::Cabinet);
+         a.linkupGrid.setLook(screens::LinkUpGrid::Look::Cabinet, screens::LinkUpGrid::Palette::Bright);
          a.goToDestination(App::BarLinkUp);
      }},
     {"Appear Offline on", [](App& a) {

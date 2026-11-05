@@ -312,6 +312,36 @@ constexpr float kCabW = 176.0f;
 constexpr float kCabH = kCabW * 338.0f / 280.0f;   // the mark's own proportions
 constexpr float kCabLabelGap = 18.0f;
 
+// The console's sixteen menu colours (look.cpp): each one's top and middle.
+constexpr uint32_t kThemeTops[] = {0x3A2268, 0x1C3466, 0x144E56, 0x1F4A2C, 0x5A3514, 0x581618, 0x5A1C3A, 0x34363C,
+                                   0xC2367E, 0x1E7FD0, 0x3F8A1C, 0xC0581A, 0xD9487A, 0x2A8FD6, 0x2E9A5A, 0xD0661A};
+constexpr uint32_t kThemeMids[] = {0x120C26, 0x0A1226, 0x061B1F, 0x0A1A0F, 0x1E1208, 0x1C0708, 0x1E0A14, 0x121316,
+                                   0x3A0F28, 0x0A2644, 0x14300A, 0x3E1C08, 0x3B1650, 0x0B3A48, 0x0C3A44, 0x4A1010};
+
+ui::Color fromHsl(float hue, float s, float l, float keep) {
+    const float c = (1.0f - std::fabs(2.0f * l - 1.0f)) * s;
+    const float h = std::fmod(hue, 360.0f) / 60.0f;
+    const float x = c * (1.0f - std::fabs(std::fmod(h, 2.0f) - 1.0f));
+    const float m = l - c * 0.5f;
+    float r = 0, g = 0, b = 0;
+    if (h < 1) { r = c; g = x; }
+    else if (h < 2) { r = x; g = c; }
+    else if (h < 3) { g = c; b = x; }
+    else if (h < 4) { g = x; b = c; }
+    else if (h < 5) { r = x; b = c; }
+    else { r = c; b = x; }
+    return ui::Color{(r + m) * keep, (g + m) * keep, (b + m) * keep, 1.0f};
+}
+
+// A little of the console's own surface mixed in, so a colour sits down in the room.
+ui::Color softened(uint32_t rgb, float keep) {
+    const ui::Color col = ui::Color::rgb(rgb);
+    const ui::Color ground = ui::Color::rgb(0x241A3D);
+    const float mix = 0.68f;
+    return ui::Color{(col.r * mix + ground.r * (1.0f - mix)) * keep, (col.g * mix + ground.g * (1.0f - mix)) * keep,
+                     (col.b * mix + ground.b * (1.0f - mix)) * keep, 1.0f};
+}
+
 ui::Color shaded(uint32_t rgb, float keep) {
     const ui::Color col = ui::Color::rgb(rgb);
     return ui::Color{col.r * keep, col.g * keep, col.b * keep, 1.0f};
@@ -370,6 +400,9 @@ void LinkUpGrid::setState(const linkup::State& state, bool inUse) {
     emptyLine_ = state.instead.empty() ? "No friends yet" : state.instead;
     cabs_.clear();
     if (state.instead.empty()) {
+        const int n = std::max(1, static_cast<int>(state.friends.size()));
+        const std::vector<int> wheel = linkup::coloursApart(state.friends, 360, std::min(40, 180 / n));
+        const std::vector<int> themes = linkup::coloursApart(state.friends, 16, 1);
         for (const linkup::Group& g : linkup::groups(state.friends)) {
             for (int i : g.friends) {
                 const linkup::Friend& f = state.friends[static_cast<size_t>(i)];
@@ -384,10 +417,36 @@ void LinkUpGrid::setState(const linkup::State& state, bool inUse) {
                 if (canPress && inUse) cab.status = linkup::kInUse;
                 else if (g.status == linkup::Status::InvitedYou) cab.status += ": " + f.game;
                 else if (linkup::nameOnList(state.friends, i) != f.name) cab.status += ", " + f.from;
-                const int colour = linkup::colourOf(f, kFriendColours);
-                const float keep = cab.dark ? 0.30f : 1.0f;
-                cab.top = shaded(kFriendTops[colour], keep);
-                cab.bottom = shaded(kFriendBottoms[colour], keep);
+                const float hue = static_cast<float>(wheel[static_cast<size_t>(i)]);
+                const float keep = cab.dark ? 0.42f : 1.0f;
+                switch (palette_) {
+                    case Palette::Bright: {
+                        const int colour = linkup::colourOf(f, kFriendColours);
+                        cab.top = shaded(kFriendTops[colour], cab.dark ? 0.30f : 1.0f);
+                        cab.bottom = shaded(kFriendBottoms[colour], cab.dark ? 0.30f : 1.0f);
+                        break;
+                    }
+                    case Palette::Soft:
+                        cab.top = fromHsl(hue, 0.34f, 0.36f, keep);
+                        cab.bottom = fromHsl(hue, 0.36f, 0.17f, keep);
+                        break;
+                    case Palette::Themes: {
+                        const size_t t = static_cast<size_t>(themes[static_cast<size_t>(i)]);
+                        cab.top = softened(kThemeTops[t], keep);
+                        cab.bottom = softened(kThemeMids[t], keep);
+                        break;
+                    }
+                    case Palette::Dusk: {
+                        const float near = 200.0f + hue / 360.0f * 140.0f;
+                        cab.top = fromHsl(near, 0.38f, 0.37f, keep);
+                        cab.bottom = fromHsl(near, 0.40f, 0.16f, keep);
+                        break;
+                    }
+                    case Palette::Jewel:
+                        cab.top = fromHsl(hue, 0.52f, 0.27f, keep);
+                        cab.bottom = fromHsl(hue, 0.58f, 0.11f, keep);
+                        break;
+                }
                 cabs_.push_back(std::move(cab));
             }
         }
@@ -426,7 +485,7 @@ ui::Color LinkUpGrid::roomWanted() const {
     if (look_ == Look::Cabinet || at_ < 0 || at_ >= static_cast<int>(cabs_.size())) return ui::Color{0, 0, 0, 0};
     const Cab& cab = cabs_[static_cast<size_t>(at_)];
     ui::Color col = cab.top;
-    col.a = cab.dark ? 0.35f : 0.60f;
+    col.a = cab.dark ? 0.25f : 0.50f;
     return col;
 }
 
@@ -503,6 +562,22 @@ void LinkUpGrid::drawTile(Ctx& c, const Cab& cab, float x, float y, float w, flo
         plate.shadowColor = ui::Color::black(0.5f * f);
     }
     c.r.draw(plate);
+    if (look_ == Look::Wash) {
+        // A platform's tile with its cover gone: the colour comes down from the top.
+        ui::Color from = cab.top;
+        from.a = 0.80f;
+        ui::Rect wash{x, y, w, h, kTileRadius, from};
+        wash.gradient = true;
+        wash.fillBottom = ui::Color{cab.bottom.r, cab.bottom.g, cab.bottom.b, 0.55f};
+        c.r.draw(wash);
+    }
+    if (look_ == Look::Rise) {
+        // The colour rises from the foot, so the name sits on the console's own dark.
+        ui::Rect rise{x, y, w, h, kTileRadius, ui::Color{cab.bottom.r, cab.bottom.g, cab.bottom.b, 0.05f}};
+        rise.gradient = true;
+        rise.fillBottom = ui::Color{cab.top.r, cab.top.g, cab.top.b, 0.85f};
+        c.r.draw(rise);
+    }
     if (look_ == Look::Platform) {
         // Where a platform's tile has its cover blurred behind it, a wash of the colour.
         ui::Color from = cab.top;
