@@ -164,7 +164,7 @@ Result LinkUpScreen::key(Nav n) {
     if (n == Nav::Back) return {Action::Back, 0};
     if (at_ < 0) {
         if (n == Nav::Up) return {Action::FocusBar, 0};
-        if (n == Nav::Activate && (count > 0 || !instead_.empty())) return {Action::LinkUp, kAppearOffline};
+        if (n == Nav::Activate && count > 0) return {Action::LinkUp, kAppearOffline};
         if (n == Nav::Down && count > 0) return go(0);
         sound::play(sound::Cue::Edge);
         return {};
@@ -275,18 +275,27 @@ void LinkUpScreen::drawNoFriends(Ctx& c, float stars, float picture) {
     }
     c.r.setContentAlpha(appear_.value());
     // The bright one is what the eye weighs, so the pair sits a little right of even.
+    // With something wrong, nothing is lit: both are dim.
     setup::drawCabinetIcon(c.r, midX - 5.0f, kTop, kCabinetH, 0.32f);
-    setup::drawCabinetIcon(c.r, midX - 175.0f, kTop + 28.0f, kCabinetH, 1.0f);
+    setup::drawCabinetIcon(c.r, midX - 175.0f, kTop + 28.0f, kCabinetH, instead_.empty() ? 1.0f : 0.32f);
     auto centred = [&](const std::string& line, ui::TextStyle st, float baseline, float alpha) {
         c.text.draw(c.r, line, midX - c.text.measure(line, st, c.sc) * 0.5f, baseline, st,
                     ui::Color::white(alpha), c.sc);
     };
-    const std::string first = "Player two,", rest = " from anywhere.";
     const ui::TextStyle big = ui::TextStyle::Title2;
-    const float x = midX - c.text.measure(first + rest, big, c.sc) * 0.5f;
-    c.text.draw(c.r, first, x, 740.0f, big, ui::palette::kMarqueeAmber, c.sc);
-    c.text.draw(c.r, rest, x + c.text.measure(first, big, c.sc), 740.0f, big, ui::Color::white(0.96f), c.sc);
-    centred("Whoever runs your server adds friends", ui::TextStyle::Title3, 804.0f, 0.60f);
+    if (instead_.empty()) {
+        const std::string first = "Player two,", rest = " from anywhere.";
+        const float x = midX - c.text.measure(first + rest, big, c.sc) * 0.5f;
+        c.text.draw(c.r, first, x, 740.0f, big, ui::palette::kMarqueeAmber, c.sc);
+        c.text.draw(c.r, rest, x + c.text.measure(first, big, c.sc), 740.0f, big, ui::Color::white(0.96f), c.sc);
+        centred("Whoever runs your server adds friends", ui::TextStyle::Title3, 804.0f, 0.60f);
+    } else {
+        // What is wrong, and on a second line what to do when the words say.
+        const size_t split = instead_.find(". ");
+        centred(split == std::string::npos ? instead_ : instead_.substr(0, split + 1), big, 740.0f, 0.96f);
+        if (split != std::string::npos)
+            centred(instead_.substr(split + 2), ui::TextStyle::Title3, 804.0f, 0.60f);
+    }
     // The cabinet is stacked shapes, and faded one by one they show through each other and
     // come apart. So it stays whole, and the ground comes over it.
     if (picture < 1.0f) c.r.drawBackdrop(look::backdrop(), 1.0f - picture);
@@ -296,7 +305,7 @@ void LinkUpScreen::drawGlass(Ctx& c) {
     c.r.setScissor(0, design::kScrollClipTop, ui::kCanvasWidth,
                    ui::kCanvasHeight - design::kScrollClipTop);
     // What the change between friends and no friends has reached: 1 at rest.
-    const bool noFriends = tiles_.empty() && instead_.empty();
+    const bool noFriends = tiles_.empty();
     // The last friend going leaves nothing to wait for.
     const float arriving = design::easeInOut((sinceChange_ - (noFriends ? 0.0f : kChangeWait)) / kChangeArrive);
     if (noFriends) {
@@ -336,16 +345,6 @@ void LinkUpScreen::drawGlass(Ctx& c) {
     // With nobody to see it, the switch has nothing to say.
     drawPill(c, pill_, design::kLibraryInset, design::kSwitcherTop - scroll + rise, true,
              at_ < 0 && hasFocus_ ? f : 0.0f);
-
-    if (tiles_.empty()) {
-        const ui::TextStyle lineStyle = ui::TextStyle::Title3;
-        const float w = c.text.measure(instead_, lineStyle, c.sc);
-        c.text.draw(c.r, instead_, (ui::kCanvasWidth - w) * 0.5f, ui::kCanvasHeight * 0.5f, lineStyle,
-                    ui::Color::white(0.60f), c.sc);
-        c.r.setContentAlpha(1.0f);
-        c.r.clearScissor();
-        return;
-    }
 
     // The focused one last, so it grows over its neighbours.
     for (int pass = 0; pass < 2; ++pass) {
