@@ -428,6 +428,20 @@ runs `checks.yml`, a few seconds each:
   name the repository, path and revision SOURCES pins, fails: a text added by
   hand or a pin moved without running `tools/fetch-licences.py`. Nothing is
   downloaded. Report only until 2026-11-08.
+- **Code and docs agree** (`ci/check-code-and-docs-agree.py`): only what the
+  pull request touches, so the old tree never fails it. A comment it adds or
+  changes in `frontend/src`, `frontend/ps2`, `wiibridge`, `build_files`, `ci`,
+  `system_files`, `tools` or `cores` fails when it names something of ours that
+  is not there: a file, an `ns::name`, a name it pairs with a file of ours
+  (launch.cpp's startPlaying), or a frontend flag. Other projects' names do not
+  count: the script's header says what does, and its `SKIP` holds what is left
+  over. A header in `frontend/src` or `frontend/ps2` that declares a function
+  nothing defines fails, on a line the pull request changes or when it takes the
+  definition away, and so does a private address (10/8, 172.16/12, 192.168/16) on
+  a line it adds to any tracked file, outside the script's list of documented
+  examples. A stale comment on a line no pull request touches is for
+  `--whole-tree`, which the skill `check-code-and-docs-agree` runs. Report only
+  until 2026-11-10.
 
 **A check's first week is report only.** Until the end of the date in
 `checks.yml`'s `REPORT_ONLY_UNTIL` (2026-10-25, UTC; `build-frontend.yml`
