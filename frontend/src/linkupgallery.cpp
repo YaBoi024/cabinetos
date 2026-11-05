@@ -499,6 +499,12 @@ void App::drawLinkUpGalleryCaption(float sc) {
     if (linkupGalleryNoAnswerIn > 0.0f && minutes >= 20.0f) {
         const float into = std::min(1.0f, (minutes - 20.0f) * kWaitSeconds / 30.0f / 0.5f);
         renderer.draw(ui::Rect{0, 0, ui::kCanvasWidth, ui::kCanvasHeight, 0, ui::Color::black(idle::kDimDepth * into)});
+        linkupGalleryDimmed = true;
+    } else if (linkupGalleryDimmed && (linkupWaitEndsIn > 0.0f || choiceScreen.isOpen())) {
+        // It stays dim until a press, as a real one would.
+        renderer.draw(ui::Rect{0, 0, ui::kCanvasWidth, ui::kCanvasHeight, 0, ui::Color::black(idle::kDimDepth)});
+    } else {
+        linkupGalleryDimmed = false;
     }
     const int first = linkupGalleryFirst();
     std::string line = std::string(kScenes[first - 1].name + 1) + "   \xC2\xB7   " +

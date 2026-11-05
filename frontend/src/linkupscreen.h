@@ -72,6 +72,7 @@ public:
     };
     void open(Shows shows, std::string title, std::string detail, bool friendSide);
     Shows shows() const { return shows_; }
+    void setFade(float fade) { fade_ = fade; }
     bool friendSide() const { return friendSide_; }
 
     void tick(float dt);
@@ -83,6 +84,7 @@ private:
     bool friendSide_ = true;
     std::string title_, detail_;
     float clock_ = 0.0f;
+    float fade_ = 1.0f;
 };
 
 }  // namespace screens

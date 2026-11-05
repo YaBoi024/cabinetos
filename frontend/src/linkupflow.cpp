@@ -111,6 +111,15 @@ void App::linkupAskCode(const std::string& address, const std::string& typed) {
 
 // The answer to a pairing. The real one comes from the LinkUp program.
 void App::tickLinkUp(float dt) {
+    if (linkupWaitEndsIn > 0.0f) {
+        linkupWaitEndsIn -= dt;
+        linkupPlay.setFade(design::easeInOut((linkupWaitEndsIn - kWaitEndsGap) / kWaitEndsFade));
+        if (linkupWaitEndsIn <= 0.0f && linkupWaitEndsThen) {
+            const auto then = std::move(linkupWaitEndsThen);
+            linkupWaitEndsThen = nullptr;
+            then();
+        }
+    }
     if (linkupPairingLeft > 0.0f) {
         linkupPairingLeft -= dt;
         if (linkupPairingLeft <= 0.0f) {

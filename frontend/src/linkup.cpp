@@ -102,26 +102,39 @@ void App::linkupGameStarts() {
 }
 
 void App::linkupCancelInvite() {
+    linkupWaitEndsIn = 0.0f;
+    linkupWaitEndsThen = nullptr;
     linkupGallerySession = false;
     if (here() == Screen::LinkUpPlay && stack.size() > 1) stack.pop_back();
     refreshLinkUpScreen();
     sound::play(sound::Cue::Back);
 }
 
+// However long the wait has been, it ends gently: the screen goes, a moment passes, and
+// what comes next arrives. A press to cancel is answered at once instead.
+void App::linkupWaitEnds(std::function<void()> then) {
+    linkupWaitEndsIn = kWaitEndsFade + kWaitEndsGap;
+    linkupWaitEndsThen = [&, then = std::move(then)]() {
+        linkupCancelInvite();
+        linkupScreen.enter();
+        then();
+    };
+}
+
 void App::linkupDeclinedBy(const std::string& who) {
-    linkupCancelInvite();
-    menuNotice.say(linkup::declined(who), Tone::Info);
+    linkupWaitEnds([&, who]() { menuNotice.say(linkup::declined(who), Tone::Info); });
 }
 
 // Nobody may be watching by now, so it stays until a press rather than as a pill.
 void App::linkupNoAnswerFrom(const std::string& who) {
-    linkupCancelInvite();
-    linkupPanel(linkup::noAnswer(who), "", {}, 0, [](int) {});
-    choiceScreen.setPrompt("Press", "A", "to continue");
+    linkupWaitEnds([&, who]() {
+        linkupPanel(linkup::noAnswer(who), "", {}, 0, [](int) {});
+        choiceScreen.setPrompt("Press", "A", "to continue");
+    });
 }
 
-// While an invite waits, the screen neither dims nor turns off: the person may have
-// walked away, and is coming back to a game.
+// While an invite waits, the screen dims as it does over a game and never turns off: the
+// person may have walked away, and is coming back to a game.
 bool App::linkupHoldsScreen() {
     return here() == Screen::LinkUpPlay &&
            linkupPlay.shows() == screens::LinkUpPlayScreen::Shows::Inviting;

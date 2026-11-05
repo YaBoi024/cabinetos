@@ -365,6 +365,7 @@ void LinkUpPlayScreen::open(Shows shows, std::string title, std::string detail, 
     detail_ = std::move(detail);
     friendSide_ = friendSide;
     clock_ = 0.0f;
+    fade_ = 1.0f;
 }
 
 void LinkUpPlayScreen::tick(float dt) { clock_ += dt; }
@@ -377,6 +378,7 @@ Result LinkUpPlayScreen::key(Nav n) {
 }
 
 void LinkUpPlayScreen::draw(Ctx& c) {
+    c.r.setContentAlpha(fade_);
     const float midX = ui::kCanvasWidth * 0.5f;
     auto centred = [&](const std::string& s, ui::TextStyle st, float baseline, float alpha) {
         c.text.draw(c.r, s, midX - c.text.measure(s, st, c.sc) * 0.5f, baseline, st,
@@ -397,6 +399,7 @@ void LinkUpPlayScreen::draw(Ctx& c) {
         }
         centred(title_, ui::TextStyle::LargeTitle, 480.0f, 0.22f);
         centred("The game's picture goes here", ui::TextStyle::Callout, 540.0f, 0.18f);
+        c.r.setContentAlpha(1.0f);
         return;
     }
 
@@ -421,6 +424,7 @@ void LinkUpPlayScreen::draw(Ctx& c) {
     if (shows_ == Shows::Inviting || friendSide_)
         drawPressPrompt(c.r, c.text, c.sc, "Press", shows_ == Shows::Inviting ? "to cancel" : "to leave",
                         ui::kCanvasHeight - ui::kSafeInset - 130.0f, 0.80f, "B");
+    c.r.setContentAlpha(1.0f);
 }
 
 }  // namespace screens

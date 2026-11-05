@@ -665,6 +665,10 @@ struct App {
     std::string linkupGuest, linkupGame;  // who the host invited, and to what
     std::string linkupPairingAddress;   // the address being paired with
     float linkupPairingLeft = 0.0f;     // until the pairing's answer
+    static constexpr float kWaitEndsFade = 0.75f;
+    static constexpr float kWaitEndsGap = 0.12f;
+    float linkupWaitEndsIn = 0.0f;
+    std::function<void()> linkupWaitEndsThen;
     // What the gallery plays the other side of.
     int linkupGalleryAt = -1;
     int linkupGallerySection = 0;
@@ -677,6 +681,7 @@ struct App {
     float linkupGalleryJoinIn = 0.0f;
     float linkupGalleryFriendIn = 0.0f;
     float linkupGalleryNoAnswerIn = 0.0f;
+    bool linkupGalleryDimmed = false;
     // ABOUT, HOW TO (#314): the controls, in Settings' own shape (a section
     // per row on the left, its lines on the right), so it looks like the
     // console rather than a page of text (MMagTech on the TV, 2026-10-10).
@@ -2330,6 +2335,7 @@ struct App {
     void linkupCancelInvite();
     void linkupDeclinedBy(const std::string& who);
     void linkupNoAnswerFrom(const std::string& who);
+    void linkupWaitEnds(std::function<void()> then);
     bool linkupHoldsScreen();
     void linkupSayInvited(const std::string& who);
     void linkupPanel(const std::string& title, const std::string& detail,
