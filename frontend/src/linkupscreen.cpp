@@ -228,14 +228,47 @@ void LinkUpScreen::drawNoFriends(Ctx& c) {
         c.text.draw(c.r, line, midX - c.text.measure(line, st, c.sc) * 0.5f, baseline, st,
                     ui::Color::white(alpha), c.sc);
     };
-    centred("Player two, from anywhere.", ui::TextStyle::Title2, 740.0f, 0.96f);
+    const std::string first = "Player two,", rest = " from anywhere.";
+    const ui::TextStyle big = ui::TextStyle::Title2;
+    const float x = midX - c.text.measure(first + rest, big, c.sc) * 0.5f;
+    c.text.draw(c.r, first, x, 740.0f, big, ui::palette::kMarqueeAmber, c.sc);
+    c.text.draw(c.r, rest, x + c.text.measure(first, big, c.sc), 740.0f, big, ui::Color::white(0.96f), c.sc);
     centred("Whoever runs your server adds friends", ui::TextStyle::Title3, 804.0f, 0.60f);
+}
+
+// The same stars every time, away from the words and whatever is meant to be read. Square,
+// as pixels are, and holding still.
+void LinkUpScreen::drawStars(Ctx& c) const {
+    const bool noFriends = tiles_.empty() && instead_.empty();
+    const float midX = ui::kCanvasWidth * 0.5f;
+    uint32_t seed = 20261105u;
+    auto next = [&seed]() {
+        seed = seed * 1664525u + 1013904223u;
+        return seed >> 8;
+    };
+    for (int i = 0; i < 110; ++i) {
+        const float x = static_cast<float>(next() % static_cast<uint32_t>(ui::kCanvasWidth));
+        const float y = 120.0f + static_cast<float>(next() % static_cast<uint32_t>(ui::kCanvasHeight - 120.0f));
+        const float size = 3.0f + static_cast<float>(next() % 3u);
+        const uint32_t kind = next() % 6u;
+        const float alpha = 0.25f + static_cast<float>(next() % 56u) / 100.0f;
+        if (y < 210.0f && x < 500.0f) continue;   // Status
+        if (noFriends && x > midX - 200.0f && x < midX + 260.0f && y > 240.0f && y < 640.0f) continue;
+        if (noFriends && x > midX - 440.0f && x < midX + 440.0f && y >= 640.0f && y < 840.0f) continue;
+        ui::Color col = kind == 0   ? ui::palette::kMarqueeAmber
+                        : kind == 1 ? ui::Color::rgb(0xF68CB8)
+                                    : ui::Color::white(1.0f);
+        col.a = alpha;
+        c.r.draw(ui::Rect{x, y, size, size, 0.0f, col});
+    }
 }
 
 void LinkUpScreen::drawGlass(Ctx& c) {
     c.r.setContentAlpha(appear_.value());
     c.r.setScissor(0, design::kScrollClipTop, ui::kCanvasWidth,
                    ui::kCanvasHeight - design::kScrollClipTop);
+
+    if (stars_) drawStars(c);
 
     constexpr int cols = kColumns;
     const float usable = ui::kCanvasWidth - design::kLibraryInset * 2.0f;

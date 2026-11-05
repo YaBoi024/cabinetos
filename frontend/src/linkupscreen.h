@@ -28,6 +28,9 @@ public:
     void enter();
     void settleArrival() { appear_.settle(1.0f); }
     void setHasFocus(bool on);
+    // The stars behind everything, for an otherwise empty screen. Being compared.
+    void setStars(bool on) { stars_ = on; }
+    bool stars() const { return stars_; }
 
     void tick(float dt);
     Result key(Nav n);
@@ -46,9 +49,11 @@ private:
     void moved();
     void drawTile(Ctx& c, const FriendTile& tile, float x, float y, float w, float h, float f);
     void drawNoFriends(Ctx& c);
+    void drawStars(Ctx& c) const;
 
     std::vector<FriendTile> tiles_;
     std::string pill_, instead_;
+    bool stars_ = true;
     int at_ = -1;          // the focused friend, or -1 on Status
     bool hasFocus_ = true;
     design::Animated appear_;
