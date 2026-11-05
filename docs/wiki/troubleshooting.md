@@ -88,5 +88,5 @@ If the console does not get as far as Settings, a report from the next boot
 still has the boot that failed. With Developer access, `cabinetos-report`
 makes the same file.
 
-CabinetOS is tested on the GEEKOM A9 Max only, so reports from other machines
-are how it gets better on them.
+CabinetOS is tested on the GEEKOM A9 Max, so reports from other machines are
+how it gets better on them.

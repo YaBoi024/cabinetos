@@ -72,7 +72,7 @@ These days it's my kids on that couch. Same feeling.
 ## What you need
 
 - **A small PC** with AMD Radeon graphics. CabinetOS is built and tested on the
-  **GEEKOM A9 Max**, the only machine it has been tested on so far.
+  **GEEKOM A9 Max**.
 - **A RomM server**, 5.1 or newer, with your games, BIOS and firmware.
 - **A controller**, Bluetooth or USB, and a USB keyboard for the first run.
 - **A TV.**
@@ -92,6 +92,9 @@ playing: [install](docs/wiki/install.md), [first run](docs/wiki/first-run.md),
 **[Download the installer](https://download.mmagtech.com/cabinetos.iso)**:
 one file, `cabinetos.iso`, always the newest release
 ([what's new](https://cabinetos.mmagtech.com/wiki/changelog.html)).
+
+**Try it without installing:** [run it from a USB drive](docs/wiki/portable.md).
+It is an alpha, and your PC's own drives stay as they are.
 
 ## Thanks
 
