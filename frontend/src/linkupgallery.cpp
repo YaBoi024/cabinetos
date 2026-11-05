@@ -148,8 +148,9 @@ void App::linkupGalleryTick(float dt) {
 
 // R2 and L2, from whatever is on screen.
 void App::linkupGalleryStep(int dir) {
-    linkupGalleryShow(std::clamp(linkupGalleryAt + dir, linkupGalleryFirst(), linkupGalleryLast()));
+    // The click first: it would clear a longer sound a scene starts with.
     sound::play(sound::Cue::Move);
+    linkupGalleryShow(std::clamp(linkupGalleryAt + dir, linkupGalleryFirst(), linkupGalleryLast()));
 }
 
 // Y in Settings, to compare how its sections are cut.

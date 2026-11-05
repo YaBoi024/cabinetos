@@ -163,6 +163,7 @@ void App::linkupPanel(const std::string& title, const std::string& detail,
 // it is decides whether to stop now; the game waits for the panel.
 void App::linkupSayInvited(const std::string& who) {
     menuNotice.say(linkup::invitedYou(who), Tone::Info);
+    sound::playInvite();
     menuNotice.life = 6.0f;
 }
 
