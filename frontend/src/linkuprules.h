@@ -32,7 +32,7 @@ struct State {
     bool appearOffline = false;
     std::vector<Friend> friends;
     // A line in place of the list, when the list cannot be had: kCantConnect,
-    // kConsoleRemoved, kServerNeedsUpdate.
+    // kConsoleRemoved, kServerNeedsUpdate, kThisNeedsUpdate.
     std::string instead;
     bool picking = false;       // Host: the Library is choosing a game
 };

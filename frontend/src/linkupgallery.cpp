@@ -373,11 +373,13 @@ const Scene kScenes[] = {
     {"#When something is wrong", nullptr},
     {"Update: the friend's console is behind", [](App& a) {
          a.goToDestination(App::BarLinkUp);
-         a.menuNotice.say(linkup::needsUpdate("Alex"), Tone::Problem);
+         a.linkupPanel(linkup::needsUpdate("Alex"), "", {}, 0, [](int) {});
+         a.choiceScreen.setPrompt("Press", "A", "to continue");
+         a.choiceScreen.setOnlyA(true);
      }},
-    {"Update: this console is behind", [](App& a) {
+    {"Update: this console is behind the server", [](App& a) {
+         a.linkUp.instead = linkup::kThisNeedsUpdate;
          a.goToDestination(App::BarLinkUp);
-         a.menuNotice.say(linkup::kThisNeedsUpdate, Tone::Problem);
      }},
     {"Update: the server is behind", [](App& a) {
          a.linkUp.instead = linkup::kServerNeedsUpdate;
