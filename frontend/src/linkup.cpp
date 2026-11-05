@@ -122,7 +122,15 @@ void App::linkupWaitEnds(std::function<void()> then) {
 }
 
 void App::linkupDeclinedBy(const std::string& who) {
-    linkupWaitEnds([&, who]() { menuNotice.say(linkup::declined(who), Tone::Info); });
+    linkupWaitEnds([&, who]() {
+        if (linkupDeclineIsPill) {
+            menuNotice.say(linkup::declined(who), Tone::Info);
+            return;
+        }
+        linkupPanel(linkup::declined(who), "", {}, 0, [](int) {});
+        choiceScreen.setPrompt("Press", "A", "to continue");
+        choiceScreen.setOnlyA(true);
+    });
 }
 
 // Nobody may be watching by now, so it stays until a press rather than as a pill.

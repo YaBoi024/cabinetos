@@ -43,8 +43,8 @@ std::vector<Friend> madeUpFriends() {
 
 // ---- What the gallery plays the other side of ---------------------------
 
-// The made-up Library, so inviting needs no server: Wii's first game needs a Wii
-// Remote, and greys. No covers: the stand-in library's are other games' art.
+// The made-up Library, so inviting needs no server. No covers: the stand-in library's
+// are other games' art.
 void App::linkupGalleryLibrary() {
     if (!linkupGallery) return;
     auto add = [&](const char* title, uint32_t art, const char* platform, bool wii, bool remote) {
@@ -63,9 +63,8 @@ void App::linkupGalleryLibrary() {
     snes.cards = {add("Contra III", 0x2484D6, "Super Nintendo", false, false),
                   add("Super Metroid", 0xEC405C, "Super Nintendo", false, false),
                   add("Chrono Trigger", 0x7A6BC4, "Super Nintendo", false, false)};
-    wii.id = 2; wii.query = "linkup-gallery-2"; wii.title = "Wii"; wii.detail = "2 games";
-    wii.cards = {add("Wii Sports", 0x58E8F6, "Wii", true, true),
-                 add("Super Smash Bros. Brawl", 0xFFC457, "Wii", true, false)};
+    wii.id = 2; wii.query = "linkup-gallery-2"; wii.title = "Wii"; wii.detail = "1 game";
+    wii.cards = {add("Super Smash Bros. Brawl", 0xFFC457, "Wii", true, false)};
     ps2.id = 3; ps2.query = "linkup-gallery-3"; ps2.title = "PlayStation 2"; ps2.detail = "1 game";
     ps2.cards = {add("Burnout 3", 0xFF7AC7, "PlayStation 2", false, false)};
     arcade.id = 4; arcade.query = "linkup-gallery-4"; arcade.title = "Arcade"; arcade.detail = "1 game";
@@ -257,15 +256,18 @@ const Scene kScenes[] = {
          pickingForAlex(a);
          a.apply({screens::Action::OpenTile, 0});
      }},
-    {"Inviting Alex: Needs a Wii Remote, greyed", [](App& a) {
-         pickingForAlex(a);
-         a.apply({screens::Action::OpenTile, 1});
-     }},
     {"The invite goes out and you wait (Alex joins in 20 seconds, B cancels)", inviteOut},
-    {"Alex declines after 5 seconds", [](App& a) {
+    {"Alex declines after 5 seconds: a panel", [](App& a) {
          inviteOut(a);
          a.linkupGalleryJoinIn = 0.0f;
          a.linkupGalleryDeclineIn = 5.0f;
+         a.linkupDeclineIsPill = false;
+     }},
+    {"Alex declines after 5 seconds: a pill", [](App& a) {
+         inviteOut(a);
+         a.linkupGalleryJoinIn = 0.0f;
+         a.linkupGalleryDeclineIn = 5.0f;
+         a.linkupDeclineIsPill = true;
      }},
     {"Nobody answers, sped up", [](App& a) {
          inviteOut(a);
