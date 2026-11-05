@@ -72,7 +72,7 @@ void App::openScreenForCapture() {
         // `--screen settings --tile N` opens on category N; `--focus-row 1`
         // puts focus in its rows. The network is waited for here, because a
         // capture has no wall clock and would otherwise always say Checking.
-        goToDestination(3);
+        goToDestination(BarSettings);
         if (settingsNet.th.joinable()) settingsNet.th.join();
         if (settingsWifi.th.joinable()) settingsWifi.th.join();
         buildSettings();

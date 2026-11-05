@@ -81,6 +81,8 @@ public:
     // For a capture: open on a category, with focus in its rows if it has one
     // that can be focused.
     void focusCategory(int index, bool intoRows);
+    // Which category has this name, for opening on it; the first if none has.
+    int categoryNamed(const std::string& name) const;
 
     // Where a Choice row is now, after a SettingChoice came back for it. -1 if
     // there is no such row.

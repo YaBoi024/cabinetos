@@ -12,7 +12,7 @@
 // after a state loads says "Press (A) to continue".
 void drawPressPrompt(ui::Renderer& r, ui::TextRenderer& text, float sc,
                      const char* before, const char* after, float base,
-                     float alpha) {
+                     float alpha, const char* button) {
     const ui::TextStyle st = ui::TextStyle::Title3;
     const float gap = 16.0f;
     const float badge = text.lineHeight(st, sc) * 0.95f;
@@ -24,8 +24,8 @@ void drawPressPrompt(ui::Renderer& r, ui::TextRenderer& text, float sc,
     const float capMid = base - text.ascent(st, sc) * 0.36f;
     r.draw(ui::Rect{x, capMid - badge * 0.5f, badge, badge, badge * 0.5f,
                     ui::Color::white(0.95f * alpha)});
-    const float aw = text.measure("A", st, sc);
-    text.draw(r, "A", x + (badge - aw) * 0.5f, capMid + text.ascent(st, sc) * 0.36f, st,
+    const float aw = text.measure(button, st, sc);
+    text.draw(r, button, x + (badge - aw) * 0.5f, capMid + text.ascent(st, sc) * 0.36f, st,
               ui::Color{0.07f, 0.05f, 0.12f, alpha}, sc);
     x += badge + gap;
     text.draw(r, after, x, base, st, ui::Color::white(0.92f * alpha), sc);
@@ -34,6 +34,60 @@ void drawPressPrompt(ui::Renderer& r, ui::TextRenderer& text, float sc,
 namespace screens {
 
 using design::Card;
+
+// A capsule of words on the margin: the Library's Platforms and Collections, and
+// LinkUp's Status. Its text starts on the margin and its focus sits outside that.
+float pillWidth(ui::TextRenderer& text, const std::string& label, float sc) {
+    return text.measure(label, ui::TextStyle::Title3, sc) + design::kPillPadX * 2.0f;
+}
+
+float pillHeight(ui::TextRenderer& text, float sc) {
+    return text.lineHeight(ui::TextStyle::Title3, sc) + design::kPillPadY * 2.0f;
+}
+
+// THE SWITCHER IS TEXT, AND THE CAPSULE ONLY APPEARS UNDER FOCUS — 2026-09-21.
+//
+// It used to be a filled capsule at rest, which made the Library's first row a
+// pair of controls where Home's first row is a pair of headings. MMagTech:
+// *"the library and collection text dont seem to match home now either."*
+// Home's "Recent" and "Favorites" are Title 3 on the backdrop with nothing
+// behind them; these are the same words doing the same job and they are Title 3
+// on the backdrop now too.
+//
+// It also settles the margin. A capsule cannot be aligned two ways at once —
+// box-aligned puts its label 14 points inside everything else on the screen,
+// text-aligned hangs the capsule 14 points outside the tiles below it — and
+// text with no box behind it simply starts where the margin is, the way the
+// heading on Home does.
+//
+// SELECTION IS STILL NOT FOCUS AND BOTH ARE STILL VISIBLE AT ONCE, which is the
+// rule this has to keep: the SELECTED tab is full white and the other is dimmed
+// to 45%, so which tab you are looking at survives focus walking away from it;
+// FOCUS is the capsule, which appears only under the thing the cursor is on.
+// The two signals are now different in kind rather than different in strength,
+// which reads better from a sofa than two tints of the same white did.
+void drawPill(Ctx& c, const std::string& label, float x, float y, bool selected,
+              float f) {
+    const float w0 = pillWidth(c.text, label, c.sc);
+    const float h0 = pillHeight(c.text, c.sc);
+    const float s = 1.0f + f * (design::kPillFocusScale - 1.0f);
+    const float w = w0 * s, h = h0 * s;
+    // `x` is the TEXT's left edge; the capsule is drawn a padding-width outside
+    // it, so it grows around the label rather than pushing it along.
+    const float px = x - design::kPillPadX - (w - w0) * 0.5f;
+    const float py = y - (h - h0) * 0.5f;
+
+    if (f > 0.001f)
+        c.r.drawGlass(ui::Rect{px, py, w, h, h * 0.5f, ui::Color::white(0)},
+                      design::kThinMaterialBlur,
+                      ui::Color::white(f * design::kFocusedTint));
+    // The label does not move when the capsule grows: a focus scale that shoved
+    // the words along would make the pair jitter as focus crossed them.
+    c.text.draw(c.r, label, x,
+                py + design::kPillPadY * s + c.text.ascent(ui::TextStyle::Title3, c.sc),
+                ui::TextStyle::Title3,
+                ui::Color::white(selected ? 1.0f : 0.45f), c.sc);
+}
 
 // Two caption lines with reserved space, so rows stay aligned whether a title
 // wraps or not. One line truncated almost every real title at these widths —
@@ -142,11 +196,12 @@ void drawCover(Ctx& c, const Card& card, float x, float y, float w, float h,
     // GREYED: a game this console cannot play until a controller is paired.
     // Held back whether focused or not, so focus lands on it and it still
     // reads as unavailable; its name says why.
-    if (!card.unavailable.empty())
+    const bool greyed = !card.unavailable.empty() || (c.on.greyRemoteGames && card.needsRemote);
+    if (greyed)
         c.r.draw(ui::Rect{x, y, w, h, radius, ui::Color::black(design::kUnavailableDim)});
     // Only over something drawn on the panel: the panel's own rim is the
     // same rim, and a second one on bare panel is a brighter edge.
-    if (f > 0.0f && rim && (!key.empty() || !card.unavailable.empty())) {
+    if (f > 0.0f && rim && (!key.empty() || greyed)) {
         ui::Rect edge{x, y, w, h, radius, ui::Color::white(0)};
         edge.border = f * design::kFocusRimWidth;
         edge.borderColor = ui::palette::kFocusRim;

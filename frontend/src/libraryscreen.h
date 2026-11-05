@@ -64,6 +64,16 @@ class LibraryScreen {
 public:
     void build(std::vector<Tile> platforms, std::vector<Tile> collections);
 
+    // LinkUp's Host picks from the platforms alone, because a collection can
+    // hold the handheld systems it does not cover.
+    void setPlatformsOnly(bool on);
+    // LINKUP'S SCREEN IS THIS SCREEN WITH FRIENDS FOR TILES. One capsule in place of
+    // the switcher, what pressing it says in Action::LinkUp, and the line for a list
+    // with nobody in it.
+    void setOnePill(std::string label, int pressValue, std::string emptyLine);
+    // Focus drawn again on the tile it is on, after build() made new ones.
+    void settleFocus();
+
     // FOCUS LANDS ON THE SWITCHER THE FIRST TIME AND ONLY THE FIRST TIME.
     // Re-entering from a pushed screen must leave focus where back-navigation
     // put it. The reference implementation got this wrong first: forcing focus
@@ -144,6 +154,9 @@ private:
     std::vector<Tile> platforms_;
     std::vector<Tile> collections_;
     int tab_ = 0;              // 0 platforms, 1 collections
+    bool platformsOnly_ = false;
+    std::string onePill_, emptyLine_;
+    int onePillValue_ = 0;
     bool entered_ = false;     // has this screen ever been arrived at
     // Row 0 is the switcher; rows 1.. are the tile grid.
     int row_ = 0;

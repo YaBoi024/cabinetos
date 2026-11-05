@@ -460,6 +460,8 @@ bool App::refuseStartWithoutController(int romId) {
 // Remote", before it starts with nothing to play it (screens::drawFocusedLine;
 // MMagTech, 2026-10-25). Each note goes as the controller it asks for comes on.
 screens::ControllersOn App::controllersOn() const {
+    // Host picks a game player two could hold: a Remote cannot reach another house.
+    if (linkUp.picking) return {false, true, true};
     const bool stream = players::streaming();
     return {!stream && !wiiremote::batteries().empty(), stream || !players::held().empty()};
 }

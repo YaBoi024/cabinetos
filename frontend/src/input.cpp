@@ -541,6 +541,8 @@ void App::handleEvent(const SDL_Event& e) {
                         break;
                     if (here() == Screen::Search && keyboard.isOpen())
                         keyboardResult(keyboard.commit());
+                    else if (here() == Screen::LinkUpPlay && linkupPlay.friendSide())
+                        linkupAskLeave();
                     else
                         openPowerMenu();
                     break;
@@ -569,6 +571,9 @@ void App::handleEvent(const SDL_Event& e) {
             if (held && v < 8000) {
                 held = false;
                 if (letterHeld == dir) letterHeld = 0;
+            } else if (!held && v > 20000 && linkupGallery) {
+                held = true;
+                linkupGalleryStep(dir);
             } else if (!held && v > 20000 && owner == InputOwner::UI) {
                 held = true;
                 if (here() == Screen::Grid) {

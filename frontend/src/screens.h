@@ -50,6 +50,9 @@ namespace screens {
 struct ControllersOn {
     bool remote = false;
     bool other = false;
+    // LinkUp's Host is picking: a game that needs a Remote is greyed, because the
+    // friend's Remote cannot reach this console (App::controllersOn).
+    bool greyRemoteGames = false;
 };
 // The two notes, and the toasts a press on Play gets in their place
 // (App::refuseStartWithoutController): the same words in both places.
@@ -114,6 +117,8 @@ enum class Action {
     // A Settings choice row moved to another choice. The value is the row's
     // id; SettingsScreen::choiceOf says which choice it is on now.
     SettingChoice,
+    // A press on one of LinkUp's screens. The value says which (linkupscreen.h).
+    LinkUp,
 };
 
 struct Result {
