@@ -112,6 +112,15 @@ void App::linkupGalleryTick(float dt) {
             linkupGameStarts();
         }
     }
+    if (linkupGalleryFriendIn > 0.0f) {
+        linkupGalleryFriendIn -= dt;
+        if (linkupGalleryFriendIn <= 0.0f) {
+            linkUp.friends = madeUpFriends();
+            linkUp.friends.resize(1);
+            linkUp.friends[0].status = Status::Online;
+            refreshLinkUpScreen();
+        }
+    }
     if (linkupGalleryPictureIn > 0.0f) {
         linkupGalleryPictureIn -= dt;
         if (linkupGalleryPictureIn <= 0.0f && here() == Screen::LinkUpPlay &&
@@ -127,20 +136,14 @@ void App::linkupGalleryStep(int dir) {
     sound::play(sound::Cue::Move);
 }
 
-// Y, to compare: the stars on LinkUp's screen, and how Settings' sections are cut.
+// Y in Settings, to compare how its sections are cut.
 bool App::linkupGalleryFlip() {
-    if (keyboard.isOpen() || pinScreen.isOpen() || choiceScreen.isOpen()) return false;
-    if (here() == Screen::LinkUp) {
-        linkupScreen.setStars(!linkupScreen.stars());
-        std::fprintf(stderr, "[linkup] gallery stars: %d\n", linkupScreen.stars());
-    } else if (here() == Screen::Settings) {
-        linkupSettingsShape = (linkupSettingsShape + 1) % 3;
-        buildSettings();
-        std::fprintf(stderr, "[linkup] gallery Settings shape: %d\n", linkupSettingsShape);
-    } else {
+    if (here() != Screen::Settings || keyboard.isOpen() || pinScreen.isOpen() || choiceScreen.isOpen())
         return false;
-    }
+    linkupSettingsShape = (linkupSettingsShape + 1) % 3;
+    buildSettings();
     sound::play(sound::Cue::Move);
+    std::fprintf(stderr, "[linkup] gallery Settings shape: %d\n", linkupSettingsShape);
     return true;
 }
 
@@ -232,6 +235,11 @@ const Scene kScenes[] = {
     {"No friends", [](App& a) {
          a.linkUp.friends.clear();
          a.goToDestination(App::BarLinkUp);
+     }},
+    {"No friends, and one arrives after 6 seconds", [](App& a) {
+         a.linkUp.friends.clear();
+         a.goToDestination(App::BarLinkUp);
+         a.linkupGalleryFriendIn = 6.0f;
      }},
     {"#Inviting a friend", nullptr},
     {"Inviting Alex: pick a system", pickingForAlex},
@@ -447,6 +455,7 @@ void App::linkupGalleryShow(int index) {
     linkupPairingLeft = 0.0f;
     linkupGalleryPictureIn = 0.0f;
     linkupGalleryJoinIn = 0.0f;
+    linkupGalleryFriendIn = 0.0f;
 
     // Everything put back, so a scene owes nothing to the one before it.
     if (keyboard.isOpen()) keyboard.cancel();
@@ -485,7 +494,6 @@ void App::drawLinkUpGalleryCaption(float sc) {
                        std::to_string(linkupGalleryAt - first + 1) + " of " +
                        std::to_string(linkupGalleryLast() - first + 1) + "   \xC2\xB7   " +
                        kScenes[linkupGalleryAt].name + "   \xC2\xB7   ";
-    if (here() == Screen::LinkUp) line += linkupScreen.stars() ? "Y for no stars   \xC2\xB7   " : "Y for stars   \xC2\xB7   ";
     if (here() == Screen::Settings) {
         static constexpr const char* kNext[] = {"Y for 7 sections", "Y for 9 sections", "Y for 8 sections"};
         line += std::string(kNext[linkupSettingsShape]) + "   \xC2\xB7   ";
