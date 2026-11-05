@@ -647,7 +647,7 @@ for needed in sfdisk partx btrfs xfs_growfs resize2fs unshare lsblk realpath; do
     fi
 done
 [[ "$(systemctl is-enabled cabinetos-grow-root.service 2>/dev/null)" == enabled ]] || {
-    log "  MISSING: cabinetos-grow-root.service is not enabled; a portable would keep a 7 GB system"
+    log "  MISSING: cabinetos-grow-root.service is not enabled; a portable would never fill its drive"
     failed=1
 }
 for needed in /usr/share/zoneinfo/zone.tab /usr/share/zoneinfo/iso3166.tab /usr/lib/systemd/system/chronyd.service; do

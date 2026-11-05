@@ -152,7 +152,11 @@ None of the three merges anything.
 
 **`build-disk.yml`**, by hand only: the installer ISO (`anaconda-iso`, an
 artifact kept 90 days, repacked in CabinetOS's look by
-`ci/brand-installer-iso.sh`) or a qcow2. With `publish` ticked it also replaces the
+`ci/brand-installer-iso.sh`), a qcow2, or the file a tester writes to a USB
+drive (`portable`, made by `ci/make-portable-image.sh`; the run fails unless
+`ci/check-portable-boots.sh` boots it to first run, and its picture and journal
+are a small artifact of their own). `publish` never publishes `portable`. With
+`publish` ticked on an ISO it also replaces the
 download, `cabinetos.iso` and its SHA-256 in Cloudflare R2
 (`download.mmagtech.com`, the link the README and the wiki's Install page
 give), and reads the size back to check it. Build it once per release; an
