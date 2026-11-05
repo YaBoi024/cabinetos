@@ -94,7 +94,7 @@ void LinkUpScreen::setState(const linkup::State& state, bool inUse) {
                 tile.kind = g.status;
                 tile.name = f.name;
                 tile.pressable = canPress && !inUse;
-                tile.dark = g.status == linkup::Status::Offline || (canPress && inUse);
+                tile.dark = g.status == linkup::Status::Offline || inUse;
                 tile.status = linkup::heading(g.status);
                 if (canPress && inUse) tile.status = linkup::kInUse;
                 else if (g.status == linkup::Status::InvitedYou) tile.status += ": " + f.game;
