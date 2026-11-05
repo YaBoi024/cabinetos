@@ -559,6 +559,10 @@ struct App {
     const char* kBarLabels[BarCount] = { "Home", "Library", "Search", "LinkUp", "Settings", "Account" };
     // How many of those draw as labelled capsules. The chip draws itself.
     static constexpr int kBarCapsules = BarAccount;
+    // How much of its place LinkUp has in the bar, 0 to 1, so joining it moves Settings
+    // along smoothly rather than in one frame. Set on the first frame, not animated.
+    design::Animated linkupBarRoom;
+    bool linkupBarRoomSet = false;
     size_t shelfSlots();
     bool haveResume();
     bool haveFavorites();
@@ -654,11 +658,6 @@ struct App {
     // only until the LinkUp program answers (step 3); linkupgallery.cpp fills it.
     screens::LinkUpScreen linkupScreen;
     screens::LinkUpPlayScreen linkupPlay;
-    // The same friends as plain tiles and as a grid in several looks, to compare with
-    // the rows above. All but one go when he picks.
-    // Settings' sections, being compared. 0: Streaming, eight. 1: and Storage in System,
-    // seven. 2: as the console has them, with LinkUp its own, nine.
-    int linkupSettingsShape = 0;
     screens::QrLinkScreen linkupRunOwn;
     linkup::State linkUp;
     std::string linkupHost;             // whose game this console is in, as a friend
@@ -2371,7 +2370,6 @@ struct App {
     int linkupGalleryFirst() const;
     int linkupGalleryLast() const;
     void linkupGalleryShow(int index);
-    bool linkupGalleryFlip();
     void drawLinkUpGalleryCaption(float sc);
     void captureFrame(int dw, int dh);
     void refuseCaptureOverAnotherWindow(const char* whose);

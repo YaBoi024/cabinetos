@@ -165,8 +165,23 @@ void App::drawBar(bool gameUp, float sc, float dt) {
             barTop + (barHeight - text.lineHeight(ui::TextStyle::Callout, sc)) * 0.5f +
             text.ascent(ui::TextStyle::Callout, sc);
         float bx = barX;
+        // LINKUP JOINS THE BAR ONLY WHEN PAIRED, while the person stands on Settings, so
+        // Settings glides along to make room and the word fades in once there is room:
+        // faded in at the start it would show through Settings passing over it.
+        const float linkupWant = linkupInBar() ? 1.0f : 0.0f;
+        if (!linkupBarRoomSet) {
+            linkupBarRoom.settle(linkupWant);
+            linkupBarRoom.smooth = true;
+            linkupBarRoomSet = true;
+        }
+        constexpr float kLinkupBarSeconds = 0.5f;
+        linkupBarRoom.retarget(linkupWant, kLinkupBarSeconds);
+        linkupBarRoom.tick(dt);
+        const float linkupRoom = linkupBarRoom.value();
+        const float linkupFade = std::clamp((linkupRoom - 0.6f) / 0.4f, 0.0f, 1.0f);
         for (int i = 0; i < kBarCapsules; ++i) {
-            if (i == BarLinkUp && !linkupInBar()) continue;
+            if (i == BarLinkUp && linkupRoom <= 0.0f) continue;
+            const float fade = i == BarLinkUp ? linkupFade : 1.0f;
             const bool on = barFocused && barSlot == i;
             const bool sel = (i == selected);
             // Greyed in place while the console cannot reach its RomM server, so
@@ -206,12 +221,12 @@ void App::drawBar(bool gameUp, float sc, float dt) {
                 const float ph = barHeight - kBarPillInsetY * 2.0f;
                 renderer.draw(ui::Rect{bx - kBarPillPadX, barTop + kBarPillInsetY,
                                        w + kBarPillPadX * 2.0f, ph, ph * 0.5f,
-                                       ui::Color::white(on ? kFocusedTint
-                                                           : kSelectedTint)});
+                                       ui::Color::white((on ? kFocusedTint
+                                                            : kSelectedTint) * fade)});
             }
             text.draw(renderer, kBarLabels[i], bx, barBaseline, ui::TextStyle::Callout,
-                      ui::Color::white(greyed ? kSettingsUnbuiltAlpha : on || sel ? 1.0f : 0.65f), sc);
-            bx += w + kBarItemGap;
+                      ui::Color::white((greyed ? kSettingsUnbuiltAlpha : on || sel ? 1.0f : 0.65f) * fade), sc);
+            bx += (w + kBarItemGap) * (i == BarLinkUp ? linkupRoom : 1.0f);
         }
 
         const float rightEdge = barX + barW;

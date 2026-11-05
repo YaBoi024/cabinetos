@@ -138,9 +138,6 @@ void App::handleEvent(const SDL_Event& e) {
         return;
     }
     if (interceptControllers(e)) return;
-    if (linkupGallery && e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN &&
-        e.gbutton.button == SDL_GAMEPAD_BUTTON_NORTH && linkupGalleryFlip())
-        return;
     switch (e.type) {
         case SDL_EVENT_QUIT:
             running = false;

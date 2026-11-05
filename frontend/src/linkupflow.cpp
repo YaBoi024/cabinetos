@@ -1,6 +1,7 @@
-// LinkUp's rows in Settings (#654): the switch, Add a server, the server's address,
-// Run your own and Leave, with the PIN where the plan asks for it. Turning LinkUp
-// on, adding or changing a server and Leave ask for it; playing never does.
+// LinkUp's rows in Settings (#654): the switch and Server, whose panel holds Add a
+// server or Change server, Run your own and Leave, with the PIN where the plan asks
+// for it. Turning LinkUp on, adding or changing a server and Leave ask for it;
+// playing never does.
 
 #include "app.h"
 
@@ -13,32 +14,16 @@ std::vector<screens::SettingsRow> App::linkupRows() {
     using K = screens::SettingsRow::Kind;
     std::vector<screens::SettingsRow> rows;
     rows.push_back({K::Toggle, SetLinkUp, "LinkUp", "", linkUp.on ? "On" : "Off"});
-    if (linkupSettingsShape != 2) {
-        if (linkUp.on)
-            rows.push_back({K::Action, SetLinkUpServer, "Server", "", linkUp.paired ? linkUp.server : "None"});
-        return rows;
-    }
-    if (linkUp.paired) {
-        rows.push_back(
-            {linkUp.on ? K::Action : K::Disabled, SetLinkUpServer, "Server", "", linkUp.server});
-    } else {
-        rows.push_back({linkUp.on ? K::Action : K::Disabled, SetLinkUpAdd, "Add a server", "", ""});
-    }
-    rows.push_back({K::Action, SetLinkUpRunOwn, "Run your own", "", ""});
-    if (linkUp.paired) rows.push_back({K::Action, SetLinkUpLeave, "Leave", "", ""});
+    // A feature that is off shows only its switch.
+    if (linkUp.on)
+        rows.push_back({K::Action, SetLinkUpServer, "Server", "", linkUp.paired ? linkUp.server : "None"});
     return rows;
 }
 
 bool App::pressLinkUpRow(int id) {
     switch (id) {
         case SetLinkUp: pressLinkUpSwitch(); return true;
-        case SetLinkUpAdd: linkupAskPin("To add a server", [&]() { linkupAskAddress(""); }); return true;
-        case SetLinkUpServer:
-            if (linkupSettingsShape != 2) pressLinkUpServer();
-            else linkupAskPin("To change the server", [&]() { linkupRetypeAddress(); });
-            return true;
-        case SetLinkUpRunOwn: pressRunYourOwn(); return true;
-        case SetLinkUpLeave: pressLinkUpLeave(); return true;
+        case SetLinkUpServer: pressLinkUpServer(); return true;
         default: return false;
     }
 }

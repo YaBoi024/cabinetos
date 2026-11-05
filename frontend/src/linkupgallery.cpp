@@ -157,17 +157,6 @@ void App::linkupGalleryStep(int dir) {
     linkupGalleryShow(std::clamp(linkupGalleryAt + dir, linkupGalleryFirst(), linkupGalleryLast()));
 }
 
-// Y in Settings, to compare how its sections are cut.
-bool App::linkupGalleryFlip() {
-    if (here() != Screen::Settings || keyboard.isOpen() || pinScreen.isOpen() || choiceScreen.isOpen())
-        return false;
-    linkupSettingsShape = (linkupSettingsShape + 1) % 3;
-    buildSettings();
-    sound::play(sound::Cue::Move);
-    std::fprintf(stderr, "[linkup] gallery Settings shape: %d\n", linkupSettingsShape);
-    return true;
-}
-
 // ---- The scenes ---------------------------------------------------------
 
 namespace {
@@ -402,7 +391,7 @@ const Scene kScenes[] = {
          a.goToDestination(App::BarHome);
      }},
     {"#Settings: the side list", nullptr},
-    {"Streaming, with Y to compare", settingsOnLinkUp},
+    {"Streaming", settingsOnLinkUp},
     {"#Settings: adding a server", nullptr},
     {"Settings: off", [](App& a) {
          a.linkUp.on = false;
@@ -430,9 +419,9 @@ const Scene kScenes[] = {
     {"Settings: paired, and LinkUp joins the bar", [](App& a) {
          settingsOnLinkUp(a);
      }},
-    {"Settings: a code that no longer works", [](App& a) {
+    {"Settings: a code that doesn't work", [](App& a) {
          noServerYet(a);
-         a.menuNotice.say("That code has expired or was already used", Tone::Problem);
+         a.menuNotice.say("That code didn't work", Tone::Problem);
      }},
     {"Settings: a server that can't be reached", [](App& a) {
          noServerYet(a);
@@ -536,10 +525,6 @@ void App::drawLinkUpGalleryCaption(float sc) {
                        kScenes[linkupGalleryAt].name + "   \xC2\xB7   ";
     if (linkupGalleryNoAnswerIn > 0.0f)
         line += std::to_string(static_cast<int>(minutes)) + " of 30 minutes   \xC2\xB7   ";
-    if (here() == Screen::Settings) {
-        static constexpr const char* kNext[] = {"Y for 7 sections", "Y for 9 sections", "Y for 8 sections"};
-        line += std::string(kNext[linkupSettingsShape]) + "   \xC2\xB7   ";
-    }
     line += "L2 back, R2 next";
     const ui::TextStyle st = ui::TextStyle::Caption1;
     const float w = text.measure(line, st, sc);
