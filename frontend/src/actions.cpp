@@ -4,6 +4,8 @@
 
 #include "app.h"
 
+#include <algorithm>
+
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
 
@@ -44,6 +46,7 @@ void App::apply(const screens::Result& res) {
             } else sound::play(sound::Cue::Edge);
             break;
         case screens::Action::OpenTile: {
+            if (linkupGalleryOpenTile(res)) break;
             openTile(res);
             break;
         }
@@ -83,14 +86,13 @@ void App::apply(const screens::Result& res) {
             // Where the cursor lands in the bar: on the destination you are
             // standing in, so walking up and straight back down is a no-op
             // rather than a silent change of where you would go.
-            barSlot = (here() == Screen::Library || here() == Screen::Grid) ? BarLibrary
-                    : here() == Screen::Search                               ? BarSearch
-                    : (here() == Screen::Settings || here() == Screen::HowTo) ? BarSettings
-                                                                             : BarHome;
+            barSlot = std::max(barSlotHere(), static_cast<int>(BarHome));
             barFocused = true;
             sound::play(sound::Cue::Move);
             break;
         case screens::Action::OpenGame:
+            // Host is picking a game: a press chooses it rather than opening it.
+            if (linkupPickedGame(res.value)) break;
             // A GAME OPENED FROM SEARCH'S RESULTS CLOSES ITS KEYBOARD. Up
             // from the keys leaves them open below the results, so typing
             // can go on; opening a game left them open over its page,
@@ -127,5 +129,8 @@ void App::apply(const screens::Result& res) {
             pressRemoveDownload(res);
             break;
         }
+        case screens::Action::LinkUp:
+            applyLinkUp(res);
+            break;
     }
 }

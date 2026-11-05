@@ -77,6 +77,11 @@ void drawPill(Ctx& c, const std::string& label, float x, float y, bool selected,
 // The Library
 // ---------------------------------------------------------------------------
 
+void LibraryScreen::setPlatformsOnly(bool on) {
+    platformsOnly_ = on;
+    if (on) tab_ = 0;
+}
+
 void LibraryScreen::build(std::vector<Tile> platforms, std::vector<Tile> collections) {
     platforms_ = std::move(platforms);
     collections_ = std::move(collections);
@@ -205,7 +210,7 @@ void LibraryScreen::moveFocus(int dx, int dy) {
 
     if (row_ == 0) {
         if (dx != 0) {
-            const int next = std::clamp(slot_ + dx, 0, 1);
+            const int next = std::clamp(slot_ + dx, 0, platformsOnly_ ? 0 : 1);
             if (next == slot_) return;
             leave();
             slot_ = next;
@@ -235,7 +240,7 @@ void LibraryScreen::moveFocus(int dx, int dy) {
         // here, indexed pillFocus_ past its two and wrote into the grid screen
         // beside this one, and the next grid opened crashed (A9, 2026-10-20).
         // Past the second tile, focus goes to the nearer word, Collections.
-        slot_ = std::min(slot_, 1);
+        slot_ = std::min(slot_, platformsOnly_ ? 0 : 1);
         arrive();
         return;
     }
@@ -509,7 +514,7 @@ void LibraryScreen::drawGlass(Ctx& c) {
     // The TEXT starts on the margin, the same as Home's shelf headings and the
     // bar above. drawPill puts its focus capsule outside that.
     float x = design::kLibraryInset;
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < (platformsOnly_ ? 1 : 2); ++i) {
         const float f = (row_ == 0 && slot_ == i) ? pillFocus_[i].value() : 0.0f;
         drawPill(c, kLabels[i], x, y, tab_ == i, f);
         x += pillWidth(c.text, kLabels[i], c.sc) + design::kPillGap;

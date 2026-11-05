@@ -214,7 +214,7 @@ void App::buildSettings() {
         // 2026-10-08); Remove could do the same to the device playing.
         // The console's own controllers are set aside during a stream, so
         // nobody at the TV loses anything.
-        const bool streamingNow = players::streaming();
+        const bool streamingNow = players::streaming() || linkupSessionOpen();
         // "In use": a grey switch still reading On looks like a fault
         // when the reason is on another device (MMagTech, 2026-10-08).
         if (streamingNow) detail = "In use";
@@ -226,6 +226,8 @@ void App::buildSettings() {
             tailscaleRow(on, streamingNow),
         }});
     }
+
+    cats.push_back(linkupCategory());
 
     // PICTURE QUALITY IS THE OWNER'S WHEN A PIN IS SET (MMagTech,
     // 2026-10-02, #63): nobody else sees the row at all, and the owner is
@@ -518,6 +520,7 @@ void App::closeDownloadsOffSettings() {
 }
 
 void App::applySetting(const screens::Result& res) {
+    if (pressLinkUpRow(res.value)) return;
     if (res.value == SetPads) {
         openPadsPanelAt(0);
         sound::play(sound::Cue::Activate);

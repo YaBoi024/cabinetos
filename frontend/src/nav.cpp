@@ -24,18 +24,19 @@ App::Screen App::here() { return stack.back(); }
 // bumper that teleported out of them would lose somebody's place rather
 // than move them. Back is what leaves those, and it already does.
 //
-// NO WRAPPING. The bumpers walk the four destinations, Home, Library,
-// Search and Settings, and stop at the ends with the edge sound
-// (switchDestination).
+// NO WRAPPING. The bumpers walk the destinations, Home, Library, Search,
+// LinkUp where it is on, and Settings, and stop at the ends with the edge
+// sound (switchDestination).
 // GOING TO A DESTINATION RESETS TO ITS ROOT, which is what makes the bar a
 // tab strip rather than a stack of pushes. Walking into a platform's grid
 // and then pressing R1 twice must not leave that grid buried under two more
 // screens: each destination is entered fresh and Back from any of them
 // returns to Home.
 //
-// 0 Home, 1 Library, 2 Search, 3 Settings.
+// A destination's number is its place in the bar (BarItem).
 void App::goToDestination(int d) {
     if (keyboard.isOpen()) keyboard.cancel();
+    linkupEndPick();
     stack.clear();
     stack.push_back(Screen::Home);
     if (d == 1) {
@@ -47,7 +48,11 @@ void App::goToDestination(int d) {
         searchPending.clear();
         stack.push_back(Screen::Search);
         openSearchKeyboard();
-    } else if (d == 3) {
+    } else if (d == BarLinkUp) {
+        refreshLinkUpScreen();
+        linkupScreen.enter();
+        stack.push_back(Screen::LinkUp);
+    } else if (d == BarSettings) {
         // Rebuilt on every visit: the drives, the network and the account
         // are read fresh, never remembered.
         buildSettings();
@@ -64,7 +69,8 @@ int App::destinationHere() {
         case Screen::Library:
         case Screen::Grid: return 1;
         case Screen::Search: return 2;
-        case Screen::Settings: return 3;
+        case Screen::LinkUp: return BarLinkUp;
+        case Screen::Settings: return BarSettings;
         default: return -1;      // the launch screen is inside a destination
     }
 }
@@ -84,10 +90,11 @@ int App::destinationGoing() {
 void App::switchDestination(int delta) {
     const int at = destinationGoing();
     if (at < 0) return;
-    const int want = at + delta;
+    int want = at + delta;
+    if (!barItemReachable(want)) want += delta;
     // No wrapping: the ends make the edge sound, so a bumper that goes
     // nowhere says so rather than reading as broken.
-    if (want < 0 || want > 3 || want == at) {
+    if (want < 0 || want > BarSettings || want == at) {
         sound::play(sound::Cue::Edge);
         return;
     }
@@ -135,6 +142,9 @@ auto App::navigate(screens::Nav n) -> bool {
         case Screen::WhatsNew: apply(whatsNewScreen.key(n)); return true;
         case Screen::HowTo: apply(howToScreen.key(n)); return true;
         case Screen::Settings: apply(settingsScreen.key(n)); return true;
+        case Screen::LinkUp: apply(linkupScreen.key(n)); return true;
+        case Screen::LinkUpPlay: apply(linkupPlay.key(n)); return true;
+        case Screen::LinkUpRunOwn: apply(linkupRunOwn.key(n)); return true;
     }
     return false;
 }
@@ -181,6 +191,10 @@ void App::tickScreens(float dt, screens::Ctx& ctx) {
     howToScreen.tick(dt);
     settingsScreen.setHasFocus(!barFocused && !accountsOpen);
     settingsScreen.tick(dt);
+    linkupScreen.setHasFocus(!barFocused && !accountsOpen);
+    linkupScreen.tick(dt);
+    linkupPlay.tick(dt);
+    linkupRunOwn.tick(dt);
     pinScreen.tick(dt);
     choiceScreen.tick(dt);
     raList.tick(dt);
@@ -235,6 +249,9 @@ void App::drawScreen(float sc) {
         case Screen::WhatsNew: whatsNewScreen.draw(ctx); break;
         case Screen::HowTo: howToScreen.draw(ctx); break;
         case Screen::Settings: settingsScreen.draw(ctx); break;
+        case Screen::LinkUp: break;   // all glass, below
+        case Screen::LinkUpPlay: linkupPlay.draw(ctx); break;
+        case Screen::LinkUpRunOwn: linkupRunOwn.draw(ctx); break;
         case Screen::Home: break;   // unreachable, and the compiler asks
     }
     // A screen sets the transition alpha and its own scroll window for
@@ -276,6 +293,9 @@ void App::drawScreenGlass(bool gameUp, float sc) {
             case Screen::WhatsNew: break;
             case Screen::HowTo: howToScreen.drawGlass(ctx); break;
             case Screen::Settings: settingsScreen.drawGlass(ctx); break;
+            case Screen::LinkUp: linkupScreen.drawGlass(ctx); break;
+            case Screen::LinkUpPlay: break;
+            case Screen::LinkUpRunOwn: break;
             case Screen::Home: break;
         }
         renderer.setContentAlpha(1.0f);
@@ -355,6 +375,7 @@ void App::takePendingSwitch() {
         if (tabDissolve.value() > 0.0f) {
             libraryScreen.settleArrival();
             settingsScreen.settleArrival();
+            linkupScreen.settleArrival();
         }
         pendingDest = -1;
     }

@@ -167,6 +167,7 @@ void App::runFrameLoop() {
         sayUpdatedTo();
         sayStartProblem();
         noticeGalleryHook(dt);
+        tickLinkUp(dt);
         retryOwedUploads(dt);
         followServer(dt);
         sayStateUploaded();
@@ -295,6 +296,8 @@ void App::runFrameLoop() {
         drawCurtain(sc);
 
         drawKeyboardAndDissolve();
+
+        drawLinkUpGalleryCaption(sc);
 
         drawDim();
 

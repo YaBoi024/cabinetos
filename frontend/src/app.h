@@ -61,6 +61,8 @@
 #include "job.h"
 #include "keyboard.h"
 #include "libraryscreen.h"
+#include "linkuprules.h"
+#include "linkupscreen.h"
 #include "look.h"
 #include "manualview.h"
 #include "net.h"
@@ -207,6 +209,10 @@ struct App {
     bool lookDark = false;
     // Walks the notification pill through every message it can show.
     bool noticeGallery = false;
+    // --linkup-gallery: every LinkUp screen with made-up friends (linkupgallery.cpp).
+    // --linkup-scene opens it at one, for a --screenshot.
+    bool linkupGallery = false;
+    int linkupGalleryStart = 0;
     // --ra-sample: RetroAchievements as for somebody signed in, with a made-up
     // set on every game's page and an unlock a few seconds into a game, so
     // the page and the pop-up can be captured without an account (#74).
@@ -549,8 +555,8 @@ struct App {
     // people the bar is decorative. Since 2026-09-24 moving across the bar
     // switches the screen, so the lit item is always where you stand, and
     // Home is simply one of them. A bar slot is now its destination's number.
-    enum BarItem { BarHome = 0, BarLibrary, BarSearch, BarSettings, BarAccount, BarCount };
-    const char* kBarLabels[BarCount] = { "Home", "Library", "Search", "Settings", "Account" };
+    enum BarItem { BarHome = 0, BarLibrary, BarSearch, BarLinkUp, BarSettings, BarAccount, BarCount };
+    const char* kBarLabels[BarCount] = { "Home", "Library", "Search", "LinkUp", "Settings", "Account" };
     // How many of those draw as labelled capsules. The chip draws itself.
     static constexpr int kBarCapsules = BarAccount;
     size_t shelfSlots();
@@ -605,7 +611,7 @@ struct App {
     // is what makes quitting a game return to the launch screen and backing out
     // again return to the browsing.
     enum class Screen { Home, Library, Grid, Detail, Search, AddAccount, TailscaleSignIn, Report,
-                        HowTo, Settings, WhatsNew };
+                        HowTo, Settings, WhatsNew, LinkUp, LinkUpPlay, LinkUpRunOwn };
     std::vector<Screen> stack{Screen::Home};
     // Which screen last set the room, so a change of screen can be told apart
     // from focus moving within one. See the backdrop block in the frame loop.
@@ -643,6 +649,24 @@ struct App {
     // ABOUT, WHAT'S NEW (#329): the same screen once more, its code the What's
     // new page's, made once by tools/make-wiki-qr.py like How to's Wiki.
     screens::QrLinkScreen whatsNewScreen;
+    // LINKUP (#654): its top-bar screen, what a friend's console shows with no
+    // picture to show, Run your own's QR code, and what they all show. In memory
+    // only until the LinkUp program answers (step 3); linkupgallery.cpp fills it.
+    screens::LinkUpScreen linkupScreen;
+    screens::LinkUpPlayScreen linkupPlay;
+    screens::QrLinkScreen linkupRunOwn;
+    linkup::State linkUp;
+    std::string linkupHost;             // whose game this console is in, as a friend
+    std::string linkupPairingAddress;   // the address being paired with
+    float linkupPairingLeft = 0.0f;     // until the pairing's answer
+    // What the gallery plays the other side of.
+    int linkupGalleryAt = -1;
+    bool linkupGalleryPin = false;
+    bool linkupGalleryOffline = false;
+    bool linkupGalleryStreaming = false;
+    bool linkupGallerySession = false;
+    std::string linkupGalleryGame;
+    float linkupGalleryPictureIn = 0.0f;
     // ABOUT, HOW TO (#314): the controls, in Settings' own shape (a section
     // per row on the left, its lines on the right), so it looks like the
     // console rather than a page of text (MMagTech on the TV, 2026-10-10).
@@ -1922,6 +1946,7 @@ struct App {
     void activateHome();
     void goToDestination(int d);
     int destinationHere();
+    int barSlotHere();
 
     // SWITCHING TOP-BAR DESTINATIONS IS A DISSOLVE — 2026-09-24.
     //
@@ -2279,6 +2304,46 @@ struct App {
     void overlayHooks();
     void stateHooks();
     void noticeGalleryHook(float dt);
+    // linkup.cpp
+    bool linkupInBar() const;
+    bool linkupOffline() const;
+    bool barItemReachable(int item) const;
+    bool linkupInUse() const;
+    bool linkupSessionOpen() const;
+    void refreshLinkUpScreen();
+    void applyLinkUp(const screens::Result& res);
+    void linkupOfferNudge(int index);
+    void linkupPickGame();
+    void linkupEndPick();
+    bool linkupPickedGame(int cardIndex);
+    void linkupPickFriend(const std::string& game);
+    void linkupStartHosting(const std::string& game, const std::string& who);
+    void linkupJoin(const linkup::Friend& f);
+    void linkupAskLeave();
+    void linkupPausePanel(const std::string& title, const std::string& detail);
+    // linkupflow.cpp
+    screens::SettingsCategory linkupCategory();
+    bool pressLinkUpRow(int id);
+    void linkupAskPin(const std::string& detail, std::function<void()> then);
+    void pressLinkUpSwitch();
+    void linkupAskAddress(const std::string& typed);
+    void linkupAskCode(const std::string& address, const std::string& typed);
+    void linkupRetypeAddress();
+    void pressRunYourOwn();
+    void pressLinkUpLeave();
+    void tickLinkUp(float dt);
+    // linkupgallery.cpp
+    void linkupGalleryLibrary();
+    void linkupGalleryLibraryBack();
+    bool linkupGalleryOpenTile(const screens::Result& res);
+    void linkupGalleryJoined(const std::string& game);
+    void linkupGalleryTick(float dt);
+    void linkupGalleryStep(int dir);
+    int linkupGalleryScenes() const;
+    void linkupGalleryShow(int index);
+    void drawLinkUpGalleryCaption(float sc);
+    void linkupFocusSettings(bool intoRows);
+    void linkupFocusSettingsNamed(const std::string& name, bool intoRows = true);
     void captureFrame(int dw, int dh);
     void refuseCaptureOverAnotherWindow(const char* whose);
     // discrig.cpp

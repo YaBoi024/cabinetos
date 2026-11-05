@@ -12,7 +12,7 @@
 // after a state loads says "Press (A) to continue".
 void drawPressPrompt(ui::Renderer& r, ui::TextRenderer& text, float sc,
                      const char* before, const char* after, float base,
-                     float alpha) {
+                     float alpha, const char* button) {
     const ui::TextStyle st = ui::TextStyle::Title3;
     const float gap = 16.0f;
     const float badge = text.lineHeight(st, sc) * 0.95f;
@@ -24,8 +24,8 @@ void drawPressPrompt(ui::Renderer& r, ui::TextRenderer& text, float sc,
     const float capMid = base - text.ascent(st, sc) * 0.36f;
     r.draw(ui::Rect{x, capMid - badge * 0.5f, badge, badge, badge * 0.5f,
                     ui::Color::white(0.95f * alpha)});
-    const float aw = text.measure("A", st, sc);
-    text.draw(r, "A", x + (badge - aw) * 0.5f, capMid + text.ascent(st, sc) * 0.36f, st,
+    const float aw = text.measure(button, st, sc);
+    text.draw(r, button, x + (badge - aw) * 0.5f, capMid + text.ascent(st, sc) * 0.36f, st,
               ui::Color{0.07f, 0.05f, 0.12f, alpha}, sc);
     x += badge + gap;
     text.draw(r, after, x, base, st, ui::Color::white(0.92f * alpha), sc);
@@ -142,11 +142,12 @@ void drawCover(Ctx& c, const Card& card, float x, float y, float w, float h,
     // GREYED: a game this console cannot play until a controller is paired.
     // Held back whether focused or not, so focus lands on it and it still
     // reads as unavailable; its name says why.
-    if (!card.unavailable.empty())
+    const bool greyed = !card.unavailable.empty() || (c.on.greyRemoteGames && card.needsRemote);
+    if (greyed)
         c.r.draw(ui::Rect{x, y, w, h, radius, ui::Color::black(design::kUnavailableDim)});
     // Only over something drawn on the panel: the panel's own rim is the
     // same rim, and a second one on bare panel is a brighter edge.
-    if (f > 0.0f && rim && (!key.empty() || !card.unavailable.empty())) {
+    if (f > 0.0f && rim && (!key.empty() || greyed)) {
         ui::Rect edge{x, y, w, h, radius, ui::Color::white(0)};
         edge.border = f * design::kFocusRimWidth;
         edge.borderColor = ui::palette::kFocusRim;

@@ -13,7 +13,7 @@
 #include "screens.h"
 
 void drawPressPrompt(ui::Renderer& r, ui::TextRenderer& text, float sc, const char* before,
-                     const char* after, float base, float alpha);
+                     const char* after, float base, float alpha, const char* button = "A");
 
 namespace screens {
 
