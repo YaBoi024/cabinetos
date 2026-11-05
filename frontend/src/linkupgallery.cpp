@@ -87,9 +87,9 @@ bool App::linkupGalleryOpenTile(const screens::Result& res) {
     return true;
 }
 
-// The friend joins a while after the invite, so the wait can be seen and pressed.
+// The friend joins a good while after the invite, so the wait can be judged and pressed.
 void App::linkupGalleryInvited() {
-    if (linkupGallery) linkupGalleryJoinIn = 8.0f;
+    if (linkupGallery) linkupGalleryJoinIn = 20.0f;
 }
 
 // The host's game comes up a moment after a friend joins.
@@ -251,7 +251,7 @@ const Scene kScenes[] = {
          pickingForAlex(a);
          a.apply({screens::Action::OpenTile, 1});
      }},
-    {"The invite goes out and you wait (Alex joins in 8 seconds, B cancels)", inviteOut},
+    {"The invite goes out and you wait (Alex joins in 20 seconds, B cancels)", inviteOut},
     {"Alex joined: the game", inviterGame},
     {"Alex declined", [](App& a) {
          inviteOut(a);

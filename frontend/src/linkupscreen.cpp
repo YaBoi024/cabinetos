@@ -408,16 +408,14 @@ void LinkUpPlayScreen::draw(Ctx& c) {
         centred(detail_, ui::TextStyle::Title3, y, 0.60f);
         y += 56.0f;
     }
-    if (shows_ == Shows::Reconnecting) {
-        // Three dots in turn: working, not stuck.
-        constexpr float kDot = 16.0f, kDotGap = 22.0f;
-        const float x0 = midX - (kDot * 3.0f + kDotGap * 2.0f) * 0.5f;
-        for (int i = 0; i < 3; ++i) {
-            const float phase = clock_ * 3.0f - static_cast<float>(i) * 0.7f;
-            const float alpha = 0.25f + 0.65f * (0.5f + 0.5f * std::sin(phase));
-            c.r.draw(ui::Rect{x0 + static_cast<float>(i) * (kDot + kDotGap), y - kDot, kDot, kDot,
-                              kDot * 0.5f, ui::Color::white(alpha)});
-        }
+    // Three dots in turn on every one of these: working, not stuck.
+    constexpr float kDot = 16.0f, kDotGap = 22.0f;
+    const float x0 = midX - (kDot * 3.0f + kDotGap * 2.0f) * 0.5f;
+    for (int i = 0; i < 3; ++i) {
+        const float phase = clock_ * 3.0f - static_cast<float>(i) * 0.7f;
+        const float alpha = 0.25f + 0.65f * (0.5f + 0.5f * std::sin(phase));
+        c.r.draw(ui::Rect{x0 + static_cast<float>(i) * (kDot + kDotGap), y - kDot, kDot, kDot,
+                          kDot * 0.5f, ui::Color::white(alpha)});
     }
     // Said rather than focused: nobody moved focus here. Above where the pill sits.
     if (shows_ == Shows::Inviting || friendSide_)
