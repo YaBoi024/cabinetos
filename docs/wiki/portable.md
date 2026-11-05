@@ -18,10 +18,9 @@ installer, plus:
 - **[balenaEtcher](https://etcher.balena.io) or
   [Rufus](https://rufus.ie)** to write the file.
 
-**If Windows on this PC uses BitLocker,** have your
-[recovery key](https://account.microsoft.com/devices/recoverykey) handy and leave
-the PC's Secure Boot setting as it is. Windows can ask for the key after a start
-from a USB drive.
+**Using BitLocker on Windows?** Keep your
+[recovery key](https://account.microsoft.com/devices/recoverykey) handy, and don't
+change Secure Boot. Windows may ask for the key after you start from a USB drive.
 
 ## Get the file
 
