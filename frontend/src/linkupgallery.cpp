@@ -282,6 +282,12 @@ const Scene kScenes[] = {
          a.goToDestination(App::BarLinkUp);
          a.linkupAnswerInvite(a.linkUp.friends[1]);
      }},
+    {"Friend: Join or Decline, a long name", [](App& a) {
+         alexInvites(a);
+         a.linkUp.friends[1].game = "Castlevania: Symphony of the Night (Director's Cut, Special Edition)";
+         a.goToDestination(App::BarLinkUp);
+         a.linkupAnswerInvite(a.linkUp.friends[1]);
+     }},
     {"Friend: Waiting for Alex", [](App& a) {
          a.goToDestination(App::BarLinkUp);
          a.linkupHost = "Alex";
@@ -304,7 +310,7 @@ const Scene kScenes[] = {
      }},
     {"Friend: back on the screen, offered a rejoin", [](App& a) {
          a.goToDestination(App::BarLinkUp);
-         a.askChoice(linkup::rejoinQuestion("Alex"), "Contra III", {"Rejoin", "Back"}, 0, [](int) {});
+         a.linkupPanel(linkup::rejoinQuestion("Alex"), "Contra III", {"Rejoin", "Back"}, 0, [](int) {});
      }},
     {"Friend: the host ended the session", [](App& a) {
          a.goToDestination(App::BarLinkUp);

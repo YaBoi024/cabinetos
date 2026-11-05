@@ -118,7 +118,7 @@ void App::linkupDeclinedBy(const std::string& who) {
 // Nobody may be watching by now, so it stays until a press rather than as a pill.
 void App::linkupNoAnswerFrom(const std::string& who) {
     linkupCancelInvite();
-    askChoice(linkup::noAnswer(who), "", {}, 0, [](int) {});
+    linkupPanel(linkup::noAnswer(who), "", {}, 0, [](int) {});
     choiceScreen.setPrompt("Press", "A", "to continue");
 }
 
@@ -127,6 +127,18 @@ void App::linkupNoAnswerFrom(const std::string& who) {
 bool App::linkupHoldsScreen() {
     return here() == Screen::LinkUpPlay &&
            linkupPlay.shows() == screens::LinkUpPlayScreen::Shows::Inviting;
+}
+
+// ---- The panels ----------------------------------------------------------
+
+// EVERY LINKUP QUESTION IS ONE WIDTH. A panel follows its longest line, so a game's
+// name made each invite a different size. Too long a line is cut short rather than
+// the panel growing, the same reason as Add a controller's (choice.h).
+void App::linkupPanel(const std::string& title, const std::string& detail,
+                      std::vector<std::string> options, int focus, std::function<void(int)> then) {
+    constexpr float kWidth = 780.0f;
+    askChoice(title, detail, std::move(options), focus, std::move(then));
+    choiceScreen.setFixedWidth(kWidth);
 }
 
 // ---- Answering an invite -------------------------------------------------
@@ -139,7 +151,7 @@ void App::linkupSayInvited(const std::string& who, const std::string& game) {
 
 void App::linkupAnswerInvite(const linkup::Friend& f) {
     sound::play(sound::Cue::Activate);
-    askChoice(linkup::invitedYou(f.name, f.game), "", {"Join", "Decline"}, 0, [&, f](int c) {
+    linkupPanel(linkup::invitedTitle(f.name), f.game, {"Join", "Decline"}, 0, [&, f](int c) {
         if (c == 0) {
             linkupJoin(f);
             return;
@@ -174,7 +186,7 @@ void App::linkupAskLeave() {
         refreshLinkUpScreen();
         return;
     }
-    askChoice(linkup::leaveQuestion(linkupHost), "", {"Leave", "Back"}, 1, [&](int c) {
+    linkupPanel(linkup::leaveQuestion(linkupHost), "", {"Leave", "Back"}, 1, [&](int c) {
         if (c != 0) return;
         linkupGallerySession = false;
         if (here() == Screen::LinkUpPlay && stack.size() > 1) stack.pop_back();
@@ -185,6 +197,6 @@ void App::linkupAskLeave() {
 // One panel, whichever way the game stopped: the title says why, and A resumes.
 // No Resume to focus: nobody moved focus there, so it is said, "Press (A)".
 void App::linkupPausePanel(const std::string& title) {
-    askChoice(title, "", {}, 0, [](int) {});
+    linkupPanel(title, "", {}, 0, [](int) {});
     choiceScreen.setPrompt("Press", "A", "to resume");
 }

@@ -148,7 +148,7 @@ void App::pressRunYourOwn() {
 
 void App::pressLinkUpLeave() {
     sound::play(sound::Cue::Activate);
-    askChoice("Leave " + linkUp.server + "?", "", {"Leave", "Cancel"}, 1, [&](int c) {
+    linkupPanel("Leave " + linkUp.server + "?", "", {"Leave", "Cancel"}, 1, [&](int c) {
         if (c != 0) return;
         linkupAskPin("To leave this server", [&]() {
             linkUp.paired = false;
