@@ -56,7 +56,7 @@ inline const std::string kConsoleRemoved =
     "This server no longer has this console. Ask its owner for a new code.";
 inline const std::string kRepositoryUrl = "https://github.com/MMagTech/cabinet-linkup";
 
-std::string invitedYou(const std::string& who, const std::string& game);
+std::string invitedYou(const std::string& who);
 std::string declined(const std::string& who);
 std::string noAnswer(const std::string& who);
 std::string waitingFor(const std::string& who);

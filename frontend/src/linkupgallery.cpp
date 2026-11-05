@@ -233,7 +233,7 @@ const Scene kScenes[] = {
          a.linkupGalleryJoinIn = 0.0f;
          a.linkupDeclinedBy("Alex");
      }},
-    {"No answer from Alex, after 10 minutes", [](App& a) {
+    {"No answer from Alex, after 30 minutes", [](App& a) {
          inviteOut(a);
          a.linkupGalleryJoinIn = 0.0f;
          a.menuNotice.text.clear();
@@ -273,12 +273,12 @@ const Scene kScenes[] = {
          alexInvites(a);
          a.goToDestination(App::BarHome);
          soloGame(a);
-         a.linkupSayInvited("Alex", "Contra III");
+         a.linkupSayInvited("Alex");
      }},
     {"Friend: an invite arrives at Home", [](App& a) {
          alexInvites(a);
          a.goToDestination(App::BarHome);
-         a.linkupSayInvited("Alex", "Contra III");
+         a.linkupSayInvited("Alex");
      }},
     {"Friend: the Invited you line", [](App& a) {
          alexInvites(a);

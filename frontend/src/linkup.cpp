@@ -185,9 +185,10 @@ void App::linkupPanel(const std::string& title, const std::string& detail,
 
 // ---- Answering an invite -------------------------------------------------
 
-// Longer than a pill's reading time: a person may be looking at their own game.
-void App::linkupSayInvited(const std::string& who, const std::string& game) {
-    menuNotice.say(linkup::invitedYou(who, game), Tone::Info);
+// Longer than a pill's reading time: a person may be looking at their own game. Who
+// it is decides whether to stop now; the game waits for the panel.
+void App::linkupSayInvited(const std::string& who) {
+    menuNotice.say(linkup::invitedYou(who), Tone::Info);
     menuNotice.life = 6.0f;
 }
 

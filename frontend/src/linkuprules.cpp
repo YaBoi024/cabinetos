@@ -38,9 +38,7 @@ std::string nameOnList(const std::vector<Friend>& list, int index) {
     return f.name;
 }
 
-std::string invitedYou(const std::string& who, const std::string& game) {
-    return who + " invited you to " + game;
-}
+std::string invitedYou(const std::string& who) { return "LinkUp invite from " + who; }
 std::string declined(const std::string& who) { return who + " declined"; }
 std::string noAnswer(const std::string& who) { return "No answer from " + who; }
 std::string waitingFor(const std::string& who) { return "Waiting for " + who; }

@@ -2327,7 +2327,7 @@ struct App {
     void linkupDeclinedBy(const std::string& who);
     void linkupNoAnswerFrom(const std::string& who);
     bool linkupHoldsScreen();
-    void linkupSayInvited(const std::string& who, const std::string& game);
+    void linkupSayInvited(const std::string& who);
     void linkupPanel(const std::string& title, const std::string& detail,
                      std::vector<std::string> options, int focus, std::function<void(int)> then);
     void linkupAnswerInvite(const linkup::Friend& f);
