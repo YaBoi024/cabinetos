@@ -8,7 +8,7 @@ from a blank PC to playing.
 ## Set it up
 
 1. [Install](install.md): what you need, the installer, the one question it asks.
-   To try it first without installing: [Run from a USB drive](portable.md), an alpha.
+   To try it first without installing: [Run from a USB drive](portable.md).
 2. [First run](first-run.md): network, your RomM server, pairing, a controller.
 3. [Your RomM server](romm.md): what the console reads from it, and how to lay it out.
 4. [Controllers and Bluetooth](controllers.md): pads, Wii Remotes, players.

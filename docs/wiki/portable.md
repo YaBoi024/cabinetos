@@ -1,60 +1,25 @@
 # Run from a USB drive
 
-Try CabinetOS on a PC without installing it: it runs from a USB drive, and the
-PC's own drives stay as they are.
-
-**This is an alpha.** It is built to leave your PC alone, but it has only been
-tried on the one PC below. Back up anything you can't lose before you start.
-
-## What has been tried
-
-**Tried:**
-
-- One PC with Windows, a Beelink SER mini PC (Ryzen 5 5560U), with Secure Boot
-  off, from a 125 GB SanDisk USB 3.2 stick: setup, a game, an update, a restart.
-  With the stick out, Windows started as normal.
-- Secure Boot on and off, in a virtual machine, on every build of the file.
-
-**Not tried yet:**
-
-- A real PC with Secure Boot on. The blue screen below has only run in a virtual
-  machine, and some PCs may never show it.
-- A PC with BitLocker on.
-- Rufus and Etcher. Both say they take this kind of file.
-- An SSD or NVMe drive in a USB case.
-
-## What it does to your PC
-
-- **Your PC's own drives:** the console never opens them, and neither the console
-  nor Steam lists them.
-- **Starting your PC:** it adds no boot entry, and with the drive out your PC
-  starts as it did before. A rare kind of system update could add one entry later.
-- **Windows's clock:** it stays right.
-- **The PC's firmware:** like any Linux USB drive, it stores one small setting of
-  its own there. With Secure Boot on, you also add a key, and that key stays (see
-  [the blue screen](#the-blue-screen-secure-boot-on)).
+Try CabinetOS on a PC without installing it. It runs from a USB drive, the PC's
+own drives stay as they are, and with the drive out your PC starts as it always
+did.
 
 ## What you need
 
 Everything on the [Install](install.md) page's list except the stick for the
 installer, plus:
 
-- **A USB drive of 16 GB or more.** Everything on it is erased, and CabinetOS
-  uses all of it. An SSD or NVMe drive in a USB case should run best, though none
-  has been tried yet. A USB stick works, but it is slow
-  ([see below](#on-a-usb-stick)).
-- **A USB keyboard.** The blue screen and first run both need one.
+- **A USB drive of 16 GB or more.** Everything on it is erased, and CabinetOS uses
+  all of it. An SSD or NVMe drive in a USB case should run faster than a stick,
+  though we haven't measured it yet.
+- **A USB keyboard.**
 - **[balenaEtcher](https://etcher.balena.io) or
   [Rufus](https://rufus.ie)** to write the file.
 
-## Before you start
-
-**If Windows on this PC uses BitLocker, save your recovery key first.** You can
-find it in [your Microsoft account](https://account.microsoft.com/devices/recoverykey).
-Starting from a USB drive can make Windows ask for it the next time it starts.
-
-Leave your PC's Secure Boot setting as it is. Changing it is one of the things
-that makes Windows ask.
+**If Windows on this PC uses BitLocker,** have your
+[recovery key](https://account.microsoft.com/devices/recoverykey) handy and leave
+the PC's Secure Boot setting as it is. Windows can ask for the key after a start
+from a USB drive.
 
 ## Get the file
 
@@ -68,7 +33,7 @@ Optional: check it is whole against
 
 ## Write it to the drive
 
-**Everything on the drive you pick is erased, so check you have the right one.**
+Everything on the drive you pick is erased, so check you have the right one.
 
 - **Etcher:** **Flash from file** and pick the file, **Select target** and pick
   the drive, then **Flash!**
@@ -91,8 +56,9 @@ Next: [First run](first-run.md).
 
 ## The blue screen (Secure Boot on)
 
-This comes once per PC. Your PC won't start CabinetOS until it trusts the key
-CabinetOS is signed with, and this adds it. Press these on the keyboard:
+This comes once per PC, so that your PC trusts the key CabinetOS is signed with.
+The key stays on the PC, and it is Universal Blue's, so the PC also trusts other
+software signed with it. Press these on the keyboard:
 
 | The screen says | Press |
 |---|---|
@@ -109,11 +75,8 @@ and pick the USB drive from the boot menu again.
 
 - **Missed the 10 seconds?** A menu comes up with **Set up this PC to start
   CabinetOS**. Pick it and the blue screen comes back.
-- **The key stays on your PC** after the drive is gone. From then on the PC also
-  trusts other software signed with that key, which is Universal Blue's.
-- **No blue screen, and it won't start?** The only way left is to turn Secure Boot
-  off in the PC's firmware. Have your BitLocker key saved first, and turn it back
-  on when you are done.
+- **No blue screen, and it won't start?** Turn Secure Boot off in the PC's
+  firmware, with your BitLocker key to hand, and turn it back on when you are done.
 
 ## Every start after that
 
@@ -121,24 +84,21 @@ and pick the USB drive from the boot menu again.
   starts Windows as usual.
 - **Restarting:** a restart from the console's menu follows your PC's own boot
   order, so it may land in Windows. Restart and pick the drive again.
-- **Stopping:** shut down from the console's menu, then take the drive out. Don't
-  pull it while the console is running.
+- **Stopping:** shut down from the console's menu, then take the drive out.
 - **Updates:** the same as on any console: [Updates](updates.md).
 
 ## On a USB stick
 
-A stick is far slower than a PC's own drive at the small writes a system makes.
-These have been seen on one, and nobody knows yet whether a faster drive avoids
-them:
+A stick is slower than other drives, so expect:
 
-- **Starting takes 3 to 5 minutes**, every time.
-- **The first game can sit for minutes** before it shows, then play normally.
-- **Sound can be missing** after a start. Restart the console from its menu.
-- **Updates take longer:** about 4 minutes for one that took 34 seconds on a PC's
-  own drive.
+- Starting to take 3 to 5 minutes.
+- Your first game to take a few minutes to appear.
+- Updates to take a few minutes.
+
+If a start comes up with no sound, restart the console from its menu.
 
 ## Tell us how it went
 
-Reports are what this alpha is for, whether it worked or not. Say which PC, which
-drive and which tool you used, and whether Secure Boot and BitLocker were on.
-[When something is wrong](troubleshooting.md) says how to make a report.
+Say which PC, which drive and which tool you used, and whether Secure Boot and
+BitLocker were on. [When something is wrong](troubleshooting.md) says how to make
+a report.

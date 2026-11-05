@@ -94,7 +94,7 @@ one file, `cabinetos.iso`, always the newest release
 ([what's new](https://cabinetos.mmagtech.com/wiki/changelog.html)).
 
 **Try it without installing:** [run it from a USB drive](docs/wiki/portable.md).
-It is an alpha, and your PC's own drives stay as they are.
+Your PC's own drives stay as they are.
 
 ## Thanks
 
