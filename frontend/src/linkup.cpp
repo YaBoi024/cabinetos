@@ -162,7 +162,7 @@ void App::linkupPanel(const std::string& title, const std::string& detail,
 // Longer than a pill's reading time: a person may be looking at their own game. Who
 // it is decides whether to stop now; the game waits for the panel.
 void App::linkupSayInvited(const std::string& who) {
-    menuNotice.say(linkup::invitedYou(who), Tone::Invite);
+    menuNotice.say(linkup::invitedYou(who), Tone::Info);
     menuNotice.ownDot = true;
     menuNotice.dot = screens::LinkUpScreen::dotColour(linkUp.friends, who);
     sound::playInvite();

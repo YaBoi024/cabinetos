@@ -35,7 +35,7 @@
 // same and `--notice-gallery` can show every one of them on the panel.
 struct MenuNotice {
     // The dot's colour says which kind of answer it is before the words do.
-    enum class Tone { Done, Busy, Info, Problem, Invite };
+    enum class Tone { Done, Busy, Info, Problem };
     std::string text;
     Tone tone = Tone::Info;
     float life = 0.0f;
