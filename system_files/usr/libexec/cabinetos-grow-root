@@ -6,9 +6,9 @@
 # can be unplugged (/usr/libexec/cabinetos-system-disk portable).
 #
 # WHY. The disk image a tester writes to a USB drive with Etcher or Rufus is
-# about 7 GB, whatever the drive's size, so without this a 128 GB drive would
-# keep 120 GB nobody can use. Kept games, Steam's slice and every save live on
-# that partition.
+# cut to the size of what it holds (ci/make-portable-image.sh), whatever the
+# drive's size, so without this most of a 128 GB drive would sit unused. Kept
+# games, Steam's slice and every save live on that partition.
 #
 # WHAT IT TOUCHES: the system's own partition, made larger, only when nothing
 # but free space follows it on the drive; and the GPT's backup copy, which

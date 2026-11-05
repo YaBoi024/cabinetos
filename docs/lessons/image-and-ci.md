@@ -442,11 +442,65 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
 
 ## Running from a USB drive (learned 2026-11-03, the portable install)
 
-- **A disk image boots with `console=tty0 console=ttyS0`**, so `/dev/console`
-  is the serial port: systemd's messages, and anything that asks on the
-  console, go there, and the screen sits on the last kernel line as if
+- **The builder's disks boot with `console=tty0 console=ttyS0`**, so
+  `/dev/console` is the serial port: systemd's messages, and anything that asks
+  on the console, go there, and the screen sits on the last kernel line as if
   frozen. `tools/installer-vm.sh` writes the serial port to `serial.log` in
-  the VM's folder; read that first. An ISO install has no serial console.
+  the VM's folder; read that first on a qcow2. An ISO install has no serial
+  console, and neither has the portable file, which takes it out
+  (`ci/make-portable-image.sh`).
+- **A QCOW2'S SIZE SAYS NOTHING OF WHAT A DRIVE NEEDS.** The builder's qcow2
+  artifact was 6.6 GB and the plan said a portable would write about 7 GB; the
+  qcow2 is compressed. The same image as a raw disk is 28.9 GB, twice the
+  image's size whatever the settings ask, holding about 10 GB. Measure the raw
+  file.
+- **SHIM ON A DRIVE'S FALLBACK PATH WRITES TO THE PC'S FIRMWARE.** With
+  `EFI/BOOT/fbx64.efi` there, the VM's firmware gained `\EFI\fedora\shimx64.efi`
+  on its first boot. `strings -el vars.fd` shows it. Without that file and with
+  grub copied beside shim, the firmware gained no entry and the VM booted the
+  same, from a drive with no other change.
+- **"NOTHING WRITTEN TO THE FIRMWARE" IS NOT WHAT THAT CHECK SHOWS.** Searching
+  `vars.fd` for `shim` and `fedora` finds boot entries. Shim also stores
+  `SbatLevel` on every start, as it does from any Linux USB drive. Compare the
+  whole list of names before saying what a start left behind.
+- **WITH SECURE BOOT ON, A BAZZITE KERNEL STOPS AT GRUB, NOT AT SHIM.** Microsoft's
+  signature passes shim and Fedora's passes grub, then `bad shim signature`, and
+  grub falls back to its menu: MokManager does not come by itself, as it does
+  where shim refuses grub. Grub's `fallback` in `custom.cfg` brings it. The
+  screen counts down ten seconds, and missing it lands on grub's menu, which
+  has the entry.
+- **MOKMANAGER'S FILE PICKER OPENS AT THE TOP OF THE PARTITION**, in directory
+  order, not sorted. A key at the top sits below `EFI/` and nothing else; in
+  `EFI/BOOT` it is among boot files, where it lands depends on what was deleted
+  first, and a tester has two more folders to find.
+- **A `journalctl --follow` started before the journal moves to the drive stops
+  at the move.** The first boot check's log ended at
+  `systemd-journal-flush.service` on both starts and looked like a hang, while
+  the console went on to first run. Order the unit after that service.
+- **A RAW FILE LEFT FOR QEMU TO GUESS CANNOT BE WRITTEN IN ITS FIRST SECTOR.**
+  That is where a partition table grows. Say `format=raw`, as
+  `tools/installer-vm.sh portable` does for a `.img`.
+- **A GPT CUT SHORT IS NOT READ AGAIN, BY SFDISK.** Its last usable sector is
+  then past the end. Dump the table, truncate the file and write the dump back,
+  without `device:` and `last-lba:`: every id stays, and nothing warns.
+  `sgdisk -e` also copes, with warnings and a gap for alignment.
+- **GitHub's Ubuntu runner has `/dev/kvm`**, group `kvm`, so `chmod 666` it
+  first (measured 2026-11-03): a portable's first start took about 4 minutes
+  there, and the next start 45 seconds to first run.
+- **A FAST DRIVE HIDES ALL OF THIS. BOOT THE REAL STICK.** A VM on the A9's NVMe reached first
+  run in 2 minutes while the same file on a SanDisk 3.2 stick had not after 23: services hit
+  their limits, `rpm-ostree` gave up, logind came up at 22 minutes. That stick writes 58 MB/s
+  in a row and about one scattered 4K synced write per 1.5 s. A VM on the A9 can boot the
+  stick itself (`-drive file=/dev/sda,cache=none`): that is the test.
+- **A JOB THAT TIMES OUT ON A FIRST START MAY NEVER RUN AGAIN.** `cabinetos-update-source` has
+  `ConditionNeedsUpdate=/etc`, and `systemd-update-done` marks that done regardless.
+- **THE LOG IS NOT WHAT MADE IT SLOW.** Storing it in memory saved 5 s of 283 on that stick.
+- **A PORTABLE'S SLOWEST STEP WAS ONE BOOT SETTING.** Bazzite's hardware setup adds
+  `bluetooth.disable_ertm=1` with `rpm-ostree kargs`: a whole deployment and a
+  restart for one word. With the word already on the boot line it says "No karg
+  changes needed" and takes under a second: 54 s to first run in the VM, no restart.
+- **A VM CANNOT SHOW A RESTART LANDING IN WINDOWS.** `bootindex` keeps USB first. A
+  real PC started from its one-time boot menu follows its own order at the next start.
 - **A new console's first start is slow in the VM and nothing is wrong:**
   Bazzite's hardware setup took 3.5 minutes from a USB-attached disk image
   (it adds kernel arguments, then restarts), and the Flatpak setup downloads

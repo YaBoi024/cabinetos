@@ -350,6 +350,22 @@ then `YDOTOOL_SOCKET=/tmp/ydotool.sock ydotool key 108:1 108:0` (Down; Up
   running console. Since `build_files/sound-backup-output.sh` pipewire-pulse
   runs from login; which route a restart takes then is not measured yet.
 
+- **Testing where the sound goes with nothing to hear it.** WirePlumber and
+  PipeWire run as they do on a console, on cards made by the kernel's
+  `snd-dummy`, so a VM can run every step of the sound rule (#655). Load it
+  with `modprobe snd-dummy enable=1,1 pcm_devs=2,2`: without a second device
+  an HDMI mapping has nothing to open, and the card shows no output at all.
+  Add jacks by name through libasound's `snd_ctl_elem_add_boolean`
+  (`Headphone Jack`, `Speaker Phantom Jack`, `HDMI/DP,pcm=1 Jack`, on the
+  card interface), and set one with `amixer cset numid=N`: the comma in the
+  HDMI name defeats `name=`. Give each card a profile set of your own that
+  maps `analog-output-speaker` and `analog-output-headphones` to `hw:%f,0` and
+  `hdmi-output-0` to `hw:%f,1`, through `ACP_PROFILES_DIR` in a drop-in for
+  `wireplumber.service` and `device.profile-set` in `monitor.alsa.rules`.
+  Run the steps on two cards and on one card holding both, since a card that
+  can run only one output at a time behaves differently. Then read the default
+  and each stream's link from `pw-dump`.
+
 - **gamescope crashes on its way out when the app is stopped**
   (`wl_display_destroy`, SIGSEGV or SIGABRT). It is every session stop, not
   the thing being tested; look at what stopped the app. A crash while the

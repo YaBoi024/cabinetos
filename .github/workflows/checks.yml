@@ -118,3 +118,22 @@ jobs:
 
       - name: Every licence text fetched at the revision the image ships
         run: ci/check-licences.sh
+
+  # THE MECHANICAL HALF OF THE AUDIT OF 2026-11-03: only what a pull request
+  # touches, so the old tree never fails it. Its report-only week is its own.
+  code-and-docs-agree:
+    name: Code and docs agree
+    runs-on: ubuntu-24.04
+    env:
+      REPORT_ONLY_UNTIL: '2026-11-10'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          fetch-depth: 0
+
+      - name: Comments name what is there, headers' functions are defined, no private address
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 -I ci/check-code-and-docs-agree.py "${BASE}" "${HEAD}"

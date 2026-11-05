@@ -4,6 +4,16 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.11.05.2 {#v2026-11-05-2}
+
+- **Fixed:** on some PCs there was no sound at all, no menu sounds and no game
+  sound, on a TV that plays sound perfectly well, because the sound went to a
+  jack on the PC with nothing plugged into it. The sound now plays on the TV
+  the picture is on. When the TV is off or asleep there is no sound, never a
+  speaker in the PC. A PC whose screen has no sound of its own plays from its
+  own speaker or jack.
+  ([#655](https://github.com/MMagTech/cabinetos/issues/655))
+
 ## 2026.11.03.6 {#v2026-11-03-6}
 
 - **Fixed:** while a PlayStation 3 or Vita game was installing, its emulator

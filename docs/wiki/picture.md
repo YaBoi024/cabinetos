@@ -115,9 +115,11 @@ two every few minutes, to be kind to OLED TVs.
 
 The sound plays on the TV the picture is on. Headphones in a jack that senses
 the plug take it over while they are in, and give it back when they come out.
-Nothing else takes it from the TV: not a speaker built into the PC's case, and
-not a USB sound card or headset. There is no setting for it. When the screen
-turns off or the TV sleeps, the sound comes back with the picture.
+Nothing else takes it from the TV: not a speaker built into the PC's case, not
+a jack that cannot sense a plug, and not a USB sound card or headset. There is
+no setting for it. When the screen turns off or the TV sleeps, the sound comes
+back with the picture. If the screen tells the PC it has no sound of its own,
+the PC's own speaker or jack plays instead.
 
 The volume is the TV's. The volume keys on a keyboard change it too, and it
 goes back to full each time the console starts.
