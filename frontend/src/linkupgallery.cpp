@@ -24,11 +24,12 @@ constexpr const char* kMadeUpServer = "linkup.example.net:7845";
 
 std::vector<Friend> madeUpFriends() {
     return {
-        {"Alex", "", Status::InvitedYou, "Contra III", false},
+        {"Riley", "", Status::InvitedYou, "Burnout 3", false},
         {"Sam", "", Status::InGame, "", false},
+        {"Alex", "", Status::Online, "", false},
         {"Jordan", "", Status::Online, "", false},
-        {"admin", "Riley's server", Status::Online, "", false},
         {"admin", "Morgan's server", Status::Online, "", false},
+        {"admin", "Casey's server", Status::Online, "", false},
         {"Maya", "", Status::Offline, "", false},
         {"Theo", "", Status::Offline, "", false},
     };
@@ -39,16 +40,14 @@ std::vector<Friend> madeUpFriends() {
 // ---- What the gallery plays the other side of ---------------------------
 
 // The made-up Library, so the Host flow needs no server: Wii's first game needs
-// a Wii Remote, and greys.
+// a Wii Remote, and greys. No covers: the stand-in library's are other games' art.
 void App::linkupGalleryLibrary() {
     if (!linkupGallery) return;
-    auto add = [&](const char* title, uint32_t art, const char* cover, const char* platform,
-                   bool wii, bool remote) {
+    auto add = [&](const char* title, uint32_t art, const char* platform, bool wii, bool remote) {
         design::Card c;
         c.title = title;
         c.sortKey = title;
         c.art = ui::Color::rgb(art);
-        if (cover) c.cover = cover;
         c.platform = platform;
         c.wii = wii;
         c.needsRemote = remote;
@@ -57,20 +56,16 @@ void App::linkupGalleryLibrary() {
     };
     screens::Tile snes, wii, ps2, arcade;
     snes.id = 1; snes.query = "linkup-gallery-1"; snes.title = "Super Nintendo"; snes.detail = "3 games";
-    snes.cards = {add("Contra III", 0x2484D6, "covers/a-3x4.jpg", "Super Nintendo", false, false),
-                  add("Super Metroid", 0xEC405C, "covers/b-3x4.png", "Super Nintendo", false, false),
-                  add("Chrono Trigger", 0x7A6BC4, nullptr, "Super Nintendo", false, false)};
-    snes.cover = "covers/a-3x4.jpg";
+    snes.cards = {add("Contra III", 0x2484D6, "Super Nintendo", false, false),
+                  add("Super Metroid", 0xEC405C, "Super Nintendo", false, false),
+                  add("Chrono Trigger", 0x7A6BC4, "Super Nintendo", false, false)};
     wii.id = 2; wii.query = "linkup-gallery-2"; wii.title = "Wii"; wii.detail = "2 games";
-    wii.cards = {add("Wii Sports", 0x58E8F6, nullptr, "Wii", true, true),
-                 add("Super Smash Bros. Brawl", 0xFFC457, nullptr, "Wii", true, false)};
-    wii.cover = "covers/d-square.png";
+    wii.cards = {add("Wii Sports", 0x58E8F6, "Wii", true, true),
+                 add("Super Smash Bros. Brawl", 0xFFC457, "Wii", true, false)};
     ps2.id = 3; ps2.query = "linkup-gallery-3"; ps2.title = "PlayStation 2"; ps2.detail = "1 game";
-    ps2.cards = {add("Burnout 3", 0xFF7AC7, "covers/e-wide.jpg", "PlayStation 2", false, false)};
-    ps2.cover = "covers/e-wide.jpg";
+    ps2.cards = {add("Burnout 3", 0xFF7AC7, "PlayStation 2", false, false)};
     arcade.id = 4; arcade.query = "linkup-gallery-4"; arcade.title = "Arcade"; arcade.detail = "1 game";
-    arcade.cards = {add("DoDonPachi DaiOuJou", 0xFFC457, "covers/c-3x4.jpg", "Arcade", false, false)};
-    arcade.cover = "covers/c-3x4.jpg";
+    arcade.cards = {add("DoDonPachi DaiOuJou", 0xFFC457, "Arcade", false, false)};
     libraryScreen.build({snes, wii, ps2, arcade}, {});
 }
 
@@ -131,6 +126,13 @@ struct Scene {
 
 using Play = screens::LinkUpPlayScreen::Shows;
 
+// Alex has started a game and picked you; Riley's invite makes way for his.
+void alexInvites(App& a) {
+    a.linkUp.friends[2].status = Status::InvitedYou;
+    a.linkUp.friends[2].game = "Contra III";
+    a.linkUp.friends.erase(a.linkUp.friends.begin());
+}
+
 // The game, as a host's TV would show it, for what goes over it.
 void hostGame(App& a) {
     a.linkupPlay.open(Play::Picture, "Contra III", "", /*friendSide=*/false);
@@ -173,7 +175,7 @@ const Scene kScenes[] = {
          a.linkUp.friends[2].nudged = true;
          a.goToDestination(App::BarLinkUp);
          a.linkupOfferNudge(2);
-         a.menuNotice.say("Nudged Jordan", Tone::Done);
+         a.menuNotice.say("Nudged Alex", Tone::Done);
      }},
     {"Their Nudge arrives", [](App& a) {
          a.goToDestination(App::BarHome);
@@ -184,6 +186,7 @@ const Scene kScenes[] = {
          a.menuNotice.say(linkup::invitedYou("Alex", "Contra III"), Tone::Info);
      }},
     {"The Invited line, with Join", [](App& a) {
+         alexInvites(a);
          a.goToDestination(App::BarLinkUp);
          a.linkupScreen.focusFriends();
      }},
@@ -191,6 +194,12 @@ const Scene kScenes[] = {
          a.goToDestination(App::BarLinkUp);
          a.linkupPickGame();
          a.libraryScreen.settleArrival();
+     }},
+    {"Host: pick a game from a system", [](App& a) {
+         a.goToDestination(App::BarLinkUp);
+         a.linkupPickGame();
+         a.libraryScreen.settleArrival();
+         a.apply({screens::Action::OpenTile, 0});
      }},
     {"Host: Needs a Wii Remote, greyed", [](App& a) {
          a.goToDestination(App::BarLinkUp);

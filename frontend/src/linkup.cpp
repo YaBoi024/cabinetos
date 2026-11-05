@@ -98,19 +98,20 @@ bool App::linkupPickedGame(int cardIndex) {
     return true;
 }
 
-// Online first, then Offline, whose invite waits for them. Somebody in a LinkUp
-// game already is greyed: a game has one seat for a friend.
+// Everyone, Online first, then Offline, whose invite waits for them. Somebody
+// already in a LinkUp game, or hosting the one they invited you to, is greyed: a
+// game has one seat for a friend, and they are not free to take it.
 void App::linkupPickFriend(const std::string& game) {
     std::vector<std::string> names, values;
     std::vector<bool> greyed;
     std::vector<int> who;
-    for (const linkup::Group& g : linkup::groups(linkUp.friends)) {
-        if (g.status == linkup::Status::InvitedYou) continue;
-        for (int i : g.friends) {
+    using S = linkup::Status;
+    for (S status : {S::Online, S::Offline, S::InGame, S::InvitedYou}) {
+        for (int i = 0; i < static_cast<int>(linkUp.friends.size()); ++i) {
+            if (linkUp.friends[static_cast<size_t>(i)].status != status) continue;
             names.push_back(linkup::nameOnList(linkUp.friends, i));
-            values.push_back(g.status == linkup::Status::InGame ? "In a LinkUp game"
-                                                                : linkup::heading(g.status));
-            greyed.push_back(g.status == linkup::Status::InGame);
+            values.push_back(linkup::heading(status));
+            greyed.push_back(status == S::InGame || status == S::InvitedYou);
             who.push_back(i);
         }
     }
