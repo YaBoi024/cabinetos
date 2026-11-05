@@ -26,7 +26,7 @@ public:
     // tiles that would read "In use".
     void setState(const linkup::State& state, bool inUse);
     void enter();
-    void settleArrival() { appear_.settle(1.0f); }
+    void settleArrival();
     void setHasFocus(bool on);
 
     void tick(float dt);
@@ -54,6 +54,7 @@ private:
     design::Animated appear_;
     design::Animated focus_;
     design::Animated scroll_;
+    float sinceChange_ = 1.0f;   // since the list went from nobody to somebody, or back
 };
 
 class LinkUpPlayScreen {

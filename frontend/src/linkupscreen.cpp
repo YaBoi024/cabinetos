@@ -21,6 +21,11 @@ constexpr float kCellGap = 24.0f;
 constexpr float kTileH = 156.0f;
 constexpr float kTileRadius = 18.0f;
 constexpr int kColumns = 4;
+// Friends and no friends change as the top bar's screens do (docs/SETTINGS.md).
+constexpr float kChangeLeave = 0.30f;
+constexpr float kChangeWait = 0.20f;
+constexpr float kChangeArrive = 0.30f;
+constexpr float kChangeOver = kChangeWait + kChangeArrive;
 
 // Eight of the console's menu colours (look.cpp), each one's top and middle: those that
 // stay clearly apart once all are at one brightness. Past eight friends, colours repeat.
@@ -94,12 +99,10 @@ void LinkUpScreen::setState(const linkup::State& state, bool inUse) {
     at_ = -1;
     for (int i = 0; i < static_cast<int>(tiles_.size()); ++i)
         if (tiles_[static_cast<size_t>(i)].friendAt == wasFriend) at_ = i;
-    // A first friend, or the last one going, is a different screen: it arrives as one does,
-    // on the friend when there is one.
+    // A first friend, or the last one going, is a different screen, and changes as the
+    // top bar's screens do: the old one dissolves, then the new one rises into place.
     if (hadFriends != !tiles_.empty()) {
-        appear_.from = appear_.to = 0.0f;
-        appear_.elapsed = 0.0f;
-        appear_.retarget(1.0f, 0.280f);
+        sinceChange_ = 0.0f;
         if (!tiles_.empty()) at_ = 0;
     }
 }
@@ -111,6 +114,12 @@ void LinkUpScreen::enter() {
     at_ = tiles_.empty() ? -1 : 0;
     scroll_.settle(0.0f);
     focus_.settle(1.0f);
+    sinceChange_ = kChangeOver;
+}
+
+void LinkUpScreen::settleArrival() {
+    appear_.settle(1.0f);
+    sinceChange_ = kChangeOver;
 }
 
 void LinkUpScreen::setHasFocus(bool on) {
@@ -129,6 +138,7 @@ void LinkUpScreen::tick(float dt) {
     appear_.tick(dt);
     focus_.tick(dt);
     scroll_.tick(dt);
+    sinceChange_ = std::min(sinceChange_ + dt, kChangeOver);
 }
 
 Result LinkUpScreen::key(Nav n) {
@@ -267,9 +277,23 @@ void LinkUpScreen::drawNoFriends(Ctx& c) {
 }
 
 void LinkUpScreen::drawGlass(Ctx& c) {
-    c.r.setContentAlpha(appear_.value());
     c.r.setScissor(0, design::kScrollClipTop, ui::kCanvasWidth,
                    ui::kCanvasHeight - design::kScrollClipTop);
+    // What the change between friends and no friends has reached. Both are 1 and 0 at rest.
+    const float leaving = 1.0f - std::clamp(sinceChange_ / kChangeLeave, 0.0f, 1.0f);
+    const float arriving = design::easeOut(std::clamp((sinceChange_ - kChangeWait) / kChangeArrive, 0.0f, 1.0f));
+    const bool noFriends = tiles_.empty() && instead_.empty();
+    if (noFriends || leaving > 0.0f) {
+        c.r.setContentAlpha(appear_.value() * (noFriends ? arriving : leaving));
+        drawNoFriends(c);
+    }
+    c.r.setContentAlpha(appear_.value() * arriving);
+    if (noFriends) {
+        c.r.setContentAlpha(1.0f);
+        c.r.clearScissor();
+        return;
+    }
+    const float rise = (1.0f - arriving) * design::kDetailRise;
 
     constexpr int cols = kColumns;
     const float usable = ui::kCanvasWidth - design::kLibraryInset * 2.0f;
@@ -291,20 +315,14 @@ void LinkUpScreen::drawGlass(Ctx& c) {
 
     const float f = focus_.value();
     // With nobody to see it, the switch has nothing to say.
-    if (count > 0 || !instead_.empty()) {
-        drawPill(c, pill_, design::kLibraryInset, design::kSwitcherTop - scroll, true,
-                 at_ < 0 && hasFocus_ ? f : 0.0f);
-    }
+    drawPill(c, pill_, design::kLibraryInset, design::kSwitcherTop - scroll + rise, true,
+             at_ < 0 && hasFocus_ ? f : 0.0f);
 
     if (tiles_.empty()) {
-        if (instead_.empty()) {
-            drawNoFriends(c);
-        } else {
-            const ui::TextStyle lineStyle = ui::TextStyle::Title3;
-            const float w = c.text.measure(instead_, lineStyle, c.sc);
-            c.text.draw(c.r, instead_, (ui::kCanvasWidth - w) * 0.5f, ui::kCanvasHeight * 0.5f, lineStyle,
-                        ui::Color::white(0.60f), c.sc);
-        }
+        const ui::TextStyle lineStyle = ui::TextStyle::Title3;
+        const float w = c.text.measure(instead_, lineStyle, c.sc);
+        c.text.draw(c.r, instead_, (ui::kCanvasWidth - w) * 0.5f, ui::kCanvasHeight * 0.5f, lineStyle,
+                    ui::Color::white(0.60f), c.sc);
         c.r.setContentAlpha(1.0f);
         c.r.clearScissor();
         return;
@@ -316,7 +334,7 @@ void LinkUpScreen::drawGlass(Ctx& c) {
             const bool on = i == at_ && hasFocus_;
             if ((pass == 1) != on) continue;
             const float cellX = design::kLibraryInset + static_cast<float>(i % cols) * (cellW + kCellGap);
-            const float cellY = gridTop + static_cast<float>(i / cols) * pitch - scroll;
+            const float cellY = gridTop + static_cast<float>(i / cols) * pitch - scroll + rise;
             const float ff = on ? f : 0.0f;
             const float s = 1.0f + ff * (design::kPillFocusScale - 1.0f);
             const float w = cellW * s, h = kTileH * s;
