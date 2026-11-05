@@ -37,6 +37,8 @@ public:
     // STAYS UP WHEN AN ANSWER IS CHOSEN, for a window that acts on a choice
     // in place (Add a controller pairs the pad it lists). Back still closes.
     // open() clears it.
+    // A panel whose words say to press A: B does nothing, so the words stay true.
+    void setOnlyA(bool on) { onlyA_ = on; }
     void setStaysOpen(bool on) { staysOpen_ = on; }
     bool staysOpen() const { return staysOpen_; }
     // ONE WIDTH FOR AS LONG AS IT IS OPEN, the content's width in canvas
@@ -140,6 +142,7 @@ public:
 private:
     bool open_ = false;
     bool staysOpen_ = false;
+    bool onlyA_ = false;
     bool busy_ = false;
     float spin_ = 0.0f;
     float fixedW_ = 0.0f;

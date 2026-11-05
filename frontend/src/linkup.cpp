@@ -130,6 +130,7 @@ void App::linkupNoAnswerFrom(const std::string& who) {
     linkupWaitEnds([&, who]() {
         linkupPanel(linkup::noAnswer(who), "", {}, 0, [](int) {});
         choiceScreen.setPrompt("Press", "A", "to continue");
+        choiceScreen.setOnlyA(true);
     });
 }
 
@@ -211,4 +212,5 @@ void App::linkupAskLeave() {
 void App::linkupPausePanel(const std::string& title) {
     linkupPanel(title, "", {}, 0, [](int) {});
     choiceScreen.setPrompt("Press", "A", "to resume");
+    choiceScreen.setOnlyA(true);
 }

@@ -33,6 +33,7 @@ void ChoiceScreen::open(std::string title, std::string detail,
                         std::vector<std::string> options, int focus) {
     open_ = true;
     staysOpen_ = false;
+    onlyA_ = false;
     busy_ = false;
     fixedW_ = 0.0f;
     panelW_ = panelH_ = 0.0f;
@@ -171,7 +172,7 @@ ChoiceScreen::Outcome ChoiceScreen::key(Nav n) {
             sound::play(sound::Cue::Activate);
             return Outcome::Chosen;
         case Nav::Back:
-            if (busy_) {
+            if (busy_ || onlyA_) {
                 sound::play(sound::Cue::Edge);
                 return Outcome::None;
             }
