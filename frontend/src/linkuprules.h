@@ -62,10 +62,10 @@ inline std::string statusLine(bool appearOffline) {
     return std::string("Status: ") + (appearOffline ? "Offline" : "Online");
 }
 inline const std::string kTooSlow = "Slow connection";
-inline const std::string kThisNeedsUpdate = "This console needs an update";
+inline const std::string kThisNeedsUpdate = "Console needs an update";
 inline const std::string kServerNeedsUpdate = "LinkUp server needs an update";
 inline const std::string kCantConnect = "Can't connect to the LinkUp server";
-inline const std::string kConsoleRemoved = "This console was removed from the server";
+inline const std::string kConsoleRemoved = "Removed from the LinkUp server";
 inline const std::string kRepositoryUrl = "https://github.com/MMagTech/cabinet-linkup";
 
 std::string invitedYou(const std::string& who);
