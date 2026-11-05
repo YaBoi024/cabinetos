@@ -9,8 +9,9 @@ did.
 Everything on the [Install](install.md) page's list except the stick for the
 installer, plus:
 
-- **A USB drive of 16 GB or more.** Everything on it is erased, and CabinetOS uses
-  all of it. An SSD or NVMe drive in a USB case should run faster than a stick,
+- **A USB drive of 64 GB or more.** Everything on it is erased, and CabinetOS uses
+  all of it, for the system and the games you play, so more room means more games
+  kept ready. An SSD or NVMe drive in a USB case should run faster than a stick,
   though we haven't measured it yet.
 - **A USB keyboard.**
 - **[balenaEtcher](https://etcher.balena.io) or
