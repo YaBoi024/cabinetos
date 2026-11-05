@@ -61,7 +61,7 @@ inline const std::string kInUse = "In use";
 inline std::string statusLine(bool appearOffline) {
     return std::string("Status: ") + (appearOffline ? "Offline" : "Online");
 }
-inline const std::string kTooSlow = "The connection is too slow for a clean picture";
+inline const std::string kTooSlow = "Slow connection";
 inline const std::string kThisNeedsUpdate = "This console needs an update";
 inline const std::string kServerNeedsUpdate = "This LinkUp server needs an update";
 inline const std::string kCantConnect = "Can't connect to the LinkUp server";
