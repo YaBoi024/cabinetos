@@ -102,7 +102,6 @@ std::string left(const std::string& who) { return who + " left"; }
 std::string isBack(const std::string& who) { return who + " is back"; }
 std::string joinQuestion(const std::string& who) { return "Join " + who + "'s game?"; }
 std::string leaveQuestion(const std::string& who) { return "Leave " + who + "'s game?"; }
-std::string rejoinQuestion(const std::string& who) { return "Rejoin " + who + "'s game?"; }
 std::string endedSession(const std::string& who) { return who + " ended the session"; }
 std::string needsUpdate(const std::string& who) { return who + "'s console needs an update"; }
 

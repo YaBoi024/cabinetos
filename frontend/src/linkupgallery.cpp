@@ -339,7 +339,6 @@ const Scene kScenes[] = {
          a.linkupPlay.open(Play::Waiting, linkup::waitingFor("Alex"), "Contra III", true);
          a.stack.push_back(App::Screen::LinkUpPlay);
      }},
-    {"Friend: the game", friendGame},
     {"Friend: Leave Alex's game?", [](App& a) {
          friendGame(a);
          a.linkupAskLeave();
@@ -349,10 +348,6 @@ const Scene kScenes[] = {
          a.linkupHost = "Alex";
          a.linkupPlay.open(Play::Reconnecting, "Reconnecting", "", true);
          a.stack.push_back(App::Screen::LinkUpPlay);
-     }},
-    {"Friend: back on the screen, offered a rejoin", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         a.linkupPanel(linkup::rejoinQuestion("Alex"), "Contra III", {"Rejoin", "Back"}, 0, [](int) {});
      }},
     {"Friend: the host ended the session", [](App& a) {
          a.goToDestination(App::BarLinkUp);

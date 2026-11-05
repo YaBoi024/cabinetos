@@ -77,7 +77,6 @@ std::string left(const std::string& who);
 std::string isBack(const std::string& who);
 std::string joinQuestion(const std::string& who);
 std::string leaveQuestion(const std::string& who);
-std::string rejoinQuestion(const std::string& who);
 std::string endedSession(const std::string& who);
 std::string needsUpdate(const std::string& who);
 
