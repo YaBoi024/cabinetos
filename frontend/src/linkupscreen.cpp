@@ -21,13 +21,11 @@ constexpr float kTileH = 156.0f;
 constexpr float kTileRadius = 18.0f;
 constexpr int kColumns = 4;
 
-// The console's menu colours (look.cpp), each one's top and middle, less the four that
-// come out as another of these once all are at one brightness.
-constexpr uint32_t kFriendTops[] = {0x3A2268, 0x1C3466, 0x144E56, 0x1F4A2C, 0x5A3514, 0x581618,
-                                    0x5A1C3A, 0x34363C, 0xD9487A, 0x2A8FD6, 0x2E9A5A, 0xD0661A};
-constexpr uint32_t kFriendMids[] = {0x120C26, 0x0A1226, 0x061B1F, 0x0A1A0F, 0x1E1208, 0x1C0708,
-                                    0x1E0A14, 0x121316, 0x3B1650, 0x0B3A48, 0x0C3A44, 0x4A1010};
-constexpr int kFriendColours = 12;
+// Eight of the console's menu colours (look.cpp), each one's top and middle: those that
+// stay clearly apart once all are at one brightness. Past eight friends, colours repeat.
+constexpr uint32_t kFriendTops[] = {0x3A2268, 0x144E56, 0x1F4A2C, 0x5A3514, 0x581618, 0x34363C, 0xD9487A, 0x2A8FD6};
+constexpr uint32_t kFriendMids[] = {0x120C26, 0x061B1F, 0x0A1A0F, 0x1E1208, 0x1C0708, 0x121316, 0x3B1650, 0x0B3A48};
+constexpr int kFriendColours = 8;
 
 // A colour's hue at one brightness to the eye (Oklch), so a red does not step forward of
 // a green. Its strength stops at `chroma`, so a grey stays grey.
