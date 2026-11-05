@@ -21,12 +21,12 @@ constexpr float kCellGap = 24.0f;
 constexpr float kTileH = 156.0f;
 constexpr float kTileRadius = 18.0f;
 constexpr int kColumns = 4;
-// Friends and no friends change as the top bar's screens do (docs/SETTINGS.md).
-constexpr float kStarsLeave = 0.15f;
-constexpr float kPictureWait = 0.10f;
-constexpr float kPictureLeave = 0.25f;
-constexpr float kChangeWait = 0.30f;
-constexpr float kChangeArrive = 0.30f;
+// Friends and no friends: one long fade whose parts overlap, so it does not read as steps.
+constexpr float kStarsLeave = 0.45f;
+constexpr float kPictureWait = 0.15f;
+constexpr float kPictureLeave = 0.75f;
+constexpr float kChangeWait = 0.70f;
+constexpr float kChangeArrive = 0.60f;
 constexpr float kChangeOver = kChangeWait + kChangeArrive;
 
 // Eight of the console's menu colours (look.cpp), each one's top and middle: those that
@@ -287,14 +287,14 @@ void LinkUpScreen::drawGlass(Ctx& c) {
     c.r.setScissor(0, design::kScrollClipTop, ui::kCanvasWidth,
                    ui::kCanvasHeight - design::kScrollClipTop);
     // What the change between friends and no friends has reached: 1 at rest.
-    const float arriving = design::easeOut(std::clamp((sinceChange_ - kChangeWait) / kChangeArrive, 0.0f, 1.0f));
+    const float arriving = design::easeInOut((sinceChange_ - kChangeWait) / kChangeArrive);
     const bool noFriends = tiles_.empty() && instead_.empty();
     if (noFriends) {
         drawNoFriends(c, arriving, arriving);
     } else if (sinceChange_ < kPictureWait + kPictureLeave) {
         // The stars first, then the picture.
-        drawNoFriends(c, 1.0f - std::clamp(sinceChange_ / kStarsLeave, 0.0f, 1.0f),
-                      1.0f - std::clamp((sinceChange_ - kPictureWait) / kPictureLeave, 0.0f, 1.0f));
+        drawNoFriends(c, 1.0f - design::easeInOut(sinceChange_ / kStarsLeave),
+                      1.0f - design::easeInOut((sinceChange_ - kPictureWait) / kPictureLeave));
     }
     c.r.setContentAlpha(appear_.value() * arriving);
     if (noFriends) {
