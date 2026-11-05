@@ -215,67 +215,21 @@ void LinkUpScreen::drawTile(Ctx& c, const FriendTile& tile, float x, float y, fl
                 ui::Color::white(tile.dark ? 0.45f : 0.65f), c.sc);
 }
 
-// The console's cabinet twice, for you and for a player two who is not here yet, and
+// The console's cabinet, with a player two who is not here yet standing behind it, and
 // what the screen is for in words. Nothing here takes a press.
 void LinkUpScreen::drawNoFriends(Ctx& c) {
     constexpr float kCabinetH = 340.0f;
-    const float cabinetW = kCabinetH * 527.0f / 720.0f;
-    constexpr float kTop = 170.0f;
-    constexpr float kDim = 0.32f;
+    constexpr float kTop = 250.0f;
     const float midX = ui::kCanvasWidth * 0.5f;
-    const float s = kCabinetH / 720.0f;
-    // Over the cabinet's own screen (startscreen.cpp, drawCabinet).
-    const auto onScreen = [&](float x, float y, float offX, float offY, float w, float h, ui::Color col) {
-        c.r.draw(ui::Rect{x + (68.0f + offX) * s, y + (162.0f + offY) * s, w * s, h * s, 0.0f, col});
-    };
-    const auto game = [&](float x, float y, float a) {
-        auto col = [a](uint32_t rgb) {
-            ui::Color v = ui::Color::rgb(rgb);
-            v.a = a;
-            return v;
-        };
-        onScreen(x, y, 0, 0, 394, 284, col(0x214E78));
-        onScreen(x, y, 0, 204, 394, 80, col(0x2E7D4F));
-        onScreen(x, y, 70, 134, 66, 70, col(0xF2C063));
-        onScreen(x, y, 230, 60, 110, 26, col(0xFFFFFF));
-    };
-    const auto link = [&](float y) {
-        const float from = midX - 51.0f, to = midX + 51.0f;
-        for (int i = 0; i <= 6; ++i) {
-            const float dx = from + (to - from) * static_cast<float>(i) / 6.0f;
-            c.r.draw(ui::Rect{dx - 4.0f, y - 4.0f, 8.0f, 8.0f, 4.0f, ui::Color::white(0.35f)});
-        }
-        c.r.draw(ui::Rect{midX - 11.0f, y - 11.0f, 22.0f, 22.0f, 11.0f, ui::palette::kMarqueeAmber});
-    };
-    const float leftX = midX - 51.0f - cabinetW;
-    const float rightX = midX + 51.0f;
-    if (noFriendsLook_ == 0) {
-        // Standing behind you, not here yet.
-        setup::drawCabinetIcon(c.r, midX - 40.0f, kTop, kCabinetH, kDim);
-        setup::drawCabinetIcon(c.r, midX - 210.0f, kTop + 28.0f, kCabinetH, 1.0f);
-    } else if (noFriendsLook_ == 1) {
-        // Off, but for its screen.
-        setup::drawCabinetIcon(c.r, leftX, kTop, kCabinetH, 1.0f);
-        setup::drawCabinetIcon(c.r, rightX, kTop, kCabinetH, 0.16f);
-        ui::Rect lit{rightX + 68.0f * s, kTop + 162.0f * s, 394.0f * s, 284.0f * s, 18.0f * s, ui::Color::rgb(0xFEE08F)};
-        lit.gradient = true;
-        lit.fillBottom = ui::Color::rgb(0xEB5736);
-        c.r.draw(lit);
-        link(kTop + kCabinetH * 0.42f);
-    } else {
-        // The same game on both.
-        setup::drawCabinetIcon(c.r, leftX, kTop, kCabinetH, 1.0f);
-        game(leftX, kTop, 1.0f);
-        setup::drawCabinetIcon(c.r, rightX, kTop, kCabinetH, kDim);
-        game(rightX, kTop, kDim);
-        link(kTop + kCabinetH * 0.42f);
-    }
+    // The bright one is what the eye weighs, so the pair sits a little right of even.
+    setup::drawCabinetIcon(c.r, midX - 5.0f, kTop, kCabinetH, 0.32f);
+    setup::drawCabinetIcon(c.r, midX - 175.0f, kTop + 28.0f, kCabinetH, 1.0f);
     auto centred = [&](const std::string& line, ui::TextStyle st, float baseline, float alpha) {
         c.text.draw(c.r, line, midX - c.text.measure(line, st, c.sc) * 0.5f, baseline, st,
                     ui::Color::white(alpha), c.sc);
     };
-    centred("Player two, from anywhere.", ui::TextStyle::Title2, 640.0f, 0.96f);
-    centred("Whoever runs your server adds friends", ui::TextStyle::Title3, 704.0f, 0.60f);
+    centred("Player two, from anywhere.", ui::TextStyle::Title2, 740.0f, 0.96f);
+    centred("Whoever runs your server adds friends", ui::TextStyle::Title3, 804.0f, 0.60f);
 }
 
 void LinkUpScreen::drawGlass(Ctx& c) {

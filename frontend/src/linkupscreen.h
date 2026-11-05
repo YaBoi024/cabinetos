@@ -28,9 +28,6 @@ public:
     void enter();
     void settleArrival() { appear_.settle(1.0f); }
     void setHasFocus(bool on);
-    // The picture with no friends, of three being compared.
-    void setNoFriendsLook(int look) { noFriendsLook_ = look; }
-    int noFriendsLook() const { return noFriendsLook_; }
 
     void tick(float dt);
     Result key(Nav n);
@@ -52,7 +49,6 @@ private:
 
     std::vector<FriendTile> tiles_;
     std::string pill_, instead_;
-    int noFriendsLook_ = 0;
     int at_ = -1;          // the focused friend, or -1 on Status
     bool hasFocus_ = true;
     design::Animated appear_;
