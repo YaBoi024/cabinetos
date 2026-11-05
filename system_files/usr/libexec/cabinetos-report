@@ -922,9 +922,10 @@ def keyboards():
 def sound_outputs():
     # #547: a built-in speaker read "unknown" (nothing senses it), so it
     # outranked the TV, and the report could only show that it had won, not
-    # why. Each card's outputs from PipeWire, the one in use marked. Since
-    # build_files/built-in-speaker.sh a standard built-in speaker reads "no";
-    # one still "unknown" is wired some other way.
+    # why. Each card's outputs from PipeWire, the one in use marked. Since #655
+    # an output reading "unknown" is left out once a screen's sound has been
+    # seen (wireplumber/scripts/cabinetos-sound-output.lua); the system log
+    # below says when that started.
     raw = run(["pw-dump"])
     try:
         objects = json.loads(raw)

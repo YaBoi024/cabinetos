@@ -365,12 +365,13 @@ for needed in /usr/lib64/libvulkan.so.1 /usr/lib64/libvulkan_radeon.so; do
 done
 
 # ---------------------------------------------------------------------------
-# A built-in speaker counts as not there (#547).
+# The sound rule still fits WirePlumber (#655).
 # ---------------------------------------------------------------------------
 #
-# Edits one PipeWire file so a speaker inside the case never takes the sound
-# from the TV, and fails the build if a PipeWire update changed that file.
-/ctx/built-in-speaker.sh
+# Fails the build, saying what to redo, if a WirePlumber update changed a step
+# the sound rule stands on: the rule failing would not stop the sound, only
+# send it to the wrong output on some PCs.
+/ctx/sound-output-rule.sh
 
 # ---------------------------------------------------------------------------
 # A backup sound output while the TV's is gone (#228).
