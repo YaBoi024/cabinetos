@@ -57,7 +57,6 @@ inline const std::string kConsoleRemoved =
 inline const std::string kRepositoryUrl = "https://github.com/MMagTech/cabinet-linkup";
 
 std::string invitedYou(const std::string& who, const std::string& game);
-std::string invitedTitle(const std::string& who);
 std::string declined(const std::string& who);
 std::string noAnswer(const std::string& who);
 std::string waitingFor(const std::string& who);
@@ -65,6 +64,7 @@ std::string joined(const std::string& who);
 std::string left(const std::string& who);
 std::string isBack(const std::string& who);
 std::string sittingOut(const std::string& who);
+std::string joinQuestion(const std::string& who);
 std::string leaveQuestion(const std::string& who);
 std::string rejoinQuestion(const std::string& who);
 std::string endedSession(const std::string& who);

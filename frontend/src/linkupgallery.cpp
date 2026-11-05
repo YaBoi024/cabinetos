@@ -194,7 +194,14 @@ void noServerYet(App& a) {
 
 const Scene kScenes[] = {
     {"LinkUp in the top bar", [](App& a) { a.goToDestination(App::BarHome); }},
-    {"LinkUp's screen", [](App& a) { a.goToDestination(App::BarLinkUp); }},
+    {"LinkUp's screen, as rows", [](App& a) {
+         a.linkupTilesLayout = false;
+         a.goToDestination(App::BarLinkUp);
+     }},
+    {"LinkUp's screen, like the Library (later scenes keep whichever you left on)", [](App& a) {
+         a.linkupTilesLayout = true;
+         a.goToDestination(App::BarLinkUp);
+     }},
     {"Appear Offline on", [](App& a) {
          a.linkUp.appearOffline = true;
          a.goToDestination(App::BarLinkUp);
@@ -424,6 +431,7 @@ void App::linkupGalleryShow(int index) {
     kScenes[index].show(*this);
     refreshLinkUpScreen();
     linkupScreen.settleArrival();
+    linkupTiles.settleArrival();
     if (shotMode) {
         choiceScreen.settle();
     }

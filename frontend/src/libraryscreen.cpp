@@ -82,6 +82,21 @@ void LibraryScreen::setPlatformsOnly(bool on) {
     if (on) tab_ = 0;
 }
 
+void LibraryScreen::setOnePill(std::string label, int pressValue, std::string emptyLine) {
+    onePill_ = std::move(label);
+    onePillValue_ = pressValue;
+    emptyLine_ = std::move(emptyLine);
+    setPlatformsOnly(true);
+}
+
+void LibraryScreen::settleFocus() {
+    auto& tiles = tab_ == 0 ? platforms_ : collections_;
+    if (row_ == 0) return;
+    if (tiles.empty()) { row_ = 0; slot_ = 0; pillFocus_[0].settle(1.0f); return; }
+    slot_ = std::clamp(slot_, 0, static_cast<int>(tiles.size()) - 1);
+    tiles[slot_].focus.settle(1.0f);
+}
+
 void LibraryScreen::build(std::vector<Tile> platforms, std::vector<Tile> collections) {
     platforms_ = std::move(platforms);
     collections_ = std::move(collections);
@@ -307,6 +322,7 @@ Result LibraryScreen::key(Nav n) {
         case Nav::Back:  return {Action::Back, 0};
         case Nav::Activate:
             if (row_ == 0) {
+                if (!onePill_.empty()) return {Action::LinkUp, onePillValue_};
                 if (slot_ == tab_) { sound::play(sound::Cue::Edge); return {}; }
                 sound::play(sound::Cue::Activate);   // #389
                 // Changing tab resets the grid position: the remembered slot
@@ -376,8 +392,9 @@ void LibraryScreen::draw(Ctx& c) {
     if (tiles.empty()) {
         // An honest empty state rather than a blank grid. A library with no
         // collections is ordinary, not broken.
-        const char* line = tab_ == 0 ? "No systems on this server"
-                                     : "No collections on this server";
+        const std::string line = !emptyLine_.empty() ? emptyLine_
+                                 : tab_ == 0         ? "No systems on this server"
+                                                     : "No collections on this server";
         const float w = c.text.measure(line, ui::TextStyle::Title3, c.sc);
         c.text.draw(c.r, line, (ui::kCanvasWidth - w) * 0.5f, ui::kCanvasHeight * 0.5f,
                     ui::TextStyle::Title3, ui::Color::white(0.60f), c.sc);
@@ -516,8 +533,9 @@ void LibraryScreen::drawGlass(Ctx& c) {
     float x = design::kLibraryInset;
     for (int i = 0; i < (platformsOnly_ ? 1 : 2); ++i) {
         const float f = (row_ == 0 && slot_ == i) ? pillFocus_[i].value() : 0.0f;
-        drawPill(c, kLabels[i], x, y, tab_ == i, f);
-        x += pillWidth(c.text, kLabels[i], c.sc) + design::kPillGap;
+        const std::string label = onePill_.empty() ? kLabels[i] : onePill_;
+        drawPill(c, label, x, y, tab_ == i, f);
+        x += pillWidth(c.text, label, c.sc) + design::kPillGap;
     }
 }
 

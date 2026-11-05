@@ -51,6 +51,8 @@ void App::goToDestination(int d) {
     } else if (d == BarLinkUp) {
         refreshLinkUpScreen();
         linkupScreen.enter();
+        linkupTiles.enter();
+        linkupTiles.focusTile(0);
         stack.push_back(Screen::LinkUp);
     } else if (d == BarSettings) {
         // Rebuilt on every visit: the drives, the network and the account
@@ -142,7 +144,7 @@ auto App::navigate(screens::Nav n) -> bool {
         case Screen::WhatsNew: apply(whatsNewScreen.key(n)); return true;
         case Screen::HowTo: apply(howToScreen.key(n)); return true;
         case Screen::Settings: apply(settingsScreen.key(n)); return true;
-        case Screen::LinkUp: apply(linkupScreen.key(n)); return true;
+        case Screen::LinkUp: apply(linkupKey(n)); return true;
         case Screen::LinkUpPlay: apply(linkupPlay.key(n)); return true;
         case Screen::LinkUpRunOwn: apply(linkupRunOwn.key(n)); return true;
     }
@@ -193,6 +195,7 @@ void App::tickScreens(float dt, screens::Ctx& ctx) {
     settingsScreen.tick(dt);
     linkupScreen.setHasFocus(!barFocused && !accountsOpen);
     linkupScreen.tick(dt);
+    linkupTiles.tick(dt);
     linkupPlay.tick(dt);
     linkupRunOwn.tick(dt);
     pinScreen.tick(dt);
@@ -249,7 +252,9 @@ void App::drawScreen(float sc) {
         case Screen::WhatsNew: whatsNewScreen.draw(ctx); break;
         case Screen::HowTo: howToScreen.draw(ctx); break;
         case Screen::Settings: settingsScreen.draw(ctx); break;
-        case Screen::LinkUp: break;   // all glass, below
+        case Screen::LinkUp:
+            if (linkupTilesLayout) linkupTiles.draw(ctx);
+            break;
         case Screen::LinkUpPlay: linkupPlay.draw(ctx); break;
         case Screen::LinkUpRunOwn: linkupRunOwn.draw(ctx); break;
         case Screen::Home: break;   // unreachable, and the compiler asks
@@ -293,7 +298,10 @@ void App::drawScreenGlass(bool gameUp, float sc) {
             case Screen::WhatsNew: break;
             case Screen::HowTo: howToScreen.drawGlass(ctx); break;
             case Screen::Settings: settingsScreen.drawGlass(ctx); break;
-            case Screen::LinkUp: linkupScreen.drawGlass(ctx); break;
+            case Screen::LinkUp:
+                if (linkupTilesLayout) linkupTiles.drawGlass(ctx);
+                else linkupScreen.drawGlass(ctx);
+                break;
             case Screen::LinkUpPlay: break;
             case Screen::LinkUpRunOwn: break;
             case Screen::Home: break;
@@ -376,6 +384,7 @@ void App::takePendingSwitch() {
             libraryScreen.settleArrival();
             settingsScreen.settleArrival();
             linkupScreen.settleArrival();
+            linkupTiles.settleArrival();
         }
         pendingDest = -1;
     }

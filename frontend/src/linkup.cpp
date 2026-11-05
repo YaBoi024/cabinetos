@@ -28,7 +28,49 @@ bool App::linkupInUse() const { return players::streaming() || linkupGalleryStre
 
 bool App::linkupSessionOpen() const { return linkupGallerySession; }
 
-void App::refreshLinkUpScreen() { linkupScreen.setState(linkUp, linkupInUse()); }
+void App::refreshLinkUpScreen() {
+    const bool inUse = linkupInUse();
+    linkupScreen.setState(linkUp, inUse);
+
+    std::vector<screens::Tile> tiles;
+    if (linkUp.instead.empty()) {
+        for (const linkup::Group& g : linkup::groups(linkUp.friends)) {
+            for (int i : g.friends) {
+                const linkup::Friend& f = linkUp.friends[static_cast<size_t>(i)];
+                const bool canPress = g.status == linkup::Status::InvitedYou || g.status == linkup::Status::Online;
+                screens::Tile t;
+                t.id = i;
+                t.query = "friend-" + std::to_string(i);
+                t.title = f.name;
+                t.enterable = canPress && !inUse;
+                // One grid in the list's order, with no headings: a heading per
+                // status gave each a row of its own, and six friends ran off the
+                // screen. So each tile says its own status.
+                const bool sameName = linkup::nameOnList(linkUp.friends, i) != f.name;
+                t.detail = linkup::heading(g.status);
+                if (canPress && inUse) t.detail = linkup::kInUse;
+                else if (g.status == linkup::Status::InvitedYou) t.detail += ": " + f.game;
+                else if (sameName) t.detail += ", " + f.from;
+                tiles.push_back(std::move(t));
+            }
+        }
+    }
+    linkupTiles.build(std::move(tiles), {});
+    linkupTiles.setOnePill(std::string("Appear Offline: ") + (linkUp.appearOffline ? "On" : "Off"),
+                           screens::LinkUpScreen::kAppearOffline,
+                           linkUp.instead.empty() ? "No friends yet" : linkUp.instead);
+    linkupTiles.settleFocus();
+}
+
+screens::Result App::linkupKey(screens::Nav n) {
+    if (!linkupTilesLayout) return linkupScreen.key(n);
+    screens::Result r = linkupTiles.key(n);
+    if (r.action == screens::Action::OpenTile) {
+        const auto& tiles = linkupTiles.visible();
+        r = {screens::Action::LinkUp, tiles[static_cast<size_t>(r.value)].id};
+    }
+    return r;
+}
 
 void App::applyLinkUp(const screens::Result& res) {
     using Play = screens::LinkUpPlayScreen;
@@ -151,7 +193,7 @@ void App::linkupSayInvited(const std::string& who, const std::string& game) {
 
 void App::linkupAnswerInvite(const linkup::Friend& f) {
     sound::play(sound::Cue::Activate);
-    linkupPanel(linkup::invitedTitle(f.name), f.game, {"Join", "Decline"}, 0, [&, f](int c) {
+    linkupPanel(linkup::joinQuestion(f.name), f.game, {"Join", "Decline"}, 0, [&, f](int c) {
         if (c == 0) {
             linkupJoin(f);
             return;

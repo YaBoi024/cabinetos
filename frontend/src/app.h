@@ -654,6 +654,9 @@ struct App {
     // only until the LinkUp program answers (step 3); linkupgallery.cpp fills it.
     screens::LinkUpScreen linkupScreen;
     screens::LinkUpPlayScreen linkupPlay;
+    // The same friends as tiles, to compare with the rows above. One goes when he picks.
+    screens::LibraryScreen linkupTiles;
+    bool linkupTilesLayout = false;
     screens::QrLinkScreen linkupRunOwn;
     linkup::State linkUp;
     std::string linkupHost;             // whose game this console is in, as a friend
@@ -2313,6 +2316,7 @@ struct App {
     bool linkupInUse() const;
     bool linkupSessionOpen() const;
     void refreshLinkUpScreen();
+    screens::Result linkupKey(screens::Nav n);
     void applyLinkUp(const screens::Result& res);
     void linkupPickGame(const std::string& who);
     void linkupEndPick();
