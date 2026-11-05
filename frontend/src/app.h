@@ -657,6 +657,7 @@ struct App {
     screens::QrLinkScreen linkupRunOwn;
     linkup::State linkUp;
     std::string linkupHost;             // whose game this console is in, as a friend
+    std::string linkupGuest, linkupGame;  // who the host invited, and to what
     std::string linkupPairingAddress;   // the address being paired with
     float linkupPairingLeft = 0.0f;     // until the pairing's answer
     // What the gallery plays the other side of.
@@ -667,6 +668,7 @@ struct App {
     bool linkupGallerySession = false;
     std::string linkupGalleryGame;
     float linkupGalleryPictureIn = 0.0f;
+    float linkupGalleryJoinIn = 0.0f;
     // ABOUT, HOW TO (#314): the controls, in Settings' own shape (a section
     // per row on the left, its lines on the right), so it looks like the
     // console rather than a page of text (MMagTech on the TV, 2026-10-10).
@@ -2312,15 +2314,20 @@ struct App {
     bool linkupSessionOpen() const;
     void refreshLinkUpScreen();
     void applyLinkUp(const screens::Result& res);
-    void linkupOfferNudge(int index);
-    void linkupPickGame();
+    void linkupPickGame(const std::string& who);
     void linkupEndPick();
     bool linkupPickedGame(int cardIndex);
-    void linkupPickFriend(const std::string& game);
-    void linkupStartHosting(const std::string& game, const std::string& who);
+    void linkupInvite(const std::string& game);
+    void linkupGameStarts();
+    void linkupCancelInvite();
+    void linkupDeclinedBy(const std::string& who);
+    void linkupNoAnswerFrom(const std::string& who);
+    bool linkupHoldsScreen();
+    void linkupSayInvited(const std::string& who, const std::string& game);
+    void linkupAnswerInvite(const linkup::Friend& f);
     void linkupJoin(const linkup::Friend& f);
     void linkupAskLeave();
-    void linkupPausePanel(const std::string& title, const std::string& detail);
+    void linkupPausePanel(const std::string& title);
     // linkupflow.cpp
     screens::SettingsCategory linkupCategory();
     bool pressLinkUpRow(int id);
@@ -2337,6 +2344,7 @@ struct App {
     void linkupGalleryLibraryBack();
     bool linkupGalleryOpenTile(const screens::Result& res);
     void linkupGalleryJoined(const std::string& game);
+    void linkupGalleryInvited();
     void linkupGalleryTick(float dt);
     void linkupGalleryStep(int dir);
     int linkupGalleryScenes() const;

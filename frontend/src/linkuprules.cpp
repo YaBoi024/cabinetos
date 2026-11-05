@@ -11,7 +11,7 @@ namespace linkup {
 const char* heading(Status s) {
     switch (s) {
         case Status::InvitedYou: return "Invited you";
-        case Status::InGame: return "In a LinkUp game";
+        case Status::InGame: return "Linked up";
         case Status::Online: return "Online";
         case Status::Offline: return "Offline";
     }
@@ -41,7 +41,8 @@ std::string nameOnList(const std::vector<Friend>& list, int index) {
 std::string invitedYou(const std::string& who, const std::string& game) {
     return who + " invited you to " + game;
 }
-std::string wantsToPlay(const std::string& who) { return who + " wants to play"; }
+std::string declined(const std::string& who) { return who + " declined"; }
+std::string noAnswer(const std::string& who) { return "No answer from " + who; }
 std::string waitingFor(const std::string& who) { return "Waiting for " + who; }
 std::string joined(const std::string& who) { return who + " joined"; }
 std::string left(const std::string& who) { return who + " left"; }
@@ -101,15 +102,15 @@ int test() {
     check(!codeComplete("K7MR-4QXT"), "8 characters is not");
 
     std::vector<Friend> list;
-    list.push_back({"Maya", "", Status::Offline, "", false});
-    list.push_back({"Alex", "", Status::InvitedYou, "Contra III", false});
-    list.push_back({"admin", "Riley's server", Status::Online, "", false});
-    list.push_back({"Sam", "", Status::InGame, "", false});
-    list.push_back({"admin", "Morgan's server", Status::Online, "", false});
+    list.push_back({"Maya", "", Status::Offline, ""});
+    list.push_back({"Alex", "", Status::InvitedYou, "Contra III"});
+    list.push_back({"admin", "Riley's server", Status::Online, ""});
+    list.push_back({"Sam", "", Status::InGame, ""});
+    list.push_back({"admin", "Morgan's server", Status::Online, ""});
     const std::vector<Group> g = groups(list);
     check(g.size() == 4, "every heading with somebody under it is there");
     check(g[0].status == Status::InvitedYou && g[0].friends[0] == 1, "Invited you comes first");
-    check(g[1].status == Status::InGame, "In a LinkUp game comes second");
+    check(g[1].status == Status::InGame, "Linked up comes second");
     check(g[2].status == Status::Online && g[2].friends.size() == 2, "Online comes third");
     check(g[3].status == Status::Offline, "Offline comes last");
     check(nameOnList(list, 2) == "admin   \xC2\xB7   Riley's server",

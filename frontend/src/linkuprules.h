@@ -20,7 +20,6 @@ struct Friend {
     std::string from;
     Status status = Status::Offline;
     std::string game;      // what they invited you to, under InvitedYou
-    bool nudged = false;   // nudged in the last five minutes: Nudge waits
 };
 
 // What the screen and the Settings rows show. Off and with no server, this is
@@ -58,7 +57,8 @@ inline const std::string kConsoleRemoved =
 inline const std::string kRepositoryUrl = "https://github.com/MMagTech/cabinet-linkup";
 
 std::string invitedYou(const std::string& who, const std::string& game);
-std::string wantsToPlay(const std::string& who);
+std::string declined(const std::string& who);
+std::string noAnswer(const std::string& who);
 std::string waitingFor(const std::string& who);
 std::string joined(const std::string& who);
 std::string left(const std::string& who);

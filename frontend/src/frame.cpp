@@ -58,7 +58,7 @@ void App::runFrameLoop() {
         // state picked on its page to arrive (#484, PLAY-16), which is when
         // the game itself stands still (pace.cpp).
         const bool gameOnScreen = playing && !overlayOpen && !stateHold && !stateHoldWaiting;
-        idleFrame(dt, gameOnScreen, kScreenOff[screenOffIndex].seconds);
+        idleFrame(dt, gameOnScreen || linkupHoldsScreen(), kScreenOff[screenOffIndex].seconds);
         // TIME PLAYED (#128): the same test the dim uses for "a game is on
         // screen". Written down once a minute, so a power cut loses at most
         // one.

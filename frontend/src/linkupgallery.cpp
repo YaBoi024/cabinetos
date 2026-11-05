@@ -24,14 +24,14 @@ constexpr const char* kMadeUpServer = "linkup.example.net:7845";
 
 std::vector<Friend> madeUpFriends() {
     return {
-        {"Riley", "", Status::InvitedYou, "Burnout 3", false},
-        {"Sam", "", Status::InGame, "", false},
-        {"Alex", "", Status::Online, "", false},
-        {"Jordan", "", Status::Online, "", false},
-        {"admin", "Morgan's server", Status::Online, "", false},
-        {"admin", "Casey's server", Status::Online, "", false},
-        {"Maya", "", Status::Offline, "", false},
-        {"Theo", "", Status::Offline, "", false},
+        {"Riley", "", Status::InvitedYou, "Burnout 3"},
+        {"Sam", "", Status::InGame, ""},
+        {"Alex", "", Status::Online, ""},
+        {"Jordan", "", Status::Online, ""},
+        {"admin", "Morgan's server", Status::Online, ""},
+        {"admin", "Casey's server", Status::Online, ""},
+        {"Maya", "", Status::Offline, ""},
+        {"Theo", "", Status::Offline, ""},
     };
 }
 
@@ -39,8 +39,8 @@ std::vector<Friend> madeUpFriends() {
 
 // ---- What the gallery plays the other side of ---------------------------
 
-// The made-up Library, so the Host flow needs no server: Wii's first game needs
-// a Wii Remote, and greys. No covers: the stand-in library's are other games' art.
+// The made-up Library, so inviting needs no server: Wii's first game needs a Wii
+// Remote, and greys. No covers: the stand-in library's are other games' art.
 void App::linkupGalleryLibrary() {
     if (!linkupGallery) return;
     auto add = [&](const char* title, uint32_t art, const char* platform, bool wii, bool remote) {
@@ -85,6 +85,11 @@ bool App::linkupGalleryOpenTile(const screens::Result& res) {
     return true;
 }
 
+// The friend joins a while after the invite, so the wait can be seen and pressed.
+void App::linkupGalleryInvited() {
+    if (linkupGallery) linkupGalleryJoinIn = 8.0f;
+}
+
 // The host's game comes up a moment after a friend joins.
 void App::linkupGalleryJoined(const std::string& game) {
     if (linkupGallery) {
@@ -97,6 +102,13 @@ void App::linkupGalleryTick(float dt) {
     if (!linkupGallery) return;
     if (linkupGalleryAt < 0) {
         linkupGalleryShow(std::clamp(linkupGalleryStart, 0, linkupGalleryScenes() - 1));
+    }
+    if (linkupGalleryJoinIn > 0.0f) {
+        linkupGalleryJoinIn -= dt;
+        if (linkupGalleryJoinIn <= 0.0f && linkupHoldsScreen()) {
+            linkupGameStarts();
+            menuNotice.say(linkup::joined(linkupGuest) + ". " + linkup::connection(true, 28), Tone::Done);
+        }
     }
     if (linkupGalleryPictureIn > 0.0f) {
         linkupGalleryPictureIn -= dt;
@@ -133,32 +145,56 @@ void alexInvites(App& a) {
     a.linkUp.friends.erase(a.linkUp.friends.begin());
 }
 
-// The game, as a host's TV would show it, for what goes over it.
-void hostGame(App& a) {
+// A game of your own, nobody else in it, for what arrives over it.
+void soloGame(App& a) {
+    a.linkupPlay.open(Play::Picture, "Super Metroid", "", /*friendSide=*/false);
+    a.stack.push_back(App::Screen::LinkUpPlay);
+}
+
+// The game, on the console of whoever invited, for what goes over it.
+void inviterGame(App& a) {
+    a.goToDestination(App::BarLinkUp);
+    a.linkupGuest = "Alex";
     a.linkupPlay.open(Play::Picture, "Contra III", "", /*friendSide=*/false);
     a.stack.push_back(App::Screen::LinkUpPlay);
     a.linkupGallerySession = true;
 }
+
 // The picture, as the friend's console would show it.
 void friendGame(App& a) {
+    a.goToDestination(App::BarLinkUp);
     a.linkupHost = "Alex";
     a.linkupPlay.open(Play::Picture, "Contra III", "", /*friendSide=*/true);
     a.stack.push_back(App::Screen::LinkUpPlay);
     a.linkupGallerySession = true;
 }
-void openSettingsOnLinkUp(App& a, bool intoRows) {
+
+void pickingForAlex(App& a) {
+    a.goToDestination(App::BarLinkUp);
+    a.linkupPickGame("Alex");
+    a.libraryScreen.settleArrival();
+}
+
+void inviteOut(App& a) {
+    pickingForAlex(a);
+    a.linkupInvite("Contra III");
+}
+
+void settingsOnLinkUp(App& a) {
     a.goToDestination(App::BarSettings);
     a.settingsScreen.settleArrival();
-    a.linkupFocusSettings(intoRows);
+    a.linkupFocusSettings(true);
+}
+
+void noServerYet(App& a) {
+    a.linkUp.paired = false;
+    a.linkUp.server.clear();
+    settingsOnLinkUp(a);
 }
 
 const Scene kScenes[] = {
     {"LinkUp in the top bar", [](App& a) { a.goToDestination(App::BarHome); }},
     {"LinkUp's screen", [](App& a) { a.goToDestination(App::BarLinkUp); }},
-    {"Focus on the friends", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         a.linkupScreen.focusFriends();
-     }},
     {"Appear Offline on", [](App& a) {
          a.linkUp.appearOffline = true;
          a.goToDestination(App::BarLinkUp);
@@ -167,94 +203,57 @@ const Scene kScenes[] = {
          a.linkUp.friends.clear();
          a.goToDestination(App::BarLinkUp);
      }},
-    {"Nudge offered", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         a.linkupOfferNudge(2);
-     }},
-    {"Nudge sent, then greyed for 5 minutes", [](App& a) {
-         a.linkUp.friends[2].nudged = true;
-         a.goToDestination(App::BarLinkUp);
-         a.linkupOfferNudge(2);
-         a.menuNotice.say("Nudged Alex", Tone::Done);
-     }},
-    {"Their Nudge arrives", [](App& a) {
-         a.goToDestination(App::BarHome);
-         a.menuNotice.say(linkup::wantsToPlay("Alex"), Tone::Info);
-     }},
-    {"An invite arrives", [](App& a) {
-         a.goToDestination(App::BarHome);
-         a.menuNotice.say(linkup::invitedYou("Alex", "Contra III"), Tone::Info);
-     }},
-    {"The Invited line, with Join", [](App& a) {
-         alexInvites(a);
-         a.goToDestination(App::BarLinkUp);
-         a.linkupScreen.focusFriends();
-     }},
-    {"Host: pick a game", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         a.linkupPickGame();
-         a.libraryScreen.settleArrival();
-     }},
-    {"Host: pick a game from a system", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         a.linkupPickGame();
-         a.libraryScreen.settleArrival();
+    {"Inviting Alex: pick a system", pickingForAlex},
+    {"Inviting Alex: pick a game", [](App& a) {
+         pickingForAlex(a);
          a.apply({screens::Action::OpenTile, 0});
      }},
-    {"Host: Needs a Wii Remote, greyed", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         a.linkupPickGame();
-         a.libraryScreen.settleArrival();
+    {"Inviting Alex: Needs a Wii Remote, greyed", [](App& a) {
+         pickingForAlex(a);
          a.apply({screens::Action::OpenTile, 1});
      }},
-    {"Host: pick a friend", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         a.linkupPickGame();
-         a.libraryScreen.settleArrival();
-         a.linkupPickFriend("Contra III");
-     }},
-    {"Host: the invite goes out", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         a.linkupStartHosting("Contra III", "Alex");
-     }},
-    {"Host: Alex joined, Direct", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         hostGame(a);
+    {"The invite goes out and you wait (Alex joins in 8 seconds, B cancels)", inviteOut},
+    {"Alex joined, Direct", [](App& a) {
+         inviterGame(a);
          a.menuNotice.say(linkup::joined("Alex") + ". " + linkup::connection(true, 28), Tone::Done);
      }},
-    {"Host: Alex joined, Relay", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         hostGame(a);
+    {"Alex joined, Relay", [](App& a) {
+         inviterGame(a);
          a.menuNotice.say(linkup::joined("Alex") + ". " + linkup::connection(false, 64), Tone::Done);
      }},
-    {"Host: a second controller sits out", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         hostGame(a);
+    {"Alex declined", [](App& a) {
+         inviteOut(a);
+         a.linkupGalleryJoinIn = 0.0f;
+         a.linkupDeclinedBy("Alex");
+     }},
+    {"No answer from Alex, after 10 minutes", [](App& a) {
+         inviteOut(a);
+         a.linkupGalleryJoinIn = 0.0f;
+         a.menuNotice.text.clear();
+         a.linkupNoAnswerFrom("Alex");
+     }},
+    {"A second controller sits out", [](App& a) {
+         inviterGame(a);
          a.menuNotice.say(linkup::sittingOut("Alex"), Tone::Info);
      }},
-    {"Host: the friend's connection dropped", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         hostGame(a);
-         a.linkupPausePanel(linkup::waitingFor("Alex"), "");
+    {"The friend's connection dropped", [](App& a) {
+         inviterGame(a);
+         a.linkupPausePanel(linkup::waitingFor("Alex"));
      }},
-    {"Host: the friend is back", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         hostGame(a);
-         a.linkupPausePanel(linkup::isBack("Alex"), "");
+    {"The friend is back", [](App& a) {
+         inviterGame(a);
+         a.linkupPausePanel(linkup::isBack("Alex"));
      }},
-    {"Host: the friend left", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         hostGame(a);
-         a.linkupPausePanel(linkup::left("Alex"), "");
+    {"The friend left", [](App& a) {
+         inviterGame(a);
+         a.linkupPausePanel(linkup::left("Alex"));
      }},
     {"Idle: paused after 10 minutes, on both consoles", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         hostGame(a);
-         a.linkupPausePanel("Still playing?", "");
+         inviterGame(a);
+         a.linkupPausePanel("Still playing?");
      }},
     {"Too slow", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
-         hostGame(a);
+         inviterGame(a);
          a.menuNotice.say(linkup::kTooSlow, Tone::Problem);
      }},
     {"Remote Play's Streaming row, In use during a session", [](App& a) {
@@ -263,6 +262,26 @@ const Scene kScenes[] = {
          a.settingsScreen.settleArrival();
          a.linkupFocusSettingsNamed("Remote Play");
      }},
+    {"Friend: an invite arrives while you play, and nothing stops", [](App& a) {
+         alexInvites(a);
+         a.goToDestination(App::BarHome);
+         soloGame(a);
+         a.linkupSayInvited("Alex", "Contra III");
+     }},
+    {"Friend: an invite arrives at Home", [](App& a) {
+         alexInvites(a);
+         a.goToDestination(App::BarHome);
+         a.linkupSayInvited("Alex", "Contra III");
+     }},
+    {"Friend: the Invited you line", [](App& a) {
+         alexInvites(a);
+         a.goToDestination(App::BarLinkUp);
+     }},
+    {"Friend: Join or Decline", [](App& a) {
+         alexInvites(a);
+         a.goToDestination(App::BarLinkUp);
+         a.linkupAnswerInvite(a.linkUp.friends[1]);
+     }},
     {"Friend: Waiting for Alex", [](App& a) {
          a.goToDestination(App::BarLinkUp);
          a.linkupHost = "Alex";
@@ -270,12 +289,10 @@ const Scene kScenes[] = {
          a.stack.push_back(App::Screen::LinkUpPlay);
      }},
     {"Friend: the game, Direct", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
          friendGame(a);
          a.menuNotice.say(linkup::connection(true, 28), Tone::Info);
      }},
     {"Friend: Leave Alex's game?", [](App& a) {
-         a.goToDestination(App::BarLinkUp);
          friendGame(a);
          a.linkupAskLeave();
      }},
@@ -313,7 +330,7 @@ const Scene kScenes[] = {
          a.linkUp.instead = linkup::kConsoleRemoved;
          a.goToDestination(App::BarLinkUp);
      }},
-    {"Host and Join greyed, In use: a device is streaming", [](App& a) {
+    {"Friends greyed, In use: a device is streaming", [](App& a) {
          a.linkupGalleryStreaming = true;
          a.goToDestination(App::BarLinkUp);
      }},
@@ -323,63 +340,45 @@ const Scene kScenes[] = {
      }},
     {"Settings: off", [](App& a) {
          a.linkUp.on = false;
-         a.linkUp.paired = false;
-         a.linkUp.server.clear();
-         openSettingsOnLinkUp(a, true);
+         noServerYet(a);
      }},
     {"Settings: turning it on asks for the PIN (0000 here)", [](App& a) {
          a.linkUp.on = false;
-         a.linkUp.paired = false;
-         a.linkUp.server.clear();
          a.linkupGalleryPin = true;
-         openSettingsOnLinkUp(a, true);
+         noServerYet(a);
          a.pressLinkUpSwitch();
      }},
-    {"Settings: on, with no server yet", [](App& a) {
-         a.linkUp.paired = false;
-         a.linkUp.server.clear();
-         openSettingsOnLinkUp(a, true);
-     }},
+    {"Settings: on, with no server yet", noServerYet},
     {"Settings: Add a server, the address", [](App& a) {
-         a.linkUp.paired = false;
-         a.linkUp.server.clear();
-         openSettingsOnLinkUp(a, true);
+         noServerYet(a);
          a.linkupAskAddress(kMadeUpServer);
      }},
     {"Settings: Add a server, the code", [](App& a) {
-         a.linkUp.paired = false;
-         a.linkUp.server.clear();
-         openSettingsOnLinkUp(a, true);
+         noServerYet(a);
          a.linkupAskCode(kMadeUpServer, "K7MR-4QXT-9HPV");
      }},
     {"Settings: pairing", [](App& a) {
-         a.linkUp.paired = false;
-         a.linkUp.server.clear();
-         openSettingsOnLinkUp(a, true);
+         noServerYet(a);
          a.menuNotice.say("Pairing\xE2\x80\xA6", Tone::Busy);
      }},
     {"Settings: paired, and LinkUp joins the bar", [](App& a) {
-         openSettingsOnLinkUp(a, true);
+         settingsOnLinkUp(a);
          a.menuNotice.say(std::string("Paired with ") + kMadeUpServer, Tone::Done);
      }},
     {"Settings: a code that no longer works", [](App& a) {
-         a.linkUp.paired = false;
-         a.linkUp.server.clear();
-         openSettingsOnLinkUp(a, true);
+         noServerYet(a);
          a.menuNotice.say("That code has expired or was already used", Tone::Problem);
      }},
     {"Settings: a server that can't be reached", [](App& a) {
-         a.linkUp.paired = false;
-         a.linkUp.server.clear();
-         openSettingsOnLinkUp(a, true);
+         noServerYet(a);
          a.menuNotice.say("Can't reach that server", Tone::Problem);
      }},
     {"Settings: Run your own", [](App& a) {
-         openSettingsOnLinkUp(a, true);
+         settingsOnLinkUp(a);
          a.pressRunYourOwn();
      }},
     {"Settings: Leave", [](App& a) {
-         openSettingsOnLinkUp(a, true);
+         settingsOnLinkUp(a);
          a.pressLinkUpLeave();
      }},
 };
@@ -394,6 +393,7 @@ void App::linkupGalleryShow(int index) {
     linkupGalleryAt = index;
     linkupPairingLeft = 0.0f;
     linkupGalleryPictureIn = 0.0f;
+    linkupGalleryJoinIn = 0.0f;
 
     // Everything put back, so a scene owes nothing to the one before it.
     if (keyboard.isOpen()) keyboard.cancel();

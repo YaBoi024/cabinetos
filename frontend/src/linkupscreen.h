@@ -1,9 +1,10 @@
-// LinkUp's two screens (#654). LinkUpScreen is the top-bar destination: Host and
-// Appear Offline on the left, the signed-in person's friends on the right, the
-// same two columns as Settings. LinkUpPlayScreen is what a friend's console shows
-// during a game when there is no picture to show: "Waiting for Alex" and
-// "Reconnecting". Like every screen they draw, own their focus and return an
-// Action; what a press means is the app's (linkup.cpp).
+// LinkUp's two screens (#654). LinkUpScreen is the top-bar destination: Appear
+// Offline on the left and the signed-in person's friends on the right, the same
+// two columns as Settings. LinkUpPlayScreen is what a console shows in a session
+// with no game to show: the person who invited waiting for their friend to join,
+// and on the friend's console "Waiting for Alex" and "Reconnecting". Like every
+// screen they draw, own their focus and return an Action; what a press means is
+// the app's (linkup.cpp).
 
 #pragma once
 
@@ -19,16 +20,14 @@ class LinkUpScreen {
 public:
     // What Action::LinkUp says in its value. 0 and up is a friend's index in the
     // list; a friend who cannot be pressed never gets focus.
-    static constexpr int kHost = -1;
     static constexpr int kAppearOffline = -2;
 
-    // `inUse` is a Remote Play stream: Host and Join grey, reading "In use".
+    // `inUse` is a Remote Play stream: nobody can be invited or joined, and the
+    // rows that would read "In use".
     void setState(const linkup::State& state, bool inUse);
     void enter();
     void settleArrival() { appear_.settle(1.0f); }
     void setHasFocus(bool on);
-    // For the gallery: focus on the first friend who can be pressed.
-    void focusFriends();
 
     void tick(float dt);
     Result key(Nav n);
@@ -44,15 +43,13 @@ private:
         bool dim = false;
         bool chevron = false;
     };
-    bool hostOk() const;
     int firstPressable() const;
     void moveFocus();
 
     linkup::State state_;
     bool inUse_ = false;
     std::vector<Line> lines_;
-    int leftRow_ = 0;      // 0 Host, 1 Appear Offline
-    int line_ = -1;        // the focused line on the right, or -1 while focus is on the left
+    int line_ = -1;        // the focused line on the right, or -1 on Appear Offline
     bool hasFocus_ = true;
     design::Animated appear_;
     design::Animated focus_;
@@ -61,10 +58,12 @@ private:
 
 class LinkUpPlayScreen {
 public:
-    // What Action::LinkUp says when B asks to leave.
+    // What Action::LinkUp says: B asking to leave, and B while an invite waits.
     static constexpr int kLeave = -3;
+    static constexpr int kCancelInvite = -6;
 
     enum class Shows {
+        Inviting,      // after inviting: the game starts when the friend joins
         Waiting,       // "Waiting for Alex": the host is on anything but the game
         Reconnecting,  // the friend's console trying again, for up to a minute
         Picture,       // the game. The real one is the LinkUp program's own window

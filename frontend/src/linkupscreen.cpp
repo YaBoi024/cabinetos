@@ -28,8 +28,7 @@ float rowHeight(Ctx& c, const std::string& detail) {
 // ---- The top-bar screen ------------------------------------------------
 
 void LinkUpScreen::setState(const linkup::State& state, bool inUse) {
-    const bool wasLeft = line_ < 0;
-    const int wasFriend = wasLeft ? -1 : lines_[static_cast<size_t>(line_)].friendAt;
+    const int wasFriend = line_ < 0 ? -1 : lines_[static_cast<size_t>(line_)].friendAt;
     state_ = state;
     inUse_ = inUse;
     lines_.clear();
@@ -46,14 +45,16 @@ void LinkUpScreen::setState(const linkup::State& state, bool inUse) {
                 switch (g.status) {
                     case linkup::Status::InvitedYou:
                         l.detail = f.game;
-                        l.value = inUse_ ? linkup::kInUse : "Join";
+                        l.value = inUse_ ? linkup::kInUse : "";
                         l.pressable = !inUse_;
+                        l.chevron = !inUse_;
                         l.dim = inUse_;
                         break;
                     case linkup::Status::Online:
-                        l.value = f.nudged ? "Nudged" : "";
-                        l.pressable = true;
-                        l.chevron = true;
+                        l.value = inUse_ ? linkup::kInUse : "";
+                        l.pressable = !inUse_;
+                        l.chevron = !inUse_;
+                        l.dim = inUse_;
                         break;
                     case linkup::Status::InGame:
                         break;
@@ -67,16 +68,11 @@ void LinkUpScreen::setState(const linkup::State& state, bool inUse) {
     }
     // Focus stays on the same friend when they are still there to press.
     line_ = -1;
-    if (!wasLeft)
+    if (wasFriend >= 0)
         for (int i = 0; i < static_cast<int>(lines_.size()); ++i)
             if (lines_[static_cast<size_t>(i)].pressable &&
                 lines_[static_cast<size_t>(i)].friendAt == wasFriend)
                 line_ = i;
-    if (leftRow_ == 0 && !hostOk()) leftRow_ = 1;
-}
-
-bool LinkUpScreen::hostOk() const {
-    return !inUse_ && state_.instead.empty() && !state_.friends.empty();
 }
 
 int LinkUpScreen::firstPressable() const {
@@ -85,12 +81,12 @@ int LinkUpScreen::firstPressable() const {
     return -1;
 }
 
+// Focus lands on the friends, which are what the screen is for.
 void LinkUpScreen::enter() {
     appear_.from = appear_.to = 0.0f;
     appear_.elapsed = 0.0f;
     appear_.retarget(1.0f, 0.280f);
-    line_ = -1;
-    leftRow_ = hostOk() ? 0 : 1;
+    line_ = firstPressable();
     scroll_.settle(0.0f);
     focus_.settle(1.0f);
 }
@@ -99,11 +95,6 @@ void LinkUpScreen::setHasFocus(bool on) {
     if (on == hasFocus_) return;
     hasFocus_ = on;
     if (on) moveFocus();
-}
-
-void LinkUpScreen::focusFriends() {
-    line_ = firstPressable();
-    focus_.settle(1.0f);
 }
 
 void LinkUpScreen::moveFocus() {
@@ -122,16 +113,10 @@ Result LinkUpScreen::key(Nav n) {
     if (line_ < 0) {
         switch (n) {
             case Nav::Up:
-                if (leftRow_ == 0 || !hostOk()) return {Action::FocusBar, 0};
-                leftRow_ = 0;
-                moveFocus();
-                sound::play(sound::Cue::Move);
-                return {};
+                return {Action::FocusBar, 0};
             case Nav::Down:
-                if (leftRow_ == 1) { sound::play(sound::Cue::Edge); return {}; }
-                leftRow_ = 1;
-                moveFocus();
-                sound::play(sound::Cue::Move);
+            case Nav::Left:
+                sound::play(sound::Cue::Edge);
                 return {};
             case Nav::Right: {
                 const int first = firstPressable();
@@ -141,13 +126,10 @@ Result LinkUpScreen::key(Nav n) {
                 sound::play(sound::Cue::Move);
                 return {};
             }
-            case Nav::Left:
-                sound::play(sound::Cue::Edge);
-                return {};
             case Nav::Back:
                 return {Action::Back, 0};
             case Nav::Activate:
-                return {Action::LinkUp, leftRow_ == 0 ? kHost : kAppearOffline};
+                return {Action::LinkUp, kAppearOffline};
         }
         return {};
     }
@@ -170,11 +152,12 @@ Result LinkUpScreen::key(Nav n) {
             return {};
         }
         case Nav::Left:
-        case Nav::Back:
             line_ = -1;
             moveFocus();
-            sound::play(n == Nav::Back ? sound::Cue::Back : sound::Cue::Move);
+            sound::play(sound::Cue::Move);
             return {};
+        case Nav::Back:
+            return {Action::Back, 0};
         case Nav::Right:
             sound::play(sound::Cue::Edge);
             return {};
@@ -195,41 +178,26 @@ void LinkUpScreen::drawGlass(Ctx& c) {
     const ui::TextStyle big = ui::TextStyle::Title3;
     const ui::TextStyle small = ui::TextStyle::Callout;
 
-    // ---- Left: Host and Appear Offline, as Settings' list is drawn ----
+    // ---- Left: Appear Offline, as Settings' list is drawn ----
     {
         const float itemH = c.text.lineHeight(big, c.sc) + design::kSettingsListPadY * 2.0f;
         const float w0 = design::kSettingsListWidth;
-        const float textX = design::kContentInset;
-        const float x0 = design::settingsListX();
-        struct Item { const char* name; std::string value; bool ok; };
-        const Item items[2] = {
-            {"Host", inUse_ ? linkup::kInUse : "", hostOk()},
-            {"Appear Offline", state_.appearOffline ? "On" : "Off", true},
-        };
-        float y = top;
-        for (int i = 0; i < 2; ++i) {
-            const bool focused = line_ < 0 && hasFocus_ && leftRow_ == i;
-            const float ff = focused ? f : 0.0f;
-            const float s = 1.0f + ff * (design::kRowFocusScale - 1.0f);
-            const float w = w0 * s, h = itemH * s;
-            const float x = x0 - (w - w0) * 0.5f;
-            const float iy = y - (h - itemH) * 0.5f;
-            if (focused)
-                c.r.drawGlass(ui::Rect{x, iy, w, h, design::kRowRadius, ui::Color::white(0)},
-                              design::kRegularMaterialBlur,
-                              ui::Color::white(design::kFocusedTint * ff));
-            const float base = iy + design::kSettingsListPadY * s + c.text.ascent(big, c.sc);
-            c.text.draw(c.r, items[i].name, textX, base, big,
-                        ui::Color::white(items[i].ok ? (focused ? 1.0f : 0.80f)
-                                                     : design::kSettingsUnbuiltAlpha),
-                        c.sc);
-            if (!items[i].value.empty()) {
-                const float vw = c.text.measure(items[i].value, small, c.sc);
-                c.text.draw(c.r, items[i].value, x + w - design::kRowPadX - vw, base, small,
-                            ui::Color::white(0.60f), c.sc);
-            }
-            y += itemH + design::kSettingsListGap;
-        }
+        const bool focused = line_ < 0 && hasFocus_;
+        const float ff = focused ? f : 0.0f;
+        const float s = 1.0f + ff * (design::kRowFocusScale - 1.0f);
+        const float w = w0 * s, h = itemH * s;
+        const float x = design::settingsListX() - (w - w0) * 0.5f;
+        const float iy = top - (h - itemH) * 0.5f;
+        if (focused)
+            c.r.drawGlass(ui::Rect{x, iy, w, h, design::kRowRadius, ui::Color::white(0)},
+                          design::kRegularMaterialBlur,
+                          ui::Color::white(design::kFocusedTint * ff));
+        const float base = iy + design::kSettingsListPadY * s + c.text.ascent(big, c.sc);
+        c.text.draw(c.r, "Appear Offline", design::kContentInset, base, big,
+                    ui::Color::white(focused ? 1.0f : 0.80f), c.sc);
+        const std::string value = state_.appearOffline ? "On" : "Off";
+        const float vw = c.text.measure(value, small, c.sc);
+        c.text.draw(c.r, value, x + w - design::kRowPadX - vw, base, small, ui::Color::white(0.60f), c.sc);
     }
 
     // ---- Right: the friends ----
@@ -335,6 +303,7 @@ void LinkUpPlayScreen::open(Shows shows, std::string title, std::string detail, 
 void LinkUpPlayScreen::tick(float dt) { clock_ += dt; }
 
 Result LinkUpPlayScreen::key(Nav n) {
+    if (shows_ == Shows::Inviting) return n == Nav::Back ? Result{Action::LinkUp, kCancelInvite} : Result{};
     // The friend's only menu, on B as on the button that opens the pause menu.
     if (n == Nav::Back) return {Action::LinkUp, kLeave};
     return {};
@@ -383,9 +352,10 @@ void LinkUpPlayScreen::draw(Ctx& c) {
                               kDot * 0.5f, ui::Color::white(alpha)});
         }
     }
-    if (friendSide_)
-        drawPressPrompt(c.r, c.text, c.sc, "Press", "to leave",
-                        ui::kCanvasHeight - ui::kSafeInset - 40.0f, 0.80f, "B");
+    // Said rather than focused: nobody moved focus here. Above where the pill sits.
+    if (shows_ == Shows::Inviting || friendSide_)
+        drawPressPrompt(c.r, c.text, c.sc, "Press", shows_ == Shows::Inviting ? "to cancel" : "to leave",
+                        ui::kCanvasHeight - ui::kSafeInset - 130.0f, 0.80f, "B");
 }
 
 }  // namespace screens
