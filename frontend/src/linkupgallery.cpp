@@ -127,21 +127,14 @@ void App::linkupGalleryStep(int dir) {
     sound::play(sound::Cue::Move);
 }
 
-// Y, to compare: on LinkUp's screen the solid tiles or the earlier ones; in Settings,
-// how its sections are cut.
+// Y in Settings, to compare how its sections are cut.
 bool App::linkupGalleryFlip() {
-    if (keyboard.isOpen() || pinScreen.isOpen() || choiceScreen.isOpen()) return false;
-    if (here() == Screen::LinkUp) {
-        linkupGrid.setSolid(!linkupGrid.solid());
-        std::fprintf(stderr, "[linkup] gallery solid tiles: %d\n", linkupGrid.solid());
-    } else if (here() == Screen::Settings) {
-        linkupSettingsShape = (linkupSettingsShape + 1) % 3;
-        buildSettings();
-        std::fprintf(stderr, "[linkup] gallery Settings shape: %d\n", linkupSettingsShape);
-    } else {
+    if (here() != Screen::Settings || keyboard.isOpen() || pinScreen.isOpen() || choiceScreen.isOpen())
         return false;
-    }
+    linkupSettingsShape = (linkupSettingsShape + 1) % 3;
+    buildSettings();
     sound::play(sound::Cue::Move);
+    std::fprintf(stderr, "[linkup] gallery Settings shape: %d\n", linkupSettingsShape);
     return true;
 }
 
@@ -156,16 +149,6 @@ struct Scene {
 };
 
 using Play = screens::LinkUpPlayScreen::Shows;
-using GridLook = screens::LinkUpGrid::Look;
-using GridPalette = screens::LinkUpGrid::Palette;
-
-template <GridLook look, GridPalette palette>
-void gridVariant(App& a) {
-    a.linkupLayout = App::LinkUpLayout::Grid;
-    a.linkupGrid.setLook(look, palette);
-    a.goToDestination(App::BarLinkUp);
-}
-
 // Alex has started a game and picked you; Riley's invite makes way for his.
 void alexInvites(App& a) {
     a.linkUp.friends[2].status = Status::InvitedYou;
@@ -223,29 +206,17 @@ void noServerYet(App& a) {
 // Each "#" line heads a section, and only one section is on the screen at a time,
 // so there is one thing to judge (--linkup-section).
 const Scene kScenes[] = {
-    {"#Tile style", nullptr},
-    {"Wash", gridVariant<GridLook::Wash, GridPalette::Themes>},
-    {"Rise", gridVariant<GridLook::Rise, GridPalette::Themes>},
-    {"Filled", gridVariant<GridLook::Colour, GridPalette::Themes>},
-    {"Fade", gridVariant<GridLook::Fade, GridPalette::Themes>},
-    {"A letter in a circle", gridVariant<GridLook::Disc, GridPalette::Themes>},
-    {"Plain tiles", [](App& a) {
-         a.linkupLayout = App::LinkUpLayout::Tiles;
-         a.goToDestination(App::BarLinkUp);
-     }},
-    {"Rows", [](App& a) {
-         a.linkupLayout = App::LinkUpLayout::Rows;
-         a.goToDestination(App::BarLinkUp);
-     }},
-    {"#The tiles", nullptr},
-    {"Soft", gridVariant<GridLook::Wash, GridPalette::Soft>},
-    {"Themes", gridVariant<GridLook::Wash, GridPalette::Themes>},
     {"#Your friends", nullptr},
     {"LinkUp in the top bar", [](App& a) { a.goToDestination(App::BarHome); }},
     {"The list", [](App& a) { a.goToDestination(App::BarLinkUp); }},
     {"Two friends with the same name", [](App& a) {
          a.linkUp.friends[4] = {"admin", "Morgan's server", Status::Online, ""};
          a.linkUp.friends[5] = {"admin", "Casey's server", Status::Online, ""};
+         a.goToDestination(App::BarLinkUp);
+     }},
+    {"The same name, with long server names", [](App& a) {
+         a.linkUp.friends[4] = {"admin", "The Extremely Serious Retro Gaming Basement of Morgan", Status::Online, ""};
+         a.linkUp.friends[5] = {"admin", "xX_CaseysUltimateSuperServerOfDoom2026_Xx", Status::Online, ""};
          a.goToDestination(App::BarLinkUp);
      }},
     {"Appear Offline on", [](App& a) {
@@ -494,8 +465,6 @@ void App::linkupGalleryShow(int index) {
     kScenes[index].show(*this);
     refreshLinkUpScreen();
     linkupScreen.settleArrival();
-    linkupTiles.settleArrival();
-    linkupGrid.settleArrival();
     if (shotMode) {
         choiceScreen.settle();
     }
@@ -510,10 +479,6 @@ void App::drawLinkUpGalleryCaption(float sc) {
                        std::to_string(linkupGalleryAt - first + 1) + " of " +
                        std::to_string(linkupGalleryLast() - first + 1) + "   \xC2\xB7   " +
                        kScenes[linkupGalleryAt].name + "   \xC2\xB7   ";
-    if (here() == Screen::LinkUp) {
-        line += linkupGrid.solid() ? "Y for the old tiles" : "Y for the new tiles";
-        line += "   \xC2\xB7   ";
-    }
     if (here() == Screen::Settings) {
         static constexpr const char* kNext[] = {"Y for 7 sections", "Y for 9 sections", "Y for 8 sections"};
         line += std::string(kNext[linkupSettingsShape]) + "   \xC2\xB7   ";

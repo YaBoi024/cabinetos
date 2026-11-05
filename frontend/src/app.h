@@ -656,10 +656,6 @@ struct App {
     screens::LinkUpPlayScreen linkupPlay;
     // The same friends as plain tiles and as a grid in several looks, to compare with
     // the rows above. All but one go when he picks.
-    screens::LibraryScreen linkupTiles;
-    screens::LinkUpGrid linkupGrid;
-    enum class LinkUpLayout { Rows, Tiles, Grid };
-    LinkUpLayout linkupLayout = LinkUpLayout::Grid;
     // Settings' sections, being compared. 0: Streaming, eight. 1: and Storage in System,
     // seven. 2: as the console has them, with LinkUp its own, nine.
     int linkupSettingsShape = 0;
@@ -2323,7 +2319,6 @@ struct App {
     bool linkupInUse() const;
     bool linkupSessionOpen() const;
     void refreshLinkUpScreen();
-    screens::Result linkupKey(screens::Nav n);
     void applyLinkUp(const screens::Result& res);
     void linkupPickGame(const std::string& who);
     void linkupEndPick();
