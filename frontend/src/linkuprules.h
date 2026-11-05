@@ -65,8 +65,7 @@ inline const std::string kTooSlow = "Slow connection";
 inline const std::string kThisNeedsUpdate = "This console needs an update";
 inline const std::string kServerNeedsUpdate = "This LinkUp server needs an update";
 inline const std::string kCantConnect = "Can't connect to the LinkUp server";
-inline const std::string kConsoleRemoved =
-    "This console was removed from the server. Whoever runs it can add it back";
+inline const std::string kConsoleRemoved = "This console was removed from the server";
 inline const std::string kRepositoryUrl = "https://github.com/MMagTech/cabinet-linkup";
 
 std::string invitedYou(const std::string& who);
