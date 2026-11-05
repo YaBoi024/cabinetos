@@ -127,14 +127,20 @@ void App::linkupGalleryStep(int dir) {
     sound::play(sound::Cue::Move);
 }
 
-// Y in Settings, to compare how its sections are cut.
+// Y, to compare: LinkUp's screen with no friends, and how Settings' sections are cut.
 bool App::linkupGalleryFlip() {
-    if (here() != Screen::Settings || keyboard.isOpen() || pinScreen.isOpen() || choiceScreen.isOpen())
+    if (keyboard.isOpen() || pinScreen.isOpen() || choiceScreen.isOpen()) return false;
+    if (here() == Screen::LinkUp && linkUp.friends.empty()) {
+        linkupScreen.setNoFriendsLook((linkupScreen.noFriendsLook() + 1) % 3);
+        std::fprintf(stderr, "[linkup] gallery no-friends look: %d\n", linkupScreen.noFriendsLook());
+    } else if (here() == Screen::Settings) {
+        linkupSettingsShape = (linkupSettingsShape + 1) % 3;
+        buildSettings();
+        std::fprintf(stderr, "[linkup] gallery Settings shape: %d\n", linkupSettingsShape);
+    } else {
         return false;
-    linkupSettingsShape = (linkupSettingsShape + 1) % 3;
-    buildSettings();
+    }
     sound::play(sound::Cue::Move);
-    std::fprintf(stderr, "[linkup] gallery Settings shape: %d\n", linkupSettingsShape);
     return true;
 }
 
@@ -479,6 +485,10 @@ void App::drawLinkUpGalleryCaption(float sc) {
                        std::to_string(linkupGalleryAt - first + 1) + " of " +
                        std::to_string(linkupGalleryLast() - first + 1) + "   \xC2\xB7   " +
                        kScenes[linkupGalleryAt].name + "   \xC2\xB7   ";
+    if (here() == Screen::LinkUp && linkUp.friends.empty()) {
+        static constexpr const char* kNames[] = {"11 Standing behind", "5 Only its screen on", "17 Same game on both"};
+        line += std::string(kNames[linkupScreen.noFriendsLook()]) + "   \xC2\xB7   Y for the next   \xC2\xB7   ";
+    }
     if (here() == Screen::Settings) {
         static constexpr const char* kNext[] = {"Y for 7 sections", "Y for 9 sections", "Y for 8 sections"};
         line += std::string(kNext[linkupSettingsShape]) + "   \xC2\xB7   ";
