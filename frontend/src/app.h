@@ -676,6 +676,7 @@ struct App {
     float linkupGalleryPictureIn = 0.0f;
     float linkupGalleryJoinIn = 0.0f;
     float linkupGalleryFriendIn = 0.0f;
+    float linkupGalleryNoAnswerIn = 0.0f;
     // ABOUT, HOW TO (#314): the controls, in Settings' own shape (a section
     // per row on the left, its lines on the right), so it looks like the
     // console rather than a page of text (MMagTech on the TV, 2026-10-10).

@@ -23,6 +23,8 @@ using linkup::Friend;
 using linkup::Status;
 
 constexpr const char* kMadeUpServer = "linkup.example.net:7845";
+// The wait, sped up to be watched: thirty minutes in this many seconds, dimming at twenty.
+constexpr float kWaitSeconds = 15.0f;
 
 std::vector<Friend> madeUpFriends() {
     return {
@@ -111,6 +113,10 @@ void App::linkupGalleryTick(float dt) {
         if (linkupGalleryJoinIn <= 0.0f && linkupHoldsScreen()) {
             linkupGameStarts();
         }
+    }
+    if (linkupGalleryNoAnswerIn > 0.0f) {
+        linkupGalleryNoAnswerIn = here() == Screen::LinkUpPlay ? linkupGalleryNoAnswerIn - dt : 0.0f;
+        if (linkupGalleryNoAnswerIn <= 0.0f && here() == Screen::LinkUpPlay) linkupNoAnswerFrom(linkupGuest);
     }
     if (linkupGalleryFriendIn > 0.0f) {
         linkupGalleryFriendIn -= dt;
@@ -257,11 +263,10 @@ const Scene kScenes[] = {
          a.linkupGalleryJoinIn = 0.0f;
          a.linkupDeclinedBy("Alex");
      }},
-    {"No answer from Alex, after 30 minutes", [](App& a) {
+    {"Nobody answers, sped up", [](App& a) {
          inviteOut(a);
          a.linkupGalleryJoinIn = 0.0f;
-         a.menuNotice.text.clear();
-         a.linkupNoAnswerFrom("Alex");
+         a.linkupGalleryNoAnswerIn = kWaitSeconds;
      }},
     {"#In the game", nullptr},
     {"A second controller sits out", [](App& a) {
@@ -455,6 +460,7 @@ void App::linkupGalleryShow(int index) {
     linkupGalleryPictureIn = 0.0f;
     linkupGalleryJoinIn = 0.0f;
     linkupGalleryFriendIn = 0.0f;
+    linkupGalleryNoAnswerIn = 0.0f;
 
     // Everything put back, so a scene owes nothing to the one before it.
     if (keyboard.isOpen()) keyboard.cancel();
@@ -488,11 +494,19 @@ void App::linkupGalleryShow(int index) {
 // Where it stands, under everything and clear of the pill.
 void App::drawLinkUpGalleryCaption(float sc) {
     if (!linkupGallery || linkupGalleryAt < 0) return;
+    // The dim a long wait would bring, as idle.h has it, since this one is sped up.
+    const float minutes = 30.0f * (1.0f - linkupGalleryNoAnswerIn / kWaitSeconds);
+    if (linkupGalleryNoAnswerIn > 0.0f && minutes >= 20.0f) {
+        const float into = std::min(1.0f, (minutes - 20.0f) * kWaitSeconds / 30.0f / 0.5f);
+        renderer.draw(ui::Rect{0, 0, ui::kCanvasWidth, ui::kCanvasHeight, 0, ui::Color::black(idle::kDimDepth * into)});
+    }
     const int first = linkupGalleryFirst();
     std::string line = std::string(kScenes[first - 1].name + 1) + "   \xC2\xB7   " +
                        std::to_string(linkupGalleryAt - first + 1) + " of " +
                        std::to_string(linkupGalleryLast() - first + 1) + "   \xC2\xB7   " +
                        kScenes[linkupGalleryAt].name + "   \xC2\xB7   ";
+    if (linkupGalleryNoAnswerIn > 0.0f)
+        line += std::to_string(static_cast<int>(minutes)) + " of 30 minutes   \xC2\xB7   ";
     if (here() == Screen::Settings) {
         static constexpr const char* kNext[] = {"Y for 7 sections", "Y for 9 sections", "Y for 8 sections"};
         line += std::string(kNext[linkupSettingsShape]) + "   \xC2\xB7   ";
