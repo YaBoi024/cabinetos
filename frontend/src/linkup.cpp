@@ -59,7 +59,7 @@ void App::refreshLinkUpScreen() {
     linkupTiles.build(std::move(tiles), {});
     linkupTiles.setOnePill(linkup::statusLine(linkUp.appearOffline),
                            screens::LinkUpScreen::kAppearOffline,
-                           linkUp.instead.empty() ? "No friends yet" : linkUp.instead);
+                           linkUp.instead.empty() ? "Ask the server's owner to add friends" : linkUp.instead);
     linkupTiles.settleFocus();
 }
 
@@ -104,7 +104,6 @@ void App::linkupPickGame(const std::string& who) {
     libraryScreen.enter();
     stack.push_back(Screen::Library);
     sound::play(sound::Cue::Activate);
-    menuNotice.say("Pick a game to play with " + who, Tone::Info);
 }
 
 void App::linkupEndPick() {
@@ -140,7 +139,6 @@ void App::linkupInvite(const std::string& game) {
     stack.push_back(Screen::LinkUpPlay);
     linkupGallerySession = true;
     linkupGalleryInvited();
-    menuNotice.say("Invited " + linkupGuest + " to " + game, Tone::Done);
 }
 
 void App::linkupGameStarts() {

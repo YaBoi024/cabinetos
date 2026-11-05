@@ -86,10 +86,16 @@ bool SettingsScreen::focusable(int cat, int row) const {
            rows[row].kind == Kind::Choice || (rows[row].kind == Kind::Info && rows[row].pressable);
 }
 
-int SettingsScreen::categoryNamed(const std::string& name) const {
-    for (int i = 0; i < static_cast<int>(cats_.size()); ++i)
-        if (cats_[static_cast<size_t>(i)].name == name) return i;
-    return 0;
+void SettingsScreen::focusSetting(int id, bool intoRow) {
+    for (int c = 0; c < static_cast<int>(cats_.size()); ++c) {
+        const auto& rows = cats_[static_cast<size_t>(c)].rows;
+        for (int r = 0; r < static_cast<int>(rows.size()); ++r) {
+            if (rows[static_cast<size_t>(r)].id != id) continue;
+            focusCategory(c, false);
+            if (intoRow && focusable(c, r)) row_ = r;
+            return;
+        }
+    }
 }
 
 int SettingsScreen::choiceOf(int id) const {

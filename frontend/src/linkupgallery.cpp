@@ -1,7 +1,8 @@
-// --linkup-gallery: every LinkUp screen with made-up friends, walked with the
-// triggers (R2 the next, L2 the last) and tried with the pad like any other
-// screen. It plays the other console and the server, so nothing is contacted and
-// nothing is saved. `--linkup-scene <n>` opens at a scene, for a --screenshot.
+// --linkup-gallery: LinkUp's screens with made-up friends, one section at a time
+// (`--linkup-section <n>`), walked with the triggers (R2 the next, L2 the last) and
+// tried with the pad like any other screen. It plays the other console and the
+// server, so nothing is contacted and nothing is saved. `--linkup-scene <n>` opens
+// at a section's scene, for a --screenshot.
 
 #include "app.h"
 
@@ -12,6 +13,7 @@
 
 #include "linkuprules.h"
 #include "screenparts.h"
+#include "settingsids.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
 
@@ -28,8 +30,8 @@ std::vector<Friend> madeUpFriends() {
         {"Sam", "", Status::InGame, ""},
         {"Alex", "", Status::Online, ""},
         {"Jordan", "", Status::Online, ""},
-        {"admin", "Morgan's server", Status::Online, ""},
-        {"admin", "Casey's server", Status::Online, ""},
+        {"Morgan", "", Status::Online, ""},
+        {"Casey", "", Status::Online, ""},
         {"Maya", "", Status::Offline, ""},
         {"Theo", "", Status::Offline, ""},
     };
@@ -101,13 +103,13 @@ void App::linkupGalleryJoined(const std::string& game) {
 void App::linkupGalleryTick(float dt) {
     if (!linkupGallery) return;
     if (linkupGalleryAt < 0) {
-        linkupGalleryShow(std::clamp(linkupGalleryStart, 0, linkupGalleryScenes() - 1));
+        linkupGalleryShow(std::clamp(linkupGalleryFirst() + linkupGalleryStart, linkupGalleryFirst(),
+                                     linkupGalleryLast()));
     }
     if (linkupGalleryJoinIn > 0.0f) {
         linkupGalleryJoinIn -= dt;
         if (linkupGalleryJoinIn <= 0.0f && linkupHoldsScreen()) {
             linkupGameStarts();
-            menuNotice.say(linkup::joined(linkupGuest) + ". " + linkup::connection(true, 28), Tone::Done);
         }
     }
     if (linkupGalleryPictureIn > 0.0f) {
@@ -115,15 +117,32 @@ void App::linkupGalleryTick(float dt) {
         if (linkupGalleryPictureIn <= 0.0f && here() == Screen::LinkUpPlay &&
             linkupPlay.shows() == screens::LinkUpPlayScreen::Shows::Waiting) {
             linkupPlay.open(screens::LinkUpPlayScreen::Shows::Picture, linkupGalleryGame, "", true);
-            menuNotice.say(linkup::connection(true, 28), Tone::Info);
         }
     }
 }
 
 // R2 and L2, from whatever is on screen.
 void App::linkupGalleryStep(int dir) {
-    linkupGalleryShow(std::clamp(linkupGalleryAt + dir, 0, linkupGalleryScenes() - 1));
+    linkupGalleryShow(std::clamp(linkupGalleryAt + dir, linkupGalleryFirst(), linkupGalleryLast()));
     sound::play(sound::Cue::Move);
+}
+
+// Y, to compare: on LinkUp's screen the solid tiles or the earlier ones; in Settings,
+// how its sections are cut.
+bool App::linkupGalleryFlip() {
+    if (keyboard.isOpen() || pinScreen.isOpen() || choiceScreen.isOpen()) return false;
+    if (here() == Screen::LinkUp) {
+        linkupGrid.setSolid(!linkupGrid.solid());
+        std::fprintf(stderr, "[linkup] gallery solid tiles: %d\n", linkupGrid.solid());
+    } else if (here() == Screen::Settings) {
+        linkupSettingsShape = (linkupSettingsShape + 1) % 3;
+        buildSettings();
+        std::fprintf(stderr, "[linkup] gallery Settings shape: %d\n", linkupSettingsShape);
+    } else {
+        return false;
+    }
+    sound::play(sound::Cue::Move);
+    return true;
 }
 
 // ---- The scenes ---------------------------------------------------------
@@ -192,7 +211,7 @@ void inviteOut(App& a) {
 void settingsOnLinkUp(App& a) {
     a.goToDestination(App::BarSettings);
     a.settingsScreen.settleArrival();
-    a.linkupFocusSettings(true);
+    a.settingsScreen.focusSetting(SetLinkUp, true);
 }
 
 void noServerYet(App& a) {
@@ -201,45 +220,43 @@ void noServerYet(App& a) {
     settingsOnLinkUp(a);
 }
 
+// Each "#" line heads a section, and only one section is on the screen at a time,
+// so there is one thing to judge (--linkup-section).
 const Scene kScenes[] = {
-    {"LinkUp in the top bar", [](App& a) { a.goToDestination(App::BarHome); }},
-    {"1 Wash, Soft (later scenes keep the one you left on)", gridVariant<GridLook::Wash, GridPalette::Soft>},
-    {"2 Wash, Themes", gridVariant<GridLook::Wash, GridPalette::Themes>},
-    {"3 Wash, Dusk", gridVariant<GridLook::Wash, GridPalette::Dusk>},
-    {"4 Wash, Jewel", gridVariant<GridLook::Wash, GridPalette::Jewel>},
-    {"5 Rise, Soft", gridVariant<GridLook::Rise, GridPalette::Soft>},
-    {"6 Rise, Themes", gridVariant<GridLook::Rise, GridPalette::Themes>},
-    {"7 Rise, Dusk", gridVariant<GridLook::Rise, GridPalette::Dusk>},
-    {"8 Rise, Jewel", gridVariant<GridLook::Rise, GridPalette::Jewel>},
-    {"9 Filled, Soft", gridVariant<GridLook::Colour, GridPalette::Soft>},
-    {"10 Filled, Themes", gridVariant<GridLook::Colour, GridPalette::Themes>},
-    {"11 Filled, Dusk", gridVariant<GridLook::Colour, GridPalette::Dusk>},
-    {"12 Filled, Jewel", gridVariant<GridLook::Colour, GridPalette::Jewel>},
-    {"Earlier: like a platform, with the letter panel", gridVariant<GridLook::Platform, GridPalette::Bright>},
-    {"Earlier: a letter in a circle", gridVariant<GridLook::Disc, GridPalette::Bright>},
-    {"Earlier: filled, bright", gridVariant<GridLook::Colour, GridPalette::Bright>},
-    {"Earlier: a fade", gridVariant<GridLook::Fade, GridPalette::Bright>},
-    {"LinkUp's screen, earlier: as rows", [](App& a) {
-         a.linkupLayout = App::LinkUpLayout::Rows;
-         a.goToDestination(App::BarLinkUp);
-     }},
-    {"LinkUp's screen, earlier: plain tiles", [](App& a) {
+    {"#Tile style", nullptr},
+    {"Wash", gridVariant<GridLook::Wash, GridPalette::Themes>},
+    {"Rise", gridVariant<GridLook::Rise, GridPalette::Themes>},
+    {"Filled", gridVariant<GridLook::Colour, GridPalette::Themes>},
+    {"Fade", gridVariant<GridLook::Fade, GridPalette::Themes>},
+    {"A letter in a circle", gridVariant<GridLook::Disc, GridPalette::Themes>},
+    {"Plain tiles", [](App& a) {
          a.linkupLayout = App::LinkUpLayout::Tiles;
          a.goToDestination(App::BarLinkUp);
      }},
-    {"LinkUp's screen, earlier: cabinets", [](App& a) {
-         a.linkupLayout = App::LinkUpLayout::Grid;
-         a.linkupGrid.setLook(screens::LinkUpGrid::Look::Cabinet, screens::LinkUpGrid::Palette::Bright);
+    {"Rows", [](App& a) {
+         a.linkupLayout = App::LinkUpLayout::Rows;
+         a.goToDestination(App::BarLinkUp);
+     }},
+    {"#The tiles", nullptr},
+    {"Soft", gridVariant<GridLook::Wash, GridPalette::Soft>},
+    {"Themes", gridVariant<GridLook::Wash, GridPalette::Themes>},
+    {"#Your friends", nullptr},
+    {"LinkUp in the top bar", [](App& a) { a.goToDestination(App::BarHome); }},
+    {"The list", [](App& a) { a.goToDestination(App::BarLinkUp); }},
+    {"Two friends with the same name", [](App& a) {
+         a.linkUp.friends[4] = {"admin", "Morgan's server", Status::Online, ""};
+         a.linkUp.friends[5] = {"admin", "Casey's server", Status::Online, ""};
          a.goToDestination(App::BarLinkUp);
      }},
     {"Appear Offline on", [](App& a) {
          a.linkUp.appearOffline = true;
          a.goToDestination(App::BarLinkUp);
      }},
-    {"No friends yet", [](App& a) {
+    {"No friends", [](App& a) {
          a.linkUp.friends.clear();
          a.goToDestination(App::BarLinkUp);
      }},
+    {"#Inviting a friend", nullptr},
     {"Inviting Alex: pick a system", pickingForAlex},
     {"Inviting Alex: pick a game", [](App& a) {
          pickingForAlex(a);
@@ -250,14 +267,7 @@ const Scene kScenes[] = {
          a.apply({screens::Action::OpenTile, 1});
      }},
     {"The invite goes out and you wait (Alex joins in 8 seconds, B cancels)", inviteOut},
-    {"Alex joined, Direct", [](App& a) {
-         inviterGame(a);
-         a.menuNotice.say(linkup::joined("Alex") + ". " + linkup::connection(true, 28), Tone::Done);
-     }},
-    {"Alex joined, Relay", [](App& a) {
-         inviterGame(a);
-         a.menuNotice.say(linkup::joined("Alex") + ". " + linkup::connection(false, 64), Tone::Done);
-     }},
+    {"Alex joined: the game", inviterGame},
     {"Alex declined", [](App& a) {
          inviteOut(a);
          a.linkupGalleryJoinIn = 0.0f;
@@ -269,6 +279,7 @@ const Scene kScenes[] = {
          a.menuNotice.text.clear();
          a.linkupNoAnswerFrom("Alex");
      }},
+    {"#In the game", nullptr},
     {"A second controller sits out", [](App& a) {
          inviterGame(a);
          a.menuNotice.say(linkup::sittingOut("Alex"), Tone::Info);
@@ -293,12 +304,13 @@ const Scene kScenes[] = {
          inviterGame(a);
          a.menuNotice.say(linkup::kTooSlow, Tone::Problem);
      }},
-    {"Remote Play's Streaming row, In use during a session", [](App& a) {
+    {"Remote Play's row, In use during a session", [](App& a) {
          a.linkupGallerySession = true;
          a.goToDestination(App::BarSettings);
          a.settingsScreen.settleArrival();
-         a.linkupFocusSettingsNamed("Remote Play");
+         a.settingsScreen.focusSetting(SetRemotePlay, false);
      }},
+    {"#An invite to you", nullptr},
     {"Friend: an invite arrives while you play, and nothing stops", [](App& a) {
          alexInvites(a);
          a.goToDestination(App::BarHome);
@@ -325,16 +337,14 @@ const Scene kScenes[] = {
          a.goToDestination(App::BarLinkUp);
          a.linkupAnswerInvite(a.linkUp.friends[1]);
      }},
+    {"#In a friend's game", nullptr},
     {"Friend: Waiting for Alex", [](App& a) {
          a.goToDestination(App::BarLinkUp);
          a.linkupHost = "Alex";
          a.linkupPlay.open(Play::Waiting, linkup::waitingFor("Alex"), "Contra III", true);
          a.stack.push_back(App::Screen::LinkUpPlay);
      }},
-    {"Friend: the game, Direct", [](App& a) {
-         friendGame(a);
-         a.menuNotice.say(linkup::connection(true, 28), Tone::Info);
-     }},
+    {"Friend: the game", friendGame},
     {"Friend: Leave Alex's game?", [](App& a) {
          friendGame(a);
          a.linkupAskLeave();
@@ -353,6 +363,7 @@ const Scene kScenes[] = {
          a.goToDestination(App::BarLinkUp);
          a.menuNotice.say(linkup::endedSession("Alex"), Tone::Info);
      }},
+    {"#When something is wrong", nullptr},
     {"Update: the friend's console is behind", [](App& a) {
          a.goToDestination(App::BarLinkUp);
          a.menuNotice.say(linkup::needsUpdate("Alex"), Tone::Problem);
@@ -381,6 +392,9 @@ const Scene kScenes[] = {
          a.linkupGalleryOffline = true;
          a.goToDestination(App::BarHome);
      }},
+    {"#Settings: the side list", nullptr},
+    {"Streaming, with Y to compare", settingsOnLinkUp},
+    {"#Settings: adding a server", nullptr},
     {"Settings: off", [](App& a) {
          a.linkUp.on = false;
          noServerYet(a);
@@ -406,7 +420,6 @@ const Scene kScenes[] = {
      }},
     {"Settings: paired, and LinkUp joins the bar", [](App& a) {
          settingsOnLinkUp(a);
-         a.menuNotice.say(std::string("Paired with ") + kMadeUpServer, Tone::Done);
      }},
     {"Settings: a code that no longer works", [](App& a) {
          noServerYet(a);
@@ -415,6 +428,15 @@ const Scene kScenes[] = {
     {"Settings: a server that can't be reached", [](App& a) {
          noServerYet(a);
          a.menuNotice.say("Can't reach that server", Tone::Problem);
+     }},
+    {"Settings: Server, with no server yet", [](App& a) {
+         noServerYet(a);
+         a.pressLinkUpServer();
+     }},
+    {"#Settings: a server you have", nullptr},
+    {"Settings: Server, paired", [](App& a) {
+         settingsOnLinkUp(a);
+         a.pressLinkUpServer();
      }},
     {"Settings: Run your own", [](App& a) {
          settingsOnLinkUp(a);
@@ -430,7 +452,18 @@ constexpr int kSceneCount = static_cast<int>(sizeof kScenes / sizeof kScenes[0])
 
 }  // namespace
 
-int App::linkupGalleryScenes() const { return kSceneCount; }
+int App::linkupGalleryFirst() const {
+    int seen = -1;
+    for (int i = 0; i < kSceneCount; ++i)
+        if (!kScenes[i].show && ++seen == linkupGallerySection) return i + 1;
+    return 1;
+}
+
+int App::linkupGalleryLast() const {
+    int last = linkupGalleryFirst();
+    while (last + 1 < kSceneCount && kScenes[last + 1].show) ++last;
+    return last;
+}
 
 void App::linkupGalleryShow(int index) {
     linkupGalleryAt = index;
@@ -472,9 +505,20 @@ void App::linkupGalleryShow(int index) {
 // Where it stands, under everything and clear of the pill.
 void App::drawLinkUpGalleryCaption(float sc) {
     if (!linkupGallery || linkupGalleryAt < 0) return;
-    const std::string line = std::to_string(linkupGalleryAt + 1) + " of " +
-                             std::to_string(kSceneCount) + "   \xC2\xB7   " +
-                             kScenes[linkupGalleryAt].name + "   \xC2\xB7   L2 back, R2 next";
+    const int first = linkupGalleryFirst();
+    std::string line = std::string(kScenes[first - 1].name + 1) + "   \xC2\xB7   " +
+                       std::to_string(linkupGalleryAt - first + 1) + " of " +
+                       std::to_string(linkupGalleryLast() - first + 1) + "   \xC2\xB7   " +
+                       kScenes[linkupGalleryAt].name + "   \xC2\xB7   ";
+    if (here() == Screen::LinkUp) {
+        line += linkupGrid.solid() ? "Y for the old tiles" : "Y for the new tiles";
+        line += "   \xC2\xB7   ";
+    }
+    if (here() == Screen::Settings) {
+        static constexpr const char* kNext[] = {"Y for 7 sections", "Y for 9 sections", "Y for 8 sections"};
+        line += std::string(kNext[linkupSettingsShape]) + "   \xC2\xB7   ";
+    }
+    line += "L2 back, R2 next";
     const ui::TextStyle st = ui::TextStyle::Caption1;
     const float w = text.measure(line, st, sc);
     constexpr float kH = 38.0f, kPad = 18.0f;
@@ -485,9 +529,3 @@ void App::drawLinkUpGalleryCaption(float sc) {
               ui::Color::white(0.80f), sc);
 }
 
-// For a scene: Settings open on LinkUp's category.
-void App::linkupFocusSettings(bool intoRows) { linkupFocusSettingsNamed("LinkUp", intoRows); }
-
-void App::linkupFocusSettingsNamed(const std::string& name, bool intoRows) {
-    settingsScreen.focusCategory(settingsScreen.categoryNamed(name), intoRows);
-}

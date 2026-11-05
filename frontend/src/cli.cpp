@@ -58,6 +58,9 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             noticeGallery = true;
         } else if (SDL_strcmp(argv[i], "--linkup-gallery") == 0) {
             linkupGallery = true;
+        } else if (SDL_strcmp(argv[i], "--linkup-section") == 0 && i + 1 < argc) {
+            linkupGallery = true;
+            linkupGallerySection = SDL_atoi(argv[++i]) - 1;
         } else if (SDL_strcmp(argv[i], "--linkup-scene") == 0 && i + 1 < argc) {
             linkupGallery = true;
             linkupGalleryStart = SDL_atoi(argv[++i]) - 1;

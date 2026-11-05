@@ -73,7 +73,6 @@ std::string invitedYou(const std::string& who);
 std::string declined(const std::string& who);
 std::string noAnswer(const std::string& who);
 std::string waitingFor(const std::string& who);
-std::string joined(const std::string& who);
 std::string left(const std::string& who);
 std::string isBack(const std::string& who);
 std::string sittingOut(const std::string& who);
@@ -82,8 +81,6 @@ std::string leaveQuestion(const std::string& who);
 std::string rejoinQuestion(const std::string& who);
 std::string endedSession(const std::string& who);
 std::string needsUpdate(const std::string& who);
-// "Direct, 28 ms" or "Relay, 64 ms": both players see it.
-std::string connection(bool direct, int ms);
 
 // A pairing code is 12 characters in 3 groups of 4, with no look-alikes. What
 // was typed comes back upper case and grouped, anything else dropped.

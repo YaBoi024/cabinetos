@@ -660,6 +660,9 @@ struct App {
     screens::LinkUpGrid linkupGrid;
     enum class LinkUpLayout { Rows, Tiles, Grid };
     LinkUpLayout linkupLayout = LinkUpLayout::Grid;
+    // Settings' sections, being compared. 0: Streaming, eight. 1: and Storage in System,
+    // seven. 2: as the console has them, with LinkUp its own, nine.
+    int linkupSettingsShape = 0;
     screens::QrLinkScreen linkupRunOwn;
     linkup::State linkUp;
     std::string linkupHost;             // whose game this console is in, as a friend
@@ -668,6 +671,7 @@ struct App {
     float linkupPairingLeft = 0.0f;     // until the pairing's answer
     // What the gallery plays the other side of.
     int linkupGalleryAt = -1;
+    int linkupGallerySection = 0;
     bool linkupGalleryPin = false;
     bool linkupGalleryOffline = false;
     bool linkupGalleryStreaming = false;
@@ -2338,7 +2342,7 @@ struct App {
     void linkupAskLeave();
     void linkupPausePanel(const std::string& title);
     // linkupflow.cpp
-    screens::SettingsCategory linkupCategory();
+    std::vector<screens::SettingsRow> linkupRows();
     bool pressLinkUpRow(int id);
     void linkupAskPin(const std::string& detail, std::function<void()> then);
     void pressLinkUpSwitch();
@@ -2346,6 +2350,7 @@ struct App {
     void linkupAskCode(const std::string& address, const std::string& typed);
     void linkupRetypeAddress();
     void pressRunYourOwn();
+    void pressLinkUpServer();
     void pressLinkUpLeave();
     void tickLinkUp(float dt);
     // linkupgallery.cpp
@@ -2356,11 +2361,11 @@ struct App {
     void linkupGalleryInvited();
     void linkupGalleryTick(float dt);
     void linkupGalleryStep(int dir);
-    int linkupGalleryScenes() const;
+    int linkupGalleryFirst() const;
+    int linkupGalleryLast() const;
     void linkupGalleryShow(int index);
+    bool linkupGalleryFlip();
     void drawLinkUpGalleryCaption(float sc);
-    void linkupFocusSettings(bool intoRows);
-    void linkupFocusSettingsNamed(const std::string& name, bool intoRows = true);
     void captureFrame(int dw, int dh);
     void refuseCaptureOverAnotherWindow(const char* whose);
     // discrig.cpp

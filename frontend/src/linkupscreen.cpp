@@ -208,7 +208,7 @@ void LinkUpScreen::drawGlass(Ctx& c) {
     const float gap = design::kDetailRowGap;
 
     if (!state_.instead.empty() || lines_.empty()) {
-        const std::string& line = state_.instead.empty() ? std::string("No friends yet")
+        const std::string& line = state_.instead.empty() ? std::string("Ask the server's owner to add friends")
                                                          : state_.instead;
         const float h = rowHeight(c, "");
         c.r.drawGlass(ui::Rect{px, top, pw, h, design::kRowRadius, ui::Color::white(0)},
@@ -333,6 +333,45 @@ ui::Color fromHsl(float hue, float s, float l, float keep) {
     return ui::Color{(r + m) * keep, (g + m) * keep, (b + m) * keep, 1.0f};
 }
 
+// A colour at one brightness to the eye whatever its hue (Oklch), so a red does not step
+// forward of a green.
+ui::Color oklch(float radians, float lightness, float chroma) {
+    const float a = chroma * std::cos(radians), b = chroma * std::sin(radians);
+    const float l = lightness + 0.3963377774f * a + 0.2158037573f * b;
+    const float m = lightness - 0.1055613458f * a - 0.0638541728f * b;
+    const float o = lightness - 0.0894841775f * a - 1.2914855480f * b;
+    const float cl = l * l * l, cm = m * m * m, co = o * o * o;
+    auto encoded = [](float v) {
+        v = std::clamp(v, 0.0f, 1.0f);
+        return v <= 0.0031308f ? 12.92f * v : 1.055f * std::pow(v, 1.0f / 2.4f) - 0.055f;
+    };
+    return ui::Color{encoded(4.0767416621f * cl - 3.3077115913f * cm + 0.2309699292f * co),
+                     encoded(-1.2684380046f * cl + 2.6097574011f * cm - 0.3413193965f * co),
+                     encoded(-0.0041960863f * cl - 0.7034186147f * cm + 1.7076147010f * co), 1.0f};
+}
+
+// From the colour wheel, by where its reds, yellows, greens and so on sit on Oklch's own.
+ui::Color evenColour(float wheelDegrees, float lightness, float chroma) {
+    static constexpr float kOnOklch[] = {29, 110, 142, 195, 264, 328, 389};
+    const float along = std::clamp(wheelDegrees, 0.0f, 359.9f) / 60.0f;
+    const int from = static_cast<int>(along);
+    const float degrees = kOnOklch[from] + (kOnOklch[from + 1] - kOnOklch[from]) * (along - static_cast<float>(from));
+    return oklch(degrees * 3.14159265f / 180.0f, lightness, chroma);
+}
+
+// From a colour already chosen: its hue, at that brightness and strength.
+ui::Color evenColour(uint32_t rgb, float lightness, float chroma) {
+    const ui::Color col = ui::Color::rgb(rgb);
+    auto linear = [](float v) { return v <= 0.04045f ? v / 12.92f : std::pow((v + 0.055f) / 1.055f, 2.4f); };
+    const float r = linear(col.r), g = linear(col.g), b = linear(col.b);
+    const float l = std::cbrt(0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b);
+    const float m = std::cbrt(0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b);
+    const float o = std::cbrt(0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b);
+    const float labA = 1.9779984951f * l - 2.4285922050f * m + 0.4505937099f * o;
+    const float labB = 0.0259040371f * l + 0.7827717662f * m - 0.8086757660f * o;
+    return oklch(std::atan2(labB, labA), lightness, chroma);
+}
+
 // A little of the console's own surface mixed in, so a colour sits down in the room.
 ui::Color softened(uint32_t rgb, float keep) {
     const ui::Color col = ui::Color::rgb(rgb);
@@ -397,7 +436,7 @@ void drawCabinet(Ctx& c, float x, float y, float w, const linkup::Status kind, b
 void LinkUpGrid::setState(const linkup::State& state, bool inUse) {
     const int wasFriend = at_ < 0 || at_ >= static_cast<int>(cabs_.size()) ? -1 : cabs_[static_cast<size_t>(at_)].friendAt;
     pill_ = linkup::statusLine(state.appearOffline);
-    emptyLine_ = state.instead.empty() ? "No friends yet" : state.instead;
+    emptyLine_ = state.instead.empty() ? "Ask the server's owner to add friends" : state.instead;
     cabs_.clear();
     if (state.instead.empty()) {
         const int n = std::max(1, static_cast<int>(state.friends.size()));
@@ -429,11 +468,15 @@ void LinkUpGrid::setState(const linkup::State& state, bool inUse) {
                     case Palette::Soft:
                         cab.top = fromHsl(hue, 0.34f, 0.36f, keep);
                         cab.bottom = fromHsl(hue, 0.36f, 0.17f, keep);
+                        cab.evenTop = evenColour(hue, 0.40f, 0.07f);
+                        cab.evenBottom = evenColour(hue, 0.31f, 0.055f);
                         break;
                     case Palette::Themes: {
                         const size_t t = static_cast<size_t>(themes[static_cast<size_t>(i)]);
                         cab.top = softened(kThemeTops[t], keep);
                         cab.bottom = softened(kThemeMids[t], keep);
+                        cab.evenTop = evenColour(kThemeTops[t], 0.40f, 0.07f);
+                        cab.evenBottom = evenColour(kThemeMids[t], 0.31f, 0.055f);
                         break;
                     }
                     case Palette::Dusk: {
@@ -464,7 +507,6 @@ void LinkUpGrid::enter() {
     at_ = cabs_.empty() ? -1 : 0;
     scroll_.settle(0.0f);
     focus_.settle(1.0f);
-    room_ = roomWanted();
 }
 
 void LinkUpGrid::setHasFocus(bool on) {
@@ -479,28 +521,11 @@ void LinkUpGrid::moved() {
     focus_.retarget(1.0f, design::kFocusDuration);
 }
 
-// The room takes the colour of the friend focused, and goes back to the console's
-// own when nobody is.
-ui::Color LinkUpGrid::roomWanted() const {
-    if (look_ == Look::Cabinet || at_ < 0 || at_ >= static_cast<int>(cabs_.size())) return ui::Color{0, 0, 0, 0};
-    const Cab& cab = cabs_[static_cast<size_t>(at_)];
-    ui::Color col = cab.top;
-    col.a = cab.dark ? 0.25f : 0.50f;
-    return col;
-}
-
 void LinkUpGrid::tick(float dt) {
     clock_ += dt;
     appear_.tick(dt);
     focus_.tick(dt);
     scroll_.tick(dt);
-    // A slow glide, so walking along the row reads as the room changing, not flashing.
-    const ui::Color want = roomWanted();
-    const float t = std::clamp(dt * 4.0f, 0.0f, 1.0f);
-    room_.r += (want.r - room_.r) * t;
-    room_.g += (want.g - room_.g) * t;
-    room_.b += (want.b - room_.b) * t;
-    room_.a += (want.a - room_.a) * t;
 }
 
 Result LinkUpGrid::key(Nav n) {
@@ -561,8 +586,31 @@ void LinkUpGrid::drawTile(Ctx& c, const Cab& cab, float x, float y, float w, flo
         plate.shadowOffsetY = design::kFocusShadowOffsetY;
         plate.shadowColor = ui::Color::black(0.5f * f);
     }
-    c.r.draw(plate);
-    if (look_ == Look::Wash) {
+    const bool solid = solid_ && look_ == Look::Wash && (palette_ == Palette::Soft || palette_ == Palette::Themes);
+    if (solid) {
+        // Solid, so the background cannot muddy it; everyone at one brightness and one
+        // lift, so nobody steps forward. Offline has no colour at all: not here.
+        ui::Rect tile{x, y, w, h, kTileRadius, cab.dark ? look::surface() : cab.evenTop};
+        if (!cab.dark) {
+            tile.gradient = true;
+            tile.fillBottom = cab.evenBottom;
+            tile.shadowBlur = 26.0f;
+            tile.shadowOffsetY = 8.0f;
+            tile.shadowColor = ui::Color::black(0.40f);
+        }
+        c.r.draw(tile);
+        if (!cab.dark) {
+            ui::Rect edge{x, y, w, h, kTileRadius, ui::Color::white(0)};
+            // An invite's edge is amber and holds still: a glow reaches the next tile.
+            const bool invite = cab.kind == Status::InvitedYou;
+            edge.border = invite ? 3.0f : 1.5f;
+            edge.borderColor = invite ? ui::palette::kMarqueeAmber : ui::Color::white(0.10f);
+            c.r.draw(edge);
+        }
+    } else {
+        c.r.draw(plate);
+    }
+    if (!solid && look_ == Look::Wash) {
         // A platform's tile with its cover gone: the colour comes down from the top.
         ui::Color from = cab.top;
         from.a = 0.80f;
@@ -671,14 +719,6 @@ void LinkUpGrid::drawTile(Ctx& c, const Cab& cab, float x, float y, float w, flo
 }
 
 void LinkUpGrid::drawGlass(Ctx& c) {
-    // The room, under everything and past the clip, so it reaches behind the top bar.
-    if (room_.a > 0.005f) {
-        c.r.setContentAlpha(1.0f);
-        ui::Rect glow{0, 0, ui::kCanvasWidth, ui::kCanvasHeight * 0.8f, 0, room_};
-        glow.gradient = true;
-        glow.fillBottom = ui::Color{room_.r, room_.g, room_.b, 0.0f};
-        c.r.draw(glow);
-    }
     c.r.setContentAlpha(appear_.value());
     c.r.setScissor(0, design::kScrollClipTop, ui::kCanvasWidth,
                    ui::kCanvasHeight - design::kScrollClipTop);

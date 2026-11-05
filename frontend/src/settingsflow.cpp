@@ -191,12 +191,11 @@ void App::buildSettings() {
                  !radioOn ? "Off" : (onWifi.empty() ? "Not connected" : onWifi)});
     }
 
-    // REMOTE PLAY (#286): its own section, a highlight (MMagTech,
-    // 2026-10-07). Three rows: the switch ("Streaming": "Remote Play"
-    // twice, as section and row, read oddly), with the app to use and the
-    // name to pick in it; the paired devices, one row however many there
-    // are, opening a list; and Tailscale, for playing away from home.
-    // Sunshine's own name is never on screen.
+    // STREAMING: Remote Play (#286) and LinkUp (#654), one section, so LinkUp
+    // does not lengthen the side list. Remote Play has three rows: the switch,
+    // with the app to use and the name to pick in it; the paired devices, one
+    // row however many there are, opening a list; and Tailscale, for playing
+    // away from home. Sunshine's own name is never on screen.
     {
         const bool on = rpState == "active";
         std::string value = on ? "On" : "Off";
@@ -218,16 +217,23 @@ void App::buildSettings() {
         // "In use": a grey switch still reading On looks like a fault
         // when the reason is on another device (MMagTech, 2026-10-08).
         if (streamingNow) detail = "In use";
-        cats.push_back({"Remote Play", {
-            {streamingNow ? K::Disabled : K::Toggle, SetRemotePlay, "Streaming", detail, value},
+        const bool ownSections = linkupSettingsShape == 2;
+        std::vector<Row> rows = {
+            {streamingNow ? K::Disabled : K::Toggle, SetRemotePlay,
+             ownSections ? "Streaming" : "Remote Play", detail, value},
             {on && n > 0 && !streamingNow ? K::Action : K::Disabled, SetPairedDevices,
              "Paired devices", "",
              n == 0 ? "None" : std::to_string(n) + " paired"},
             tailscaleRow(on, streamingNow),
-        }});
+        };
+        if (ownSections) {
+            cats.push_back({"Remote Play", std::move(rows), {}});
+            cats.push_back({"LinkUp", linkupRows(), {}});
+        } else {
+            for (Row& r : linkupRows()) rows.push_back(std::move(r));
+            cats.push_back({"Streaming", std::move(rows), {}});
+        }
     }
-
-    cats.push_back(linkupCategory());
 
     // PICTURE QUALITY IS THE OWNER'S WHEN A PIN IS SET (MMagTech,
     // 2026-10-02, #63): nobody else sees the row at all, and the owner is
@@ -427,7 +433,7 @@ void App::buildSettings() {
         else if (filesState.failed) detail = filesState.reason;
         store.push_back({K::Toggle, SetFiles, "File access", detail, value});
     }
-    cats.push_back({"Storage", std::move(store)});
+    if (linkupSettingsShape != 1) cats.push_back({"Storage", store, {}});
 
     std::vector<Row> sys = {
         updateRow(),
@@ -443,6 +449,7 @@ void App::buildSettings() {
     // to bring the tile back. Somebody who never hid it never sees it.
     if (steam::available() && steam::hidden())
         sys.push_back({K::Action, SetSteamShow, "Steam", "", "Hidden"});
+    if (linkupSettingsShape == 1) sys.insert(sys.end(), store.begin(), store.end());
     // THE DIAGNOSTIC REPORT (#195): one row, the screen it opens says the
     // rest. No PIN: it changes nothing, and nothing private is in it.
     sys.push_back({K::Action, SetReport, "Diagnostic report", "", ""});

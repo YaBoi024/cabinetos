@@ -57,9 +57,8 @@ private:
 };
 
 // THE SAME FRIENDS AS A GRID, EACH IN THEIR OWN COLOUR, worked out from who they are
-// (linkup::colourOf), so nobody has to pick one and nothing is stored or sent. The room
-// behind follows the friend focused, as the Library's follows a cover. The looks are
-// here to compare; the ones not picked go, and so do the rows and the plain tiles.
+// (linkup::colourOf), so nobody has to pick one and nothing is stored or sent. The looks
+// are here to compare; the ones not picked go, and so do the rows and the plain tiles.
 class LinkUpGrid {
 public:
     enum class Look {
@@ -84,6 +83,9 @@ public:
         look_ = look;
         palette_ = palette;
     }
+    // Solid tiles at one brightness, or the earlier see-through ones. Being compared.
+    void setSolid(bool on) { solid_ = on; }
+    bool solid() const { return solid_; }
     void setState(const linkup::State& state, bool inUse);
     void enter();
     void settleArrival() { appear_.settle(1.0f); }
@@ -100,20 +102,20 @@ private:
         bool pressable = false;
         bool dark = false;
         ui::Color top, bottom;
+        ui::Color evenTop, evenBottom;
     };
     void moved();
     int columns() const { return look_ == Look::Cabinet ? 6 : 4; }
-    ui::Color roomWanted() const;
     void drawTile(Ctx& c, const Cab& cab, float x, float y, float w, float h, float f);
 
     Look look_ = Look::Wash;
     Palette palette_ = Palette::Soft;
+    bool solid_ = true;
     std::vector<Cab> cabs_;
     std::string pill_, emptyLine_;
     int at_ = -1;          // the focused friend, or -1 on Status
     bool hasFocus_ = true;
     float clock_ = 0.0f;
-    ui::Color room_ = ui::Color::black(0);
     design::Animated appear_;
     design::Animated focus_;
     design::Animated scroll_;

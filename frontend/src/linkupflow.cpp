@@ -9,19 +9,24 @@
 #include "accounts.h"
 #include "linkuprules.h"
 
-screens::SettingsCategory App::linkupCategory() {
+std::vector<screens::SettingsRow> App::linkupRows() {
     using K = screens::SettingsRow::Kind;
-    screens::SettingsCategory cat{"LinkUp", {}, {}};
-    cat.rows.push_back({K::Toggle, SetLinkUp, "LinkUp", "", linkUp.on ? "On" : "Off"});
+    std::vector<screens::SettingsRow> rows;
+    rows.push_back({K::Toggle, SetLinkUp, "LinkUp", "", linkUp.on ? "On" : "Off"});
+    if (linkupSettingsShape != 2) {
+        if (linkUp.on)
+            rows.push_back({K::Action, SetLinkUpServer, "Server", "", linkUp.paired ? linkUp.server : "None"});
+        return rows;
+    }
     if (linkUp.paired) {
-        cat.rows.push_back(
+        rows.push_back(
             {linkUp.on ? K::Action : K::Disabled, SetLinkUpServer, "Server", "", linkUp.server});
     } else {
-        cat.rows.push_back({linkUp.on ? K::Action : K::Disabled, SetLinkUpAdd, "Add a server", "", ""});
+        rows.push_back({linkUp.on ? K::Action : K::Disabled, SetLinkUpAdd, "Add a server", "", ""});
     }
-    cat.rows.push_back({K::Action, SetLinkUpRunOwn, "Run your own", "", ""});
-    if (linkUp.paired) cat.rows.push_back({K::Action, SetLinkUpLeave, "Leave", "", ""});
-    return cat;
+    rows.push_back({K::Action, SetLinkUpRunOwn, "Run your own", "", ""});
+    if (linkUp.paired) rows.push_back({K::Action, SetLinkUpLeave, "Leave", "", ""});
+    return rows;
 }
 
 bool App::pressLinkUpRow(int id) {
@@ -29,7 +34,8 @@ bool App::pressLinkUpRow(int id) {
         case SetLinkUp: pressLinkUpSwitch(); return true;
         case SetLinkUpAdd: linkupAskPin("To add a server", [&]() { linkupAskAddress(""); }); return true;
         case SetLinkUpServer:
-            linkupAskPin("To change the server", [&]() { linkupRetypeAddress(); });
+            if (linkupSettingsShape != 2) pressLinkUpServer();
+            else linkupAskPin("To change the server", [&]() { linkupRetypeAddress(); });
             return true;
         case SetLinkUpRunOwn: pressRunYourOwn(); return true;
         case SetLinkUpLeave: pressLinkUpLeave(); return true;
@@ -112,7 +118,7 @@ void App::tickLinkUp(float dt) {
                 linkUp.paired = true;
                 linkUp.server = linkupPairingAddress;
                 buildSettings();
-                menuNotice.say("Paired with " + linkupPairingAddress, Tone::Done);
+                menuNotice.text.clear();
             } else {
                 menuNotice.say("Can't reach that server", Tone::Problem);
             }
@@ -144,6 +150,23 @@ void App::pressRunYourOwn() {
     linkupRunOwn.setPairing(linkup::kRepositoryUrl, linkup::kRepositoryUrl);
     stack.push_back(Screen::LinkUpRunOwn);
     sound::play(sound::Cue::Activate);
+}
+
+// One row for the server, saying which, and the rest in a panel, as Wi-Fi's are.
+void App::pressLinkUpServer() {
+    sound::play(sound::Cue::Activate);
+    if (!linkUp.paired) {
+        linkupPanel("Server", "", {"Add a server", "Run your own"}, 0, [&](int c) {
+            if (c == 0) linkupAskPin("To add a server", [&]() { linkupAskAddress(""); });
+            if (c == 1) pressRunYourOwn();
+        });
+        return;
+    }
+    linkupPanel(linkUp.server, "", {"Change server", "Run your own", "Leave"}, 0, [&](int c) {
+        if (c == 0) linkupAskPin("To change the server", [&]() { linkupRetypeAddress(); });
+        if (c == 1) pressRunYourOwn();
+        if (c == 2) pressLinkUpLeave();
+    });
 }
 
 void App::pressLinkUpLeave() {

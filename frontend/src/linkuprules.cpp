@@ -98,7 +98,6 @@ std::string invitedYou(const std::string& who) { return "LinkUp invite from " + 
 std::string declined(const std::string& who) { return who + " declined"; }
 std::string noAnswer(const std::string& who) { return "No answer from " + who; }
 std::string waitingFor(const std::string& who) { return "Waiting for " + who; }
-std::string joined(const std::string& who) { return who + " joined"; }
 std::string left(const std::string& who) { return who + " left"; }
 std::string isBack(const std::string& who) { return who + " is back"; }
 std::string sittingOut(const std::string& who) {
@@ -109,10 +108,6 @@ std::string leaveQuestion(const std::string& who) { return "Leave " + who + "'s 
 std::string rejoinQuestion(const std::string& who) { return "Rejoin " + who + "'s game?"; }
 std::string endedSession(const std::string& who) { return who + " ended the session"; }
 std::string needsUpdate(const std::string& who) { return who + "'s console needs an update"; }
-
-std::string connection(bool direct, int ms) {
-    return std::string(direct ? "Direct" : "Relay") + ", " + std::to_string(ms) + " ms";
-}
 
 namespace {
 constexpr int kCodeLength = 12;
