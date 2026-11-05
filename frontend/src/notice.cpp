@@ -62,6 +62,7 @@ void App::drawNotice(float sc) {
             case Tone::Problem: dot = ui::palette::kMarqueeAmber; break;
             case Tone::Invite: dot = ui::palette::kMarqueeAmber; break;
         }
+        if (menuNotice.ownDot) dot = menuNotice.dot;
         dot.a *= na;
         renderer.draw(ui::Rect{x + kPad, y + (kPillH - kDot) * 0.5f, kDot, kDot,
                                kDot * 0.5f, dot});

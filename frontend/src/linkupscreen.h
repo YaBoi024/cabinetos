@@ -21,6 +21,8 @@ public:
     // What Action::LinkUp says in its value. 0 and up is a friend's index in the
     // list; a friend who cannot be pressed says nothing.
     static constexpr int kAppearOffline = -2;
+    // A friend's colour, bright enough for a small dot. Amber for nobody on the list.
+    static ui::Color dotColour(const std::vector<linkup::Friend>& friends, const std::string& name);
 
     // `inUse` is a Remote Play stream: nobody can be invited or joined, and the
     // tiles that would read "In use".

@@ -68,6 +68,13 @@ ui::Color evenColour(uint32_t rgb, float lightness, float chroma) {
 
 }  // namespace
 
+ui::Color LinkUpScreen::dotColour(const std::vector<linkup::Friend>& friends, const std::string& name) {
+    const std::vector<int> colours = linkup::coloursApart(friends, kFriendColours, 1);
+    for (size_t i = 0; i < friends.size(); ++i)
+        if (friends[i].name == name) return evenColour(kFriendTops[static_cast<size_t>(colours[i])], 0.74f, 0.13f);
+    return ui::palette::kMarqueeAmber;
+}
+
 void LinkUpScreen::setState(const linkup::State& state, bool inUse) {
     const int wasFriend = at_ < 0 || at_ >= static_cast<int>(tiles_.size())
                               ? -1
