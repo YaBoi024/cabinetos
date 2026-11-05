@@ -4,7 +4,7 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## Next
+## 2026.11.05.2 {#v2026-11-05-2}
 
 - **Fixed:** on some PCs there was no sound at all, no menu sounds and no game
   sound, on a TV that plays sound perfectly well, because the sound went to a
