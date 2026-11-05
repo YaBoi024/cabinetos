@@ -165,6 +165,7 @@ void App::linkupSayInvited(const std::string& who) {
     menuNotice.say(linkup::invitedYou(who), Tone::Info);
     sound::playInvite();
     menuNotice.life = 6.0f;
+    menuNotice.holdUntilPress = true;
 }
 
 void App::linkupAnswerInvite(const linkup::Friend& f) {

@@ -39,7 +39,10 @@ struct MenuNotice {
     Tone tone = Tone::Info;
     float life = 0.0f;
     float age = 0.0f;
+    // A pill nobody may be there for: its time starts at the next press (App::handleEvent).
+    bool holdUntilPress = false;
     void say(std::string t, Tone k) {
+        holdUntilPress = false;
         text = std::move(t);
         tone = k;
         // Busy holds until the answer replaces it; a stuck "Saving…" is still
@@ -60,7 +63,7 @@ struct MenuNotice {
     }
     void tick(float dt) {
         if (life > 0.0f) {
-            life -= dt;
+            if (!holdUntilPress) life -= dt;
             age += dt;
         }
     }

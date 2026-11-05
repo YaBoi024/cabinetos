@@ -683,6 +683,7 @@ struct App {
     float linkupGalleryNoAnswerIn = 0.0f;
     float linkupGalleryDeclineIn = 0.0f;
     float linkupGalleryDropEndsIn = 0.0f;
+    float linkupGalleryInviteIn = 0.0f;
     bool linkupGalleryDropReturns = false;
     bool linkupGalleryDimmed = false;
     // ABOUT, HOW TO (#314): the controls, in Settings' own shape (a section

@@ -115,6 +115,10 @@ void App::linkupGalleryTick(float dt) {
             linkupGameStarts();
         }
     }
+    if (linkupGalleryInviteIn > 0.0f) {
+        linkupGalleryInviteIn -= dt;
+        if (linkupGalleryInviteIn <= 0.0f) linkupSayInvited("Alex");
+    }
     if (linkupGalleryDropEndsIn > 0.0f) {
         linkupGalleryDropEndsIn = choiceScreen.isOpen() ? linkupGalleryDropEndsIn - dt : 0.0f;
         if (linkupGalleryDropEndsIn <= 0.0f && choiceScreen.isOpen())
@@ -307,16 +311,16 @@ const Scene kScenes[] = {
          a.settingsScreen.focusSetting(SetRemotePlay, false);
      }},
     {"#An invite to you", nullptr},
-    {"Friend: an invite arrives while you play, and nothing stops", [](App& a) {
+    {"Friend: an invite arrives in 5 seconds, while you play", [](App& a) {
          alexInvites(a);
          a.goToDestination(App::BarHome);
          soloGame(a);
-         a.linkupSayInvited("Alex");
+         a.linkupGalleryInviteIn = 5.0f;
      }},
-    {"Friend: an invite arrives at Home", [](App& a) {
+    {"Friend: an invite arrives in 5 seconds, at Home", [](App& a) {
          alexInvites(a);
          a.goToDestination(App::BarHome);
-         a.linkupSayInvited("Alex");
+         a.linkupGalleryInviteIn = 5.0f;
      }},
     {"Friend: the Invited you line", [](App& a) {
          alexInvites(a);
@@ -465,6 +469,7 @@ void App::linkupGalleryShow(int index) {
     linkupGalleryNoAnswerIn = 0.0f;
     linkupGalleryDeclineIn = 0.0f;
     linkupGalleryDropEndsIn = 0.0f;
+    linkupGalleryInviteIn = 0.0f;
 
     // Everything put back, so a scene owes nothing to the one before it.
     if (keyboard.isOpen()) keyboard.cancel();
