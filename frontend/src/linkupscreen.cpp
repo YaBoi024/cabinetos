@@ -274,13 +274,23 @@ void LinkUpScreen::drawNoFriends(Ctx& c, float stars, float picture) {
         c.r.draw(ui::Rect{x, y, size, size, 0.0f, col});
     }
     c.r.setContentAlpha(appear_.value());
+    const float cabinetW = kCabinetH * 527.0f / 720.0f;
+    // The cabinet is stacked shapes, and made see-through they show through each other. So
+    // a dim one is drawn whole and the ground comes over it, only there.
+    const auto dimCabinet = [&](float x, float y) {
+        setup::drawCabinetIcon(c.r, x, y, kCabinetH, 1.0f);
+        constexpr float kMargin = 24.0f;
+        c.r.setScissor(x - kMargin, y - kMargin, cabinetW + kMargin * 2.0f, kCabinetH + kMargin * 2.0f);
+        c.r.drawBackdrop(look::backdrop(), 0.68f);
+        c.r.setScissor(0, design::kScrollClipTop, ui::kCanvasWidth, ui::kCanvasHeight - design::kScrollClipTop);
+    };
     if (instead_.empty()) {
         // The bright one is what the eye weighs, so the pair sits a little right of even.
-        setup::drawCabinetIcon(c.r, midX - 5.0f, kTop, kCabinetH, 0.32f);
+        dimCabinet(midX - 5.0f, kTop);
         setup::drawCabinetIcon(c.r, midX - 175.0f, kTop + 28.0f, kCabinetH, 1.0f);
     } else {
-        // With something wrong, one cabinet and nothing lit: two dim ones show through.
-        setup::drawCabinetIcon(c.r, midX - kCabinetH * 527.0f / 720.0f * 0.5f, kTop + 14.0f, kCabinetH, 0.32f);
+        // With something wrong, one cabinet and nothing lit.
+        dimCabinet(midX - cabinetW * 0.5f, kTop + 14.0f);
     }
     auto centred = [&](const std::string& line, ui::TextStyle st, float baseline, float alpha) {
         c.text.draw(c.r, line, midX - c.text.measure(line, st, c.sc) * 0.5f, baseline, st,
