@@ -1,4 +1,4 @@
-// LinkUp's two screens (#654). LinkUpScreen is the top-bar destination: Appear
+// LinkUp's two screens (#654). LinkUpScreen is the top-bar destination: Status
 // Offline on the left and the signed-in person's friends on the right, the same
 // two columns as Settings. LinkUpPlayScreen is what a console shows in a session
 // with no game to show: the person who invited waiting for their friend to join,
@@ -49,8 +49,42 @@ private:
     linkup::State state_;
     bool inUse_ = false;
     std::vector<Line> lines_;
-    int line_ = -1;        // the focused line on the right, or -1 on Appear Offline
+    int line_ = -1;        // the focused line on the right, or -1 on Status
     bool hasFocus_ = true;
+    design::Animated appear_;
+    design::Animated focus_;
+    design::Animated scroll_;
+};
+
+// THE SAME FRIENDS AS ARCADE CABINETS, the console's own mark, one per person: lit
+// when they are on, dark when they are not. A person has no box art, so this is what
+// gives the screen a Library's life, and every friend always has one. Being compared
+// with the rows above and the Library's tiles; two of the three go when one is picked.
+class LinkUpCabinets {
+public:
+    void setState(const linkup::State& state, bool inUse);
+    void enter();
+    void settleArrival() { appear_.settle(1.0f); }
+    void setHasFocus(bool on);
+    void tick(float dt);
+    Result key(Nav n);
+    void drawGlass(Ctx& c);
+
+private:
+    struct Cab {
+        int friendAt = 0;
+        linkup::Status kind = linkup::Status::Offline;
+        std::string name, status;
+        bool pressable = false;
+        bool dark = false;
+    };
+    void moved();
+
+    std::vector<Cab> cabs_;
+    std::string pill_, emptyLine_;
+    int at_ = -1;          // the focused cabinet, or -1 on Status
+    bool hasFocus_ = true;
+    float clock_ = 0.0f;
     design::Animated appear_;
     design::Animated focus_;
     design::Animated scroll_;

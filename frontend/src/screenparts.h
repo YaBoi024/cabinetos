@@ -17,6 +17,10 @@ void drawPressPrompt(ui::Renderer& r, ui::TextRenderer& text, float sc, const ch
 
 namespace screens {
 
+float pillWidth(ui::TextRenderer& text, const std::string& label, float sc);
+float pillHeight(ui::TextRenderer& text, float sc);
+void drawPill(Ctx& c, const std::string& label, float x, float y, bool selected, float f);
+
 // Defined in screenparts.cpp, each with what it does and why.
 std::vector<std::string> wrapTwoLines(ui::TextRenderer& text, const std::string& s,
                                       ui::TextStyle style, float sc, float width);

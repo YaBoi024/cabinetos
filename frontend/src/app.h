@@ -654,9 +654,12 @@ struct App {
     // only until the LinkUp program answers (step 3); linkupgallery.cpp fills it.
     screens::LinkUpScreen linkupScreen;
     screens::LinkUpPlayScreen linkupPlay;
-    // The same friends as tiles, to compare with the rows above. One goes when he picks.
+    // The same friends as tiles and as cabinets, to compare with the rows above. Two
+    // of the three go when he picks.
     screens::LibraryScreen linkupTiles;
-    bool linkupTilesLayout = false;
+    screens::LinkUpCabinets linkupCabinets;
+    enum class LinkUpLayout { Rows, Tiles, Cabinets };
+    LinkUpLayout linkupLayout = LinkUpLayout::Cabinets;
     screens::QrLinkScreen linkupRunOwn;
     linkup::State linkUp;
     std::string linkupHost;             // whose game this console is in, as a friend

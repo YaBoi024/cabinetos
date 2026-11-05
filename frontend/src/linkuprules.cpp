@@ -2,6 +2,7 @@
 
 #include "linkuprules.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstring>
@@ -20,10 +21,17 @@ const char* heading(Status s) {
 
 std::vector<Group> groups(const std::vector<Friend>& list) {
     std::vector<Group> out;
-    for (Status s : {Status::InvitedYou, Status::InGame, Status::Online, Status::Offline}) {
+    auto lower = [](std::string s) {
+        for (char& ch : s) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        return s;
+    };
+    for (Status s : {Status::InvitedYou, Status::Online, Status::InGame, Status::Offline}) {
         Group g{s, {}};
         for (int i = 0; i < static_cast<int>(list.size()); ++i)
             if (list[static_cast<size_t>(i)].status == s) g.friends.push_back(i);
+        std::stable_sort(g.friends.begin(), g.friends.end(), [&](int a, int b) {
+            return lower(list[static_cast<size_t>(a)].name) < lower(list[static_cast<size_t>(b)].name);
+        });
         if (!g.friends.empty()) out.push_back(std::move(g));
     }
     return out;
@@ -109,9 +117,18 @@ int test() {
     const std::vector<Group> g = groups(list);
     check(g.size() == 4, "every heading with somebody under it is there");
     check(g[0].status == Status::InvitedYou && g[0].friends[0] == 1, "Invited you comes first");
-    check(g[1].status == Status::InGame, "Linked up comes second");
-    check(g[2].status == Status::Online && g[2].friends.size() == 2, "Online comes third");
+    check(g[1].status == Status::Online && g[1].friends.size() == 2, "Online comes second");
+    check(g[2].status == Status::InGame, "Linked up comes third");
     check(g[3].status == Status::Offline, "Offline comes last");
+    list.push_back({"Zoe", "", Status::Offline, ""});
+    list.push_back({"Ben", "", Status::Offline, ""});
+    {
+        const std::vector<Group> sorted = groups(list);
+        const std::vector<int>& off = sorted[3].friends;
+        check(list[static_cast<size_t>(off[0])].name == "Ben" && list[static_cast<size_t>(off[2])].name == "Zoe",
+              "a group is alphabetical");
+    }
+    list.resize(5);
     check(nameOnList(list, 2) == "admin   \xC2\xB7   Riley's server",
           "two lines that would read the same add their server");
     list.erase(list.begin() + 4);

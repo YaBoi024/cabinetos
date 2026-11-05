@@ -193,9 +193,9 @@ void LinkUpScreen::drawGlass(Ctx& c) {
                           design::kRegularMaterialBlur,
                           ui::Color::white(design::kFocusedTint * ff));
         const float base = iy + design::kSettingsListPadY * s + c.text.ascent(big, c.sc);
-        c.text.draw(c.r, "Appear Offline", design::kContentInset, base, big,
+        c.text.draw(c.r, "Status", design::kContentInset, base, big,
                     ui::Color::white(focused ? 1.0f : 0.80f), c.sc);
-        const std::string value = state_.appearOffline ? "On" : "Off";
+        const std::string value = state_.appearOffline ? "Offline" : "Online";
         const float vw = c.text.measure(value, small, c.sc);
         c.text.draw(c.r, value, x + w - design::kRowPadX - vw, base, small, ui::Color::white(0.60f), c.sc);
     }
@@ -285,6 +285,247 @@ void LinkUpScreen::drawGlass(Ctx& c) {
                         textX, base, small, ui::Color::white(0.60f * textA), c.sc);
         }
         y += rh + gap;
+    }
+    c.r.setContentAlpha(1.0f);
+    c.r.clearScissor();
+}
+
+// ---- The same friends as arcade cabinets --------------------------------
+
+namespace {
+
+constexpr int kCabColumns = 6;
+constexpr float kCabCell = (ui::kCanvasWidth - design::kLibraryInset * 2.0f) / kCabColumns;
+constexpr float kCabW = 176.0f;
+constexpr float kCabH = kCabW * 338.0f / 280.0f;   // the mark's own proportions
+constexpr float kCabLabelGap = 18.0f;
+
+// The mark (docs/assets/mark.svg), drawn from its own numbers so it can light up.
+void drawCabinet(Ctx& c, float x, float y, float w, const linkup::Status kind, bool dark, float clock,
+                 float f) {
+    const float k = w / 280.0f;
+    auto at = [&](float left, float top, float width, float height, float radius, ui::Color fill) {
+        return ui::Rect{x + (left - 160.0f) * k, y + (top - 146.0f) * k, width * k, height * k, radius * k, fill};
+    };
+    using linkup::Status;
+    ui::Color bodyFill = dark ? ui::Color::rgb(0x2A2440) : ui::Color::rgb(0xF4EFE0);
+    ui::Rect body = at(175, 150, 250, 330, 20, bodyFill);
+    if (!dark) {
+        const float breath = 0.5f + 0.5f * std::sin(clock * 3.2f);
+        const bool invited = kind == Status::InvitedYou;
+        const bool playing = kind == Status::InGame;
+        body.shadowBlur = invited ? 44.0f + 26.0f * breath : 40.0f;
+        body.shadowColor = playing ? ui::palette::kScreenCyan : ui::palette::kMarqueeAmber;
+        body.shadowColor.a = invited ? 0.45f + 0.5f * breath : 0.38f;
+    } else {
+        body.shadowBlur = 18.0f;
+        body.shadowOffsetY = 8.0f;
+        body.shadowColor = ui::Color::black(0.4f);
+    }
+    c.r.draw(body);
+
+    ui::Rect marquee = at(193, 168, 214, 34, 0, dark ? ui::Color::rgb(0x3A3252) : ui::Color::rgb(0xF68CB8));
+    if (!dark) {
+        marquee.gradient = true;
+        marquee.fillBottom = ui::Color::rgb(0xFBC27A);
+    }
+    c.r.draw(marquee);
+
+    const bool playing = kind == Status::InGame && !dark;
+    ui::Rect screen = at(193, 213, 214, 159, 0,
+                         dark ? ui::Color::rgb(0x15102A)
+                              : playing ? ui::Color::rgb(0x1B6E8C) : ui::Color::rgb(0xFFD36A));
+    if (!dark) {
+        screen.gradient = true;
+        screen.fillBottom = playing ? ui::Color::rgb(0x0B2A4A) : ui::Color::rgb(0xEF5F38);
+    }
+    c.r.draw(screen);
+    if (playing) {
+        // A game on its screen: a band of light travelling down it.
+        const float travel = std::fmod(clock * 60.0f, 159.0f - 22.0f);
+        c.r.draw(at(193, 213 + travel, 214, 22, 0, ui::Color{0.35f, 0.91f, 0.96f, 0.55f}));
+    }
+
+    c.r.draw(at(165, 390, 270, 48, 10, dark ? ui::Color::rgb(0x241E38) : ui::Color::rgb(0xDAD4C3)));
+    const float a = dark ? 0.35f : 1.0f;
+    const auto dim = [&](uint32_t rgb) {
+        ui::Color col = ui::Color::rgb(rgb);
+        col.a = a;
+        return col;
+    };
+    c.r.draw(at(210, 403, 22, 22, 11, dim(0x3D3548)));
+    c.r.draw(at(282, 403, 22, 22, 11, dim(0xE8395A)));
+    c.r.draw(at(320, 403, 22, 22, 11, dim(0xF5B82E)));
+    c.r.draw(at(371, 405, 31, 18, 5, dim(0xFBE7CC)));
+
+    if (f > 0.0f) {
+        ui::Rect rim = at(175, 150, 250, 330, 20, ui::Color::white(0));
+        rim.border = f * design::kFocusRimWidth;
+        rim.borderColor = ui::palette::kFocusRim;
+        c.r.draw(rim);
+    }
+}
+
+}  // namespace
+
+void LinkUpCabinets::setState(const linkup::State& state, bool inUse) {
+    const int wasFriend = at_ < 0 || at_ >= static_cast<int>(cabs_.size()) ? -1 : cabs_[static_cast<size_t>(at_)].friendAt;
+    pill_ = linkup::statusLine(state.appearOffline);
+    emptyLine_ = state.instead.empty() ? "No friends yet" : state.instead;
+    cabs_.clear();
+    if (state.instead.empty()) {
+        for (const linkup::Group& g : linkup::groups(state.friends)) {
+            for (int i : g.friends) {
+                const linkup::Friend& f = state.friends[static_cast<size_t>(i)];
+                const bool canPress = g.status == linkup::Status::InvitedYou || g.status == linkup::Status::Online;
+                Cab cab;
+                cab.friendAt = i;
+                cab.kind = g.status;
+                cab.name = f.name;
+                cab.pressable = canPress && !inUse;
+                cab.dark = g.status == linkup::Status::Offline || (canPress && inUse);
+                cab.status = linkup::heading(g.status);
+                if (canPress && inUse) cab.status = linkup::kInUse;
+                else if (g.status == linkup::Status::InvitedYou) cab.status += ": " + f.game;
+                else if (linkup::nameOnList(state.friends, i) != f.name) cab.status = f.from;
+                cabs_.push_back(std::move(cab));
+            }
+        }
+    }
+    // Focus follows the person when the order changes under it.
+    at_ = -1;
+    for (int i = 0; i < static_cast<int>(cabs_.size()); ++i)
+        if (cabs_[static_cast<size_t>(i)].friendAt == wasFriend) at_ = i;
+}
+
+void LinkUpCabinets::enter() {
+    appear_.from = appear_.to = 0.0f;
+    appear_.elapsed = 0.0f;
+    appear_.retarget(1.0f, 0.280f);
+    at_ = cabs_.empty() ? -1 : 0;
+    scroll_.settle(0.0f);
+    focus_.settle(1.0f);
+}
+
+void LinkUpCabinets::setHasFocus(bool on) {
+    if (on == hasFocus_) return;
+    hasFocus_ = on;
+    if (on) moved();
+}
+
+void LinkUpCabinets::moved() {
+    focus_.retarget(0.0f, 0.0f);
+    focus_.elapsed = 0.0f;
+    focus_.retarget(1.0f, design::kFocusDuration);
+}
+
+void LinkUpCabinets::tick(float dt) {
+    clock_ += dt;
+    appear_.tick(dt);
+    focus_.tick(dt);
+    scroll_.tick(dt);
+}
+
+Result LinkUpCabinets::key(Nav n) {
+    const int count = static_cast<int>(cabs_.size());
+    auto go = [&](int next) {
+        at_ = next;
+        moved();
+        sound::play(sound::Cue::Move);
+        return Result{};
+    };
+    if (n == Nav::Back) return {Action::Back, 0};
+    if (at_ < 0) {
+        if (n == Nav::Up) return {Action::FocusBar, 0};
+        if (n == Nav::Activate) return {Action::LinkUp, LinkUpScreen::kAppearOffline};
+        if (n == Nav::Down && count > 0) return go(0);
+        sound::play(sound::Cue::Edge);
+        return {};
+    }
+    switch (n) {
+        case Nav::Up:
+            return go(at_ < kCabColumns ? -1 : at_ - kCabColumns);
+        case Nav::Down:
+            if (at_ / kCabColumns == (count - 1) / kCabColumns) break;
+            return go(std::min(at_ + kCabColumns, count - 1));
+        case Nav::Left:
+            if (at_ % kCabColumns == 0) break;
+            return go(at_ - 1);
+        case Nav::Right:
+            if (at_ % kCabColumns == kCabColumns - 1 || at_ + 1 >= count) break;
+            return go(at_ + 1);
+        case Nav::Activate:
+            if (cabs_[static_cast<size_t>(at_)].pressable)
+                return {Action::LinkUp, cabs_[static_cast<size_t>(at_)].friendAt};
+            break;
+        case Nav::Back:
+            break;
+    }
+    sound::play(sound::Cue::Edge);
+    return {};
+}
+
+void LinkUpCabinets::drawGlass(Ctx& c) {
+    c.r.setContentAlpha(appear_.value());
+    c.r.setScissor(0, design::kScrollClipTop, ui::kCanvasWidth,
+                   ui::kCanvasHeight - design::kScrollClipTop);
+    const ui::TextStyle nameStyle = ui::TextStyle::Title3;
+    const ui::TextStyle subStyle = ui::TextStyle::Footnote;
+    const float nameH = c.text.lineHeight(nameStyle, c.sc);
+    const float subH = c.text.lineHeight(subStyle, c.sc);
+    const float pitch = kCabH + kCabLabelGap + nameH + subH + 44.0f;
+    const float gridTop = design::kSwitcherTop + pillHeight(c.text, c.sc) + design::kSwitcherGapBelow;
+
+    const int count = static_cast<int>(cabs_.size());
+    const int rows = count == 0 ? 0 : (count - 1) / kCabColumns + 1;
+    const float maxScroll = std::max(0.0f, gridTop + rows * pitch + design::kScreenBottomPad - ui::kCanvasHeight);
+    float want = 0.0f;
+    if (at_ >= 0) {
+        const float rowBottom = gridTop + (at_ / kCabColumns + 1) * pitch;
+        want = std::max(0.0f, rowBottom + design::kScreenBottomPad - ui::kCanvasHeight);
+    }
+    want = std::clamp(want, 0.0f, maxScroll);
+    if (std::fabs(want - scroll_.to) > 0.5f) scroll_.retarget(want, design::kFocusDuration);
+    const float scroll = scroll_.value();
+
+    const float f = focus_.value();
+    drawPill(c, pill_, design::kLibraryInset, design::kSwitcherTop - scroll, true,
+             at_ < 0 && hasFocus_ ? f : 0.0f);
+
+    if (cabs_.empty()) {
+        const float w = c.text.measure(emptyLine_, nameStyle, c.sc);
+        c.text.draw(c.r, emptyLine_, (ui::kCanvasWidth - w) * 0.5f, ui::kCanvasHeight * 0.5f, nameStyle,
+                    ui::Color::white(0.60f), c.sc);
+        c.r.setContentAlpha(1.0f);
+        c.r.clearScissor();
+        return;
+    }
+
+    // The focused one last, so it grows over its neighbours.
+    for (int pass = 0; pass < 2; ++pass) {
+        for (int i = 0; i < count; ++i) {
+            const bool on = i == at_ && hasFocus_;
+            if ((pass == 1) != on) continue;
+            const Cab& cab = cabs_[static_cast<size_t>(i)];
+            const float cellX = design::kLibraryInset + static_cast<float>(i % kCabColumns) * kCabCell;
+            const float cellY = gridTop + static_cast<float>(i / kCabColumns) * pitch - scroll;
+            const float ff = on ? f : 0.0f;
+            const float s = 1.0f + ff * (design::kFocusScale - 1.0f);
+            const float w = kCabW * s, h = kCabH * s;
+            const float midX = cellX + kCabCell * 0.5f;
+            drawCabinet(c, midX - w * 0.5f, cellY + kCabH - h, w, cab.kind, cab.dark, clock_, ff);
+
+            const float room = kCabCell - 20.0f;
+            const std::string name = c.text.truncate(cab.name, nameStyle, c.sc, room);
+            const std::string sub = c.text.truncate(cab.status, subStyle, c.sc, room);
+            const float textA = cab.dark ? 0.55f : (on ? 1.0f : 0.92f);
+            const float nameBase = cellY + kCabH + kCabLabelGap + c.text.ascent(nameStyle, c.sc);
+            c.text.draw(c.r, name, midX - c.text.measure(name, nameStyle, c.sc) * 0.5f, nameBase, nameStyle,
+                        ui::Color::white(textA), c.sc);
+            c.text.draw(c.r, sub, midX - c.text.measure(sub, subStyle, c.sc) * 0.5f,
+                        nameBase + nameH - c.text.ascent(nameStyle, c.sc) + c.text.ascent(subStyle, c.sc), subStyle,
+                        ui::Color::white(0.60f * (cab.dark ? 0.8f : 1.0f)), c.sc);
+        }
     }
     c.r.setContentAlpha(1.0f);
     c.r.clearScissor();

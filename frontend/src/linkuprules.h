@@ -10,7 +10,8 @@
 
 namespace linkup {
 
-// The list's four headings, in the order they are drawn.
+// The list's four kinds of friend. They are drawn by what you can do: an invite,
+// then who can be invited, then who is busy, then who is away (groups).
 enum class Status { InvitedYou, InGame, Online, Offline };
 
 struct Friend {
@@ -48,6 +49,10 @@ std::vector<Group> groups(const std::vector<Friend>& list);
 std::string nameOnList(const std::vector<Friend>& list, int index);
 
 inline const std::string kInUse = "In use";
+// The switch: what friends see you as. It is Appear Offline by another name.
+inline std::string statusLine(bool appearOffline) {
+    return std::string("Status: ") + (appearOffline ? "Offline" : "Online");
+}
 inline const std::string kTooSlow = "The connection is too slow for a clean picture";
 inline const std::string kThisNeedsUpdate = "This console needs an update";
 inline const std::string kServerNeedsUpdate = "This LinkUp server needs an update";
