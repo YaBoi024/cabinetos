@@ -403,7 +403,7 @@ void LinkUpPlayScreen::draw(Ctx& c) {
     const ui::TextStyle big = ui::TextStyle::LargeTitle;
     const float base = ui::kCanvasHeight * 0.5f - 20.0f;
     centred(title_, big, base, 0.96f);
-    float y = base + 58.0f;
+    float y = base + 84.0f;
     if (!detail_.empty()) {
         centred(detail_, ui::TextStyle::Title3, y, 0.60f);
         y += 56.0f;

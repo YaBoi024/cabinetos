@@ -252,7 +252,6 @@ const Scene kScenes[] = {
          a.apply({screens::Action::OpenTile, 1});
      }},
     {"The invite goes out and you wait (Alex joins in 20 seconds, B cancels)", inviteOut},
-    {"Alex joined: the game", inviterGame},
     {"Alex declined", [](App& a) {
          inviteOut(a);
          a.linkupGalleryJoinIn = 0.0f;
