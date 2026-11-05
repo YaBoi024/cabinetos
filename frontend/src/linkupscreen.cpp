@@ -80,7 +80,9 @@ void LinkUpScreen::setState(const linkup::State& state, bool inUse) {
                               ? -1
                               : tiles_[static_cast<size_t>(at_)].friendAt;
     const bool hadFriends = !tiles_.empty();
-    pill_ = linkup::statusLine(state.appearOffline);
+    // During a stream the line says why nothing can be pressed, and cannot be pressed itself.
+    inUse_ = inUse;
+    pill_ = inUse ? "Remote Play in use" : linkup::statusLine(state.appearOffline);
     instead_ = state.instead;
     tiles_.clear();
     if (state.instead.empty()) {
@@ -96,8 +98,7 @@ void LinkUpScreen::setState(const linkup::State& state, bool inUse) {
                 tile.pressable = canPress && !inUse;
                 tile.dark = g.status == linkup::Status::Offline || inUse;
                 tile.status = linkup::heading(g.status);
-                if (canPress && inUse) tile.status = linkup::kInUse;
-                else if (g.status == linkup::Status::InvitedYou) tile.status += ": " + f.game;
+                if (g.status == linkup::Status::InvitedYou) tile.status += ": " + f.game;
                 else if (linkup::nameOnList(state.friends, i) != f.name) tile.status += ", " + f.from;
                 const size_t colour = static_cast<size_t>(colours[static_cast<size_t>(i)]);
                 tile.top = evenColour(kFriendTops[colour], 0.40f, 0.07f);
@@ -164,7 +165,7 @@ Result LinkUpScreen::key(Nav n) {
     if (n == Nav::Back) return {Action::Back, 0};
     if (at_ < 0) {
         if (n == Nav::Up) return {Action::FocusBar, 0};
-        if (n == Nav::Activate && count > 0) return {Action::LinkUp, kAppearOffline};
+        if (n == Nav::Activate && count > 0 && !inUse_) return {Action::LinkUp, kAppearOffline};
         if (n == Nav::Down && count > 0) return go(0);
         sound::play(sound::Cue::Edge);
         return {};

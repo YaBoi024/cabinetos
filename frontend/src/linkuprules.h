@@ -56,7 +56,6 @@ int colourOf(const Friend& f, int count);
 // is at most count / (2 * friends), which is what a caller should ask for.
 std::vector<int> coloursApart(const std::vector<Friend>& list, int count, int apart);
 
-inline const std::string kInUse = "In use";
 // The switch: what friends see you as. It is Appear Offline by another name.
 inline std::string statusLine(bool appearOffline) {
     return std::string("Status: ") + (appearOffline ? "Offline" : "Online");

@@ -24,8 +24,7 @@ public:
     // A friend's colour, bright enough for a small dot. Amber for nobody on the list.
     static ui::Color dotColour(const std::vector<linkup::Friend>& friends, const std::string& name);
 
-    // `inUse` is a Remote Play stream: nobody can be invited or joined, and the
-    // tiles that would read "In use".
+    // `inUse` is a Remote Play stream: nobody can be invited or joined.
     void setState(const linkup::State& state, bool inUse);
     void enter();
     void settleArrival();
@@ -51,6 +50,7 @@ private:
 
     std::vector<FriendTile> tiles_;
     std::string pill_, instead_;
+    bool inUse_ = false;
     int at_ = -1;          // the focused friend, or -1 on Status
     bool hasFocus_ = true;
     design::Animated appear_;
