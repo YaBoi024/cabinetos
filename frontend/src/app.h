@@ -667,7 +667,6 @@ struct App {
     float linkupPairingLeft = 0.0f;     // until the pairing's answer
     static constexpr float kWaitEndsFade = 0.75f;
     static constexpr float kWaitEndsGap = 0.12f;
-    bool linkupDeclineIsPill = false;   // a pill or a panel: being compared
     float linkupWaitEndsIn = 0.0f;
     std::function<void()> linkupWaitEndsThen;
     // What the gallery plays the other side of.

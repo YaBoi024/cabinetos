@@ -257,17 +257,10 @@ const Scene kScenes[] = {
          a.apply({screens::Action::OpenTile, 0});
      }},
     {"The invite goes out and you wait (Alex joins in 20 seconds, B cancels)", inviteOut},
-    {"Alex declines after 5 seconds: a panel", [](App& a) {
+    {"Alex declines after 5 seconds", [](App& a) {
          inviteOut(a);
          a.linkupGalleryJoinIn = 0.0f;
          a.linkupGalleryDeclineIn = 5.0f;
-         a.linkupDeclineIsPill = false;
-     }},
-    {"Alex declines after 5 seconds: a pill", [](App& a) {
-         inviteOut(a);
-         a.linkupGalleryJoinIn = 0.0f;
-         a.linkupGalleryDeclineIn = 5.0f;
-         a.linkupDeclineIsPill = true;
      }},
     {"Nobody answers, sped up", [](App& a) {
          inviteOut(a);
