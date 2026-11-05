@@ -45,7 +45,7 @@ private:
     };
     void moved();
     void drawTile(Ctx& c, const FriendTile& tile, float x, float y, float w, float h, float f);
-    void drawNoFriends(Ctx& c);
+    void drawNoFriends(Ctx& c, float stars, float picture);
 
     std::vector<FriendTile> tiles_;
     std::string pill_, instead_;

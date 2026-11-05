@@ -22,8 +22,10 @@ constexpr float kTileH = 156.0f;
 constexpr float kTileRadius = 18.0f;
 constexpr int kColumns = 4;
 // Friends and no friends change as the top bar's screens do (docs/SETTINGS.md).
-constexpr float kChangeLeave = 0.30f;
-constexpr float kChangeWait = 0.20f;
+constexpr float kStarsLeave = 0.15f;
+constexpr float kPictureWait = 0.10f;
+constexpr float kPictureLeave = 0.25f;
+constexpr float kChangeWait = 0.30f;
 constexpr float kChangeArrive = 0.30f;
 constexpr float kChangeOver = kChangeWait + kChangeArrive;
 
@@ -236,7 +238,8 @@ void LinkUpScreen::drawTile(Ctx& c, const FriendTile& tile, float x, float y, fl
 
 // The console's cabinet, with a player two who is not here yet standing behind it, and
 // what the screen is for in words. Nothing here takes a press.
-void LinkUpScreen::drawNoFriends(Ctx& c) {
+void LinkUpScreen::drawNoFriends(Ctx& c, float stars, float picture) {
+    c.r.setContentAlpha(appear_.value() * stars);
     constexpr float kCabinetH = 340.0f;
     constexpr float kTop = 250.0f;
     const float midX = ui::kCanvasWidth * 0.5f;
@@ -261,6 +264,7 @@ void LinkUpScreen::drawNoFriends(Ctx& c) {
         col.a = alpha;
         c.r.draw(ui::Rect{x, y, size, size, 0.0f, col});
     }
+    c.r.setContentAlpha(appear_.value());
     // The bright one is what the eye weighs, so the pair sits a little right of even.
     setup::drawCabinetIcon(c.r, midX - 5.0f, kTop, kCabinetH, 0.32f);
     setup::drawCabinetIcon(c.r, midX - 175.0f, kTop + 28.0f, kCabinetH, 1.0f);
@@ -274,18 +278,23 @@ void LinkUpScreen::drawNoFriends(Ctx& c) {
     c.text.draw(c.r, first, x, 740.0f, big, ui::palette::kMarqueeAmber, c.sc);
     c.text.draw(c.r, rest, x + c.text.measure(first, big, c.sc), 740.0f, big, ui::Color::white(0.96f), c.sc);
     centred("Whoever runs your server adds friends", ui::TextStyle::Title3, 804.0f, 0.60f);
+    // The cabinet is stacked shapes, and faded one by one they show through each other and
+    // come apart. So it stays whole, and the ground comes over it.
+    if (picture < 1.0f) c.r.drawBackdrop(look::backdrop(), 1.0f - picture);
 }
 
 void LinkUpScreen::drawGlass(Ctx& c) {
     c.r.setScissor(0, design::kScrollClipTop, ui::kCanvasWidth,
                    ui::kCanvasHeight - design::kScrollClipTop);
-    // What the change between friends and no friends has reached. Both are 1 and 0 at rest.
-    const float leaving = 1.0f - std::clamp(sinceChange_ / kChangeLeave, 0.0f, 1.0f);
+    // What the change between friends and no friends has reached: 1 at rest.
     const float arriving = design::easeOut(std::clamp((sinceChange_ - kChangeWait) / kChangeArrive, 0.0f, 1.0f));
     const bool noFriends = tiles_.empty() && instead_.empty();
-    if (noFriends || leaving > 0.0f) {
-        c.r.setContentAlpha(appear_.value() * (noFriends ? arriving : leaving));
-        drawNoFriends(c);
+    if (noFriends) {
+        drawNoFriends(c, arriving, arriving);
+    } else if (sinceChange_ < kPictureWait + kPictureLeave) {
+        // The stars first, then the picture.
+        drawNoFriends(c, 1.0f - std::clamp(sinceChange_ / kStarsLeave, 0.0f, 1.0f),
+                      1.0f - std::clamp((sinceChange_ - kPictureWait) / kPictureLeave, 0.0f, 1.0f));
     }
     c.r.setContentAlpha(appear_.value() * arriving);
     if (noFriends) {
