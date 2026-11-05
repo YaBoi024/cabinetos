@@ -292,6 +292,10 @@ const Scene kScenes[] = {
          a.linkupGalleryDropEndsIn = kDropSeconds / 2.0f;
          a.linkupGalleryDropReturns = true;
      }},
+    {"Alex paused", [](App& a) {
+         inviterGame(a);
+         a.linkupPausePanel(linkup::pausedBy("Alex"));
+     }},
     {"The friend left", [](App& a) {
          inviterGame(a);
          a.linkupPausePanel(linkup::left("Alex"));
@@ -344,7 +348,7 @@ const Scene kScenes[] = {
          a.linkupPlay.open(Play::Waiting, linkup::waitingFor("Alex"), "Contra III", true);
          a.stack.push_back(App::Screen::LinkUpPlay);
      }},
-    {"Friend: Leave Alex's game?", [](App& a) {
+    {"Friend: your pause button", [](App& a) {
          friendGame(a);
          a.linkupAskLeave();
      }},
@@ -356,7 +360,9 @@ const Scene kScenes[] = {
      }},
     {"Friend: the host ended the session", [](App& a) {
          a.goToDestination(App::BarLinkUp);
-         a.menuNotice.say(linkup::endedSession("Alex"), Tone::Info);
+         a.linkupPanel(linkup::endedSession("Alex"), "", {}, 0, [](int) {});
+         a.choiceScreen.setPrompt("Press", "A", "to continue");
+         a.choiceScreen.setOnlyA(true);
      }},
     {"#When something is wrong", nullptr},
     {"Update: the friend's console is behind", [](App& a) {

@@ -207,8 +207,9 @@ void App::linkupAskLeave() {
         refreshLinkUpScreen();
         return;
     }
-    linkupPanel(linkup::leaveQuestion(linkupHost), "", {"Leave", "Back"}, 1, [&](int c) {
-        if (c != 0) return;
+    // The game stops for both of you while this is up; the other console says so.
+    linkupPanel("Paused", "", {"Resume", "Leave"}, 0, [&](int c) {
+        if (c != 1) return;
         linkupGallerySession = false;
         if (here() == Screen::LinkUpPlay && stack.size() > 1) stack.pop_back();
         refreshLinkUpScreen();
