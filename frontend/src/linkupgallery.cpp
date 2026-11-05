@@ -114,6 +114,10 @@ void App::linkupGalleryTick(float dt) {
             linkupGameStarts();
         }
     }
+    if (linkupGalleryDeclineIn > 0.0f) {
+        linkupGalleryDeclineIn = here() == Screen::LinkUpPlay ? linkupGalleryDeclineIn - dt : 0.0f;
+        if (linkupGalleryDeclineIn <= 0.0f && here() == Screen::LinkUpPlay) linkupDeclinedBy(linkupGuest);
+    }
     if (linkupGalleryNoAnswerIn > 0.0f) {
         linkupGalleryNoAnswerIn = here() == Screen::LinkUpPlay ? linkupGalleryNoAnswerIn - dt : 0.0f;
         if (linkupGalleryNoAnswerIn <= 0.0f && here() == Screen::LinkUpPlay) linkupNoAnswerFrom(linkupGuest);
@@ -258,10 +262,10 @@ const Scene kScenes[] = {
          a.apply({screens::Action::OpenTile, 1});
      }},
     {"The invite goes out and you wait (Alex joins in 20 seconds, B cancels)", inviteOut},
-    {"Alex declined", [](App& a) {
+    {"Alex declines after 5 seconds", [](App& a) {
          inviteOut(a);
          a.linkupGalleryJoinIn = 0.0f;
-         a.linkupDeclinedBy("Alex");
+         a.linkupGalleryDeclineIn = 5.0f;
      }},
     {"Nobody answers, sped up", [](App& a) {
          inviteOut(a);
@@ -461,6 +465,7 @@ void App::linkupGalleryShow(int index) {
     linkupGalleryJoinIn = 0.0f;
     linkupGalleryFriendIn = 0.0f;
     linkupGalleryNoAnswerIn = 0.0f;
+    linkupGalleryDeclineIn = 0.0f;
 
     // Everything put back, so a scene owes nothing to the one before it.
     if (keyboard.isOpen()) keyboard.cancel();

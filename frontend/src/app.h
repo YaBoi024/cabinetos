@@ -681,6 +681,7 @@ struct App {
     float linkupGalleryJoinIn = 0.0f;
     float linkupGalleryFriendIn = 0.0f;
     float linkupGalleryNoAnswerIn = 0.0f;
+    float linkupGalleryDeclineIn = 0.0f;
     bool linkupGalleryDimmed = false;
     // ABOUT, HOW TO (#314): the controls, in Settings' own shape (a section
     // per row on the left, its lines on the right), so it looks like the
