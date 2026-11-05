@@ -282,13 +282,13 @@ const Scene kScenes[] = {
     {"#In the game", nullptr},
     {"The connection drops and Alex never returns, sped up", [](App& a) {
          inviterGame(a);
-         a.linkupPausePanel(linkup::waitingFor("Alex"));
+         a.linkupPausePanel(linkup::reconnectingTo("Alex"));
          a.linkupGalleryDropEndsIn = kDropSeconds;
          a.linkupGalleryDropReturns = false;
      }},
     {"The connection drops and Alex comes back, sped up", [](App& a) {
          inviterGame(a);
-         a.linkupPausePanel(linkup::waitingFor("Alex"));
+         a.linkupPausePanel(linkup::reconnectingTo("Alex"));
          a.linkupGalleryDropEndsIn = kDropSeconds / 2.0f;
          a.linkupGalleryDropReturns = true;
      }},
@@ -348,6 +348,12 @@ const Scene kScenes[] = {
          a.linkupPlay.open(Play::Waiting, linkup::waitingFor("Alex"), "Contra III", true);
          a.stack.push_back(App::Screen::LinkUpPlay);
      }},
+    {"Friend: Alex paused", [](App& a) {
+         a.goToDestination(App::BarLinkUp);
+         a.linkupHost = "Alex";
+         a.linkupPlay.open(Play::Waiting, linkup::pausedBy("Alex"), "Contra III", true);
+         a.stack.push_back(App::Screen::LinkUpPlay);
+     }},
     {"Friend: your pause button", [](App& a) {
          friendGame(a);
          a.linkupAskLeave();
@@ -355,7 +361,7 @@ const Scene kScenes[] = {
     {"Friend: Reconnecting", [](App& a) {
          a.goToDestination(App::BarLinkUp);
          a.linkupHost = "Alex";
-         a.linkupPlay.open(Play::Reconnecting, "Reconnecting", "", true);
+         a.linkupPlay.open(Play::Reconnecting, linkup::reconnectingTo("Alex"), "", true);
          a.stack.push_back(App::Screen::LinkUpPlay);
      }},
     {"Friend: the host ended the session", [](App& a) {
