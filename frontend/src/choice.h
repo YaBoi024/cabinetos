@@ -114,6 +114,8 @@ public:
     bool busy() const { return busy_; }
     // The title alone, keeping everything else ("Paired successfully").
     void setTitle(std::string title) { title_ = std::move(title); }
+    // The title changing while the panel stays: the old words go, then the new ones come.
+    void changeTitle(std::string title);
     // The detail line alone, keeping the answers and focus.
     void setDetail(std::string detail) { detail_ = std::move(detail); }
     // A level of the pause menu fades out, then the menu's rows fade back in.
@@ -158,7 +160,8 @@ private:
     std::string placeholder_;
     design::Animated listH_;
     bool listHSet_ = false;
-    std::string title_, detail_;
+    std::string title_, detail_, titleWas_;
+    float titleChange_ = 10.0f;
     std::vector<std::string> options_;
     std::vector<std::string> values_;
     std::vector<bool> disabled_;

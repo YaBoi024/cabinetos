@@ -34,6 +34,7 @@ void ChoiceScreen::open(std::string title, std::string detail,
     open_ = true;
     staysOpen_ = false;
     onlyA_ = false;
+    titleChange_ = 10.0f;
     busy_ = false;
     fixedW_ = 0.0f;
     panelW_ = panelH_ = 0.0f;
@@ -182,7 +183,14 @@ ChoiceScreen::Outcome ChoiceScreen::key(Nav n) {
     return Outcome::None;
 }
 
+void ChoiceScreen::changeTitle(std::string title) {
+    titleWas_ = std::move(title_);
+    title_ = std::move(title);
+    titleChange_ = 0.0f;
+}
+
 void ChoiceScreen::tick(float dt) {
+    titleChange_ = std::min(titleChange_ + dt, 10.0f);
     appear_.tick(dt);
     listH_.tick(dt);
     focus_.tick(dt);
@@ -313,7 +321,15 @@ void ChoiceScreen::draw(Ctx& c) {
         c.text.draw(c.r, t, (W - w) * 0.5f, base, st, ui::Color::white(alpha), sc);
     };
     float y = py + kPanelPad;
-    centred(title_, y + c.text.ascent(TextStyle::Title2, sc), TextStyle::Title2, 1.0f);
+    // A changed title: the old words go, a moment passes, and the new ones come.
+    constexpr float kTitleLeave = 0.45f, kTitleGap = 0.10f, kTitleArrive = 0.45f;
+    if (titleChange_ < kTitleLeave) {
+        centred(titleWas_, y + c.text.ascent(TextStyle::Title2, sc), TextStyle::Title2,
+                1.0f - design::easeInOut(titleChange_ / kTitleLeave));
+    } else {
+        centred(title_, y + c.text.ascent(TextStyle::Title2, sc), TextStyle::Title2,
+                design::easeInOut((titleChange_ - kTitleLeave - kTitleGap) / kTitleArrive));
+    }
     y += titleH;
     for (size_t i = 0; i < lines.size(); ++i)
         centred(lines[i], y + 8.0f + lineH * i + c.text.ascent(TextStyle::Callout, sc),

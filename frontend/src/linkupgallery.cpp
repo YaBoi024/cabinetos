@@ -25,6 +25,8 @@ using linkup::Status;
 constexpr const char* kMadeUpServer = "linkup.example.net:7845";
 // The wait, sped up to be watched: thirty minutes in this many seconds, dimming at twenty.
 constexpr float kWaitSeconds = 15.0f;
+// And the minute a dropped friend has to come back, in this many.
+constexpr float kDropSeconds = 8.0f;
 
 std::vector<Friend> madeUpFriends() {
     return {
@@ -112,6 +114,11 @@ void App::linkupGalleryTick(float dt) {
         if (linkupGalleryJoinIn <= 0.0f && linkupHoldsScreen()) {
             linkupGameStarts();
         }
+    }
+    if (linkupGalleryDropEndsIn > 0.0f) {
+        linkupGalleryDropEndsIn = choiceScreen.isOpen() ? linkupGalleryDropEndsIn - dt : 0.0f;
+        if (linkupGalleryDropEndsIn <= 0.0f && choiceScreen.isOpen())
+            choiceScreen.changeTitle(linkupGalleryDropReturns ? linkup::isBack("Alex") : linkup::left("Alex"));
     }
     if (linkupGalleryDeclineIn > 0.0f) {
         linkupGalleryDeclineIn = here() == Screen::LinkUpPlay ? linkupGalleryDeclineIn - dt : 0.0f;
@@ -268,13 +275,17 @@ const Scene kScenes[] = {
          a.linkupGalleryNoAnswerIn = kWaitSeconds;
      }},
     {"#In the game", nullptr},
-    {"The friend's connection dropped", [](App& a) {
+    {"The connection drops and Alex never returns, sped up", [](App& a) {
          inviterGame(a);
          a.linkupPausePanel(linkup::waitingFor("Alex"));
+         a.linkupGalleryDropEndsIn = kDropSeconds;
+         a.linkupGalleryDropReturns = false;
      }},
-    {"The friend is back", [](App& a) {
+    {"The connection drops and Alex comes back, sped up", [](App& a) {
          inviterGame(a);
-         a.linkupPausePanel(linkup::isBack("Alex"));
+         a.linkupPausePanel(linkup::waitingFor("Alex"));
+         a.linkupGalleryDropEndsIn = kDropSeconds / 2.0f;
+         a.linkupGalleryDropReturns = true;
      }},
     {"The friend left", [](App& a) {
          inviterGame(a);
@@ -457,6 +468,7 @@ void App::linkupGalleryShow(int index) {
     linkupGalleryFriendIn = 0.0f;
     linkupGalleryNoAnswerIn = 0.0f;
     linkupGalleryDeclineIn = 0.0f;
+    linkupGalleryDropEndsIn = 0.0f;
 
     // Everything put back, so a scene owes nothing to the one before it.
     if (keyboard.isOpen()) keyboard.cancel();
