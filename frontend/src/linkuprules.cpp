@@ -94,7 +94,7 @@ std::vector<int> coloursApart(const std::vector<Friend>& list, int count, int ap
     return out;
 }
 
-std::string invitedYou(const std::string& who) { return "LinkUp from " + who; }
+std::string invitedYou(const std::string& who) { return "Invite from " + who; }
 std::string declined(const std::string& who) { return who + " declined"; }
 std::string noAnswer(const std::string& who) { return "No answer from " + who; }
 std::string waitingFor(const std::string& who) { return "Waiting for " + who; }
