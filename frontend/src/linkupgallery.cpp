@@ -268,10 +268,6 @@ const Scene kScenes[] = {
          a.linkupGalleryNoAnswerIn = kWaitSeconds;
      }},
     {"#In the game", nullptr},
-    {"A second controller sits out", [](App& a) {
-         inviterGame(a);
-         a.menuNotice.say(linkup::sittingOut("Alex"), Tone::Info);
-     }},
     {"The friend's connection dropped", [](App& a) {
          inviterGame(a);
          a.linkupPausePanel(linkup::waitingFor("Alex"));

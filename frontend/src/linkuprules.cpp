@@ -100,9 +100,6 @@ std::string noAnswer(const std::string& who) { return "No answer from " + who; }
 std::string waitingFor(const std::string& who) { return "Waiting for " + who; }
 std::string left(const std::string& who) { return who + " left"; }
 std::string isBack(const std::string& who) { return who + " is back"; }
-std::string sittingOut(const std::string& who) {
-    return who + " is player two. This controller is sitting out.";
-}
 std::string joinQuestion(const std::string& who) { return "Join " + who + "'s game?"; }
 std::string leaveQuestion(const std::string& who) { return "Leave " + who + "'s game?"; }
 std::string rejoinQuestion(const std::string& who) { return "Rejoin " + who + "'s game?"; }
