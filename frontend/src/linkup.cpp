@@ -31,7 +31,7 @@ bool App::linkupSessionOpen() const { return linkupGallerySession; }
 void App::refreshLinkUpScreen() {
     const bool inUse = linkupInUse();
     linkupScreen.setState(linkUp, inUse);
-    linkupCabinets.setState(linkUp, inUse);
+    linkupGrid.setState(linkUp, inUse);
 
     std::vector<screens::Tile> tiles;
     if (linkUp.instead.empty()) {
@@ -65,7 +65,7 @@ void App::refreshLinkUpScreen() {
 
 screens::Result App::linkupKey(screens::Nav n) {
     if (linkupLayout == LinkUpLayout::Rows) return linkupScreen.key(n);
-    if (linkupLayout == LinkUpLayout::Cabinets) return linkupCabinets.key(n);
+    if (linkupLayout == LinkUpLayout::Grid) return linkupGrid.key(n);
     screens::Result r = linkupTiles.key(n);
     if (r.action == screens::Action::OpenTile) {
         const auto& tiles = linkupTiles.visible();

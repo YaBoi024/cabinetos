@@ -53,7 +53,7 @@ void App::goToDestination(int d) {
         linkupScreen.enter();
         linkupTiles.enter();
         linkupTiles.focusTile(0);
-        linkupCabinets.enter();
+        linkupGrid.enter();
         stack.push_back(Screen::LinkUp);
     } else if (d == BarSettings) {
         // Rebuilt on every visit: the drives, the network and the account
@@ -197,8 +197,8 @@ void App::tickScreens(float dt, screens::Ctx& ctx) {
     linkupScreen.setHasFocus(!barFocused && !accountsOpen);
     linkupScreen.tick(dt);
     linkupTiles.tick(dt);
-    linkupCabinets.setHasFocus(!barFocused && !accountsOpen);
-    linkupCabinets.tick(dt);
+    linkupGrid.setHasFocus(!barFocused && !accountsOpen);
+    linkupGrid.tick(dt);
     linkupPlay.tick(dt);
     linkupRunOwn.tick(dt);
     pinScreen.tick(dt);
@@ -303,7 +303,7 @@ void App::drawScreenGlass(bool gameUp, float sc) {
             case Screen::Settings: settingsScreen.drawGlass(ctx); break;
             case Screen::LinkUp:
                 if (linkupLayout == LinkUpLayout::Tiles) linkupTiles.drawGlass(ctx);
-                else if (linkupLayout == LinkUpLayout::Cabinets) linkupCabinets.drawGlass(ctx);
+                else if (linkupLayout == LinkUpLayout::Grid) linkupGrid.drawGlass(ctx);
                 else linkupScreen.drawGlass(ctx);
                 break;
             case Screen::LinkUpPlay: break;
@@ -389,7 +389,7 @@ void App::takePendingSwitch() {
             settingsScreen.settleArrival();
             linkupScreen.settleArrival();
             linkupTiles.settleArrival();
-            linkupCabinets.settleArrival();
+            linkupGrid.settleArrival();
         }
         pendingDest = -1;
     }

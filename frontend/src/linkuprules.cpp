@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <cstdio>
 #include <cstring>
 
@@ -44,6 +45,21 @@ std::string nameOnList(const std::vector<Friend>& list, int index) {
         if (i != index && list[static_cast<size_t>(i)].name == f.name)
             return f.name + "   \xC2\xB7   " + f.from;
     return f.name;
+}
+
+int colourOf(const Friend& f, int count) {
+    // FNV-1a over the name and where they are from: two people called admin on two
+    // servers come out differently as often as anybody else does.
+    uint32_t hash = 2166136261u;
+    auto add = [&](const std::string& s) {
+        for (char ch : s) {
+            hash ^= static_cast<uint8_t>(std::tolower(static_cast<unsigned char>(ch)));
+            hash *= 16777619u;
+        }
+    };
+    add(f.name);
+    add(f.from);
+    return count > 0 ? static_cast<int>(hash % static_cast<uint32_t>(count)) : 0;
 }
 
 std::string invitedYou(const std::string& who) { return "LinkUp invite from " + who; }
@@ -134,6 +150,13 @@ int test() {
     list.erase(list.begin() + 4);
     check(nameOnList(list, 2) == "admin", "a name nobody else has stands alone");
 
+    {
+        const Friend alex{"Alex", "", Status::Online, ""};
+        const Friend alexAgain{"ALEX", "", Status::Offline, "Contra III"};
+        check(colourOf(alex, 8) == colourOf(alexAgain, 8), "a person keeps their colour, whatever their status");
+        check(colourOf(alex, 8) >= 0 && colourOf(alex, 8) < 8, "a colour is one of those on offer");
+        check(colourOf(alex, 0) == 0, "no colours on offer is not a crash");
+    }
     std::vector<Friend> nobody;
     check(groups(nobody).empty(), "nobody means no headings");
 

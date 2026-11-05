@@ -47,6 +47,9 @@ const char* heading(Status s);
 std::vector<Group> groups(const std::vector<Friend>& list);
 // "admin", or "admin · Riley's server" when another line would also say admin.
 std::string nameOnList(const std::vector<Friend>& list, int index);
+// Which of `count` colours is theirs, worked out from who they are, so a person is
+// the same colour every time on every console and nothing has to be stored or sent.
+int colourOf(const Friend& f, int count);
 
 inline const std::string kInUse = "In use";
 // The switch: what friends see you as. It is Appear Offline by another name.

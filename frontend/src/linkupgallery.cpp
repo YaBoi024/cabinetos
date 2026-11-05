@@ -194,16 +194,37 @@ void noServerYet(App& a) {
 
 const Scene kScenes[] = {
     {"LinkUp in the top bar", [](App& a) { a.goToDestination(App::BarHome); }},
-    {"LinkUp's screen, as cabinets (later scenes keep whichever you left on)", [](App& a) {
-         a.linkupLayout = App::LinkUpLayout::Cabinets;
+    {"LinkUp's screen, A: like a platform's tile (later scenes keep the one you left on)", [](App& a) {
+         a.linkupLayout = App::LinkUpLayout::Grid;
+         a.linkupGrid.setLook(screens::LinkUpGrid::Look::Platform);
          a.goToDestination(App::BarLinkUp);
      }},
-    {"LinkUp's screen, as rows", [](App& a) {
+    {"LinkUp's screen, D: a letter in a circle of their colour", [](App& a) {
+         a.linkupLayout = App::LinkUpLayout::Grid;
+         a.linkupGrid.setLook(screens::LinkUpGrid::Look::Disc);
+         a.goToDestination(App::BarLinkUp);
+     }},
+    {"LinkUp's screen, B: a tile filled with their colour", [](App& a) {
+         a.linkupLayout = App::LinkUpLayout::Grid;
+         a.linkupGrid.setLook(screens::LinkUpGrid::Look::Colour);
+         a.goToDestination(App::BarLinkUp);
+     }},
+    {"LinkUp's screen, C: their colour fading down a dark tile", [](App& a) {
+         a.linkupLayout = App::LinkUpLayout::Grid;
+         a.linkupGrid.setLook(screens::LinkUpGrid::Look::Fade);
+         a.goToDestination(App::BarLinkUp);
+     }},
+    {"LinkUp's screen, earlier: as rows", [](App& a) {
          a.linkupLayout = App::LinkUpLayout::Rows;
          a.goToDestination(App::BarLinkUp);
      }},
-    {"LinkUp's screen, like the Library", [](App& a) {
+    {"LinkUp's screen, earlier: plain tiles", [](App& a) {
          a.linkupLayout = App::LinkUpLayout::Tiles;
+         a.goToDestination(App::BarLinkUp);
+     }},
+    {"LinkUp's screen, earlier: cabinets", [](App& a) {
+         a.linkupLayout = App::LinkUpLayout::Grid;
+         a.linkupGrid.setLook(screens::LinkUpGrid::Look::Cabinet);
          a.goToDestination(App::BarLinkUp);
      }},
     {"Appear Offline on", [](App& a) {
@@ -436,7 +457,7 @@ void App::linkupGalleryShow(int index) {
     refreshLinkUpScreen();
     linkupScreen.settleArrival();
     linkupTiles.settleArrival();
-    linkupCabinets.settleArrival();
+    linkupGrid.settleArrival();
     if (shotMode) {
         choiceScreen.settle();
     }

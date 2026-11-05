@@ -56,12 +56,21 @@ private:
     design::Animated scroll_;
 };
 
-// THE SAME FRIENDS AS ARCADE CABINETS, the console's own mark, one per person: lit
-// when they are on, dark when they are not. A person has no box art, so this is what
-// gives the screen a Library's life, and every friend always has one. Being compared
-// with the rows above and the Library's tiles; two of the three go when one is picked.
-class LinkUpCabinets {
+// THE SAME FRIENDS AS A GRID, EACH IN THEIR OWN COLOUR, worked out from who they are
+// (linkup::colourOf), so nobody has to pick one and nothing is stored or sent. The room
+// behind follows the friend focused, as the Library's follows a cover. The looks are
+// here to compare; the ones not picked go, and so do the rows and the plain tiles.
+class LinkUpGrid {
 public:
+    enum class Look {
+        Platform, // a Library platform's tile: a wash of their colour, and where the
+                  // cover would sit, a panel of it with their letter
+        Colour,   // the tile filled, bright at the top and falling to dark
+        Fade,     // a dark tile with their colour fading down from its top edge
+        Disc,     // a dark tile with a letter in a circle of their colour, ringed by status
+        Cabinet,  // the console's own mark, lit or dark. Rejected, kept to compare
+    };
+    void setLook(Look look) { look_ = look; }
     void setState(const linkup::State& state, bool inUse);
     void enter();
     void settleArrival() { appear_.settle(1.0f); }
@@ -77,14 +86,20 @@ private:
         std::string name, status;
         bool pressable = false;
         bool dark = false;
+        ui::Color top, bottom;
     };
     void moved();
+    int columns() const { return look_ == Look::Cabinet ? 6 : 4; }
+    ui::Color roomWanted() const;
+    void drawTile(Ctx& c, const Cab& cab, float x, float y, float w, float h, float f);
 
+    Look look_ = Look::Platform;
     std::vector<Cab> cabs_;
     std::string pill_, emptyLine_;
-    int at_ = -1;          // the focused cabinet, or -1 on Status
+    int at_ = -1;          // the focused friend, or -1 on Status
     bool hasFocus_ = true;
     float clock_ = 0.0f;
+    ui::Color room_ = ui::Color::black(0);
     design::Animated appear_;
     design::Animated focus_;
     design::Animated scroll_;

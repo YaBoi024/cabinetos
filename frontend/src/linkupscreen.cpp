@@ -3,8 +3,11 @@
 #include "linkupscreen.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <cstdint>
 
+#include "look.h"
 #include "screenparts.h"
 #include "sound.h"
 
@@ -290,15 +293,29 @@ void LinkUpScreen::drawGlass(Ctx& c) {
     c.r.clearScissor();
 }
 
-// ---- The same friends as arcade cabinets --------------------------------
+// ---- The same friends as a grid, each in their own colour ----------------
 
 namespace {
 
-constexpr int kCabColumns = 6;
-constexpr float kCabCell = (ui::kCanvasWidth - design::kLibraryInset * 2.0f) / kCabColumns;
+// The console's brighter menu colours (look.cpp): their top and their middle, so a
+// friend's tile looks like a small piece of a colour a person can give their menus.
+constexpr uint32_t kFriendTops[] = {0xC2367E, 0x1E7FD0, 0x3F8A1C, 0xC0581A,
+                                    0xD9487A, 0x2A8FD6, 0x2E9A5A, 0xD0661A};
+constexpr uint32_t kFriendBottoms[] = {0x3A0F28, 0x0A2644, 0x14300A, 0x3E1C08,
+                                       0x3B1650, 0x0B3A48, 0x0C3A44, 0x4A1010};
+constexpr int kFriendColours = 8;
+
+constexpr float kCellGap = 24.0f;
+constexpr float kTileH = 156.0f;
+constexpr float kTileRadius = 18.0f;
 constexpr float kCabW = 176.0f;
 constexpr float kCabH = kCabW * 338.0f / 280.0f;   // the mark's own proportions
 constexpr float kCabLabelGap = 18.0f;
+
+ui::Color shaded(uint32_t rgb, float keep) {
+    const ui::Color col = ui::Color::rgb(rgb);
+    return ui::Color{col.r * keep, col.g * keep, col.b * keep, 1.0f};
+}
 
 // The mark (docs/assets/mark.svg), drawn from its own numbers so it can light up.
 void drawCabinet(Ctx& c, float x, float y, float w, const linkup::Status kind, bool dark, float clock,
@@ -308,29 +325,21 @@ void drawCabinet(Ctx& c, float x, float y, float w, const linkup::Status kind, b
         return ui::Rect{x + (left - 160.0f) * k, y + (top - 146.0f) * k, width * k, height * k, radius * k, fill};
     };
     using linkup::Status;
-    ui::Color bodyFill = dark ? ui::Color::rgb(0x2A2440) : ui::Color::rgb(0xF4EFE0);
-    ui::Rect body = at(175, 150, 250, 330, 20, bodyFill);
+    ui::Rect body = at(175, 150, 250, 330, 20, dark ? ui::Color::rgb(0x2A2440) : ui::Color::rgb(0xF4EFE0));
     if (!dark) {
         const float breath = 0.5f + 0.5f * std::sin(clock * 3.2f);
         const bool invited = kind == Status::InvitedYou;
-        const bool playing = kind == Status::InGame;
         body.shadowBlur = invited ? 44.0f + 26.0f * breath : 40.0f;
-        body.shadowColor = playing ? ui::palette::kScreenCyan : ui::palette::kMarqueeAmber;
+        body.shadowColor = kind == Status::InGame ? ui::palette::kScreenCyan : ui::palette::kMarqueeAmber;
         body.shadowColor.a = invited ? 0.45f + 0.5f * breath : 0.38f;
-    } else {
-        body.shadowBlur = 18.0f;
-        body.shadowOffsetY = 8.0f;
-        body.shadowColor = ui::Color::black(0.4f);
     }
     c.r.draw(body);
-
     ui::Rect marquee = at(193, 168, 214, 34, 0, dark ? ui::Color::rgb(0x3A3252) : ui::Color::rgb(0xF68CB8));
     if (!dark) {
         marquee.gradient = true;
         marquee.fillBottom = ui::Color::rgb(0xFBC27A);
     }
     c.r.draw(marquee);
-
     const bool playing = kind == Status::InGame && !dark;
     ui::Rect screen = at(193, 213, 214, 159, 0,
                          dark ? ui::Color::rgb(0x15102A)
@@ -341,23 +350,10 @@ void drawCabinet(Ctx& c, float x, float y, float w, const linkup::Status kind, b
     }
     c.r.draw(screen);
     if (playing) {
-        // A game on its screen: a band of light travelling down it.
         const float travel = std::fmod(clock * 60.0f, 159.0f - 22.0f);
         c.r.draw(at(193, 213 + travel, 214, 22, 0, ui::Color{0.35f, 0.91f, 0.96f, 0.55f}));
     }
-
     c.r.draw(at(165, 390, 270, 48, 10, dark ? ui::Color::rgb(0x241E38) : ui::Color::rgb(0xDAD4C3)));
-    const float a = dark ? 0.35f : 1.0f;
-    const auto dim = [&](uint32_t rgb) {
-        ui::Color col = ui::Color::rgb(rgb);
-        col.a = a;
-        return col;
-    };
-    c.r.draw(at(210, 403, 22, 22, 11, dim(0x3D3548)));
-    c.r.draw(at(282, 403, 22, 22, 11, dim(0xE8395A)));
-    c.r.draw(at(320, 403, 22, 22, 11, dim(0xF5B82E)));
-    c.r.draw(at(371, 405, 31, 18, 5, dim(0xFBE7CC)));
-
     if (f > 0.0f) {
         ui::Rect rim = at(175, 150, 250, 330, 20, ui::Color::white(0));
         rim.border = f * design::kFocusRimWidth;
@@ -368,7 +364,7 @@ void drawCabinet(Ctx& c, float x, float y, float w, const linkup::Status kind, b
 
 }  // namespace
 
-void LinkUpCabinets::setState(const linkup::State& state, bool inUse) {
+void LinkUpGrid::setState(const linkup::State& state, bool inUse) {
     const int wasFriend = at_ < 0 || at_ >= static_cast<int>(cabs_.size()) ? -1 : cabs_[static_cast<size_t>(at_)].friendAt;
     pill_ = linkup::statusLine(state.appearOffline);
     emptyLine_ = state.instead.empty() ? "No friends yet" : state.instead;
@@ -387,7 +383,11 @@ void LinkUpCabinets::setState(const linkup::State& state, bool inUse) {
                 cab.status = linkup::heading(g.status);
                 if (canPress && inUse) cab.status = linkup::kInUse;
                 else if (g.status == linkup::Status::InvitedYou) cab.status += ": " + f.game;
-                else if (linkup::nameOnList(state.friends, i) != f.name) cab.status = f.from;
+                else if (linkup::nameOnList(state.friends, i) != f.name) cab.status += ", " + f.from;
+                const int colour = linkup::colourOf(f, kFriendColours);
+                const float keep = cab.dark ? 0.30f : 1.0f;
+                cab.top = shaded(kFriendTops[colour], keep);
+                cab.bottom = shaded(kFriendBottoms[colour], keep);
                 cabs_.push_back(std::move(cab));
             }
         }
@@ -398,36 +398,55 @@ void LinkUpCabinets::setState(const linkup::State& state, bool inUse) {
         if (cabs_[static_cast<size_t>(i)].friendAt == wasFriend) at_ = i;
 }
 
-void LinkUpCabinets::enter() {
+void LinkUpGrid::enter() {
     appear_.from = appear_.to = 0.0f;
     appear_.elapsed = 0.0f;
     appear_.retarget(1.0f, 0.280f);
     at_ = cabs_.empty() ? -1 : 0;
     scroll_.settle(0.0f);
     focus_.settle(1.0f);
+    room_ = roomWanted();
 }
 
-void LinkUpCabinets::setHasFocus(bool on) {
+void LinkUpGrid::setHasFocus(bool on) {
     if (on == hasFocus_) return;
     hasFocus_ = on;
     if (on) moved();
 }
 
-void LinkUpCabinets::moved() {
+void LinkUpGrid::moved() {
     focus_.retarget(0.0f, 0.0f);
     focus_.elapsed = 0.0f;
     focus_.retarget(1.0f, design::kFocusDuration);
 }
 
-void LinkUpCabinets::tick(float dt) {
+// The room takes the colour of the friend focused, and goes back to the console's
+// own when nobody is.
+ui::Color LinkUpGrid::roomWanted() const {
+    if (look_ == Look::Cabinet || at_ < 0 || at_ >= static_cast<int>(cabs_.size())) return ui::Color{0, 0, 0, 0};
+    const Cab& cab = cabs_[static_cast<size_t>(at_)];
+    ui::Color col = cab.top;
+    col.a = cab.dark ? 0.35f : 0.60f;
+    return col;
+}
+
+void LinkUpGrid::tick(float dt) {
     clock_ += dt;
     appear_.tick(dt);
     focus_.tick(dt);
     scroll_.tick(dt);
+    // A slow glide, so walking along the row reads as the room changing, not flashing.
+    const ui::Color want = roomWanted();
+    const float t = std::clamp(dt * 4.0f, 0.0f, 1.0f);
+    room_.r += (want.r - room_.r) * t;
+    room_.g += (want.g - room_.g) * t;
+    room_.b += (want.b - room_.b) * t;
+    room_.a += (want.a - room_.a) * t;
 }
 
-Result LinkUpCabinets::key(Nav n) {
+Result LinkUpGrid::key(Nav n) {
     const int count = static_cast<int>(cabs_.size());
+    const int cols = columns();
     auto go = [&](int next) {
         at_ = next;
         moved();
@@ -444,15 +463,15 @@ Result LinkUpCabinets::key(Nav n) {
     }
     switch (n) {
         case Nav::Up:
-            return go(at_ < kCabColumns ? -1 : at_ - kCabColumns);
+            return go(at_ < cols ? -1 : at_ - cols);
         case Nav::Down:
-            if (at_ / kCabColumns == (count - 1) / kCabColumns) break;
-            return go(std::min(at_ + kCabColumns, count - 1));
+            if (at_ / cols == (count - 1) / cols) break;
+            return go(std::min(at_ + cols, count - 1));
         case Nav::Left:
-            if (at_ % kCabColumns == 0) break;
+            if (at_ % cols == 0) break;
             return go(at_ - 1);
         case Nav::Right:
-            if (at_ % kCabColumns == kCabColumns - 1 || at_ + 1 >= count) break;
+            if (at_ % cols == cols - 1 || at_ + 1 >= count) break;
             return go(at_ + 1);
         case Nav::Activate:
             if (cabs_[static_cast<size_t>(at_)].pressable)
@@ -465,23 +484,150 @@ Result LinkUpCabinets::key(Nav n) {
     return {};
 }
 
-void LinkUpCabinets::drawGlass(Ctx& c) {
+void LinkUpGrid::drawTile(Ctx& c, const Cab& cab, float x, float y, float w, float h, float f) {
+    using linkup::Status;
+    const float breath = 0.5f + 0.5f * std::sin(clock_ * 3.2f);
+    ui::Rect plate{x, y, w, h, kTileRadius, look_ == Look::Colour ? cab.top : look::surface()};
+    if (look_ == Look::Colour) {
+        plate.gradient = true;
+        plate.fillBottom = cab.bottom;
+    }
+    // An invite breathes, so the eye goes to it; focus lifts a tile off the room.
+    if (cab.kind == Status::InvitedYou && !cab.dark) {
+        plate.shadowBlur = 34.0f + 24.0f * breath;
+        plate.shadowColor = ui::palette::kMarqueeAmber;
+        plate.shadowColor.a = 0.35f + 0.5f * breath;
+    } else if (f > 0.0f) {
+        plate.shadowBlur = design::kFocusShadowBlur;
+        plate.shadowOffsetY = design::kFocusShadowOffsetY;
+        plate.shadowColor = ui::Color::black(0.5f * f);
+    }
+    c.r.draw(plate);
+    if (look_ == Look::Platform) {
+        // Where a platform's tile has its cover blurred behind it, a wash of the colour.
+        ui::Color from = cab.top;
+        from.a = 0.42f;
+        ui::Rect wash{x, y, w, h, kTileRadius, from};
+        wash.gradient = true;
+        wash.fillBottom = ui::Color{cab.bottom.r, cab.bottom.g, cab.bottom.b, 0.30f};
+        c.r.draw(wash);
+    }
+    if (look_ == Look::Fade) {
+        ui::Color from = cab.top;
+        from.a = 0.85f;
+        ui::Rect fade{x, y, w, h, kTileRadius, from};
+        fade.gradient = true;
+        fade.fillBottom = ui::Color{cab.top.r, cab.top.g, cab.top.b, 0.0f};
+        c.r.draw(fade);
+    }
+    if (f > 0.0f) {
+        ui::Rect rim{x, y, w, h, kTileRadius, ui::Color::white(0)};
+        rim.border = f * design::kFocusRimWidth;
+        rim.borderColor = ui::palette::kFocusRim;
+        c.r.draw(rim);
+    }
+
+    const ui::TextStyle nameStyle = ui::TextStyle::Title3;
+    const ui::TextStyle subStyle = ui::TextStyle::Footnote;
+    constexpr float kPad = 24.0f;
+    float textX = x + kPad;
+    float textRight = x + w - kPad;
+    if (look_ == Look::Platform) {
+        // The cover's place and the cover's size, holding their colour and their letter.
+        const float scale = h / design::kTileHeight;
+        const float artH = design::kTileArtHeight * scale;
+        const float artW = artH * 0.75f;
+        const float artX = x + w - design::kTilePadding * scale - artW;
+        const float artY = y + (h - artH) * 0.5f;
+        ui::Rect art{artX, artY, artW, artH, 8.0f, cab.top};
+        art.gradient = true;
+        art.fillBottom = cab.bottom;
+        art.edgeLight = ui::Color::white(cab.dark ? 0.06f : 0.22f);
+        c.r.draw(art);
+        const std::string letter(1, static_cast<char>(std::toupper(static_cast<unsigned char>(cab.name[0]))));
+        const ui::TextStyle letterStyle = ui::TextStyle::LargeTitle;
+        c.text.draw(c.r, letter, artX + (artW - c.text.measure(letter, letterStyle, c.sc)) * 0.5f,
+                    artY + (artH - c.text.lineHeight(letterStyle, c.sc)) * 0.5f + c.text.ascent(letterStyle, c.sc),
+                    letterStyle, ui::Color::white(cab.dark ? 0.50f : 1.0f), c.sc);
+        textRight = artX - design::kTileArtGap * scale;
+    }
+    if (look_ == Look::Disc) {
+        const float d = h - 56.0f;
+        const float dx = x + kPad, dy = y + (h - d) * 0.5f;
+        ui::Rect disc{dx, dy, d, d, d * 0.5f, cab.top};
+        disc.gradient = true;
+        disc.fillBottom = cab.bottom;
+        c.r.draw(disc);
+        if (!cab.dark) {
+            ui::Rect ring{dx - 5.0f, dy - 5.0f, d + 10.0f, d + 10.0f, (d + 10.0f) * 0.5f, ui::Color::white(0)};
+            ring.border = 4.0f;
+            ring.borderColor = cab.kind == Status::InvitedYou ? ui::palette::kMarqueeAmber
+                               : cab.kind == Status::Online   ? ui::palette::kScreenCyan
+                                                              : ui::Color::white(0.55f);
+            c.r.draw(ring);
+        }
+        const std::string letter(1, static_cast<char>(std::toupper(static_cast<unsigned char>(cab.name[0]))));
+        const ui::TextStyle letterStyle = ui::TextStyle::Title2;
+        c.text.draw(c.r, letter, dx + (d - c.text.measure(letter, letterStyle, c.sc)) * 0.5f,
+                    dy + (d - c.text.lineHeight(letterStyle, c.sc)) * 0.5f + c.text.ascent(letterStyle, c.sc),
+                    letterStyle, ui::Color::white(cab.dark ? 0.55f : 1.0f), c.sc);
+        textX = dx + d + 22.0f;
+    }
+    const float room = textRight - textX;
+    const float nameH = c.text.lineHeight(nameStyle, c.sc);
+    const float subH = c.text.lineHeight(subStyle, c.sc);
+    const float top = y + (h - nameH - subH - 4.0f) * 0.5f;
+    c.text.draw(c.r, c.text.truncate(cab.name, nameStyle, c.sc, room), textX, top + c.text.ascent(nameStyle, c.sc),
+                nameStyle, ui::Color::white(cab.dark ? 0.55f : 1.0f), c.sc);
+    const float subBase = top + nameH + 4.0f + c.text.ascent(subStyle, c.sc);
+    float subX = textX;
+    // The ring says it on the Disc; the other looks say it with a dot before the words.
+    if (look_ != Look::Disc && !cab.dark) {
+        constexpr float kDot = 12.0f;
+        ui::Color dot = cab.kind == Status::InvitedYou ? ui::palette::kMarqueeAmber
+                        : cab.kind == Status::Online   ? ui::palette::kScreenCyan
+                                                       : ui::Color::white(0.85f);
+        const float mid = subBase - c.text.capHeight(subStyle, c.sc) * 0.5f;
+        c.r.draw(ui::Rect{subX, mid - kDot * 0.5f, kDot, kDot, kDot * 0.5f, dot});
+        subX += kDot + 10.0f;
+    }
+    c.text.draw(c.r, c.text.truncate(cab.status, subStyle, c.sc, textRight - subX), subX, subBase, subStyle,
+                ui::Color::white(cab.dark ? 0.45f : look_ == Look::Colour ? 0.88f : 0.65f), c.sc);
+}
+
+void LinkUpGrid::drawGlass(Ctx& c) {
+    // The room, under everything and past the clip, so it reaches behind the top bar.
+    if (room_.a > 0.005f) {
+        c.r.setContentAlpha(1.0f);
+        ui::Rect glow{0, 0, ui::kCanvasWidth, ui::kCanvasHeight * 0.8f, 0, room_};
+        glow.gradient = true;
+        glow.fillBottom = ui::Color{room_.r, room_.g, room_.b, 0.0f};
+        c.r.draw(glow);
+    }
     c.r.setContentAlpha(appear_.value());
     c.r.setScissor(0, design::kScrollClipTop, ui::kCanvasWidth,
                    ui::kCanvasHeight - design::kScrollClipTop);
+
+    const int cols = columns();
+    const bool cabinets = look_ == Look::Cabinet;
     const ui::TextStyle nameStyle = ui::TextStyle::Title3;
     const ui::TextStyle subStyle = ui::TextStyle::Footnote;
     const float nameH = c.text.lineHeight(nameStyle, c.sc);
     const float subH = c.text.lineHeight(subStyle, c.sc);
-    const float pitch = kCabH + kCabLabelGap + nameH + subH + 44.0f;
+    const float usable = ui::kCanvasWidth - design::kLibraryInset * 2.0f;
+    const bool platform = look_ == Look::Platform;
+    const float gap = platform ? design::kTileSpacing : kCellGap;
+    const float tileH = platform ? design::kTileHeight : kTileH;
+    const float cellW = cabinets ? usable / cols : (usable - gap * (cols - 1)) / cols;
+    const float pitch = cabinets ? kCabH + kCabLabelGap + nameH + subH + 44.0f : tileH + gap;
     const float gridTop = design::kSwitcherTop + pillHeight(c.text, c.sc) + design::kSwitcherGapBelow;
 
     const int count = static_cast<int>(cabs_.size());
-    const int rows = count == 0 ? 0 : (count - 1) / kCabColumns + 1;
+    const int rows = count == 0 ? 0 : (count - 1) / cols + 1;
     const float maxScroll = std::max(0.0f, gridTop + rows * pitch + design::kScreenBottomPad - ui::kCanvasHeight);
     float want = 0.0f;
     if (at_ >= 0) {
-        const float rowBottom = gridTop + (at_ / kCabColumns + 1) * pitch;
+        const float rowBottom = gridTop + (at_ / cols + 1) * pitch;
         want = std::max(0.0f, rowBottom + design::kScreenBottomPad - ui::kCanvasHeight);
     }
     want = std::clamp(want, 0.0f, maxScroll);
@@ -507,21 +653,25 @@ void LinkUpCabinets::drawGlass(Ctx& c) {
             const bool on = i == at_ && hasFocus_;
             if ((pass == 1) != on) continue;
             const Cab& cab = cabs_[static_cast<size_t>(i)];
-            const float cellX = design::kLibraryInset + static_cast<float>(i % kCabColumns) * kCabCell;
-            const float cellY = gridTop + static_cast<float>(i / kCabColumns) * pitch - scroll;
+            const float cellX = design::kLibraryInset + static_cast<float>(i % cols) * (cabinets ? cellW : cellW + gap);
+            const float cellY = gridTop + static_cast<float>(i / cols) * pitch - scroll;
             const float ff = on ? f : 0.0f;
+            if (!cabinets) {
+                const float s = 1.0f + ff * (design::kPillFocusScale - 1.0f);
+                const float w = cellW * s, h = tileH * s;
+                drawTile(c, cab, cellX - (w - cellW) * 0.5f, cellY - (h - tileH) * 0.5f, w, h, ff);
+                continue;
+            }
             const float s = 1.0f + ff * (design::kFocusScale - 1.0f);
             const float w = kCabW * s, h = kCabH * s;
-            const float midX = cellX + kCabCell * 0.5f;
+            const float midX = cellX + cellW * 0.5f;
             drawCabinet(c, midX - w * 0.5f, cellY + kCabH - h, w, cab.kind, cab.dark, clock_, ff);
-
-            const float room = kCabCell - 20.0f;
+            const float room = cellW - 20.0f;
             const std::string name = c.text.truncate(cab.name, nameStyle, c.sc, room);
             const std::string sub = c.text.truncate(cab.status, subStyle, c.sc, room);
-            const float textA = cab.dark ? 0.55f : (on ? 1.0f : 0.92f);
             const float nameBase = cellY + kCabH + kCabLabelGap + c.text.ascent(nameStyle, c.sc);
             c.text.draw(c.r, name, midX - c.text.measure(name, nameStyle, c.sc) * 0.5f, nameBase, nameStyle,
-                        ui::Color::white(textA), c.sc);
+                        ui::Color::white(cab.dark ? 0.55f : (on ? 1.0f : 0.92f)), c.sc);
             c.text.draw(c.r, sub, midX - c.text.measure(sub, subStyle, c.sc) * 0.5f,
                         nameBase + nameH - c.text.ascent(nameStyle, c.sc) + c.text.ascent(subStyle, c.sc), subStyle,
                         ui::Color::white(0.60f * (cab.dark ? 0.8f : 1.0f)), c.sc);
