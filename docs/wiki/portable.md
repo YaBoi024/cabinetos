@@ -1,18 +1,19 @@
 # Run from a USB drive
 
-Try CabinetOS on a PC without installing it. It runs from a USB drive, the PC's
+Try CabinetOS on a PC before you commit to it. It runs from a USB drive, the PC's
 own drives stay as they are, and with the drive out your PC starts as it always
-did.
+did. When you want to keep it, [install it](install.md) on the PC's own drive,
+where it runs at its best.
 
 ## What you need
 
 Everything on the [Install](install.md) page's list except the stick for the
 installer, plus:
 
-- **A USB drive of 64 GB or more.** Everything on it is erased, and CabinetOS uses
-  all of it, for the system and the games you play, so more room means more games
-  kept ready. An SSD or NVMe drive in a USB case should run faster than a stick,
-  though we haven't measured it yet.
+- **A USB drive of 64 GB or more, ideally an SSD or NVMe drive in a USB case.**
+  We strongly recommend one: a USB stick works, but it is much slower. Everything
+  on the drive is erased, and CabinetOS uses all of it, for the system and the
+  games you play, so more room means more games kept ready.
 - **A USB keyboard.**
 - **[balenaEtcher](https://etcher.balena.io) or
   [Rufus](https://rufus.ie)** to write the file.
