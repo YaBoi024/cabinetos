@@ -21,11 +21,13 @@ constexpr float kCellGap = 24.0f;
 constexpr float kTileH = 156.0f;
 constexpr float kTileRadius = 18.0f;
 constexpr int kColumns = 4;
-// Friends and no friends: one long fade whose parts overlap, so it does not read as steps.
+// A first friend: the stars and picture go in one long fade whose parts overlap, so it
+// does not read as steps. They are quite gone, a moment passes, and the friend comes in.
 constexpr float kStarsLeave = 0.45f;
 constexpr float kPictureWait = 0.15f;
 constexpr float kPictureLeave = 0.75f;
-constexpr float kChangeWait = 0.70f;
+constexpr float kChangeGap = 0.12f;
+constexpr float kChangeWait = kPictureWait + kPictureLeave + kChangeGap;
 constexpr float kChangeArrive = 0.60f;
 constexpr float kChangeOver = kChangeWait + kChangeArrive;
 
@@ -287,8 +289,9 @@ void LinkUpScreen::drawGlass(Ctx& c) {
     c.r.setScissor(0, design::kScrollClipTop, ui::kCanvasWidth,
                    ui::kCanvasHeight - design::kScrollClipTop);
     // What the change between friends and no friends has reached: 1 at rest.
-    const float arriving = design::easeInOut((sinceChange_ - kChangeWait) / kChangeArrive);
     const bool noFriends = tiles_.empty() && instead_.empty();
+    // The last friend going leaves nothing to wait for.
+    const float arriving = design::easeInOut((sinceChange_ - (noFriends ? 0.0f : kChangeWait)) / kChangeArrive);
     if (noFriends) {
         drawNoFriends(c, arriving, arriving);
     } else if (sinceChange_ < kPictureWait + kPictureLeave) {
