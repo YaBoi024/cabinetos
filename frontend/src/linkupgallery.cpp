@@ -279,7 +279,7 @@ const Scene kScenes[] = {
          a.linkupGalleryJoinIn = 0.0f;
          a.linkupGalleryNoAnswerIn = kWaitSeconds;
      }},
-    {"#In the game", nullptr},
+    {"#In the game, you are hosting", nullptr},
     {"The connection drops and Alex never returns, sped up", [](App& a) {
          inviterGame(a);
          a.linkupPausePanel(linkup::reconnectingTo("Alex"));
@@ -341,7 +341,7 @@ const Scene kScenes[] = {
          a.goToDestination(App::BarLinkUp);
          a.linkupAnswerInvite(a.linkUp.friends[1]);
      }},
-    {"#In a friend's game", nullptr},
+    {"#In a friend's game, you joined", nullptr},
     {"Friend: Waiting for Alex", [](App& a) {
          a.goToDestination(App::BarLinkUp);
          a.linkupHost = "Alex";
