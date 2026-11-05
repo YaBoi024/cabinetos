@@ -274,10 +274,14 @@ void LinkUpScreen::drawNoFriends(Ctx& c, float stars, float picture) {
         c.r.draw(ui::Rect{x, y, size, size, 0.0f, col});
     }
     c.r.setContentAlpha(appear_.value());
-    // The bright one is what the eye weighs, so the pair sits a little right of even.
-    // With something wrong, nothing is lit: both are dim.
-    setup::drawCabinetIcon(c.r, midX - 5.0f, kTop, kCabinetH, 0.32f);
-    setup::drawCabinetIcon(c.r, midX - 175.0f, kTop + 28.0f, kCabinetH, instead_.empty() ? 1.0f : 0.32f);
+    if (instead_.empty()) {
+        // The bright one is what the eye weighs, so the pair sits a little right of even.
+        setup::drawCabinetIcon(c.r, midX - 5.0f, kTop, kCabinetH, 0.32f);
+        setup::drawCabinetIcon(c.r, midX - 175.0f, kTop + 28.0f, kCabinetH, 1.0f);
+    } else {
+        // With something wrong, one cabinet and nothing lit: two dim ones show through.
+        setup::drawCabinetIcon(c.r, midX - kCabinetH * 527.0f / 720.0f * 0.5f, kTop + 14.0f, kCabinetH, 0.32f);
+    }
     auto centred = [&](const std::string& line, ui::TextStyle st, float baseline, float alpha) {
         c.text.draw(c.r, line, midX - c.text.measure(line, st, c.sc) * 0.5f, baseline, st,
                     ui::Color::white(alpha), c.sc);
