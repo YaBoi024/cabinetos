@@ -421,7 +421,7 @@ const Scene kScenes[] = {
      }},
     {"Settings: a code that doesn't work", [](App& a) {
          noServerYet(a);
-         a.menuNotice.say("That code didn't work", Tone::Problem);
+         a.menuNotice.say("Wrong or expired code", Tone::Problem);
      }},
     {"Settings: a server that can't be reached", [](App& a) {
          noServerYet(a);
