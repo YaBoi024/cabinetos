@@ -75,6 +75,8 @@ public:
     void open(Shows shows, std::string title, std::string detail, bool friendSide);
     Shows shows() const { return shows_; }
     void setFade(float fade) { fade_ = fade; }
+    // A line under the rest, for a game still downloading. Empty for none.
+    void setNote(std::string note) { note_ = std::move(note); }
     bool friendSide() const { return friendSide_; }
 
     void tick(float dt);
@@ -84,7 +86,7 @@ public:
 private:
     Shows shows_ = Shows::Waiting;
     bool friendSide_ = true;
-    std::string title_, detail_;
+    std::string title_, detail_, note_;
     float clock_ = 0.0f;
     float fade_ = 1.0f;
 };

@@ -685,6 +685,7 @@ struct App {
     float linkupGalleryNoAnswerIn = 0.0f;
     float linkupGalleryDeclineIn = 0.0f;
     float linkupGalleryHostQuitIn = 0.0f;
+    float linkupGalleryDownloadLeft = 0.0f;
     bool linkupGalleryNextSpedUp = false;
     float linkupGalleryDropEndsIn = 0.0f;
     float linkupGalleryInviteIn = 0.0f;

@@ -384,6 +384,7 @@ void LinkUpPlayScreen::open(Shows shows, std::string title, std::string detail, 
     shows_ = shows;
     title_ = std::move(title);
     detail_ = std::move(detail);
+    note_.clear();
     friendSide_ = friendSide;
     clock_ = 0.0f;
     fade_ = 1.0f;
@@ -430,6 +431,10 @@ void LinkUpPlayScreen::draw(Ctx& c) {
     float y = base + 84.0f;
     if (!detail_.empty()) {
         centred(detail_, ui::TextStyle::Title3, y, 0.60f);
+        y += 56.0f;
+    }
+    if (!note_.empty()) {
+        centred(note_, ui::TextStyle::Callout, y, 0.60f);
         y += 56.0f;
     }
     // Three dots in turn on every one of these: working, not stuck.

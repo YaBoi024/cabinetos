@@ -29,6 +29,8 @@ constexpr float kWaitSeconds = 15.0f;
 constexpr float kDropSeconds = 8.0f;
 // And the five minutes to pick the next game.
 constexpr float kNextSeconds = 15.0f;
+// And a game downloading, which Alex joins partway through.
+constexpr float kDownloadSeconds = 20.0f;
 
 std::vector<Friend> madeUpFriends() {
     return {
@@ -41,6 +43,20 @@ std::vector<Friend> madeUpFriends() {
         {"Maya", "", Status::Offline, ""},
         {"Theo", "", Status::Offline, ""},
     };
+}
+
+// Past the eight colours that stay clearly apart, so some repeat.
+std::vector<Friend> twentyFriends() {
+    std::vector<Friend> list = {
+        {"Riley", "", Status::InvitedYou, "Burnout 3"},
+        {"Sam", "", Status::InGame, ""},
+        {"Quinn", "", Status::InGame, ""},
+    };
+    for (const char* name : {"Alex", "Jordan", "Morgan", "Casey", "Avery", "Blake", "Dana", "Emery", "Finley"})
+        list.push_back({name, "", Status::Online, ""});
+    for (const char* name : {"Maya", "Theo", "Harper", "Jules", "Kai", "Lane", "Noor", "Parker"})
+        list.push_back({name, "", Status::Offline, ""});
+    return list;
 }
 
 }  // namespace
@@ -114,7 +130,10 @@ void App::linkupGalleryTick(float dt) {
     if (linkupGalleryJoinIn > 0.0f) {
         linkupGalleryJoinIn -= dt;
         if (linkupGalleryJoinIn <= 0.0f && linkupHoldsScreen()) {
-            linkupGameStarts();
+            if (linkupGalleryDownloadLeft > 0.0f)
+                linkupPlay.open(screens::LinkUpPlayScreen::Shows::Waiting, linkupGame, "", false);
+            else
+                linkupGameStarts();
         }
     }
     if (linkupGalleryInviteIn > 0.0f) {
@@ -125,6 +144,15 @@ void App::linkupGalleryTick(float dt) {
         linkupGalleryDropEndsIn = choiceScreen.isOpen() ? linkupGalleryDropEndsIn - dt : 0.0f;
         if (linkupGalleryDropEndsIn <= 0.0f && choiceScreen.isOpen())
             choiceScreen.changeTitle(linkupGalleryDropReturns ? linkup::isBack("Alex") : linkup::left("Alex"));
+    }
+    if (linkupGalleryDownloadLeft > 0.0f) {
+        linkupGalleryDownloadLeft -= dt;
+        const int percent = static_cast<int>(100.0f * (1.0f - linkupGalleryDownloadLeft / kDownloadSeconds));
+        linkupPlay.setNote(linkupGalleryDownloadLeft > 0.0f ? "Downloading " + std::to_string(percent) + "%" : "");
+        if (linkupGalleryDownloadLeft <= 0.0f && here() == Screen::LinkUpPlay &&
+            linkupPlay.shows() == screens::LinkUpPlayScreen::Shows::Waiting) {
+            linkupGameStarts();
+        }
     }
     if (linkupGalleryHostQuitIn > 0.0f) {
         linkupGalleryHostQuitIn = here() == Screen::LinkUpPlay ? linkupGalleryHostQuitIn - dt : 0.0f;
@@ -466,6 +494,16 @@ const Scene kScenes[] = {
          friendGame(a);
          a.linkupGalleryHostQuitIn = 5.0f;
      }},
+    {"#A long list, and a download", nullptr},
+    {"Twenty friends", [](App& a) {
+         a.linkUp.friends = twentyFriends();
+         a.goToDestination(App::BarLinkUp);
+     }},
+    {"Inviting with a game to download: Alex joins at 10 seconds, the game starts at 20", [](App& a) {
+         inviteOut(a);
+         a.linkupGalleryJoinIn = 10.0f;
+         a.linkupGalleryDownloadLeft = kDownloadSeconds;
+     }},
 };
 
 constexpr int kSceneCount = static_cast<int>(sizeof kScenes / sizeof kScenes[0]);
@@ -496,6 +534,7 @@ void App::linkupGalleryShow(int index) {
     linkupGalleryDropEndsIn = 0.0f;
     linkupGalleryInviteIn = 0.0f;
     linkupGalleryHostQuitIn = 0.0f;
+    linkupGalleryDownloadLeft = 0.0f;
     linkupGalleryNextSpedUp = false;
 
     // Everything put back, so a scene owes nothing to the one before it.
