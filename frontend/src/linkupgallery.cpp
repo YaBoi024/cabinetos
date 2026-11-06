@@ -27,6 +27,8 @@ constexpr const char* kMadeUpServer = "linkup.example.net:7845";
 constexpr float kWaitSeconds = 15.0f;
 // And the minute a dropped friend has to come back, in this many.
 constexpr float kDropSeconds = 8.0f;
+// And the five minutes to pick the next game.
+constexpr float kNextSeconds = 15.0f;
 
 std::vector<Friend> madeUpFriends() {
     return {
@@ -123,6 +125,14 @@ void App::linkupGalleryTick(float dt) {
         linkupGalleryDropEndsIn = choiceScreen.isOpen() ? linkupGalleryDropEndsIn - dt : 0.0f;
         if (linkupGalleryDropEndsIn <= 0.0f && choiceScreen.isOpen())
             choiceScreen.changeTitle(linkupGalleryDropReturns ? linkup::isBack("Alex") : linkup::left("Alex"));
+    }
+    if (linkupGalleryHostQuitIn > 0.0f) {
+        linkupGalleryHostQuitIn = here() == Screen::LinkUpPlay ? linkupGalleryHostQuitIn - dt : 0.0f;
+        if (linkupGalleryHostQuitIn <= 0.0f && here() == Screen::LinkUpPlay) {
+            linkupPlay.open(screens::LinkUpPlayScreen::Shows::Waiting, linkup::waitingFor("Alex"), "", true);
+            linkupGalleryGame = "Super Metroid";
+            linkupGalleryPictureIn = 8.0f;
+        }
     }
     if (linkupGalleryDeclineIn > 0.0f) {
         linkupGalleryDeclineIn = here() == Screen::LinkUpPlay ? linkupGalleryDeclineIn - dt : 0.0f;
@@ -315,7 +325,7 @@ const Scene kScenes[] = {
          a.goToDestination(App::BarHome);
          a.linkupGalleryInviteIn = 5.0f;
      }},
-    {"Friend: the Invited you line", [](App& a) {
+    {"Friend: the Invited line", [](App& a) {
          alexInvites(a);
          a.goToDestination(App::BarLinkUp);
      }},
@@ -444,6 +454,18 @@ const Scene kScenes[] = {
          settingsOnLinkUp(a);
          a.pressLinkUpLeave();
      }},
+    {"#After a game with a friend", nullptr},
+    {"You host: B quits Contra III, then pick the next or press B", inviterGame},
+    {"You host: quit, and nothing picked, sped up", [](App& a) {
+         inviterGame(a);
+         a.linkupGameQuit();
+         a.linkupNextLeft = kNextSeconds;
+         a.linkupGalleryNextSpedUp = true;
+     }},
+    {"You joined: Alex quits in 5 seconds, then starts another", [](App& a) {
+         friendGame(a);
+         a.linkupGalleryHostQuitIn = 5.0f;
+     }},
 };
 
 constexpr int kSceneCount = static_cast<int>(sizeof kScenes / sizeof kScenes[0]);
@@ -473,6 +495,8 @@ void App::linkupGalleryShow(int index) {
     linkupGalleryDeclineIn = 0.0f;
     linkupGalleryDropEndsIn = 0.0f;
     linkupGalleryInviteIn = 0.0f;
+    linkupGalleryHostQuitIn = 0.0f;
+    linkupGalleryNextSpedUp = false;
 
     // Everything put back, so a scene owes nothing to the one before it.
     if (keyboard.isOpen()) keyboard.cancel();
@@ -483,6 +507,7 @@ void App::linkupGalleryShow(int index) {
     menuNotice.text.clear();
     accountsOpen = false;
     barFocused = false;
+    linkupNextClose();
     linkupEndPick();
     linkupGalleryPin = false;
     linkupGalleryOffline = false;
@@ -525,6 +550,9 @@ void App::drawLinkUpGalleryCaption(float sc) {
                        kScenes[linkupGalleryAt].name + "   \xC2\xB7   ";
     if (linkupGalleryNoAnswerIn > 0.0f)
         line += std::to_string(static_cast<int>(minutes)) + " of 30 minutes   \xC2\xB7   ";
+    if (linkupGalleryNextSpedUp && linkupNextOpen)
+        line += std::to_string(static_cast<int>(5.0f * (1.0f - linkupNextLeft / kNextSeconds))) +
+                " of 5 minutes   \xC2\xB7   ";
     line += "L2 back, R2 next";
     const ui::TextStyle st = ui::TextStyle::Caption1;
     const float w = text.measure(line, st, sc);

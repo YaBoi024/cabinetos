@@ -90,6 +90,10 @@ int App::destinationGoing() {
 void App::switchDestination(int delta) {
     const int at = destinationGoing();
     if (at < 0) return;
+    if (linkupNextOpen) {
+        sound::play(sound::Cue::Edge);
+        return;
+    }
     int want = at + delta;
     if (!barItemReachable(want)) want += delta;
     // No wrapping: the ends make the edge sound, so a bumper that goes
@@ -122,6 +126,10 @@ auto App::navigate(screens::Nav n) -> bool {
     // The bar first, wherever it is focused. One place, one behaviour.
     if (accountsOpen) { apply(accountScreen.key(n)); return true; }
     if (barFocused && barKey(n)) return true;
+    if (linkupNextOpen && here() == Screen::Library && n == screens::Nav::Back) {
+        linkupAskEndSession();
+        return true;
+    }
     switch (here()) {
         case Screen::Home: return homeKey(n);
         case Screen::Library: apply(libraryScreen.key(n)); return true;

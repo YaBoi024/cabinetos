@@ -66,6 +66,8 @@ inline const std::string kServerNeedsUpdate = "LinkUp server needs an update";
 inline const std::string kCantConnect = "Can't connect to the LinkUp server";
 inline const std::string kConsoleRemoved = "Removed from the LinkUp server";
 inline const std::string kRepositoryUrl = "https://github.com/MMagTech/cabinet-linkup";
+// How long the person hosting has to pick the next game before the session ends.
+constexpr float kNextGameSeconds = 5.0f * 60.0f;
 
 std::string invitedYou(const std::string& who);
 std::string declined(const std::string& who);
@@ -77,6 +79,10 @@ std::string joinQuestion(const std::string& who);
 std::string pausedBy(const std::string& who);
 std::string reconnectingTo(const std::string& who);
 std::string endedSession(const std::string& who);
+std::string linkedUpWith(const std::string& who);
+std::string endSessionQuestion(const std::string& who);
+std::string sessionEndedWith(const std::string& who);
+std::string leaveQuestion(const std::string& who);
 std::string needsUpdate(const std::string& who);
 
 // A pairing code is 12 characters in 3 groups of 4, with no look-alikes. What

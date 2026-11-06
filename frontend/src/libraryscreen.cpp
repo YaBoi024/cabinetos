@@ -30,6 +30,11 @@ void LibraryScreen::setPlatformsOnly(bool on) {
     if (on) tab_ = 0;
 }
 
+void LibraryScreen::setSessionLine(std::string line, ui::Color dot) {
+    sessionLine_ = std::move(line);
+    sessionDot_ = dot;
+}
+
 void LibraryScreen::build(std::vector<Tile> platforms, std::vector<Tile> collections) {
     platforms_ = std::move(platforms);
     collections_ = std::move(collections);
@@ -466,6 +471,17 @@ void LibraryScreen::drawGlass(Ctx& c) {
         const float f = (row_ == 0 && slot_ == i) ? pillFocus_[i].value() : 0.0f;
         drawPill(c, kLabels[i], x, y, tab_ == i, f);
         x += pillWidth(c.text, kLabels[i], c.sc) + design::kPillGap;
+    }
+    if (!sessionLine_.empty()) {
+        const ui::TextStyle st = ui::TextStyle::Callout;
+        const float h = pillHeight(c.text, c.sc);
+        constexpr float kDot = 16.0f, kDotGap = 14.0f;
+        const float lineX = ui::kCanvasWidth - design::kLibraryInset -
+                            c.text.measure(sessionLine_, st, c.sc);
+        c.r.draw(ui::Rect{lineX - kDot - kDotGap, y + (h - kDot) * 0.5f, kDot, kDot, kDot * 0.5f, sessionDot_});
+        c.text.draw(c.r, sessionLine_, lineX,
+                    y + (h - c.text.lineHeight(st, c.sc)) * 0.5f + c.text.ascent(st, c.sc), st,
+                    ui::Color::white(0.80f), c.sc);
     }
 }
 

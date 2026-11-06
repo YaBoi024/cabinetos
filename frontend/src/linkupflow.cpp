@@ -118,6 +118,10 @@ void App::tickLinkUp(float dt) {
             }
         }
     }
+    if (linkupNextOpen) {
+        linkupNextLeft -= dt;
+        if (linkupNextLeft <= 0.0f) linkupNextRanOut();
+    }
     // Backed out of the Library without picking: the pick is over.
     if (linkUp.picking && here() != Screen::Library && here() != Screen::Grid) linkupEndPick();
     linkupGalleryTick(dt);

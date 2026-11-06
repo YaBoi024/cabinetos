@@ -83,6 +83,7 @@ void App::apply(const screens::Result& res) {
             sound::play(sound::Cue::Move);
             break;
         case screens::Action::FocusBar:
+            if (linkupNextOpen) break;
             // Where the cursor lands in the bar: on the destination you are
             // standing in, so walking up and straight back down is a no-op
             // rather than a silent change of where you would go.

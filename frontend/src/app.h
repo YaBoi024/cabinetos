@@ -667,6 +667,9 @@ struct App {
     static constexpr float kWaitEndsFade = 0.75f;
     static constexpr float kWaitEndsGap = 0.12f;
     float linkupWaitEndsIn = 0.0f;
+    // The game list after quitting a game with a friend, and how long it has left.
+    bool linkupNextOpen = false;
+    float linkupNextLeft = 0.0f;
     std::function<void()> linkupWaitEndsThen;
     // What the gallery plays the other side of.
     int linkupGalleryAt = -1;
@@ -681,6 +684,8 @@ struct App {
     float linkupGalleryFriendIn = 0.0f;
     float linkupGalleryNoAnswerIn = 0.0f;
     float linkupGalleryDeclineIn = 0.0f;
+    float linkupGalleryHostQuitIn = 0.0f;
+    bool linkupGalleryNextSpedUp = false;
     float linkupGalleryDropEndsIn = 0.0f;
     float linkupGalleryInviteIn = 0.0f;
     bool linkupGalleryDropReturns = false;
@@ -2336,6 +2341,12 @@ struct App {
     void linkupInvite(const std::string& game);
     void linkupGameStarts();
     void linkupCancelInvite();
+    void linkupGameQuit();
+    void linkupNextStarts(const std::string& game);
+    void linkupNextClose();
+    void linkupNextDone();
+    void linkupAskEndSession();
+    void linkupNextRanOut();
     void linkupDeclinedBy(const std::string& who);
     void linkupNoAnswerFrom(const std::string& who);
     void linkupWaitEnds(std::function<void()> then);

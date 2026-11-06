@@ -13,7 +13,7 @@ namespace linkup {
 
 const char* heading(Status s) {
     switch (s) {
-        case Status::InvitedYou: return "Invited you";
+        case Status::InvitedYou: return "Invited";
         case Status::InGame: return "Linked up";
         case Status::Online: return "Online";
         case Status::Offline: return "Offline";
@@ -104,6 +104,10 @@ std::string joinQuestion(const std::string& who) { return "Join " + who + "'s ga
 std::string pausedBy(const std::string& who) { return who + " paused"; }
 std::string reconnectingTo(const std::string& who) { return "Reconnecting to " + who; }
 std::string endedSession(const std::string& who) { return who + " ended the session"; }
+std::string linkedUpWith(const std::string& who) { return "Linked up with " + who; }
+std::string endSessionQuestion(const std::string& who) { return "End the session with " + who + "?"; }
+std::string sessionEndedWith(const std::string& who) { return "Session with " + who + " ended"; }
+std::string leaveQuestion(const std::string& who) { return "Leave " + who + "'s game?"; }
 std::string needsUpdate(const std::string& who) { return who + "'s console needs an update"; }
 
 namespace {
@@ -156,7 +160,7 @@ int test() {
     list.push_back({"admin", "Morgan's server", Status::Online, ""});
     const std::vector<Group> g = groups(list);
     check(g.size() == 4, "every heading with somebody under it is there");
-    check(g[0].status == Status::InvitedYou && g[0].friends[0] == 1, "Invited you comes first");
+    check(g[0].status == Status::InvitedYou && g[0].friends[0] == 1, "Invited comes first");
     check(g[1].status == Status::Online && g[1].friends.size() == 2, "Online comes second");
     check(g[2].status == Status::InGame, "Linked up comes third");
     check(g[3].status == Status::Offline, "Offline comes last");

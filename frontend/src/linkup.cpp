@@ -79,7 +79,8 @@ bool App::linkupPickedGame(int cardIndex) {
         return true;
     }
     sound::play(sound::Cue::Activate);
-    linkupInvite(card.title);
+    if (linkupNextOpen) linkupNextStarts(card.title);
+    else linkupInvite(card.title);
     return true;
 }
 
@@ -108,6 +109,60 @@ void App::linkupCancelInvite() {
     if (here() == Screen::LinkUpPlay && stack.size() > 1) stack.pop_back();
     refreshLinkUpScreen();
     sound::play(sound::Cue::Back);
+}
+
+// ---- The next game --------------------------------------------------------
+
+// Quitting a game keeps the session: the friend waits, and the person hosting lands on
+// the game list, where the next one starts on both with no new invite. The real call is
+// the pause menu's Quit, in step 3 of the plan.
+void App::linkupGameQuit() {
+    if (here() == Screen::LinkUpPlay && stack.size() > 1) stack.pop_back();
+    linkupPickGame(linkupGuest);
+    linkupNextOpen = true;
+    linkupNextLeft = linkup::kNextGameSeconds;
+    libraryScreen.setSessionLine(linkup::linkedUpWith(linkupGuest),
+                                 screens::LinkUpScreen::dotColour(linkUp.friends, linkupGuest));
+}
+
+void App::linkupNextClose() {
+    linkupNextOpen = false;
+    linkupNextLeft = 0.0f;
+    libraryScreen.setSessionLine("", ui::Color::white(1.0f));
+}
+
+void App::linkupNextStarts(const std::string& game) {
+    linkupNextClose();
+    linkupEndPick();
+    while (stack.size() > 1 && here() != Screen::LinkUp) stack.pop_back();
+    linkupGame = game;
+    linkupPlay.open(screens::LinkUpPlayScreen::Shows::Picture, game, "", /*friendSide=*/false);
+    stack.push_back(Screen::LinkUpPlay);
+}
+
+// The session is over: back to LinkUp's list.
+void App::linkupNextDone() {
+    linkupNextClose();
+    linkupEndPick();
+    linkupGallerySession = false;
+    while (stack.size() > 1 && here() != Screen::LinkUp) stack.pop_back();
+    refreshLinkUpScreen();
+}
+
+// Starting on the harmless one. The friend's console then says the session ended.
+void App::linkupAskEndSession() {
+    sound::play(sound::Cue::Activate);
+    linkupPanel(linkup::endSessionQuestion(linkupGuest), "", {"End", "Cancel"}, 1, [&](int c) {
+        if (c == 0) linkupNextDone();
+    });
+}
+
+// Nobody may be watching by now, so this stays until a press, over the list it ended on.
+void App::linkupNextRanOut() {
+    linkupNextOpen = false;
+    linkupPanel(linkup::sessionEndedWith(linkupGuest), "", {}, 0, [&](int) { linkupNextDone(); });
+    choiceScreen.setPrompt("Press", "A", "to continue");
+    choiceScreen.setOnlyA(true);
 }
 
 // However long the wait has been, it ends gently: the screen goes, a moment passes, and
@@ -201,10 +256,23 @@ void App::linkupJoin(const linkup::Friend& f) {
 void App::linkupAskLeave() {
     sound::play(sound::Cue::Activate);
     if (!linkupPlay.friendSide()) {
-        // The host leaves through the pause menu; here it stands in for a game.
-        linkupGallerySession = false;
+        // The pause menu's Quit, which B stands in for here.
+        if (linkupGallerySession) {
+            linkupGameQuit();
+            return;
+        }
         if (stack.size() > 1) stack.pop_back();
         refreshLinkUpScreen();
+        return;
+    }
+    // On a waiting screen there is no game to pause, only the leaving its prompt offers.
+    if (linkupPlay.shows() != screens::LinkUpPlayScreen::Shows::Picture) {
+        linkupPanel(linkup::leaveQuestion(linkupHost), "", {"Leave", "Cancel"}, 1, [&](int c) {
+            if (c != 0) return;
+            linkupGallerySession = false;
+            if (here() == Screen::LinkUpPlay && stack.size() > 1) stack.pop_back();
+            refreshLinkUpScreen();
+        });
         return;
     }
     // The game stops for both of you while this is up; the other console says so.
