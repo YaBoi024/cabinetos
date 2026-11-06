@@ -257,28 +257,35 @@ void App::linkupAnswerInvite(const linkup::Friend& f) {
     });
 }
 
-// The inviter cancelled, or the wait ran out. The Invited line goes either way. The Join
-// or Decline panel fades out and another says so until A: the person may have walked off,
-// and a press meant for Join must not land on the list under it.
+// The inviter cancelled, or the wait ran out. Their Invited line goes, and on the Join
+// or Decline panel the box fades out and another says so until A: the person may have
+// walked off, and a press meant for Join must not land on the list under it. The list
+// waits for that press, so nothing changes behind the panel while it swaps.
 void App::linkupInviteEnded(const std::string& who) {
-    for (linkup::Friend& f : linkUp.friends) {
-        if (f.name == who && f.status == linkup::Status::InvitedYou) {
-            f.status = linkup::Status::Online;
-            f.game.clear();
+    auto lineGoes = [&, who]() {
+        for (linkup::Friend& f : linkUp.friends) {
+            if (f.name == who && f.status == linkup::Status::InvitedYou) {
+                f.status = linkup::Status::Online;
+                f.game.clear();
+            }
         }
-    }
-    refreshLinkUpScreen();
-    if (linkupAnswering == who && choiceScreen.isOpen()) {
-        choiceThen = nullptr;
-        choiceScreen.fadeAway(kWaitEndsFade);
-        linkupWaitEndsIn = kWaitEndsFade + kWaitEndsGap;
-        linkupWaitEndsThen = [&, who]() {
-            linkupPanel(linkup::inviteEnded(who), "", {}, 0, [](int) {});
-            choiceScreen.setPrompt("Press", "A", "to continue");
-            choiceScreen.setOnlyA(true);
-        };
+        refreshLinkUpScreen();
+    };
+    if (linkupAnswering != who || !choiceScreen.isOpen()) {
+        lineGoes();
+        return;
     }
     linkupAnswering.clear();
+    constexpr float kBoxLeaves = 0.28f;
+    choiceThen = nullptr;
+    choiceScreen.fadeAway(kBoxLeaves);
+    linkupWaitEndsIn = kBoxLeaves + kWaitEndsGap;
+    linkupWaitEndsThen = [&, who, lineGoes]() {
+        linkupPanel(linkup::inviteEnded(who), "", {}, 0, [lineGoes](int) { lineGoes(); });
+        choiceScreen.holdDim();
+        choiceScreen.setPrompt("Press", "A", "to continue");
+        choiceScreen.setOnlyA(true);
+    };
 }
 
 void App::linkupJoin(const linkup::Friend& f) {

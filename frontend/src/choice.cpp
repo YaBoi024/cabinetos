@@ -35,6 +35,7 @@ void ChoiceScreen::open(std::string title, std::string detail,
     staysOpen_ = false;
     onlyA_ = false;
     fading_ = false;
+    dimHeld_ = false;
     titleChange_ = 10.0f;
     busy_ = false;
     fixedW_ = 0.0f;
@@ -309,7 +310,7 @@ void ChoiceScreen::draw(Ctx& c) {
     const float px = (W - panelW) * 0.5f, py = (H - panelH) * 0.5f;
 
     c.r.setContentAlpha(1.0f);
-    c.r.draw(ui::Rect{0, 0, W, H, 0, ui::Color::black(0.55f * a)});
+    c.r.draw(ui::Rect{0, 0, W, H, 0, ui::Color::black(0.55f * (dimHeld_ ? 1.0f : a))});
     c.r.setContentAlpha(a);
     // THE PAUSE MENU'S PANEL (design::menuPanel). The keyboard's black glass
     // was tried first (*"forgotten about"*), then the account panel's frosted

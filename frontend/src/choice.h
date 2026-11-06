@@ -127,12 +127,16 @@ public:
         withMenu_ = true;
     }
     // Fades out where it is, taking no presses, for a panel about to replace it. A panel
-    // changing its words and size in place shows both sets of words at once.
+    // changing its words and size in place shows both sets of words at once. Only the
+    // box goes: the dim stays, or the whole screen pulses bright and dark behind the swap.
     void fadeAway(float seconds) {
         fading_ = true;
+        dimHeld_ = true;
         appear_.smooth = true;
         appear_.retarget(0.0f, seconds);
     }
+    // The panel replacing one that faded away keeps the dim as it was. Call after open.
+    void holdDim() { dimHeld_ = true; }
     // Nothing left of it, at once (the pause menu opening again).
     void forget();
     bool isOpen() const { return open_; }
@@ -153,6 +157,7 @@ private:
     bool staysOpen_ = false;
     bool onlyA_ = false;
     bool fading_ = false;
+    bool dimHeld_ = false;
     bool busy_ = false;
     float spin_ = 0.0f;
     float fixedW_ = 0.0f;
