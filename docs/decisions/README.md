@@ -88,6 +88,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 ### Building and checking
 
 - [installer-iso-repacked](2026-11-02-installer-iso-repacked.md): the installer ISO is repacked after the builder, for CabinetOS's boot menu and look, with nothing the builder made rebuilt.
+- [portable-download](2026-11-05-portable-download.md): the portable's download is the file from a finished run, which was tried, not a new build; it sits beside the ISO on R2 for about 4 cents a month.
 
 ### How we work
 
