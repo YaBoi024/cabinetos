@@ -58,6 +58,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 
 - [one-sound-rule](2026-11-04-one-sound-rule.md): the screen the picture is on plays the sound, an output that reports a plug takes over, nothing else; one script reads what each output reports, on every PC.
 - [sound-backup-output](2026-10-26-sound-backup-output.md): the image starts pipewire-pulse at login, so a backup output catches the console's sound while the TV's is gone.
+- [games-draw-on-the-screens-gpu](2026-11-06-games-draw-on-the-screens-gpu.md): on a PC with two GPUs, games draw on the one the screen is on, matched by device UUID; one GPU is unchanged; the old order is the fallback.
 
 ### RomM and the library
 
