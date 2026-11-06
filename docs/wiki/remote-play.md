@@ -12,7 +12,7 @@ turn it on.
 
 ## Turn it on
 
-Settings, **Remote Play**, **Streaming** (the PIN, if one is set). The row then
+Settings, **Streaming**, **Remote Play** (the PIN, if one is set). The row then
 reads *Moonlight app · CabinetOS*: CabinetOS is the name Moonlight shows.
 
 ## Pair a device
@@ -33,7 +33,7 @@ not open while a game is being played on the TV.
 - For 3 seconds after a device connects, its buttons do nothing in the menus.
 - **Hold Select** on the device's controller for the console's
   [pause menu](pause-menu.md), in every game.
-- The Remote Play section in Settings is greyed, marked *In use*.
+- The Streaming section in Settings is greyed, marked *In use*.
 - Wii games that need a Wii Remote cannot be played from a device.
 - The quality (resolution, frame rate, codec) is set in Moonlight, not on the
   console.
@@ -44,7 +44,7 @@ not open while a game is being played on the TV.
 anywhere without opening your router.
 
 1. Install Tailscale on the device and sign in.
-2. Settings, Remote Play, **Tailscale** (Streaming must be on). Scan the QR code
+2. Settings, Streaming, **Tailscale** (Remote Play must be on). Scan the QR code
    with the device: *Use the Tailscale account your phone is signed in to.*
 3. The row shows the console's Tailscale address. Add that address in Moonlight.
 

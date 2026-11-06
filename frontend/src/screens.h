@@ -50,9 +50,6 @@ namespace screens {
 struct ControllersOn {
     bool remote = false;
     bool other = false;
-    // LinkUp's Host is picking: a game that needs a Remote is greyed, because the
-    // friend's Remote cannot reach this console (App::controllersOn).
-    bool greyRemoteGames = false;
 };
 // The two notes, and the toasts a press on Play gets in their place
 // (App::refuseStartWithoutController): the same words in both places.

@@ -559,8 +559,7 @@ struct App {
     const char* kBarLabels[BarCount] = { "Home", "Library", "Search", "LinkUp", "Settings", "Account" };
     // How many of those draw as labelled capsules. The chip draws itself.
     static constexpr int kBarCapsules = BarAccount;
-    // How much of its place LinkUp has in the bar, 0 to 1, so joining it moves Settings
-    // along smoothly rather than in one frame. Set on the first frame, not animated.
+    // LinkUp's place in the bar, opening and closing (App::linkupBarRoomNow).
     design::Animated linkupBarRoom;
     bool linkupBarRoomSet = false;
     size_t shelfSlots();
@@ -668,6 +667,7 @@ struct App {
     static constexpr float kWaitEndsGap = 0.12f;
     float linkupWaitEndsIn = 0.0f;
     // The game list after quitting a game with a friend, and how long it has left.
+    std::string linkupAnswering;        // whose invite the Join or Decline panel is for
     bool linkupNextOpen = false;
     float linkupNextLeft = 0.0f;
     std::function<void()> linkupWaitEndsThen;
@@ -685,6 +685,8 @@ struct App {
     float linkupGalleryNoAnswerIn = 0.0f;
     float linkupGalleryDeclineIn = 0.0f;
     float linkupGalleryHostQuitIn = 0.0f;
+    float linkupGalleryRefusedIn = 0.0f;
+    float linkupGalleryInviteEndsIn = 0.0f;
     float linkupGalleryDownloadLeft = 0.0f;
     bool linkupGalleryNextSpedUp = false;
     float linkupGalleryDropEndsIn = 0.0f;
@@ -2333,7 +2335,6 @@ struct App {
     bool linkupOffline() const;
     bool barItemReachable(int item) const;
     bool linkupInUse() const;
-    bool linkupSessionOpen() const;
     void refreshLinkUpScreen();
     void applyLinkUp(const screens::Result& res);
     void linkupPickGame(const std::string& who);
@@ -2342,6 +2343,8 @@ struct App {
     void linkupInvite(const std::string& game);
     void linkupGameStarts();
     void linkupCancelInvite();
+    float linkupBarRoomNow(float dt);
+    static float linkupBarFade(float room);
     void linkupGameQuit();
     void linkupNextStarts(const std::string& game);
     void linkupNextClose();
@@ -2350,6 +2353,9 @@ struct App {
     void linkupNextRanOut();
     void linkupDeclinedBy(const std::string& who);
     void linkupNoAnswerFrom(const std::string& who);
+    void linkupWaitEndsWith(const std::string& words);
+    void linkupNotAvailable(const std::string& who);
+    void linkupInviteEnded(const std::string& who);
     void linkupWaitEnds(std::function<void()> then);
     bool linkupHoldsScreen();
     void linkupSayInvited(const std::string& who);

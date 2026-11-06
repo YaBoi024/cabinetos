@@ -67,28 +67,27 @@ std::vector<Friend> twentyFriends() {
 // are other games' art.
 void App::linkupGalleryLibrary() {
     if (!linkupGallery) return;
-    auto add = [&](const char* title, uint32_t art, const char* platform, bool wii, bool remote) {
+    auto add = [&](const char* title, uint32_t art, const char* platform, bool wii) {
         design::Card c;
         c.title = title;
         c.sortKey = title;
         c.art = ui::Color::rgb(art);
         c.platform = platform;
         c.wii = wii;
-        c.needsRemote = remote;
         cards.push_back(std::move(c));
         return static_cast<int>(cards.size()) - 1;
     };
     screens::Tile snes, wii, ps2, arcade;
     snes.id = 1; snes.query = "linkup-gallery-1"; snes.title = "Super Nintendo"; snes.detail = "3 games";
-    snes.cards = {add("Contra III", 0x2484D6, "Super Nintendo", false, false),
-                  add("Super Metroid", 0xEC405C, "Super Nintendo", false, false),
-                  add("Chrono Trigger", 0x7A6BC4, "Super Nintendo", false, false)};
+    snes.cards = {add("Contra III", 0x2484D6, "Super Nintendo", false),
+                  add("Super Metroid", 0xEC405C, "Super Nintendo", false),
+                  add("Chrono Trigger", 0x7A6BC4, "Super Nintendo", false)};
     wii.id = 2; wii.query = "linkup-gallery-2"; wii.title = "Wii"; wii.detail = "1 game";
-    wii.cards = {add("Super Smash Bros. Brawl", 0xFFC457, "Wii", true, false)};
+    wii.cards = {add("Super Smash Bros. Brawl", 0xFFC457, "Wii", true)};
     ps2.id = 3; ps2.query = "linkup-gallery-3"; ps2.title = "PlayStation 2"; ps2.detail = "1 game";
-    ps2.cards = {add("Burnout 3", 0xFF7AC7, "PlayStation 2", false, false)};
+    ps2.cards = {add("Burnout 3", 0xFF7AC7, "PlayStation 2", false)};
     arcade.id = 4; arcade.query = "linkup-gallery-4"; arcade.title = "Arcade"; arcade.detail = "1 game";
-    arcade.cards = {add("DoDonPachi DaiOuJou", 0xFFC457, "Arcade", false, false)};
+    arcade.cards = {add("DoDonPachi DaiOuJou", 0xFFC457, "Arcade", false)};
     libraryScreen.build({snes, wii, ps2, arcade}, {});
 }
 
@@ -144,6 +143,14 @@ void App::linkupGalleryTick(float dt) {
         linkupGalleryDropEndsIn = choiceScreen.isOpen() ? linkupGalleryDropEndsIn - dt : 0.0f;
         if (linkupGalleryDropEndsIn <= 0.0f && choiceScreen.isOpen())
             choiceScreen.changeTitle(linkupGalleryDropReturns ? linkup::isBack("Alex") : linkup::left("Alex"));
+    }
+    if (linkupGalleryRefusedIn > 0.0f) {
+        linkupGalleryRefusedIn = here() == Screen::LinkUpPlay ? linkupGalleryRefusedIn - dt : 0.0f;
+        if (linkupGalleryRefusedIn <= 0.0f && here() == Screen::LinkUpPlay) linkupNotAvailable(linkupGuest);
+    }
+    if (linkupGalleryInviteEndsIn > 0.0f) {
+        linkupGalleryInviteEndsIn -= dt;
+        if (linkupGalleryInviteEndsIn <= 0.0f) linkupInviteEnded("Alex");
     }
     if (linkupGalleryDownloadLeft > 0.0f) {
         linkupGalleryDownloadLeft -= dt;
@@ -335,12 +342,6 @@ const Scene kScenes[] = {
          inviterGame(a);
          a.menuNotice.say(linkup::kTooSlow, Tone::Problem);
      }},
-    {"Remote Play's row, In use during a session", [](App& a) {
-         a.linkupGallerySession = true;
-         a.goToDestination(App::BarSettings);
-         a.settingsScreen.settleArrival();
-         a.settingsScreen.focusSetting(SetRemotePlay, false);
-     }},
     {"#An invite to you", nullptr},
     {"Friend: an invite arrives in 5 seconds, while you play", [](App& a) {
          alexInvites(a);
@@ -494,7 +495,7 @@ const Scene kScenes[] = {
          friendGame(a);
          a.linkupGalleryHostQuitIn = 5.0f;
      }},
-    {"#A long list, and a download", nullptr},
+    {"#A long list, a download, and two lines", nullptr},
     {"Twenty friends", [](App& a) {
          a.linkUp.friends = twentyFriends();
          a.goToDestination(App::BarLinkUp);
@@ -503,6 +504,17 @@ const Scene kScenes[] = {
          inviteOut(a);
          a.linkupGalleryJoinIn = 10.0f;
          a.linkupGalleryDownloadLeft = kDownloadSeconds;
+     }},
+    {"You invite Alex, and the server refuses it in 3 seconds", [](App& a) {
+         inviteOut(a);
+         a.linkupGalleryJoinIn = 0.0f;
+         a.linkupGalleryRefusedIn = 3.0f;
+     }},
+    {"Alex's invite ends in 6 seconds, while you look at it", [](App& a) {
+         alexInvites(a);
+         a.goToDestination(App::BarLinkUp);
+         a.linkupAnswerInvite(a.linkUp.friends[1]);
+         a.linkupGalleryInviteEndsIn = 6.0f;
      }},
 };
 
@@ -534,6 +546,8 @@ void App::linkupGalleryShow(int index) {
     linkupGalleryDropEndsIn = 0.0f;
     linkupGalleryInviteIn = 0.0f;
     linkupGalleryHostQuitIn = 0.0f;
+    linkupGalleryRefusedIn = 0.0f;
+    linkupGalleryInviteEndsIn = 0.0f;
     linkupGalleryDownloadLeft = 0.0f;
     linkupGalleryNextSpedUp = false;
 

@@ -104,6 +104,8 @@ std::string joinQuestion(const std::string& who) { return "Join " + who + "'s ga
 std::string pausedBy(const std::string& who) { return who + " paused"; }
 std::string reconnectingTo(const std::string& who) { return "Reconnecting to " + who; }
 std::string endedSession(const std::string& who) { return who + " ended the session"; }
+std::string notAvailable(const std::string& who) { return who + " isn't available"; }
+std::string inviteEnded(const std::string& who) { return who + "'s invite ended"; }
 std::string linkedUpWith(const std::string& who) { return "Linked up with " + who; }
 std::string endSessionQuestion(const std::string& who) { return "End the session with " + who + "?"; }
 std::string sessionEndedWith(const std::string& who) { return "Session with " + who + " ended"; }

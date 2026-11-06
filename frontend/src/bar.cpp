@@ -107,7 +107,7 @@ auto App::barKey(screens::Nav n) -> bool {
 }
 
 // The destination the console is standing in, or -1 on a screen with none. While
-// Host picks a game the Library is LinkUp's, so the bar says LinkUp.
+// picking a game to invite with the Library is LinkUp's, so the bar says LinkUp.
 int App::barSlotHere() {
     if (linkUp.picking) return BarLinkUp;
     switch (here()) {
@@ -165,23 +165,10 @@ void App::drawBar(bool gameUp, float sc, float dt) {
             barTop + (barHeight - text.lineHeight(ui::TextStyle::Callout, sc)) * 0.5f +
             text.ascent(ui::TextStyle::Callout, sc);
         float bx = barX;
-        // LINKUP JOINS THE BAR ONLY WHEN PAIRED, while the person stands on Settings, so
-        // Settings glides along to make room and the word fades in once there is room:
-        // faded in at the start it would show through Settings passing over it.
-        const float linkupWant = linkupInBar() ? 1.0f : 0.0f;
-        if (!linkupBarRoomSet) {
-            linkupBarRoom.settle(linkupWant);
-            linkupBarRoom.smooth = true;
-            linkupBarRoomSet = true;
-        }
-        constexpr float kLinkupBarSeconds = 0.5f;
-        linkupBarRoom.retarget(linkupWant, kLinkupBarSeconds);
-        linkupBarRoom.tick(dt);
-        const float linkupRoom = linkupBarRoom.value();
-        const float linkupFade = std::clamp((linkupRoom - 0.6f) / 0.4f, 0.0f, 1.0f);
+        const float linkupRoom = linkupBarRoomNow(dt);
         for (int i = 0; i < kBarCapsules; ++i) {
             if (i == BarLinkUp && linkupRoom <= 0.0f) continue;
-            const float fade = i == BarLinkUp ? linkupFade : 1.0f;
+            const float fade = i == BarLinkUp ? linkupBarFade(linkupRoom) : 1.0f;
             const bool on = barFocused && barSlot == i;
             const bool sel = (i == selected);
             // Greyed in place while the console cannot reach its RomM server, so

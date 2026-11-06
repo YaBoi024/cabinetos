@@ -208,12 +208,12 @@ void App::buildSettings() {
         const size_t n = remoteplay::paired().size();
         rpSeen = remoteplay::generation();
         // WHILE A DEVICE STREAMS, THE WHOLE SECTION IS GREYED: its
-        // controller drives the console, and one press on Streaming cut
+        // controller drives the console, and one press on its switch cut
         // the stream it was playing on (MMagTech, from his phone,
         // 2026-10-08); Remove could do the same to the device playing.
         // The console's own controllers are set aside during a stream, so
         // nobody at the TV loses anything.
-        const bool streamingNow = players::streaming() || linkupSessionOpen();
+        const bool streamingNow = players::streaming();
         // "In use": a grey switch still reading On looks like a fault
         // when the reason is on another device (MMagTech, 2026-10-08).
         if (streamingNow) detail = "In use";

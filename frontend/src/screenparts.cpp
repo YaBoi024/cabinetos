@@ -196,12 +196,11 @@ void drawCover(Ctx& c, const Card& card, float x, float y, float w, float h,
     // GREYED: a game this console cannot play until a controller is paired.
     // Held back whether focused or not, so focus lands on it and it still
     // reads as unavailable; its name says why.
-    const bool greyed = !card.unavailable.empty() || (c.on.greyRemoteGames && card.needsRemote);
-    if (greyed)
+    if (!card.unavailable.empty())
         c.r.draw(ui::Rect{x, y, w, h, radius, ui::Color::black(design::kUnavailableDim)});
     // Only over something drawn on the panel: the panel's own rim is the
     // same rim, and a second one on bare panel is a brighter edge.
-    if (f > 0.0f && rim && (!key.empty() || greyed)) {
+    if (f > 0.0f && rim && (!key.empty() || !card.unavailable.empty())) {
         ui::Rect edge{x, y, w, h, radius, ui::Color::white(0)};
         edge.border = f * design::kFocusRimWidth;
         edge.borderColor = ui::palette::kFocusRim;

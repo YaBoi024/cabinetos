@@ -394,7 +394,7 @@ void LinkUpPlayScreen::tick(float dt) { clock_ += dt; }
 
 Result LinkUpPlayScreen::key(Nav n) {
     if (shows_ == Shows::Inviting) return n == Nav::Back ? Result{Action::LinkUp, kCancelInvite} : Result{};
-    // The friend's only menu, on B as on the button that opens the pause menu.
+    // The friend's menu, on B as on the button that opens the pause menu.
     if (n == Nav::Back) return {Action::LinkUp, kLeave};
     return {};
 }

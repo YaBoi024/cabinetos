@@ -34,7 +34,7 @@ struct State {
     // A line in place of the list, when the list cannot be had: kCantConnect,
     // kConsoleRemoved, kServerNeedsUpdate, kThisNeedsUpdate.
     std::string instead;
-    bool picking = false;       // Host: the Library is choosing a game
+    bool picking = false;       // the Library is choosing a game to invite with
 };
 
 struct Group {
@@ -79,6 +79,8 @@ std::string joinQuestion(const std::string& who);
 std::string pausedBy(const std::string& who);
 std::string reconnectingTo(const std::string& who);
 std::string endedSession(const std::string& who);
+std::string notAvailable(const std::string& who);
+std::string inviteEnded(const std::string& who);
 std::string linkedUpWith(const std::string& who);
 std::string endSessionQuestion(const std::string& who);
 std::string sessionEndedWith(const std::string& who);

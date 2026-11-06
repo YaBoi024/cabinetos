@@ -92,7 +92,7 @@ void App::apply(const screens::Result& res) {
             sound::play(sound::Cue::Move);
             break;
         case screens::Action::OpenGame:
-            // Host is picking a game: a press chooses it rather than opening it.
+            // Inviting: a press on a game chooses it rather than opening it.
             if (linkupPickedGame(res.value)) break;
             // A GAME OPENED FROM SEARCH'S RESULTS CLOSES ITS KEYBOARD. Up
             // from the keys leaves them open below the results, so typing

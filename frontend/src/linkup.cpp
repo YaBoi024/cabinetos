@@ -6,6 +6,8 @@
 
 #include "app.h"
 
+#include <algorithm>
+
 #include "linkuprules.h"
 #include "players.h"
 #include "screenparts.h"
@@ -16,6 +18,25 @@ bool App::linkupInBar() const { return linkUp.on && linkUp.paired; }
 
 bool App::linkupOffline() const { return romm::serverAway() || linkupGalleryOffline; }
 
+// LinkUp joins the bar only when paired, while the person stands on Settings, so
+// Settings glides along to make room and the word fades in once there is room: faded
+// in at the start it would show through Settings passing over it. Nothing moves on the
+// first frame. How much of its place LinkUp has, 0 to 1.
+float App::linkupBarRoomNow(float dt) {
+    const float want = linkupInBar() ? 1.0f : 0.0f;
+    if (!linkupBarRoomSet) {
+        linkupBarRoom.settle(want);
+        linkupBarRoom.smooth = true;
+        linkupBarRoomSet = true;
+    }
+    constexpr float kSeconds = 0.5f;
+    linkupBarRoom.retarget(want, kSeconds);
+    linkupBarRoom.tick(dt);
+    return linkupBarRoom.value();
+}
+
+float App::linkupBarFade(float room) { return std::clamp((room - 0.6f) / 0.4f, 0.0f, 1.0f); }
+
 // Focus and the shoulders skip LinkUp where it is hidden, and where it is greyed
 // because the console cannot reach its RomM server.
 bool App::barItemReachable(int item) const {
@@ -25,8 +46,6 @@ bool App::barItemReachable(int item) const {
 // ---- Its screen ---------------------------------------------------------
 
 bool App::linkupInUse() const { return players::streaming() || linkupGalleryStreaming; }
-
-bool App::linkupSessionOpen() const { return linkupGallerySession; }
 
 void App::refreshLinkUpScreen() { linkupScreen.setState(linkUp, linkupInUse()); }
 
@@ -50,8 +69,8 @@ void App::applyLinkUp(const screens::Result& res) {
 
 // ---- Inviting: a friend, then a game, then the wait ----------------------
 
-// The Library chooses the game, greyed as Remote Play greys one player two could
-// not hold (App::controllersOn). A press on a game comes back to linkupPickedGame.
+// The Library chooses the game. A press on a game comes back to linkupPickedGame. The
+// real list leaves out what a friend cannot play, in step 3 of the plan.
 void App::linkupPickGame(const std::string& who) {
     linkupGuest = who;
     linkUp.picking = true;
@@ -73,11 +92,6 @@ bool App::linkupPickedGame(int cardIndex) {
     if (!linkUp.picking) return false;
     if (cardIndex < 0 || cardIndex >= static_cast<int>(cards.size())) return true;
     const design::Card& card = cards[static_cast<size_t>(cardIndex)];
-    if (card.needsRemote) {
-        menuNotice.say(screens::kNeedsRemote, Tone::Problem);
-        sound::play(sound::Cue::Edge);
-        return true;
-    }
     sound::play(sound::Cue::Activate);
     if (linkupNextOpen) linkupNextStarts(card.title);
     else linkupInvite(card.title);
@@ -177,21 +191,21 @@ void App::linkupWaitEnds(std::function<void()> then) {
 }
 
 // Nobody may be watching by now, so these stay until a press rather than as a pill.
-void App::linkupDeclinedBy(const std::string& who) {
-    linkupWaitEnds([&, who]() {
-        linkupPanel(linkup::declined(who), "", {}, 0, [](int) {});
+void App::linkupWaitEndsWith(const std::string& words) {
+    linkupWaitEnds([&, words]() {
+        linkupPanel(words, "", {}, 0, [](int) {});
         choiceScreen.setPrompt("Press", "A", "to continue");
         choiceScreen.setOnlyA(true);
     });
 }
 
-void App::linkupNoAnswerFrom(const std::string& who) {
-    linkupWaitEnds([&, who]() {
-        linkupPanel(linkup::noAnswer(who), "", {}, 0, [](int) {});
-        choiceScreen.setPrompt("Press", "A", "to continue");
-        choiceScreen.setOnlyA(true);
-    });
-}
+void App::linkupDeclinedBy(const std::string& who) { linkupWaitEndsWith(linkup::declined(who)); }
+
+void App::linkupNoAnswerFrom(const std::string& who) { linkupWaitEndsWith(linkup::noAnswer(who)); }
+
+// The server refused the invite: they stopped being Online while it was picked, it
+// crossed with theirs, or they joined someone else first.
+void App::linkupNotAvailable(const std::string& who) { linkupWaitEndsWith(linkup::notAvailable(who)); }
 
 // While an invite waits, the screen dims as it does over a game and never turns off: the
 // person may have walked away, and is coming back to a game.
@@ -227,6 +241,7 @@ void App::linkupSayInvited(const std::string& who) {
 
 void App::linkupAnswerInvite(const linkup::Friend& f) {
     sound::play(sound::Cue::Activate);
+    linkupAnswering = f.name;
     linkupPanel(linkup::joinQuestion(f.name), f.game, {"Join", "Decline"}, 0, [&, f](int c) {
         if (c == 0) {
             linkupJoin(f);
@@ -242,6 +257,23 @@ void App::linkupAnswerInvite(const linkup::Friend& f) {
     });
 }
 
+// The inviter cancelled, or the wait ran out. The Invited line goes either way, and only
+// someone on the Join or Decline panel needs telling why it closed.
+void App::linkupInviteEnded(const std::string& who) {
+    for (linkup::Friend& f : linkUp.friends) {
+        if (f.name == who && f.status == linkup::Status::InvitedYou) {
+            f.status = linkup::Status::Online;
+            f.game.clear();
+        }
+    }
+    refreshLinkUpScreen();
+    if (linkupAnswering == who && choiceScreen.isOpen()) {
+        choiceScreen.close();
+        menuNotice.say(linkup::inviteEnded(who), Tone::Info);
+    }
+    linkupAnswering.clear();
+}
+
 void App::linkupJoin(const linkup::Friend& f) {
     sound::play(sound::Cue::Activate);
     linkupHost = f.name;
@@ -252,7 +284,8 @@ void App::linkupJoin(const linkup::Friend& f) {
     linkupGalleryJoined(f.game);
 }
 
-// The friend's only menu: Leave and Back, starting on the harmless one.
+// The friend's pause button, and B on a waiting screen: over the game, Paused, which
+// stops it for both; with no game to pause, only the leaving, starting on the harmless one.
 void App::linkupAskLeave() {
     sound::play(sound::Cue::Activate);
     if (!linkupPlay.friendSide()) {

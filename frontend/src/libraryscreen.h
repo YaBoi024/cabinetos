@@ -64,7 +64,7 @@ class LibraryScreen {
 public:
     void build(std::vector<Tile> platforms, std::vector<Tile> collections);
 
-    // LinkUp's Host picks from the platforms alone, because a collection can
+    // LinkUp's invite picks from the platforms alone, because a collection can
     // hold the handheld systems it does not cover.
     void setPlatformsOnly(bool on);
     // LinkUp's next game: who the session is with, beside the switcher. Empty for none.

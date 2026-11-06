@@ -13,10 +13,13 @@
 std::vector<screens::SettingsRow> App::linkupRows() {
     using K = screens::SettingsRow::Kind;
     std::vector<screens::SettingsRow> rows;
-    rows.push_back({K::Toggle, SetLinkUp, "LinkUp", "", linkUp.on ? "On" : "Off"});
+    // Greyed with the rest of Streaming while a device streams (App::buildSettings).
+    const bool streaming = linkupInUse();
+    rows.push_back({streaming ? K::Disabled : K::Toggle, SetLinkUp, "LinkUp", "", linkUp.on ? "On" : "Off"});
     // A feature that is off shows only its switch.
     if (linkUp.on)
-        rows.push_back({K::Action, SetLinkUpServer, "Server", "", linkUp.paired ? linkUp.server : "None"});
+        rows.push_back({streaming ? K::Disabled : K::Action, SetLinkUpServer, "Server", "",
+                        linkUp.paired ? linkUp.server : "None"});
     return rows;
 }
 
@@ -45,7 +48,6 @@ void App::linkupAskPin(const std::string& detail, std::function<void()> then) {
 void App::pressLinkUpSwitch() {
     if (linkUp.on) {
         linkUp.on = false;
-        linkupGallerySession = false;
         buildSettings();
         sound::play(sound::Cue::Activate);
         return;
@@ -174,7 +176,6 @@ void App::pressLinkUpLeave() {
         linkupAskPin("To leave this server", [&]() {
             linkUp.paired = false;
             linkUp.server.clear();
-            linkupGallerySession = false;
             buildSettings();
         });
     });
