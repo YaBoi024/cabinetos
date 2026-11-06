@@ -34,6 +34,7 @@
 #include "fileio.h"
 #include "firstrun.h"
 #include "gonegames.h"
+#include "gpu.h"
 #include "offline_sync.h"
 #include "overlaywin.h"
 #include "prefs.h"
@@ -41,6 +42,7 @@
 #include "samplelibrary.h"
 #include "saves.h"
 #include "storage.h"
+#include "vkhost.h"
 #include "volume.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
@@ -89,11 +91,6 @@ std::optional<int> App::startStorage() {
                          "[storage] the games drive at %s is not connected — games "
                          "kept on it will be fetched from RomM again\n", gone.c_str());
     }
-
-    // THE MACHINE CLASS, worked out at every start (#63 phase 2), so a new
-    // graphics card is noticed the next time the console comes up. It only
-    // decides anything while nobody has moved the dial. quality.h.
-    if (!shotMode) quality::machineClass();
 
     // Runs before SDL, deliberately. This needs no window, no GL and no
     // controller, and on a headless machine it must work anyway — the whole
@@ -256,6 +253,17 @@ std::optional<int> App::startDisplay() {
     std::fprintf(stderr, "[frontend] GL_VENDOR   %s\n", glGetString(GL_VENDOR));
     std::fprintf(stderr, "[frontend] GL_RENDERER %s\n", glGetString(GL_RENDERER));
     std::fprintf(stderr, "[frontend] GL_VERSION  %s\n", glGetString(GL_VERSION));
+
+    // THE GPU THE SCREEN IS ON, now that there is a context to ask: the
+    // games draw on it (#659, gpu.h). Here and not at the probe, because the
+    // probe runs with no window (--gpu-probe); gpu.cpp chooses again if it
+    // has already answered.
+    cab::gpu::screenIs(cab::vk::screenDeviceUuid());
+    // THE MACHINE CLASS, worked out at every start (#63 phase 2), so a new
+    // graphics card is noticed the next time the console comes up. It only
+    // decides anything while nobody has moved the dial. quality.h. After the
+    // screen's GPU is known, since it is read from that GPU.
+    if (!shotMode) quality::machineClass();
     if (!renderer.init()) {
         std::fprintf(stderr, "[frontend] renderer init failed\n");
         return 1;
