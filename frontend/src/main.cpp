@@ -72,6 +72,7 @@ int App::run(int argc, char** argv) {
                                                   .discTestMode = discTestMode,
                                                   .filesTestMode = filesTestMode,
                                                   .vectrexSheetsTestMode = vectrexSheetsTestMode,
+                                                  .gpuChoiceTestMode = gpuChoiceTestMode,
                                                   .padsSeconds = padsSeconds,
                                                   .firstRunRulesMode = firstRunRulesMode,
                                                   .firstRunWriteMode = firstRunWriteMode,

@@ -9,6 +9,8 @@ operating system, not an app. To try it first without installing:
 - **A PC for under the TV.** x86-64, with an AMD Radeon graphics chip.
   CabinetOS is tested on the **GEEKOM A9 Max** (Ryzen AI 9 HX 370, Radeon 890M).
   Other AMD machines may work; reports are welcome, with the machine named.
+  On a PC with two graphics chips, such as a gaming laptop, the console draws
+  on the one the screen is plugged into.
 - **A USB stick** of 8 GB or more, for the installer.
 - **A USB keyboard** for the installer and for first run. After that a
   controller does everything.
