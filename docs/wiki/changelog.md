@@ -4,7 +4,7 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## Next
+## 2026.11.06 {#v2026-11-06}
 
 - **Fixed:** on a PC with two graphics chips, such as a gaming laptop or a
   desktop with a card in it and the monitor on the motherboard's port, the
