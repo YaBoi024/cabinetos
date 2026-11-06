@@ -126,6 +126,13 @@ public:
         open_ = false;
         withMenu_ = true;
     }
+    // Fades out where it is, taking no presses, for a panel about to replace it. A panel
+    // changing its words and size in place shows both sets of words at once.
+    void fadeAway(float seconds) {
+        fading_ = true;
+        appear_.smooth = true;
+        appear_.retarget(0.0f, seconds);
+    }
     // Nothing left of it, at once (the pause menu opening again).
     void forget();
     bool isOpen() const { return open_; }
@@ -145,6 +152,7 @@ private:
     bool open_ = false;
     bool staysOpen_ = false;
     bool onlyA_ = false;
+    bool fading_ = false;
     bool busy_ = false;
     float spin_ = 0.0f;
     float fixedW_ = 0.0f;

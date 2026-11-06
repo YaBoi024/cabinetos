@@ -257,9 +257,9 @@ void App::linkupAnswerInvite(const linkup::Friend& f) {
     });
 }
 
-// The inviter cancelled, or the wait ran out. The Invited line goes either way. On the
-// Join or Decline panel the words change where they are and stay until A: the person may
-// have walked off, and a press meant for Join must not land on the list under it.
+// The inviter cancelled, or the wait ran out. The Invited line goes either way. The Join
+// or Decline panel fades out and another says so until A: the person may have walked off,
+// and a press meant for Join must not land on the list under it.
 void App::linkupInviteEnded(const std::string& who) {
     for (linkup::Friend& f : linkUp.friends) {
         if (f.name == who && f.status == linkup::Status::InvitedYou) {
@@ -269,11 +269,14 @@ void App::linkupInviteEnded(const std::string& who) {
     }
     refreshLinkUpScreen();
     if (linkupAnswering == who && choiceScreen.isOpen()) {
-        choiceThen = [](int) {};
-        choiceScreen.changeTitle(linkup::inviteEnded(who));
-        choiceScreen.replace({}, {}, "");
-        choiceScreen.setPrompt("Press", "A", "to continue");
-        choiceScreen.setOnlyA(true);
+        choiceThen = nullptr;
+        choiceScreen.fadeAway(kWaitEndsFade);
+        linkupWaitEndsIn = kWaitEndsFade + kWaitEndsGap;
+        linkupWaitEndsThen = [&, who]() {
+            linkupPanel(linkup::inviteEnded(who), "", {}, 0, [](int) {});
+            choiceScreen.setPrompt("Press", "A", "to continue");
+            choiceScreen.setOnlyA(true);
+        };
     }
     linkupAnswering.clear();
 }

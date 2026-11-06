@@ -34,6 +34,7 @@ void ChoiceScreen::open(std::string title, std::string detail,
     open_ = true;
     staysOpen_ = false;
     onlyA_ = false;
+    fading_ = false;
     titleChange_ = 10.0f;
     busy_ = false;
     fixedW_ = 0.0f;
@@ -127,7 +128,7 @@ void ChoiceScreen::setDisabled(std::vector<bool> disabled) {
 }
 
 ChoiceScreen::Outcome ChoiceScreen::key(Nav n) {
-    if (!open_) return Outcome::None;
+    if (!open_ || fading_) return Outcome::None;
     switch (n) {
         case Nav::Up:
         case Nav::Down: {

@@ -538,6 +538,8 @@ int App::linkupGalleryLast() const {
 void App::linkupGalleryShow(int index) {
     linkupGalleryAt = index;
     linkupPairingLeft = 0.0f;
+    linkupWaitEndsIn = 0.0f;
+    linkupWaitEndsThen = nullptr;
     linkupGalleryPictureIn = 0.0f;
     linkupGalleryJoinIn = 0.0f;
     linkupGalleryFriendIn = 0.0f;
