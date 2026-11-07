@@ -686,17 +686,18 @@ void App::linkupPauseGame() {
 }
 
 void App::linkupResumeGame() {
-    if (choiceScreen.isOpen() && choiceScreen.overPauseMenu()) choiceScreen.close();
+    if (choiceScreen.isOpen()) choiceScreen.close();
+    choiceThen = nullptr;
     if (overlayOpen) toggleOverlay();
 }
 
-// The panel over the host's stopped game. It sits in the pause menu's panel, at its size.
+// The panel over the host's stopped game. The pause menu is what stops a game, and its own rows do not
+// show while a question is up (App::drawPauseMenu), so this reads as LinkUp's panel over the picture.
 void App::linkupHostPanel(const std::string& title, std::function<void()> then) {
     linkupPauseGame();
-    askChoice(title, "", {}, 0, [then = std::move(then)](int) { then(); });
+    linkupPanel(title, "", {}, 0, [then = std::move(then)](int) { then(); });
     choiceScreen.setPrompt("Press", "A", "to resume");
     choiceScreen.setOnlyA(true);
-    if (playing || standalonePaused) choiceScreen.setOverPauseMenu(kOverlayPanelWidth, pauseMenuHeight());
 }
 
 // ---- The friend: the picture on this television ----------------------------------
@@ -832,10 +833,7 @@ bool App::takeLinkUpEvent(const SDL_Event& e) {
 // the dim, and a short wait for the next press, so nothing is added to the time a press takes.
 bool App::linkupWatchPicture(float dt) {
     if (!linkupPictureOnly()) return false;
-    linkupFollowLink();
-    linkupFollowStatus();
-    tickLinkUpSession(dt);
-    linkupSendPad(dt);
+    tickLinkUpLive(dt);
     idleFrame(dt, /*playingNow=*/true, kScreenOff[screenOffIndex].seconds);
     if (std::abs(dimLayer.value() - standaloneDimDrawn) > 0.001f) drawOverGame();
     else if (standaloneClearFrames > 0) {
@@ -945,7 +943,7 @@ void App::linkupFriendLeft() {
         linkupHeldRemotePlay = false;
     }
     if (inGame) {
-        if (choiceScreen.isOpen() && choiceScreen.overPauseMenu()) {
+        if (choiceScreen.isOpen()) {
             choiceThen = [this](int) { linkupResumeGame(); };
             choiceScreen.changeTitle(linkup::left(who));
         } else {

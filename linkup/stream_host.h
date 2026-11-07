@@ -41,6 +41,7 @@ public:
     void stop();
 
     void setPicture(bool on);
+    bool pictureOn() const { return pictureOn_.load(); }
     void askFullPicture();
     Rtc* rtc() { return rtc_.get(); }
 

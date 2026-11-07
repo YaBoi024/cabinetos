@@ -1094,8 +1094,13 @@ void Conductor::tick() {
             local_.sendJson(eventNamed("peer_lost"));
         } else if (game_->lost && quiet < 500) {
             game_->lost = false;
+            std::fprintf(stderr, "[linkup] the friend is back\n");
             local_.sendJson(eventNamed("peer_back"));
-            if (host_) host_->askFullPicture();
+            // On a new connection the friend's console has heard none of this.
+            if (host_) {
+                host_->askFullPicture();
+                r->sendControl(host_->pictureOn() ? "picture:1" : "picture:0");
+            }
         }
         // Only the host makes a new connection: the friend follows its generation number.
         if (game_->lost && game_->host && quiet > kReconnectAfterMs && now - game_->lastReconnectMs > kReconnectEveryMs) {
