@@ -11,7 +11,8 @@
   no server. Downloads are per person: **Remove download** frees the space once
   nobody else on the console keeps the game.
 - Downloads go one at a time. The button you pressed becomes the progress bar,
-  and a ring on the top bar shows a download from any screen.
+  and a ring on the top bar shows a download from any screen. To stop one,
+  press the bar, then **Stop**.
 - Zip, 7z, rar and gz files are unpacked on the console. CHD and RVZ play as
   they are.
 - A game's manual is kept beside it, in its system's `Manuals` folder, and is

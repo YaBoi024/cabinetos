@@ -223,7 +223,11 @@ is in the file named for its feature, and
    and the bytes a restore may pick (`fetchLaunchSaves`; `saves.cpp`,
    `fetchSaves`), and the Mii Channel's for a Wii game, then marks the job
    Ready.
-3. Each frame, `pumpLaunch` (`launch.cpp`) reads the job. A failed job is
+3. Each frame, `pumpLaunch` (`launch.cpp`) reads the job. A stop (Stop on
+   the page's filling row, `pressStopDownload` in `downloadsflow.cpp`;
+   Escape on a keyboard, `input.cpp`; Eject of the drive it is going to,
+   #404) sets the job's cancel, which the worker answers at every step
+   (#472); the job ends Failed, and a cancel says nothing. A failed job is
    undone (the keep record comes out; the bytes stay, to be evicted). A
    Download that was not a Play stops when the game is on disk. A game the
    person walked away from finishes quietly and does not start. A launch

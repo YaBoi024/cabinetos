@@ -127,5 +127,8 @@ void App::apply(const screens::Result& res) {
             pressRemoveDownload(res);
             break;
         }
+        case screens::Action::StopDownload:
+            pressStopDownload(res);
+            break;
     }
 }
