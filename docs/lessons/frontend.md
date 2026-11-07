@@ -279,6 +279,6 @@ Read before working on a screen, the network, Bluetooth, pairing or first run.
   packets look missing on a clean network, which costs a few RTCP packets a second and nothing else.
 - **A relay's connection outlives its session unless the server ends it.** Pion keeps one for its 10 minutes, and
   the console's own request to end it is refused once the session has ended. The next game from that port (one of
-  five) is turned away with 437, so forced relay failed about 4 games in 10. The server now closes them itself.
+  five) is turned away with 437, so forced relay failed 7 games in 13. The server now closes them itself.
 - **`g_main_context_invoke` runs on the calling thread when no loop owns the context,** as while shutting down.
   A worker's event stopped a stream the main thread was already stopping. `Rtc::onMain` never does that.
