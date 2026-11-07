@@ -2220,6 +2220,8 @@ struct App {
     // downloadsflow.cpp
     void pressDownloads();
     void pressRemoveDownload(const screens::Result& res);
+    void pressStopDownload(const screens::Result& res);
+    void followStopAsk();
     // steamflow.cpp
     void pressSteamShow();
     void pressSteam();

@@ -1,5 +1,6 @@
-// Downloads: downloading and keeping a game, removing one, and Settings'
-// Downloads panel (#68, #188) (#398, restructure batch e).
+// Downloads: downloading and keeping a game, removing one, stopping one from
+// its row, and Settings' Downloads panel (#68, #188) (#398, restructure
+// batch e).
 
 #include "app.h"
 
@@ -22,8 +23,8 @@ std::string App::gigabytes(int64_t b) {
 //
 // The cache is invisible by decision: pressing Play fetches a game that is
 // not here and says nothing about it, because the feedback that matters —
-// a progress bar, and Escape to back out — already exists at the only
-// moment it is useful. So this row is not "is it cached". It is "put this
+// a progress bar, and Stop on it (pressStopDownload) — already exists at the
+// only moment it is useful. So this row is not "is it cached". It is "put this
 // game on the machine and do not take it away again", which is a KEEP, and
 // keeping is the one place the console is allowed to say no.
 //
@@ -129,6 +130,60 @@ void App::removeDownload(int romId) {
             menuNotice.say("Removed, but its files couldn't be deleted", Tone::Problem);
             break;
     }
+}
+
+// STOP, ON THE ROW THAT IS FILLING. A download could be stopped only by
+// Escape on a keyboard (input.cpp) or by ejecting its drive (#404): on a
+// pad, A on the filling row did nothing and B walked away with the download
+// still going, and every other Play or Download was refused until it ended
+// (launchById). On slow Wi-Fi a wrong press on a big game tied the console
+// up for an hour (a player's report, 2026-11-06). The row asks first, as
+// Remove download does (#188): a mis-press would cost whatever had arrived.
+// Keep going is focused, and B is the same answer. Stop sets the job's
+// cancel, which the worker answers at every step (#472): the job ends
+// Failed, the keep comes out, the half-written file goes, and the page says
+// nothing (takeFinishedJob, a cancel says nothing). One question for every
+// stage, unpacking and installing included: a player calls all of it the
+// download, and the row's own word is under the scrim. The line under the
+// question is the game's size, as under Remove's, never the progress: a
+// number that stood still while the row behind it moved would read as
+// stuck, and a number that moved would move the panel's width.
+// docs/decisions/2026-11-06-stop-a-download-from-its-row.md.
+namespace {
+constexpr const char* kStopTitle = "Stop downloading ";
+}
+
+void App::pressStopDownload(const screens::Result& res) {
+    const int romId = res.value;
+    if (!launchJob.busy() || launchJob.romId != romId) return;
+    int64_t bytes = launchJob.total.load();
+    if (bytes <= 0)
+        for (const romm::Game& g : games) if (g.id == romId) { bytes = g.sizeBytes; break; }
+    sound::play(sound::Cue::Activate);
+    askChoice(kStopTitle + launchJob.title + "?",
+              bytes > 0 ? screens::sizeText(bytes) : std::string(),
+              {"Keep going", "Stop"}, 0, [&, romId](int answer) {
+                  if (answer != 1) return;
+                  // Ended while the question was up (followStopAsk closes the
+                  // box then, but the answer can land the same frame).
+                  if (!launchJob.busy() || launchJob.romId != romId) return;
+                  std::fprintf(stderr, "[download] %s stopped from its page\n",
+                               launchJob.title.c_str());
+                  launchJob.cancel = true;
+              });
+}
+
+// THE QUESTION GOES WITH ITS DOWNLOAD. Finished (a Play about to start, a
+// Download that landed) or failed while the box was up, there is nothing
+// left to stop: a box left open would take the first press meant for the
+// page, or sit over the game. Known by its title, as the Formatting box is
+// (followDrives). Each frame, with the other follow-ups (frame.cpp).
+void App::followStopAsk() {
+    if (!choiceScreen.isOpen() || launchJob.busy() ||
+        choiceScreen.title().rfind(kStopTitle, 0) != 0)
+        return;
+    choiceScreen.close();
+    choiceThen = nullptr;
 }
 
 std::vector<screens::DownloadItem> App::downloadItems() {

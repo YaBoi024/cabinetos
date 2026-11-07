@@ -4,6 +4,14 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## Next
+
+- **New:** a download you no longer want can be stopped. Until now it ran to
+  the end, and no other game would download until it did. On the game's page,
+  press the bar that is filling, then **Stop**; **Keep going** or **B** leaves
+  it running. What had arrived is cleared, and Play or Download starts it
+  again from the beginning.
+
 ## 2026.11.06 {#v2026-11-06}
 
 - **Fixed:** on a PC with two graphics chips, such as a gaming laptop or a
