@@ -93,13 +93,88 @@ gboolean StreamHost::onBus(GstBus*, GstMessage* m, gpointer) {
     return TRUE;
 }
 
-bool StreamHost::buildPipeline() {
+std::string StreamHost::encoderDescription(int kbit) const {
     const bool h265 = settings_.h265;
     // The floor differs by codec, each tuned on the same race (#654). Target usage 7 and one
     // reference frame are what brought the encode to 5.9 ms.
-    const std::string encoder = std::string(h265 ? "vah265enc" : "vah264enc") + " name=enc target-usage=7 b-frames=0 ref-frames=1 " +
-                                "key-int-max=600 rate-control=cbr bitrate=" + std::to_string(Bitrate::kTopKbit) +
-                                (h265 ? " min-qp=28" : " min-qp=26");
+    return std::string(h265 ? "vah265enc" : "vah264enc") + " name=enc target-usage=7 b-frames=0 ref-frames=1 " +
+           "key-int-max=600 rate-control=cbr bitrate=" + std::to_string(kbit) + (h265 ? " min-qp=28" : " min-qp=26");
+}
+
+void StreamHost::dropFillerFrom(GstElement* encoder) {
+    GstPad* src = gst_element_get_static_pad(encoder, "src");
+    gst_pad_add_probe(src, GST_PAD_PROBE_TYPE_BUFFER, dropFiller, GINT_TO_POINTER(settings_.h265 ? kFillerH265 : kFillerH264), nullptr);
+    gst_object_unref(src);
+}
+
+// A VA ENCODER CANNOT CHANGE SIZE. It keeps the pool it made for its first frame, and the first frame
+// of another size fails with "Failed to import the input frame", which ends the picture for good (a
+// 5% loss test, #654). So a new size gets a new encoder, as the size passes on its way to it, in the
+// one thread that feeds it. The old one's frames have all gone by then, and the new one starts with a
+// full picture.
+GstPadProbeReturn StreamHost::onSizeGoing(GstPad* pad, GstPadProbeInfo* info, gpointer self) {
+    GstEvent* event = GST_PAD_PROBE_INFO_EVENT(info);
+    if (GST_EVENT_TYPE(event) != GST_EVENT_CAPS) return GST_PAD_PROBE_OK;
+    GstCaps* caps = nullptr;
+    gst_event_parse_caps(event, &caps);
+    int w = 0;
+    int h = 0;
+    const GstStructure* size = gst_caps_get_structure(caps, 0);
+    gst_structure_get_int(size, "width", &w);
+    gst_structure_get_int(size, "height", &h);
+    auto* me = static_cast<StreamHost*>(self);
+    const bool first = me->encoderW_ == 0;
+    const bool same = w == me->encoderW_ && h == me->encoderH_;
+    me->encoderW_ = w;
+    me->encoderH_ = h;
+    if (!first && !same && !me->closing_.load()) me->replaceEncoder(pad);
+    return GST_PAD_PROBE_OK;
+}
+
+void StreamHost::replaceEncoder(GstPad* feed) {
+    GError* error = nullptr;
+    GstElement* fresh = gst_parse_launch(encoderDescription(kbit_.load()).c_str(), &error);
+    if (!fresh) {
+        std::fprintf(stderr, "[linkup] host: %s\n", error ? error->message : "no new encoder");
+        g_clear_error(&error);
+        return;
+    }
+    GstElement* old = nullptr;
+    {
+        std::lock_guard<std::mutex> lk(encoderMu_);
+        old = encoder_;
+        encoder_ = GST_ELEMENT(gst_object_ref(fresh));
+    }
+    GstPad* oldIn = gst_element_get_static_pad(old, "sink");
+    GstPad* oldOut = gst_element_get_static_pad(old, "src");
+    GstPad* next = gst_pad_get_peer(oldOut);
+    gst_pad_unlink(feed, oldIn);
+    gst_pad_unlink(oldOut, next);
+    gst_element_set_state(old, GST_STATE_NULL);
+    gst_bin_remove(GST_BIN(pipeline_), old);
+    gst_object_unref(oldIn);
+    gst_object_unref(oldOut);
+    gst_object_unref(old);
+
+    gst_bin_add(GST_BIN(pipeline_), fresh);
+    dropFillerFrom(fresh);
+    GstPad* in = gst_element_get_static_pad(fresh, "sink");
+    GstPad* out = gst_element_get_static_pad(fresh, "src");
+    gst_pad_link(out, next);
+    gst_element_sync_state_with_parent(fresh);
+    // Linking is also what sends the stream's opening events to the new encoder, before its next frame.
+    gst_pad_link(feed, in);
+    gst_object_unref(in);
+    gst_object_unref(out);
+    gst_object_unref(next);
+}
+
+bool StreamHost::buildPipeline() {
+    const bool h265 = settings_.h265;
+    kbit_ = bitrate_.step().kbit;
+    encoderW_ = encoderH_ = 0;
+    closing_ = false;
+    const std::string encoder = encoderDescription(kbit_.load());
     const std::string payload = h265 ? "h265parse config-interval=-1 ! rtph265pay mtu=1200 config-interval=-1 aggregate-mode=zero-latency ! "
                                        "application/x-rtp,media=video,encoding-name=H265,payload=96"
                                      : "h264parse config-interval=-1 ! rtph264pay mtu=1200 config-interval=-1 aggregate-mode=zero-latency ! "
@@ -130,9 +205,10 @@ bool StreamHost::buildPipeline() {
     appsrc_ = gst_bin_get_by_name(GST_BIN(pipeline_), "cap");
     encoder_ = gst_bin_get_by_name(GST_BIN(pipeline_), "enc");
     mute_ = gst_bin_get_by_name(GST_BIN(pipeline_), "mute");
-    GstPad* src = gst_element_get_static_pad(encoder_, "src");
-    gst_pad_add_probe(src, GST_PAD_PROBE_TYPE_BUFFER, dropFiller, GINT_TO_POINTER(h265 ? kFillerH265 : kFillerH264), nullptr);
-    gst_object_unref(src);
+    dropFillerFrom(encoder_);
+    GstPad* feed = gst_element_get_static_pad(appsrc_, "src");
+    gst_pad_add_probe(feed, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM, onSizeGoing, this, nullptr);
+    gst_object_unref(feed);
     gst_bus_add_watch(GST_ELEMENT_BUS(pipeline_), onBus, this);
     g_object_set(mute_, "drop", pictureOn_.load() ? FALSE : TRUE, nullptr);
 
@@ -187,6 +263,7 @@ void StreamHost::pushBlack() {
 void StreamHost::destroyPipeline() {
     std::lock_guard<std::mutex> lk(frameMu_);
     if (!pipeline_) return;
+    closing_ = true;
     gst_element_set_state(pipeline_, GST_STATE_NULL);
     rtc_.reset();
     gst_bus_remove_watch(GST_ELEMENT_BUS(pipeline_));
@@ -264,6 +341,7 @@ void StreamHost::pushLocked(const uint8_t* y, int yStride, const uint8_t* uv, in
     GST_BUFFER_DURATION(buf) = GST_SECOND / 60;
     gst_app_src_push_buffer(GST_APP_SRC(appsrc_), buf);
     if (wantFull_.exchange(false)) {
+        std::lock_guard<std::mutex> encoderLock(encoderMu_);
         gst_element_send_event(encoder_, gst_video_event_new_upstream_force_key_unit(GST_CLOCK_TIME_NONE, TRUE, ++keyAsks_));
     }
 }
@@ -283,9 +361,15 @@ void StreamHost::askFullPicture() { wantFull_ = true; }
 
 void StreamHost::applyStep(const Bitrate::Step& step) {
     std::lock_guard<std::mutex> lk(frameMu_);
-    if (encoder_) g_object_set(encoder_, "bitrate", static_cast<guint>(step.kbit), nullptr);
+    kbit_ = step.kbit;
+    {
+        std::lock_guard<std::mutex> encoderLock(encoderMu_);
+        if (encoder_) g_object_set(encoder_, "bitrate", static_cast<guint>(step.kbit), nullptr);
+    }
     capture_.setSize(step.width, step.height);
     wantFull_ = true;
+    std::fprintf(stderr, "[linkup] host: bitrate step %d of %d, %d kbit at %dx%d\n", bitrate_.stepIndex() + 1,
+                 bitrate_.stepCount(), step.kbit, step.width, step.height);
 }
 
 void StreamHost::onStatsReply(GstPromise* promise, gpointer self) {

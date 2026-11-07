@@ -66,6 +66,10 @@ private:
     void pushBlack();
     static gboolean onPrime(gpointer self);
     void applyStep(const Bitrate::Step& step);
+    std::string encoderDescription(int kbit) const;
+    void dropFillerFrom(GstElement* encoder);
+    void replaceEncoder(GstPad* feed);
+    static GstPadProbeReturn onSizeGoing(GstPad* pad, GstPadProbeInfo* info, gpointer self);
     static GstPadProbeReturn dropFiller(GstPad*, GstPadProbeInfo* info, gpointer fillerType);
     static void onStatsReply(GstPromise* promise, gpointer self);
     static gboolean onBus(GstBus*, GstMessage* m, gpointer self);
@@ -82,6 +86,11 @@ private:
     GstElement* mute_ = nullptr;
     std::unique_ptr<Rtc> rtc_;
     std::mutex frameMu_;
+    std::mutex encoderMu_;   // which encoder is the current one: never held across a state change
+    std::atomic<int> kbit_{Bitrate::kTopKbit};
+    std::atomic<bool> closing_{false};
+    int encoderW_ = 0;   // the feeding thread's own
+    int encoderH_ = 0;
     int capsW_ = 0;
     int capsH_ = 0;
     std::atomic<bool> pictureOn_{true};
