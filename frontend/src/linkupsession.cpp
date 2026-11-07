@@ -166,7 +166,8 @@ void App::linkupFollowAccount() {
         linkUp.appearOffline = !cab::readBytes(storage::userDir(storage::currentUser()) + "/linkup-offline").empty();
         refreshLinkUpScreen();
     }
-    if (linkupUserJob.busy()) return;
+    // Off asks RomM nothing: the first frame after LinkUp is turned on asks.
+    if (linkupUserJob.busy() || !linkUp.on) return;
     const int active = accounts::activeId();
     if (active > 0 && linkupUserFor != active && !romm::serverAway()) {
         linkupUserFor = active;
