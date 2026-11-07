@@ -271,6 +271,12 @@ Read before working on a screen, the network, Bluetooth, pairing or first run.
   1080p and 720p changed places over 400 times with none. Test size changes on the A9 and not only on the mini,
   which did all of these without a fault. Why is not known. LinkUp's floor of 720p is a decision of its own
   (docs/decisions/2026-11-07-linkup-picture-floor.md) and stays if this is fixed.
+- **A setting made every frame overrides everyone who sets it once.** The window's see-through background is
+  set by whoever puts something under it, when it starts and when it ends: an emulator of its own, PCSX2's
+  window. LinkUp's live tick set it every frame and listed only the pause menu over one, so PS3, PS2 and
+  Switch games played black under this window while their sound went on, with LinkUp off, on the testing
+  image (2026.11.07.3). The tests had used a SNES game, which this window draws itself. Test a change to
+  the frame loop with an emulator of its own as well as a core.
 - **`fraction-lost` in the WebRTC stats can be half a minute old.** RTCP's arithmetic shares a tiny bandwidth by
   default, and the same stale report reads the same every second. So the steps seemed to react 49 seconds after
   the loss began, sometimes after it ended. Reports are allowed once a second, and the share comes from the

@@ -1199,8 +1199,10 @@ void App::tickLinkUpLive(float dt) {
     linkupFollowGame();
     tickLinkUpSession(dt);
     linkupSendPad(dt);
-    renderer.setTransparentBackground(linkupPictureBehind() || (standaloneRun.active() && overlayOpen) ||
-                                      (standaloneRun.active() && standalonePaused));
+    // The friend's window only: see-through while the picture is behind it, solid while a panel stands
+    // in for it. An emulator of its own and PCSX2's window keep theirs (standalone_play.cpp,
+    // ps2window.cpp): set here every frame, a game of its own went black under this window.
+    if (linkupOverlayMarked) renderer.setTransparentBackground(linkupPictureBehind());
     // A game still downloading says how far.
     if (linkupSide == LinkupSide::Host && here() == Screen::LinkUpPlay) {
         const int64_t total = launchJob.total.load();
