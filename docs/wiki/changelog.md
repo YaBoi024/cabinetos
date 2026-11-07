@@ -10,7 +10,7 @@ one you install, so you only ever install the newest.
   over the whole picture as soon as play started, while their menus and
   cutscenes looked right, and some kept red in the shadows at the Balanced
   and Quality picture levels. They draw right now, at every level.
-  ([#NNN](https://github.com/MMagTech/cabinetos/pull/NNN))
+  ([#664](https://github.com/MMagTech/cabinetos/pull/664))
 
 ## 2026.11.06 {#v2026-11-06}
 
