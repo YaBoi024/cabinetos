@@ -107,6 +107,25 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: ci/check-decisions.sh "${BASE}" "${HEAD}"
 
+  linkup-no-network:
+    name: LinkUp holds no internet in the main program
+    runs-on: ubuntu-24.04
+    env:
+      REPORT_ONLY_UNTIL: '2026-11-14'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: The main program's LinkUp files reach the program by a local socket and nothing else
+        run: |
+          if ! ci/check-linkup-no-network.sh; then
+            if [[ ! "$(date -u +%F)" > "${REPORT_ONLY_UNTIL}" ]]; then
+              echo "::warning::LinkUp's files in the main program hold internet code. Report only until ${REPORT_ONLY_UNTIL} (UTC): passing. From the next day this fails."
+              exit 0
+            fi
+            exit 1
+          fi
+
   licences:
     name: Licences
     runs-on: ubuntu-24.04

@@ -531,6 +531,23 @@ log: Tailscale still answers in the fields the console reads :: systemctl is-act
 tv: Remote Play away from home (only if you use it): a stream over Tailscale shows the picture
 tailscale
 
+# --- LinkUp, its own program (#654) -----------------------------------------
+# GStreamer's webrtcbin and libnice carry a game between two consoles, and gupnp-igd asks a router for
+# its port. The friend's picture is OpenGL on a measurement against Vulkan: Fedora builds GStreamer's
+# Vulkan library for Wayland only, and the session's programs are X11 clients. This fails the day that
+# library links libxcb, so the monthly update's pull request says to measure again.
+area: LinkUp
+log: GStreamer's Vulkan library still cannot draw in X11, so the friend's picture stays on OpenGL :: ! ldd /usr/lib64/libgstvulkan-1.0.so.0 | grep -q libxcb
+log: LinkUp's program finds all it links :: ! ldd /usr/libexec/cabinetos-linkup | grep -q 'not found'
+log: GStreamer can gather LinkUp's connections :: gst-inspect-1.0 --exists nicesrc && gst-inspect-1.0 --exists webrtcbin
+tv: LinkUp (only if you use it): a game with a friend shows the picture and takes their presses
+gstreamer1
+gstreamer1-plugins-base
+gstreamer1-plugins-bad-free
+libnice
+libnice-gstreamer1
+gupnp-igd
+
 # --- Xbox and Switch, from Flathub ------------------------------------------
 # xemu and Eden are flatpaks (system_files/usr/share/cabinetos/flatpaks.list),
 # installed at first boot by cabinetos-flatpak-setup and started with

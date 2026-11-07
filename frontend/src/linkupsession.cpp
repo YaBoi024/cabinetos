@@ -492,8 +492,9 @@ void App::linkupTellPeer(const std::string& word) {
 
 // The two consoles are connected. On the host the game starts, so that both begin at its title screen.
 void App::linkupConnected(const std::string& path) {
-    std::fprintf(stderr, "[linkup] connected to %s: %s\n", linkupSide == LinkupSide::Host ? linkupGuest.c_str() : linkupHost.c_str(),
-                 path.c_str());
+    // Direct or relay goes to the log only, and no name goes with it: the report is made to be attached
+    // to a public issue.
+    std::fprintf(stderr, "[linkup] connected: %s\n", path.c_str());
     // Back from a drop on a new connection: everything already stands.
     if (linkupStreamUp) return;
     linkupStreamUp = true;
@@ -562,10 +563,12 @@ void App::linkupSeatFriend() {
     players::seatFriend(id);
     linkupFriendPad = linkupwire::Pad{};
     linkupVpadSaid = linkupwire::Pad{};
+    linkupLastPadSeq = 0;
 }
 
 void App::linkupUnseatFriend() {
     if (!linkupFriendJoystick) return;
+    std::fprintf(stderr, "[linkup] heard %u states of the friend's pad\n", static_cast<unsigned>(linkupLastPadSeq));
     players::unseatFriend();
     SDL_DetachVirtualJoystick(linkupFriendJoystick);
     linkupFriendJoystick = 0;
@@ -1122,9 +1125,22 @@ void App::runLinkUpScript() {
             linkupGuestId = f->id;
             linkupGuest = f->name;
             linkupGameId = std::atoi(b.c_str());
+            // As --launch does (testhooks.cpp): nothing has walked into this game's grid.
             std::string title = "Game " + b;
+            bool known = false;
             for (const romm::Game& g : games)
-                if (g.id == linkupGameId) title = g.name;
+                if (g.id == linkupGameId) {
+                    title = g.name;
+                    known = true;
+                }
+            if (!known) {
+                romm::Game g;
+                std::string err;
+                if (liveClient.fetchGame(linkupGameId, &g, &err)) {
+                    title = g.name;
+                    appendGame(lib, g);
+                }
+            }
             goToDestination(BarLinkUp);
             linkupInvite(title);
         }
@@ -1153,7 +1169,7 @@ void App::runLinkUpScript() {
         refreshLinkUpScreen();
     } else if (!word.empty()) std::fprintf(stderr, "[linkup] script: no step %s\n", word.c_str());
     if (!done) return;
-    std::fprintf(stderr, "[linkup] script: %s\n", step.c_str());
+    std::fprintf(stderr, "[linkup] script: %s\n", word.c_str());
     linkupScript = semi == std::string::npos ? std::string() : linkupScript.substr(semi + 1);
 }
 

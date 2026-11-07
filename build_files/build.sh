@@ -93,6 +93,11 @@ for expected in \
     /usr/libexec/cabinetos-steam \
     /usr/lib/systemd/system/cabinetos-steam@.service \
     /usr/share/polkit-1/rules.d/66-cabinetos-steam.rules \
+    /usr/libexec/cabinetos-linkup-firewall \
+    /usr/lib/systemd/system/cabinetos-linkup.service \
+    /usr/lib/systemd/system/cabinetos-linkup-lock.service \
+    /usr/lib/sysusers.d/cabinetos-linkup.conf \
+    /usr/share/polkit-1/rules.d/69-cabinetos-linkup.rules \
     /usr/libexec/cabinetos-pads \
     /usr/lib/systemd/system/cabinetos-pads@.service \
     /usr/share/polkit-1/rules.d/67-cabinetos-pads.rules \
@@ -236,6 +241,9 @@ log "base image has $(wc -l < /usr/share/cabinetos/packages-before-strip.txt) pa
 # Sunshine, for Remote Play (#286): Sunshine's own Fedora package, pinned and
 # checksummed. After the strip, so nothing it pulls in is taken out again.
 /ctx/install-sunshine.sh
+
+# What LinkUp needs (#654), for the same reason.
+/ctx/install-linkup.sh
 
 # ---------------------------------------------------------------------------
 # Enable SSH.

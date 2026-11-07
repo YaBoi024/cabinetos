@@ -47,6 +47,7 @@ on:
     paths:
       - 'frontend/**'
       - 'wiibridge/**'
+      - 'linkup/**'
       - 'cores/options/**'
       - '.github/workflows/build-frontend.yml'
   workflow_dispatch:
@@ -60,6 +61,7 @@ on:
 # same way: set this a week ahead in its pull request.
 env:
   REPORT_ONLY_UNTIL: '2026-10-25'
+  LINKUP_REPORT_ONLY_UNTIL: '2026-11-14'
 
 jobs:
   build:
@@ -125,6 +127,29 @@ jobs:
             exit 1
           fi
 
+      # LINKUP'S PROGRAM (#654, linkup/): its own program, in the same container, so a firewall can tell
+      # it from the frontend. Built here so the image carries it beside the frontend that starts it. It
+      # borrows the frontend's fileio.cpp and linkup_wire.h, so the whole repository is mounted.
+      - name: Compile LinkUp
+        run: |
+          set -euo pipefail
+          podman run --rm -v "$PWD":/repo:Z -w /repo/linkup cabinetos-builder \
+            make -j"$(nproc)" cabinetos-linkup 2>&1 | tee -a /tmp/build.log
+
+      # ITS NOISE, HELD TO THE PUBLISHED VECTORS AND THE SERVER'S OWN ANSWERS (linkup/noise-test.cpp): no
+      # network and no hardware. Report only until LINKUP_REPORT_ONLY_UNTIL, then a failure, as every
+      # new check here starts.
+      - name: Test LinkUp's Noise
+        run: |
+          set -euo pipefail
+          if ! podman run --rm -v "$PWD":/repo:Z -w /repo/linkup cabinetos-builder make test; then
+            if [[ ! "$(date -u +%F)" > "${LINKUP_REPORT_ONLY_UNTIL}" ]]; then
+              echo "::warning::LinkUp's Noise test failed. Report only until ${LINKUP_REPORT_ONLY_UNTIL} (UTC): passing. From the next day this fails."
+              exit 0
+            fi
+            exit 1
+          fi
+
       # EVERY OPTION VALUE THE CONSOLE SETS, AGAINST WHAT EACH CORE DECLARES
       # (#63, the version-bump check, frontend/src/optcheck.h). A table that
       # names a key a core does not have, or a value it does not accept,
@@ -168,7 +193,8 @@ jobs:
           mkdir -p artifact/bin
           cp frontend/build/cabinetos-frontend artifact/bin/
           cp wiibridge/cabinetos-wii-bridge artifact/bin/
-          file artifact/bin/cabinetos-frontend artifact/bin/cabinetos-wii-bridge
+          cp linkup/cabinetos-linkup artifact/bin/
+          file artifact/bin/cabinetos-frontend artifact/bin/cabinetos-wii-bridge artifact/bin/cabinetos-linkup
 
       - name: Upload the frontend
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
