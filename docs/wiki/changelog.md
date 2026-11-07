@@ -4,6 +4,14 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## Next
+
+- **Fixed:** PlayStation 3 games made with Unreal Engine 3 drew red speckle
+  over the whole picture as soon as play started, while their menus and
+  cutscenes looked right, and some kept red in the shadows at the Balanced
+  and Quality picture levels. They draw right now, at every level.
+  ([#NNN](https://github.com/MMagTech/cabinetos/pull/NNN))
+
 ## 2026.11.06 {#v2026-11-06}
 
 - **Fixed:** on a PC with two graphics chips, such as a gaming laptop or a
