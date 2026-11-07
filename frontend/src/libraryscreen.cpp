@@ -30,9 +30,10 @@ void LibraryScreen::setPlatformsOnly(bool on) {
     if (on) tab_ = 0;
 }
 
-void LibraryScreen::setSessionLine(std::string line, ui::Color dot) {
+void LibraryScreen::setSessionLine(std::string line) {
     sessionLine_ = std::move(line);
-    sessionDot_ = dot;
+    // A heading holds no focus, so focus starts on the tiles under it.
+    if (!sessionLine_.empty() && row_ == 0) focusTile(rememberedTileSlot_);
 }
 
 void LibraryScreen::build(std::vector<Tile> platforms, std::vector<Tile> collections) {
@@ -184,6 +185,8 @@ void LibraryScreen::moveFocus(int dx, int dy) {
     const Layout L = layout(0.0f);
     const int r = L.rowOf[static_cast<size_t>(slot_)];
     if (dy < 0 && r == 0) {
+        // The session's heading holds no focus: nothing is above the top row.
+        if (!sessionLine_.empty()) return;
         // Off the top row and back to the switcher, which is where the person
         // came in. Remembered, so coming back down lands where they left.
         leave();
@@ -452,7 +455,9 @@ void LibraryScreen::drawGlass(Ctx& c) {
     // The switcher: Platforms and Collections as capsule pills. It is the only
     // heading this screen gets — the navigation bar already says "Library", and
     // a screen title that repeats the tab is chrome the reference
-    // implementation deliberately removed.
+    // implementation deliberately removed. LinkUp's next game is the one time
+    // something else stands here: who the session is with, in the same row, so
+    // the tiles stay where they were.
     //
     // IT SCROLLS WITH THE TILES, which is what "a pushed page carries its title
     // as ordinary content at the top of its own SCROLL VIEW, never as system
@@ -467,21 +472,18 @@ void LibraryScreen::drawGlass(Ctx& c) {
     // The TEXT starts on the margin, the same as Home's shelf headings and the
     // bar above. drawPill puts its focus capsule outside that.
     float x = design::kLibraryInset;
+    if (!sessionLine_.empty()) {
+        const ui::TextStyle st = ui::TextStyle::Title2;
+        const float h = pillHeight(c.text, c.sc);
+        c.text.draw(c.r, c.text.truncate(sessionLine_, st, c.sc, ui::kCanvasWidth - design::kLibraryInset * 2.0f), x,
+                    y + (h - c.text.lineHeight(st, c.sc)) * 0.5f + c.text.ascent(st, c.sc), st,
+                    ui::Color::white(1.0f), c.sc);
+        return;
+    }
     for (int i = 0; i < (platformsOnly_ ? 1 : 2); ++i) {
         const float f = (row_ == 0 && slot_ == i) ? pillFocus_[i].value() : 0.0f;
         drawPill(c, kLabels[i], x, y, tab_ == i, f);
         x += pillWidth(c.text, kLabels[i], c.sc) + design::kPillGap;
-    }
-    if (!sessionLine_.empty()) {
-        const ui::TextStyle st = ui::TextStyle::Callout;
-        const float h = pillHeight(c.text, c.sc);
-        constexpr float kDot = 16.0f, kDotGap = 14.0f;
-        const float lineX = ui::kCanvasWidth - design::kLibraryInset -
-                            c.text.measure(sessionLine_, st, c.sc);
-        c.r.draw(ui::Rect{lineX - kDot - kDotGap, y + (h - kDot) * 0.5f, kDot, kDot, kDot * 0.5f, sessionDot_});
-        c.text.draw(c.r, sessionLine_, lineX,
-                    y + (h - c.text.lineHeight(st, c.sc)) * 0.5f + c.text.ascent(st, c.sc), st,
-                    ui::Color::white(0.80f), c.sc);
     }
 }
 

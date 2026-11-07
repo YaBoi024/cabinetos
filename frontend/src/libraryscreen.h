@@ -69,8 +69,9 @@ public:
     // LinkUp's invite picks from the platforms alone, because a collection can
     // hold the handheld systems it does not cover.
     void setPlatformsOnly(bool on);
-    // LinkUp's next game: who the session is with, beside the switcher. Empty for none.
-    void setSessionLine(std::string line, ui::Color dot);
+    // LinkUp's next game: who the session is with, as a heading in the switcher's place.
+    // Empty for none.
+    void setSessionLine(std::string line);
 
     // FOCUS LANDS ON THE SWITCHER THE FIRST TIME AND ONLY THE FIRST TIME.
     // Re-entering from a pushed screen must leave focus where back-navigation
@@ -154,7 +155,6 @@ private:
     int tab_ = 0;              // 0 platforms, 1 collections
     bool platformsOnly_ = false;
     std::string sessionLine_;
-    ui::Color sessionDot_ = ui::Color::white(1.0f);
     bool entered_ = false;     // has this screen ever been arrived at
     // Row 0 is the switcher; rows 1.. are the tile grid.
     int row_ = 0;

@@ -182,14 +182,13 @@ void App::linkupGameQuit() {
     linkupPickGame(linkupGuest);
     linkupNextOpen = true;
     linkupNextLeft = linkup::kNextGameSeconds;
-    libraryScreen.setSessionLine(linkup::linkedUpWith(linkupGuest),
-                                 screens::LinkUpScreen::dotColour(linkUp.friends, linkupGuest));
+    libraryScreen.setSessionLine(linkup::playingWith(linkupGuest));
 }
 
 void App::linkupNextClose() {
     linkupNextOpen = false;
     linkupNextLeft = 0.0f;
-    libraryScreen.setSessionLine("", ui::Color::white(1.0f));
+    libraryScreen.setSessionLine("");
 }
 
 void App::linkupNextStarts(const std::string& game) {

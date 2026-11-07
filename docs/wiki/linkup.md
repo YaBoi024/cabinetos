@@ -52,7 +52,7 @@ show Offline after 15 minutes with no press, when the screen is off, while the c
 - **Saves, states and achievements are yours.** Nothing from the game is kept on your friend's console.
 - **If the connection drops,** the game pauses on both with *Reconnecting to Alex*. After a minute, *Alex left*, and
   your game carries on as a normal game.
-- **If you leave the game,** the session stays open: you land on the game list with *Linked up with Alex*, and the
+- **If you leave the game,** the session stays open: you land on the game list with *Playing with Alex*, and the
   next game you pick starts on both with no new invite. **B** there ends the session.
 - **After 10 minutes with no press from either of you,** the game pauses on both. After 15 more, the session ends,
   and your game stays paused on your TV.

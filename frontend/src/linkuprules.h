@@ -89,7 +89,7 @@ std::string endedSession(const std::string& who);
 std::string notAvailable(const std::string& who);
 std::string cantConnectTo(const std::string& who);
 std::string inviteEnded(const std::string& who);
-std::string linkedUpWith(const std::string& who);
+std::string playingWith(const std::string& who);
 std::string endSessionQuestion(const std::string& who);
 std::string sessionEndedWith(const std::string& who);
 std::string leaveQuestion(const std::string& who);

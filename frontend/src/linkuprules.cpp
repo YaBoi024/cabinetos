@@ -107,7 +107,7 @@ std::string endedSession(const std::string& who) { return who + " ended the sess
 std::string notAvailable(const std::string& who) { return who + " isn't available"; }
 std::string cantConnectTo(const std::string& who) { return "Can't connect to " + who; }
 std::string inviteEnded(const std::string& who) { return who + "'s invite ended"; }
-std::string linkedUpWith(const std::string& who) { return "Linked up with " + who; }
+std::string playingWith(const std::string& who) { return "Playing with " + who; }
 std::string endSessionQuestion(const std::string& who) { return "End the session with " + who + "?"; }
 std::string sessionEndedWith(const std::string& who) { return "Session with " + who + " ended"; }
 std::string leaveQuestion(const std::string& who) { return "Leave " + who + "'s game?"; }
