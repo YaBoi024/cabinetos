@@ -11,6 +11,7 @@ one you install, so you only ever install the newest.
   press the bar that is filling, then **Stop**; **Keep going** or **B** leaves
   it running. What had arrived is cleared, and Play or Download starts it
   again from the beginning.
+  ([#663](https://github.com/MMagTech/cabinetos/pull/663))
 
 ## 2026.11.06 {#v2026-11-06}
 
