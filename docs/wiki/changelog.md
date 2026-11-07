@@ -8,8 +8,8 @@ one you install, so you only ever install the newest.
 
 - **New:** a download you no longer want can be stopped. Until now it ran to
   the end, and no other game would download until it did. On the game's page,
-  press the bar that is filling, then **Stop**; **Keep going** or **B** leaves
-  it running. What had arrived is cleared, and Play or Download starts it
+  press the bar that is filling, then **Stop**; **Cancel** or **B** leaves it
+  running. What had arrived is cleared, and Play or Download starts it
   again from the beginning.
   ([#663](https://github.com/MMagTech/cabinetos/pull/663))
 

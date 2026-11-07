@@ -139,38 +139,38 @@ void App::removeDownload(int romId) {
 // (launchById). On slow Wi-Fi a wrong press on a big game tied the console
 // up for an hour (a player's report, 2026-11-06). The row asks first, as
 // Remove download does (#188): a mis-press would cost whatever had arrived.
-// Keep going is focused, and B is the same answer. Stop sets the job's
-// cancel, which the worker answers at every step (#472): the job ends
-// Failed, the keep comes out, the half-written file goes, and the page says
-// nothing (takeFinishedJob, a cancel says nothing). One question for every
-// stage, unpacking and installing included: a player calls all of it the
-// download, and the row's own word is under the scrim. The line under the
-// question is the game's size, as under Remove's, never the progress: a
-// number that stood still while the row behind it moved would read as
-// stuck, and a number that moved would move the panel's width.
-// docs/decisions/2026-11-06-stop-a-download-from-its-row.md.
+// Cancel is focused, and B is the same answer. Stop sets the job's cancel,
+// which the worker answers at every step (#472): the job ends Failed, the
+// keep comes out, the half-written file goes, and the page says nothing
+// (takeFinishedJob, a cancel says nothing). One question for every stage,
+// unpacking and installing included: a player calls all of it the
+// download, and the row's own word is under the scrim.
+//
+// THE USUAL BOX, AND NOTHING MORE (MMagTech at the TV, 2026-11-06). The
+// first version said "Stop downloading <game>?" over the game's size, with
+// Keep going and Stop: the name made the box wide for nothing, since it
+// sits under the game's own title, and Keep going is not a word the
+// console uses. Now it is the question every other box asks: a verb and
+// the thing, "this" for a thing already on the screen (Format this drive?,
+// Remove this Wii Remote?), Cancel first as the storage boxes have it, and
+// no line under it: the size is on the page two lines up, and the bar is
+// under the scrim. docs/decisions/2026-11-06-stop-a-download-from-its-row.md.
 namespace {
-constexpr const char* kStopTitle = "Stop downloading ";
+constexpr const char* kStopTitle = "Stop this download?";
 }
 
 void App::pressStopDownload(const screens::Result& res) {
     const int romId = res.value;
     if (!launchJob.busy() || launchJob.romId != romId) return;
-    int64_t bytes = launchJob.total.load();
-    if (bytes <= 0)
-        for (const romm::Game& g : games) if (g.id == romId) { bytes = g.sizeBytes; break; }
     sound::play(sound::Cue::Activate);
-    askChoice(kStopTitle + launchJob.title + "?",
-              bytes > 0 ? screens::sizeText(bytes) : std::string(),
-              {"Keep going", "Stop"}, 0, [&, romId](int answer) {
-                  if (answer != 1) return;
-                  // Ended while the question was up (followStopAsk closes the
-                  // box then, but the answer can land the same frame).
-                  if (!launchJob.busy() || launchJob.romId != romId) return;
-                  std::fprintf(stderr, "[download] %s stopped from its page\n",
-                               launchJob.title.c_str());
-                  launchJob.cancel = true;
-              });
+    askChoice(kStopTitle, "", {"Cancel", "Stop"}, 0, [&, romId](int answer) {
+        if (answer != 1) return;
+        // Ended while the question was up (followStopAsk closes the box
+        // then, but the answer can land the same frame).
+        if (!launchJob.busy() || launchJob.romId != romId) return;
+        std::fprintf(stderr, "[download] %s stopped from its page\n", launchJob.title.c_str());
+        launchJob.cancel = true;
+    });
 }
 
 // THE QUESTION GOES WITH ITS DOWNLOAD. Finished (a Play about to start, a
@@ -179,8 +179,7 @@ void App::pressStopDownload(const screens::Result& res) {
 // page, or sit over the game. Known by its title, as the Formatting box is
 // (followDrives). Each frame, with the other follow-ups (frame.cpp).
 void App::followStopAsk() {
-    if (!choiceScreen.isOpen() || launchJob.busy() ||
-        choiceScreen.title().rfind(kStopTitle, 0) != 0)
+    if (!choiceScreen.isOpen() || launchJob.busy() || choiceScreen.title() != kStopTitle)
         return;
     choiceScreen.close();
     choiceThen = nullptr;
