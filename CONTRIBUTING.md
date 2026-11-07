@@ -102,7 +102,8 @@ podman run --rm -v "$PWD":/repo:Z -w /repo/linkup cabinetos-builder make cabinet
 
 Like the bridge's, its Makefile lists its files by hand. `make test` there builds and runs
 `linkup/noise-test.cpp`: its hand-written Noise against the published vectors and the server's own
-answers, no network and no hardware. `tools/linkup-interop.sh` holds the rest of what it says to a server
+answers, names cleaned on the way in, sealed boxes that do not fit, and what an address means, no network
+and no hardware. `tools/linkup-interop.sh` holds the rest of what it says to a server
 against two real containers, on a Linux machine with podman; `make linkup-probe` builds what it drives.
 What a console and a server say is `PROTOCOL.md` in MMagTech/cabinet-linkup, which is private until
 LinkUp ships. `--linkup-gallery` shows every screen with made-up friends and needs no server;

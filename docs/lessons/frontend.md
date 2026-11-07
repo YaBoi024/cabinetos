@@ -262,3 +262,23 @@ Read before working on a screen, the network, Bluetooth, pairing or first run.
   others. The published vectors caught this the first time they ran.
 - **A console that keeps checking in never counts as silent on the server,** so a program that dies in a session
   would leave two people Linked up for a day. It keeps the session's id on disk and ends it when it comes back.
+- **A VA encoder cannot change size,** and the error reads like a driver fault: "Failed to import the input
+  frame", and the picture stops for good. It keeps the pool made for its first frame. A new size needs a new
+  encoder, swapped as the caps go past on their way to the old one.
+- **Opening a new encoder can hang the video engine.** On the A9, 720p to anything smaller and 900p to 720p hung
+  `vcn_unified_0` within a few changes, with no game running, for both codecs. A 20-line loop with no stream
+  showed it. The ring reset leaves the game running, but Mesa then aborts the program that held the context.
+  1080p and 720p changed places over 400 times with none. Test size changes on the A9 and not only on the mini,
+  which did all of these without a fault. Why is not known.
+- **`fraction-lost` in the WebRTC stats can be half a minute old.** RTCP's arithmetic shares a tiny bandwidth by
+  default, and the same stale report reads the same every second. So the steps seemed to react 49 seconds after
+  the loss began, sometimes after it ended. Reports are allowed once a second, and the share comes from the
+  running totals in `gst-rtpsource-stats`.
+- **Turning off `do-nack` for sound also stopped the picture being resent** (147 full pictures asked for in a
+  minute against 3), though webrtcbin takes it per transceiver. Sound's resend requests stay on: a quarter of its
+  packets look missing on a clean network, which costs a few RTCP packets a second and nothing else.
+- **A relay's connection outlives its session unless the server ends it.** Pion keeps one for its 10 minutes, and
+  the console's own request to end it is refused once the session has ended. The next game from that port (one of
+  five) is turned away with 437, so forced relay failed about 4 games in 10. The server now closes them itself.
+- **`g_main_context_invoke` runs on the calling thread when no loop owns the context,** as while shutting down.
+  A worker's event stopped a stream the main thread was already stopping. `Rtc::onMain` never does that.
