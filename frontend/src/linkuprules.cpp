@@ -105,6 +105,7 @@ std::string pausedBy(const std::string& who) { return who + " paused"; }
 std::string reconnectingTo(const std::string& who) { return "Reconnecting to " + who; }
 std::string endedSession(const std::string& who) { return who + " ended the session"; }
 std::string notAvailable(const std::string& who) { return who + " isn't available"; }
+std::string cantConnectTo(const std::string& who) { return "Can't connect to " + who; }
 std::string inviteEnded(const std::string& who) { return who + "'s invite ended"; }
 std::string linkedUpWith(const std::string& who) { return "Linked up with " + who; }
 std::string endSessionQuestion(const std::string& who) { return "End the session with " + who + "?"; }
@@ -112,10 +113,21 @@ std::string sessionEndedWith(const std::string& who) { return "Session with " + 
 std::string leaveQuestion(const std::string& who) { return "Leave " + who + "'s game?"; }
 std::string needsUpdate(const std::string& who) { return who + "'s console needs an update"; }
 
+bool handheldSystem(const std::string& slug) {
+    static const char* const kHandhelds[] = {
+        "gb", "gbc", "gba", "nds", "nintendo-dsi", "3ds", "n3ds", "new-nintendo-3ds", "psp", "psvita", "gamegear",
+        "game-gear", "lynx", "ngp", "neo-geo-pocket", "ngpc", "neo-geo-pocket-color", "wonderswan", "wonderswan-color",
+        "virtualboy", "virtual-boy", "pokemon-mini", "supervision", "game-com", "gw", "game-and-watch"};
+    for (const char* h : kHandhelds)
+        if (slug == h) return true;
+    return false;
+}
+
 namespace {
 constexpr int kCodeLength = 12;
 constexpr int kCodeGroup = 4;
-// No 0, O, 1, I or L, which read alike on a television and on a phone.
+// No 0, O, 1, I or L, which read alike on a television and on a phone. What a reader accepts
+// (PROTOCOL.md), which is wider than what a code is drawn from.
 constexpr const char* kCodeLetters = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 }  // namespace
 
@@ -150,6 +162,8 @@ int test() {
     check(tidyCode("k7mr 4qxt-9hpv") == "K7MR-4QXT-9HPV", "a code comes back upper case and grouped");
     check(tidyCode("K7MR") == "K7MR", "a part of a code is not grouped past what there is");
     check(tidyCode("0O1IL") == "", "the look-alikes are dropped");
+    check(handheldSystem("gba") && handheldSystem("psp") && !handheldSystem("snes") && !handheldSystem("ps3"),
+          "a handheld has no second port, and a console does");
     check(tidyCode("K7MR4QXT9HPVABCD") == "K7MR-4QXT-9HPV", "a code stops at 12 characters");
     check(codeComplete("K7MR-4QXT-9HPV"), "12 characters in 3 groups is complete");
     check(!codeComplete("K7MR-4QXT"), "8 characters is not");

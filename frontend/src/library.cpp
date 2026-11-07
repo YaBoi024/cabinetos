@@ -328,6 +328,7 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
             updatedAt = std::max(updatedAt, m.updatedAt);
         }
         tile.query = platformsQuery(ids);
+        tile.slug = group.front().slug;
         tile.title = catalog::displayName(p);
         tile.namesFolder = arcadematch::isArcadeSlug(p.slug);
         tile.enterable = (cov.support == catalog::Support::Playable);

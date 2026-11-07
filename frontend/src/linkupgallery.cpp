@@ -91,10 +91,6 @@ void App::linkupGalleryLibrary() {
     libraryScreen.build({snes, wii, ps2, arcade}, {});
 }
 
-void App::linkupGalleryLibraryBack() {
-    if (linkupGallery) libraryScreen.build(platformTiles, collectionTiles);
-}
-
 // A press on one of the made-up tiles above: they live in no server's list.
 bool App::linkupGalleryOpenTile(const screens::Result& res) {
     if (!linkupGallery || !linkUp.picking) return false;
@@ -122,6 +118,7 @@ void App::linkupGalleryJoined(const std::string& game) {
 
 void App::linkupGalleryTick(float dt) {
     if (!linkupGallery) return;
+    linkupPlay.setStandIn(true);
     if (linkupGalleryAt < 0) {
         linkupGalleryShow(std::clamp(linkupGalleryFirst() + linkupGalleryStart, linkupGalleryFirst(),
                                      linkupGalleryLast()));

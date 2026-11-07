@@ -252,6 +252,9 @@ struct User {
     // is only reachable through `/api/users/<id>/avatar`, which answers a
     // 1200x1200 PNG. So the endpoint is what gets stored.
     std::string avatarPath;
+    // RomM's `created_at`: with the id, what tells this person from user 1 on another server,
+    // since RomM has no id for a whole server (LinkUp's account, #654).
+    std::string createdAt;
 };
 
 // An in-flight pairing. Short-lived: RomM expires these in minutes.

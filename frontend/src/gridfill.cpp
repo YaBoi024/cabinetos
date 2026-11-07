@@ -46,7 +46,7 @@ bool App::takeGridPages(GridFill& f, bool toScreen) {
         const int i = appendGame(lib, g);
         // In the server's order, as the first page (gridOrder).
         t->cards.push_back(i);
-        if (toScreen) added.push_back(i);
+        if (toScreen && (!linkUp.picking || linkupFriendCanPlay(i))) added.push_back(i);
     }
     if (toScreen) gridScreen.append(added, cards);
     return ended;
@@ -192,7 +192,16 @@ void App::openTile(const screens::Result& res) {
     const screens::LineNames names = isCollection     ? screens::LineNames::System
                                      : t->namesFolder ? screens::LineNames::Folder
                                                       : screens::LineNames::Nothing;
-    gridScreen.open(t->title, names, gridOrder(lib, *t), cards);
+    std::vector<int> order = gridOrder(lib, *t);
+    // Inviting: what a friend cannot play is not on the list, and a system left with none has no grid.
+    if (linkUp.picking) {
+        order.erase(std::remove_if(order.begin(), order.end(), [&](int i) { return !linkupFriendCanPlay(i); }), order.end());
+        if (order.empty() && t->fetched >= t->total) {
+            sound::play(sound::Cue::Edge);
+            return;
+        }
+    }
+    gridScreen.open(t->title, names, order, cards);
     gridTileQuery = t->query;
     gridReadId = t->readId;
     fillGrid(*t);

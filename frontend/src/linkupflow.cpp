@@ -7,6 +7,8 @@
 
 #include <string>
 
+#include <json-c/json.h>
+
 #include "accounts.h"
 #include "linkuprules.h"
 
@@ -47,13 +49,15 @@ void App::linkupAskPin(const std::string& detail, std::function<void()> then) {
 
 void App::pressLinkUpSwitch() {
     if (linkUp.on) {
-        linkUp.on = false;
+        if (linkupGallery) linkUp.on = false;
+        else linkupSetSwitch(false);
         buildSettings();
         sound::play(sound::Cue::Activate);
         return;
     }
     linkupAskPin("To turn on LinkUp", [&]() {
-        linkUp.on = true;
+        if (linkupGallery) linkUp.on = true;
+        else linkupSetSwitch(true);
         buildSettings();
         sound::play(sound::Cue::Activate);
     });
@@ -90,14 +94,19 @@ void App::linkupAskCode(const std::string& address, const std::string& typed) {
             linkupAskCode(address, code);
             return;
         }
+        if (!linkupGallery) {
+            linkupBeginPairing(address, code);
+            return;
+        }
         linkupPairingAddress = address;
         linkupPairingLeft = 1.2f;
         menuNotice.say("Pairing\xE2\x80\xA6", Tone::Busy);
     };
 }
 
-// The answer to a pairing. The real one comes from the LinkUp program.
+// Before the frame is drawn (frame.cpp), which is what the picture rule needs (linkupsession.cpp).
 void App::tickLinkUp(float dt) {
+    tickLinkUpLive(dt);
     if (linkupWaitEndsIn > 0.0f) {
         linkupWaitEndsIn -= dt;
         linkupPlay.setFade(design::easeInOut((linkupWaitEndsIn - kWaitEndsGap) / kWaitEndsFade));
@@ -116,7 +125,10 @@ void App::tickLinkUp(float dt) {
                 buildSettings();
                 menuNotice.text.clear();
             } else {
+                // Nothing came back at all: the program never got as far as asking.
+                linkupPairingCode.clear();
                 menuNotice.say("Can't reach that server", Tone::Problem);
+                if (!linkUp.paired) linkupWantProgram(false);
             }
         }
     }
@@ -140,6 +152,12 @@ void App::linkupRetypeAddress() {
     keyboardThen = [&](ui::KeyboardResult r) {
         if (r != ui::KeyboardResult::Committed) return;
         linkUp.server = keyboard.value();
+        if (!linkupGallery) {
+            json_object* c = json_object_new_object();
+            json_object_object_add(c, "cmd", json_object_new_string("retype"));
+            json_object_object_add(c, "address", json_object_new_string(linkUp.server.c_str()));
+            linkupSend(c);
+        }
         buildSettings();
     };
 }
@@ -174,6 +192,12 @@ void App::pressLinkUpLeave() {
     linkupPanel("Leave " + linkUp.server + "?", "", {"Leave", "Cancel"}, 1, [&](int c) {
         if (c != 0) return;
         linkupAskPin("To leave this server", [&]() {
+            if (!linkupGallery) {
+                json_object* c = json_object_new_object();
+                json_object_object_add(c, "cmd", json_object_new_string("leave"));
+                linkupSend(c);
+                return;
+            }
             linkUp.paired = false;
             linkUp.server.clear();
             buildSettings();

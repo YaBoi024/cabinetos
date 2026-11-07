@@ -42,10 +42,12 @@ void onGlobal(void* data, uint32_t id, uint32_t, const char* type, uint32_t, con
     }
 }
 
-const pw_registry_events kRegistryEvents = {
-    .version = PW_VERSION_REGISTRY_EVENTS,
-    .global = onGlobal,
-};
+const pw_registry_events* registryEvents() {
+    static pw_registry_events events = {};
+    events.version = PW_VERSION_REGISTRY_EVENTS;
+    events.global = onGlobal;
+    return &events;
+}
 
 void onCoreDone(void* data, uint32_t, int seq) {
     auto* f = static_cast<Find*>(data);
@@ -55,10 +57,12 @@ void onCoreDone(void* data, uint32_t, int seq) {
     }
 }
 
-const pw_core_events kCoreEvents = {
-    .version = PW_VERSION_CORE_EVENTS,
-    .done = onCoreDone,
-};
+const pw_core_events* coreEvents() {
+    static pw_core_events events = {};
+    events.version = PW_VERSION_CORE_EVENTS;
+    events.done = onCoreDone;
+    return &events;
+}
 
 const spa_pod* buildFormat(spa_pod_builder* b, int askW, int askH) {
     spa_rectangle def = {static_cast<uint32_t>(askW), static_cast<uint32_t>(askH)};
@@ -106,9 +110,9 @@ uint32_t Capture::findNode(int gamescopePid) {
     if (f.core) {
         spa_hook coreHook{};
         spa_hook registryHook{};
-        pw_core_add_listener(f.core, &coreHook, &kCoreEvents, &f);
+        pw_core_add_listener(f.core, &coreHook, coreEvents(), &f);
         pw_registry* registry = pw_core_get_registry(f.core, PW_VERSION_REGISTRY, 0);
-        pw_registry_add_listener(registry, &registryHook, &kRegistryEvents, &f);
+        pw_registry_add_listener(registry, &registryHook, registryEvents(), &f);
         f.syncSeq = pw_core_sync(f.core, PW_ID_CORE, 0);
         while (!f.done) {
             timespec until{};

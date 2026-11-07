@@ -15,12 +15,18 @@ namespace linkup {
 enum class Status { InvitedYou, InGame, Online, Offline };
 
 struct Friend {
+    Friend() = default;
+    Friend(std::string who, std::string where, Status s, std::string what)
+        : name(std::move(who)), from(std::move(where)), status(s), game(std::move(what)) {}
     std::string name;      // their RomM username
     // Their server's name or the owner's note, shown beside the name only when
     // two lines would otherwise read the same (nameOnList).
     std::string from;
     Status status = Status::Offline;
     std::string game;      // what they invited you to, under InvitedYou
+    std::string id;        // who they are to the server
+    std::string invite;    // the invite waiting from them, under InvitedYou
+    int stream = 0;        // the stream version their console last stated
 };
 
 // What the screen and the Settings rows show. Off and with no server, this is
@@ -65,6 +71,7 @@ inline const std::string kThisNeedsUpdate = "Console needs an update";
 inline const std::string kServerNeedsUpdate = "LinkUp server needs an update";
 inline const std::string kCantConnect = "Can't connect to the LinkUp server";
 inline const std::string kConsoleRemoved = "Removed from the LinkUp server";
+inline const std::string kStillPlaying = "Still playing?";
 inline const std::string kRepositoryUrl = "https://github.com/MMagTech/cabinet-linkup";
 // How long the person hosting has to pick the next game before the session ends.
 constexpr float kNextGameSeconds = 5.0f * 60.0f;
@@ -80,12 +87,16 @@ std::string pausedBy(const std::string& who);
 std::string reconnectingTo(const std::string& who);
 std::string endedSession(const std::string& who);
 std::string notAvailable(const std::string& who);
+std::string cantConnectTo(const std::string& who);
 std::string inviteEnded(const std::string& who);
 std::string linkedUpWith(const std::string& who);
 std::string endSessionQuestion(const std::string& who);
 std::string sessionEndedWith(const std::string& who);
 std::string leaveQuestion(const std::string& who);
 std::string needsUpdate(const std::string& who);
+
+// A system with no second controller port, whose games a friend cannot join.
+bool handheldSystem(const std::string& slug);
 
 // A pairing code is 12 characters in 3 groups of 4, with no look-alikes. What
 // was typed comes back upper case and grouped, anything else dropped.

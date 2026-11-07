@@ -153,8 +153,14 @@ void Conductor::shutDown() {
 // ---- The main program ----------------------------------------------------
 
 void Conductor::onClient(bool connected) {
-    if (connected) std::fprintf(stderr, "[linkup] the main program is here\n");
-    else std::fprintf(stderr, "[linkup] the main program has gone\n");
+    std::fprintf(stderr, connected ? "[linkup] the main program is here\n" : "[linkup] the main program has gone\n");
+    // Nobody at the console can answer a knock: it is restarting, it crashed, or it is in Steam, where
+    // nothing of it runs. Back again, it signs in with its own status.
+    if (!connected && signedIn_) {
+        json_object* q = requestNamed("status");
+        set(q, "status", "offline");
+        ask(q, nullptr);
+    }
 }
 
 void Conductor::onMessage(const uint8_t* data, size_t len) {

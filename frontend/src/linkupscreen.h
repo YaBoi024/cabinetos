@@ -64,13 +64,15 @@ public:
     // What Action::LinkUp says: B asking to leave, and B while an invite waits.
     static constexpr int kLeave = -3;
     static constexpr int kCancelInvite = -6;
+    // A on a friend's console while the person hosting has paused: it resumes both.
+    static constexpr int kResumeBoth = -7;
 
     enum class Shows {
         Inviting,      // after inviting: the game starts when the friend joins
         Waiting,       // "Waiting for Alex": the host is on anything but the game
         Reconnecting,  // the friend's console trying again, for up to a minute
-        Picture,       // the game. The real one is the LinkUp program's own window
-                       // over this screen, so this draws a stand-in until step 3
+        Picture,       // the game. The real one is the LinkUp program's own window under
+                       // this one, so this draws nothing; only the gallery has a stand-in
     };
     void open(Shows shows, std::string title, std::string detail, bool friendSide);
     Shows shows() const { return shows_; }
@@ -78,6 +80,10 @@ public:
     // A line under the rest, for a game still downloading. Empty for none.
     void setNote(std::string note) { note_ = std::move(note); }
     bool friendSide() const { return friendSide_; }
+    // The gallery has no program to show a picture. Off, Picture draws nothing.
+    void setStandIn(bool on) { standIn_ = on; }
+    // The person hosting has paused, and these words say so: A resumes both.
+    void setResumes(bool on) { resumes_ = on; }
 
     void tick(float dt);
     Result key(Nav n);
@@ -86,6 +92,8 @@ public:
 private:
     Shows shows_ = Shows::Waiting;
     bool friendSide_ = true;
+    bool standIn_ = false;
+    bool resumes_ = false;
     std::string title_, detail_, note_;
     float clock_ = 0.0f;
     float fade_ = 1.0f;

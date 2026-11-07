@@ -61,6 +61,10 @@
 #include "job.h"
 #include "keyboard.h"
 #include "libraryscreen.h"
+struct json_object;
+
+#include "linkup_link.h"
+#include "linkup_wire.h"
 #include "linkuprules.h"
 #include "linkupscreen.h"
 #include "look.h"
@@ -661,6 +665,46 @@ struct App {
     linkup::State linkUp;
     std::string linkupHost;             // whose game this console is in, as a friend
     std::string linkupGuest, linkupGame;  // who the host invited, and to what
+    // The live side (linkupsession.cpp): the local socket to the LinkUp program, who is signed in as
+    // it sees them, and a session with a friend.
+    linkup::Link linkupLink;
+    bool linkupProgramWanted = false;
+    bool linkupHelloSent = false;
+    bool linkupSignedIn = false;
+    bool linkupAwaySent = false;
+    std::string linkupStatusSent;
+    romm::User linkupUser;
+    int linkupUserFor = 0;
+    cab::Job<romm::User> linkupUserJob;
+    std::string linkupPairingCode;      // waiting for the program to be there
+    enum class LinkupSide { None, Host, Friend };
+    LinkupSide linkupSide = LinkupSide::None;
+    std::string linkupGuestId;
+    int linkupGameId = 0;
+    bool linkupJoined = false;
+    bool linkupStreamUp = false;
+    bool linkupGameAsked = false;
+    double linkupGameStartedAt = 0.0;
+    bool linkupPictureSent = false;
+    bool linkupFriendShowsPicture = false;
+    bool linkupOverlayMarked = false;
+    bool linkupPausedHere = false;
+    bool linkupPausedThere = false;
+    bool linkupLost = false;
+    float linkupLostFor = 0.0f;
+    float linkupIdleFor = 0.0f;
+    bool linkupIdlePaused = false;
+    bool linkupPressHere = false;
+    bool linkupPressHeard = false;
+    float linkupPressAge = 0.0f;
+    bool linkupHeldRemotePlay = false;
+    SDL_JoystickID linkupFriendJoystick = 0;
+    linkupwire::Pad linkupFriendPad;     // the host: what the friend's pad is doing
+    linkupwire::Pad linkupVpadSaid;      // the host: what an emulator of its own was last told
+    uint16_t linkupLastPadSeq = 0;
+    linkupwire::Pad linkupPadSent;       // the friend: what was last sent
+    uint16_t linkupPadSeq = 0;
+    float linkupPadAge = 0.0f;
     std::string linkupPairingAddress;   // the address being paired with
     float linkupPairingLeft = 0.0f;     // until the pairing's answer
     static constexpr float kWaitEndsFade = 0.75f;
@@ -2330,8 +2374,65 @@ struct App {
     void overlayHooks();
     void stateHooks();
     void noticeGalleryHook(float dt);
+    // linkupsession.cpp
+    void linkupStart();
+    void linkupWantProgram(bool on);
+    void linkupSend(json_object* o);
+    void linkupSetSwitch(bool on);
+    void linkupBeginPairing(const std::string& address, const std::string& code);
+    void linkupFollowAccount();
+    std::string linkupStatusWord() const;
+    void linkupFollowStatus();
+    void linkupFollowLink();
+    void linkupOnMessage(const uint8_t* data, size_t len);
+    void linkupOnEvent(json_object* o);
+    void linkupSaidPairing(const std::string& result);
+    void linkupTookFriends(json_object* list);
+    void linkupTookInviteEnded(const std::string& invite, const std::string& reason);
+    bool linkupHostWaiting() const;
+    void linkupSessionOpens(LinkupSide side);
+    void linkupSessionClosed();
+    void linkupSendInvite();
+    void linkupFetchGame();
+    void linkupSendCancel();
+    void linkupSendJoin(const linkup::Friend& f);
+    void linkupSendDecline(const linkup::Friend& f);
+    void linkupTellPeer(const std::string& word);
+    void linkupConnected(const std::string& path);
+    void linkupStartGame();
+    void linkupConnectFailed(const std::string& reason);
+    void linkupSeatFriend();
+    void linkupUnseatFriend();
+    void linkupFriendPadChanged();
+    void linkupPassToEmulator();
+    bool linkupGameAloneOnScreen() const;
+    void linkupFollowGame();
+    void linkupHostGameEnded();
+    void linkupPauseGame();
+    void linkupResumeGame();
+    void linkupHostPanel(const std::string& title, std::function<void()> then);
+    void linkupFriendHandover(bool on);
+    void linkupFriendPicture(bool on);
+    bool linkupPictureOnly();
+    bool linkupPictureBehind();
+    void linkupSendPad(float dt);
+    bool takeLinkUpEvent(const SDL_Event& e);
+    bool linkupWatchPicture(float dt);
+    void linkupFromPeer(const std::string& word, json_object* message);
+    void linkupFriendAsksPause();
+    void linkupFriendLeaves();
+    void linkupFriendLeft();
+    void linkupPeerEndedSession();
+    void linkupPeerLost();
+    void linkupPeerBack();
+    void linkupPeerGone();
+    void linkupProgramLost();
+    void linkupIdlePause();
+    void tickLinkUpSession(float dt);
+    void tickLinkUpLive(float dt);
     // linkup.cpp
     bool linkupInBar() const;
+    bool linkupSessionOpen() const;
     bool linkupOffline() const;
     bool barItemReachable(int item) const;
     bool linkupInUse() const;
@@ -2339,6 +2440,7 @@ struct App {
     void applyLinkUp(const screens::Result& res);
     void linkupPickGame(const std::string& who);
     void linkupEndPick();
+    bool linkupFriendCanPlay(int cardIndex) const;
     bool linkupPickedGame(int cardIndex);
     void linkupInvite(const std::string& game);
     void linkupGameStarts();
@@ -2379,7 +2481,6 @@ struct App {
     void tickLinkUp(float dt);
     // linkupgallery.cpp
     void linkupGalleryLibrary();
-    void linkupGalleryLibraryBack();
     bool linkupGalleryOpenTile(const screens::Result& res);
     void linkupGalleryJoined(const std::string& game);
     void linkupGalleryInvited();

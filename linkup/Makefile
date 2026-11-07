@@ -3,7 +3,7 @@
 # this folder with the whole repository mounted: it borrows the frontend's fileio.cpp
 # and linkup_wire.h, the one file both programs read.
 CXXFLAGS ?= -O2
-CXXFLAGS += -std=c++20 -Wall -Wextra -I../frontend/src
+CXXFLAGS += -std=c++20 -Wall -Wextra -I../frontend/src -DGST_USE_UNSTABLE_API
 
 BASE_PKGS := libcrypto json-c libcurl
 STREAM_PKGS := glib-2.0 gobject-2.0 gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0 \

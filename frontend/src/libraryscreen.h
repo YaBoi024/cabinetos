@@ -31,6 +31,8 @@ struct Tile {
     // The Arcade tile names every arcade platform, "platform_ids=45&
     // platform_ids=55", and its `id` is the first of them (#611).
     std::string query;
+    // A platform's RomM slug; an Arcade tile's first folder's. Empty on a collection.
+    std::string slug;
     std::string title;        // "Arcade", "SHMUP"
     // The Arcade tile: its grid's line names each game's folder (#611).
     bool namesFolder = false;

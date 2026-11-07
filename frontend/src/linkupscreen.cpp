@@ -394,6 +394,7 @@ void LinkUpPlayScreen::tick(float dt) { clock_ += dt; }
 
 Result LinkUpPlayScreen::key(Nav n) {
     if (shows_ == Shows::Inviting) return n == Nav::Back ? Result{Action::LinkUp, kCancelInvite} : Result{};
+    if (resumes_ && n == Nav::Activate) return {Action::LinkUp, kResumeBoth};
     // The friend's menu, on B as on the button that opens the pause menu.
     if (n == Nav::Back) return {Action::LinkUp, kLeave};
     return {};
@@ -408,7 +409,11 @@ void LinkUpPlayScreen::draw(Ctx& c) {
     };
 
     if (shows_ == Shows::Picture) {
-        // Stands in for the game until the LinkUp program's window is here.
+        if (!standIn_) {
+            c.r.setContentAlpha(1.0f);
+            return;
+        }
+        // Stands in for the game, where there is no program to show one.
         ui::Rect ground{0, 0, ui::kCanvasWidth, ui::kCanvasHeight, 0, ui::Color::rgb(0x1B3A5C)};
         ground.gradient = true;
         ground.fillBottom = ui::Color::rgb(0x0E1B2C);

@@ -245,6 +245,7 @@ void App::finishStandalone() {
     dropPressesFromClosing();
     letGoOfHeld();
     std::fprintf(stderr, "[standalone] back to Home\n");
+    linkupHostGameEnded();
     // A Power menu choice made over its pause menu (#473), now that it
     // has gone and its saves are queued.
     if (powerAfterExit) {
@@ -455,6 +456,9 @@ bool App::watchStandalone(float dt) {
         }
     }
 
+    // LinkUp, which the frame's own call does not reach while the emulator has the screen.
+    if (standaloneRun.active() && !standalonePaused) tickLinkUpLive(dt);
+
     // WHILE AN EMULATOR OF ITS OWN HAS THE SCREEN, this loop watches it and
     // does little else: nothing drawn but the dots and the dim, and a short
     // sleep so a watcher does not take a core from the game. Play time
@@ -513,8 +517,9 @@ bool App::watchStandalone(float dt) {
         // (2026-10-07).
         remotePlayHandover();
         // Until the next press or a sixtieth of a second, whichever is
-        // first: presses pass straight on, and a watcher costs nothing.
-        SDL_WaitEventTimeout(nullptr, 16);
+        // first: presses pass straight on, and a watcher costs nothing. In LinkUp a friend's presses
+        // arrive on another socket, so it looks sooner, or they would wait here.
+        SDL_WaitEventTimeout(nullptr, linkupSessionOpen() ? 3 : 16);
         return true;
     }
     return false;

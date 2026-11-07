@@ -29,7 +29,7 @@ void App::runFrameLoop() {
         ra::pump();
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            if (takeStandaloneEvent(e)) continue;
+            if (takeStandaloneEvent(e) || takeLinkUpEvent(e)) continue;
             handleEvent(e);
         }
 
@@ -48,6 +48,10 @@ void App::runFrameLoop() {
         pumpStandaloneShot();
         if (watchStandalone(dt)) {
             refuseCaptureOverAnotherWindow("the emulator's");
+            continue;
+        }
+        if (linkupWatchPicture(dt)) {
+            refuseCaptureOverAnotherWindow("LinkUp's");
             continue;
         }
 
@@ -219,7 +223,8 @@ void App::runFrameLoop() {
         const float sc = renderer.scale();
         // A game is on the screen: ours, or one this window is paused over
         // (standalone.h), where nothing of Home may be drawn under the menu.
-        const bool gameUp = playing || standalonePaused;
+        // Or a friend's game, whose picture is the LinkUp program's window, under this one.
+        const bool gameUp = playing || standalonePaused || linkupPictureBehind();
         drawGround(gameUp, dt);
 
         applyTabContentFade(gameUp);
