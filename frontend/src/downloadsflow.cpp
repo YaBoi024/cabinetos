@@ -150,13 +150,13 @@ void App::removeDownload(int romId) {
 // first version said "Stop downloading <game>?" over the game's size, with
 // Keep going and Stop: the name made the box wide for nothing, since it
 // sits under the game's own title, and Keep going is not a word the
-// console uses. Now it is the question every other box asks: a verb and
-// the thing, "this" for a thing already on the screen (Format this drive?,
-// Remove this Wii Remote?), Cancel first as the storage boxes have it, and
-// no line under it: the size is on the page two lines up, and the bar is
-// under the scrim. docs/decisions/2026-11-06-stop-a-download-from-its-row.md.
+// console uses. Now it is a one-verb question, as "Sign out?" is, about
+// what the row under it is doing ("this" was tried and he does not like
+// the word), Cancel first as the storage boxes have it, and no line under
+// it: the size is on the page two lines up, and the bar is under the
+// scrim. docs/decisions/2026-11-06-stop-a-download-from-its-row.md.
 namespace {
-constexpr const char* kStopTitle = "Stop this download?";
+constexpr const char* kStopTitle = "Stop downloading?";
 }
 
 void App::pressStopDownload(const screens::Result& res) {
