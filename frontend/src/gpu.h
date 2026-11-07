@@ -19,6 +19,23 @@
 // current context and no thread affinity, which is not a workaround for those
 // two faults, it is the absence of the thing that causes them.
 //
+// WHICH GPU, WHEN THERE ARE TWO (#659): THE ONE THE SCREEN IS ON. The UI draws
+// in GL on the GPU the screen is wired to (under gamescope, the one its
+// Xwayland draws with), and a Vulkan core's picture reaches the UI's texture
+// by importing the memory the core drew into (vkbridge.cpp), which Vulkan
+// defines only within one device. The rule until then, "prefer a discrete
+// card", put every Vulkan core of a laptop with two GPUs on the card the
+// screen was not on, and the import took the console down. So once the
+// frontend has its GL context it tells this file the context's device UUID
+// (screenIs), and the device is the one whose UUID matches: for the cores,
+// and for every emulator the frontend tells a device (Cemu, Xenia, sm2-emu,
+// xemu). No match, or no way to ask: the old order, a discrete card first.
+// A machine with one GPU lands on it every way, so nothing changes there. A
+// `[gpu]` line in the log says which and why. The emulators that pick a
+// device for themselves draw in windows of their own, where a picture made
+// on one GPU and shown on another is the ordinary laptop case, not this
+// fault; they are not told.
+//
 // NOTHING HERE LINKS THE VULKAN LOADER. It is opened with dlopen at runtime, so
 // this binary still starts on a machine with no Vulkan and says so, rather than
 // failing to load with a missing library. That also means `ldd` cannot see it —
@@ -50,6 +67,10 @@ struct VulkanCaps {
     // Its VkPhysicalDeviceIDProperties::deviceUUID, 32 lower-case hex digits,
     // for one told a device by UUID (Cemu's `vkDevice`). Empty when unknown.
     std::string deviceUuid;
+    // Why this device and not another, in the `[gpu]` line's words: "the
+    // only GPU here", "the screen is on it", or the old order with what kept
+    // the screen's GPU from being matched. Empty while nothing is usable.
+    std::string why;
     uint32_t apiVersion = 0;     // VK_MAKE_API_VERSION packed
     bool discrete = false;
     uint32_t vendorId = 0;       // PCI: 0x1002 AMD, 0x10de NVIDIA, 0x8086 Intel
@@ -90,6 +111,17 @@ struct VulkanCaps {
 // opens no window and touches no display.
 const VulkanCaps& vulkan();
 
+// THE GPU THE SCREEN IS ON, as the GL context's device UUID in the form
+// deviceUuid has (vk::screenDeviceUuid), or empty when GL cannot say. Told
+// by startup.cpp once the context exists, before anything reads the machine
+// class; told to a probe that has already answered, it chooses again and
+// says so if the answer moved.
+void screenIs(const std::string& glDeviceUuid);
+
+// 16 UUID bytes as 32 lower-case hex digits, the one form deviceUuid and
+// screenIs use, so GL's and Vulkan's compare as strings.
+std::string uuidString(const uint8_t* bytes);
+
 // Human-readable, for `--gpu-probe`. Prints what was found and, when Vulkan is
 // not usable, the one line that says which part is missing.
 //
@@ -97,6 +129,10 @@ const VulkanCaps& vulkan();
 // LYING INSTRUMENT THIS PROJECT HAS HAD TO FIX. So this says what it looked
 // for as well as what it found.
 void report();
+
+// The choice alone, on made-up devices, no GPU needed (run from frontend/
+// as every self-test is): --gpu-choice-test.
+int test();
 
 // Version numbers as "1.4.341", for the report.
 std::string versionString(uint32_t packed);

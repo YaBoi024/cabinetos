@@ -13,6 +13,40 @@ one you install, so you only ever install the newest.
   off means nothing runs. [How it works](linkup.md).
   ([#654](https://github.com/MMagTech/cabinetos/issues/654))
 
+## 2026.11.07.2 {#v2026-11-07-2}
+
+- **Fixed:** PlayStation 3 games made with Unreal Engine 3 drew red speckle
+  over the whole picture as soon as play started, while their menus and
+  cutscenes looked right, and some kept red in the shadows at the Balanced
+  and Quality picture levels. They draw right now, at every level.
+  ([#664](https://github.com/MMagTech/cabinetos/pull/664))
+
+- **Improved:** PlayStation 3 games now start with the settings the RPCS3
+  team keeps for each game, the same ones RPCS3 uses on a computer, so a
+  game that needs a particular setting to draw or run right gets it without
+  anyone choosing it. A game the team has no entry for plays as before.
+  ([#665](https://github.com/MMagTech/cabinetos/pull/665))
+
+## 2026.11.07 {#v2026-11-07}
+
+- **New:** a download you no longer want can be stopped. Until now it ran to
+  the end, and no other game would download until it did. On the game's page,
+  press the bar that is filling, then **Stop**; **Continue** or **B** leaves
+  it running. What had arrived is cleared, and Play or Download starts it
+  again from the beginning.
+  ([#663](https://github.com/MMagTech/cabinetos/pull/663))
+
+## 2026.11.06 {#v2026-11-06}
+
+- **Fixed:** on a PC with two graphics chips, such as a gaming laptop or a
+  desktop with a card in it and the monitor on the motherboard's port, the
+  games that draw with the graphics chip (GameCube, Wii, Nintendo 64,
+  Dreamcast, PSP and the rest) drew on the chip the screen was not on, which
+  could take the whole console down. They now draw on the chip the screen is
+  plugged into. A PC with one graphics chip, which is every machine CabinetOS
+  is tested on, is unchanged.
+  ([#659](https://github.com/MMagTech/cabinetos/issues/659))
+
 ## 2026.11.05.2 {#v2026-11-05-2}
 
 - **Fixed:** on some PCs there was no sound at all, no menu sounds and no game

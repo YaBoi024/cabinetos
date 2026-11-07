@@ -594,7 +594,11 @@ def kv(pairs):
 
 def journal_lines(boot):
     """One boot's log as (text, kept, dropped) lines, formatted and filtered."""
-    args = ["journalctl", "-b", str(boot), "-o", "json", "--no-pager",
+    # --all, OR EVERY LONG LINE COMES BACK EMPTY: journalctl's JSON writes a
+    # field over 4096 bytes as null unless asked for all of it, and the trace
+    # of a frontend crash is longer than that, so every one was blank (#659).
+    # It adds the long lines alone, and BOOT_CAP still holds.
+    args = ["journalctl", "-b", str(boot), "-o", "json", "--all", "--no-pager",
             "--output-fields=MESSAGE,SYSLOG_IDENTIFIER,_COMM,_TRANSPORT,PRIORITY,__REALTIME_TIMESTAMP"]
     # READ AS IT COMES, a line at a time: a boot that ran for weeks is
     # hundreds of MB of JSON, and holding all of it cost 400 MB on the A9

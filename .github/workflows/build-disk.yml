@@ -12,7 +12,8 @@
 #                target machine. See CONTRIBUTING.md, "Building".
 #   portable     The file a tester writes to a USB drive with Etcher or Rufus,
 #                to run CabinetOS from that drive. CI boots it before the run
-#                can pass. It is never published from here.
+#                can pass. `portable_run` publishes the file from a finished
+#                run, and builds nothing.
 #
 # Run manually, ONCE PER RELEASE, not per update. The ISO carries the whole
 # image, but an installed console updates itself from GHCR from then on, so an
@@ -41,6 +42,11 @@ on:
         required: true
         default: false
         type: boolean
+      portable_run:
+        description: "Build nothing: publish the portable file from this run number as the download (R2, replaces the current one)"
+        required: false
+        default: ""
+        type: string
 
 env:
   IMAGE_NAME: ${{ github.event.repository.name }}  # must match build.yml
@@ -61,6 +67,7 @@ concurrency:
 jobs:
   build:
     name: Build ${{ matrix.disk-type }}
+    if: inputs.portable_run == ''
     runs-on: ubuntu-24.04
     # The ISO alone by default: the qcow2 is only for making a new test VM,
     # which is updated in place and almost never remade. A computed matrix,
@@ -196,35 +203,55 @@ jobs:
       # GitHub takes at most 2 GB per release file and the ISO is about
       # 7 GB, so it lives in Cloudflare R2, which charges nothing for
       # downloads (MMagTech, 2026-10-10). ONE NAME, REPLACED EACH RELEASE:
-      # the link never changes, and the bucket only ever holds one ISO,
-      # inside R2's free storage. Its SHA-256 beside it, for the release
-      # page. The keys are repository secrets, MMagTech's; nothing here
-      # prints them.
+      # the link never changes, and the bucket only ever holds one ISO and
+      # one portable file (docs/decisions/2026-11-05-portable-download.md).
+      # Its SHA-256 beside it, for the release page. The keys are repository
+      # secrets, MMagTech's; nothing here prints them.
       - name: Publish the ISO
         if: inputs.publish && matrix.disk-type == 'anaconda-iso'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          # Newer AWS CLIs add checksums R2 does not take; only when required.
-          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
-          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
-          ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           OUT: ${{ steps.build.outputs.output-directory }}
         run: |
           set -euo pipefail
           iso=$(find "${OUT}" -name '*.iso' -type f | head -n1)
           [[ -n "${iso}" ]] || { echo "no ISO in ${OUT}"; exit 1; }
-          echo "ISO: ${iso} ($(du -h "${iso}" | cut -f1))"
-          (cd "$(dirname "${iso}")" && sha256sum "$(basename "${iso}")" | sed 's/ .*$/  cabinetos.iso/') > cabinetos.iso.sha256
-          cat cabinetos.iso.sha256
-          aws s3 cp "${iso}" s3://cabinetos/cabinetos.iso --endpoint-url "${ENDPOINT}" \
-            --content-type application/x-iso9660-image --no-progress
-          aws s3 cp cabinetos.iso.sha256 s3://cabinetos/cabinetos.iso.sha256 --endpoint-url "${ENDPOINT}" \
-            --content-type text/plain --no-progress
-          # Read back what is there, so a green run means the download is
-          # the file just built.
-          aws s3api head-object --bucket cabinetos --key cabinetos.iso --endpoint-url "${ENDPOINT}" \
-            --query ContentLength --output text > remote-size
-          [[ "$(cat remote-size)" == "$(stat -c %s "${iso}")" ]] || { echo "size on R2 differs"; exit 1; }
-          echo "Published cabinetos.iso, $(cat remote-size) bytes, and its SHA-256"
+          ci/publish-to-r2.sh "${iso}" cabinetos.iso application/x-iso9660-image
+
+  # THE PORTABLE DOWNLOAD, from a finished run, not a new build, so what goes up
+  # is byte for byte the file that passed its boot check and was tried on a real
+  # PC. Only a successful run has this artifact to take, and its checksum is
+  # checked after the download.
+  publish-portable:
+    name: Publish the portable file
+    if: inputs.portable_run != ''
+    runs-on: ubuntu-24.04
+
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: Fetch the file from that run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ inputs.portable_run }}
+        run: |
+          set -euo pipefail
+          [[ "${RUN}" =~ ^[0-9]+$ ]] || { echo "not a run number: ${RUN}"; exit 1; }
+          state=$(gh run view "${RUN}" --repo "${GITHUB_REPOSITORY}" --json workflowName,conclusion --jq '.workflowName + ", " + .conclusion')
+          [[ "${state}" == "Build disk images, success" ]] || { echo "run ${RUN} is ${state}"; exit 1; }
+          gh run download "${RUN}" --repo "${GITHUB_REPOSITORY}" --name cabinetos-portable --dir "${RUNNER_TEMP}/portable"
+          (cd "${RUNNER_TEMP}/portable" && sha256sum --check cabinetos-portable.img.xz.sha256)
+
+      - name: Publish it
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: ci/publish-to-r2.sh "${RUNNER_TEMP}/portable/cabinetos-portable.img.xz" cabinetos-portable.img.xz application/x-xz

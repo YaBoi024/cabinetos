@@ -40,6 +40,8 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [model-3-net-board-linked-to-itself](2026-10-29-model-3-net-board-linked-to-itself.md): Model 3's net board is on, linked to itself, inside the empty network every emulator gets.
 - [xbox-360-unreal-engine-3-fix](2026-11-01-xbox-360-unreal-engine-3-fix.md): every Xbox 360 game draws at the Xenos sample positions with the window offset in the viewport, so Unreal Engine 3 games lose their black patches.
 - [dirt-devils-supermodel-patch](2026-11-01-dirt-devils-supermodel-patch.md): a patch to Supermodel runs a machine linked to itself as the only cabinet, so Dirt Devils plays.
+- [ps3-filtering-as-the-game-asked](2026-11-06-ps3-filtering-as-the-game-asked.md): on PS3 the anisotropic filter is the game's own, not the forced 16x, and buffers up to 320 pixels stay unscaled, so Unreal Engine 3 games draw without red.
+- [rpcs3-settings-database-snapshot](2026-11-06-rpcs3-settings-database-snapshot.md): the RPCS3 team's per-game settings ride in the image as a committed snapshot, refreshed by a tool only when RPCS3's pin moves, held to that pin by the build and CI, never fetched by the console or the build.
 
 ### Controls
 
@@ -58,6 +60,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 
 - [one-sound-rule](2026-11-04-one-sound-rule.md): the screen the picture is on plays the sound, an output that reports a plug takes over, nothing else; one script reads what each output reports, on every PC.
 - [sound-backup-output](2026-10-26-sound-backup-output.md): the image starts pipewire-pulse at login, so a backup output catches the console's sound while the TV's is gone.
+- [games-draw-on-the-screens-gpu](2026-11-06-games-draw-on-the-screens-gpu.md): on a PC with two GPUs, games draw on the one the screen is on, matched by device UUID; one GPU is unchanged; the old order is the fallback.
 
 ### RomM and the library
 
@@ -71,6 +74,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 
 - [focused-game-names-its-system](2026-10-25-focused-game-names-its-system.md): the focused game's line names its system on Home, in a collection and in Search, and not in a system's own grid.
 - [no-ui-for-the-few](2026-10-13-no-ui-for-the-few.md): an option only a few players would use never goes on Home, a grid or a game's page.
+- [stop-a-download-from-its-row](2026-11-06-stop-a-download-from-its-row.md): A on the row that is filling asks "Stop downloading?", Continue focused; no other button stops a download.
 
 ### The image and updates
 
@@ -81,11 +85,13 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [running-from-a-usb-drive](2026-11-03-running-from-a-usb-drive.md): a portable install hides the PC's own drives through udisks, fills its USB drive at its first start, asks the time zone on first run's first screen, and keeps the PC's clock in local time as Windows does.
 - [portable-disk-image](2026-11-03-portable-disk-image.md): the file a tester writes is one `.img.xz`, cut to what it holds after the builder, booting as an ISO install does, adding nothing to the PC's boot list, and booted by CI before a run can pass.
 - [portable-first-start](2026-11-04-portable-first-start.md): what a first start would write on a USB stick is done when the file is made, or waits: the boot setting, the update source, the filesystem's layout, and the emulators, 15 minutes in at idle priority; the log stays on.
+- [portable-for-others-as-an-alpha](2026-11-04-portable-for-others-as-an-alpha.md): anyone may try the portable install from its wiki page, which calls it an alpha and lists what has and has not been tried.
 - [portable-secure-boot](2026-11-04-portable-secure-boot.md): with Secure Boot on, a portable drive brings up shim's key screen by itself and the tester enrols the key once per PC; nobody is asked to change Secure Boot, and everybody is told to save their BitLocker key first.
 
 ### Building and checking
 
 - [installer-iso-repacked](2026-11-02-installer-iso-repacked.md): the installer ISO is repacked after the builder, for CabinetOS's boot menu and look, with nothing the builder made rebuilt.
+- [portable-download](2026-11-05-portable-download.md): the portable's download is the file from a finished run, which was tried, not a new build; it sits beside the ISO on R2 for about 4 cents a month.
 
 ### How we work
 

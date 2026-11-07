@@ -15,6 +15,7 @@
 - section: Set it up
   pages:
     - { file: install.md, title: Install }
+    - { file: portable.md, title: Run from a USB drive }
     - { file: first-run.md, title: First run }
     - { file: romm.md, title: Your RomM server }
     - { file: controllers.md, title: Controllers and Bluetooth }

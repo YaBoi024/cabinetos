@@ -14,8 +14,9 @@
 // DS the resolution comes with the renderer: its software one, at its own
 // size, at Performance, and its OpenGL one above (#219).
 // Everything else that is free is fixed at its best value for every level
-// (anisotropic filtering 16x, 3DO's high resolution, sharp vector lines), and
-// nothing here needs a file from anywhere.
+// (anisotropic filtering 16x, 3DO's high resolution, sharp vector lines),
+// except where forcing it breaks games: on PS3 the filtering is the game's
+// own (rpcs3, in quality.cpp). Nothing here needs a file from anywhere.
 //
 // THE LEVEL FOR A GAME is the game's own choice if the player made one in its
 // pause menu, otherwise the console's. A game's choice survives a change of

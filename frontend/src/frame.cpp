@@ -42,6 +42,7 @@ void App::runFrameLoop() {
 
         pollPower();
         followDrives();
+        followStopAsk();
         waitForUploadsToPowerDown();
 
         // THE SCREENSHOT gamescope is writing, whenever there is one.

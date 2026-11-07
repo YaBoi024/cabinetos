@@ -138,6 +138,18 @@ jobs:
       - name: Every licence text fetched at the revision the image ships
         run: ci/check-licences.sh
 
+  rpcs3-snapshot:
+    name: RPCS3 snapshot
+    runs-on: ubuntu-24.04
+    env:
+      REPORT_ONLY_UNTIL: '2026-11-13'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: RPCS3's settings snapshot taken against the pinned build
+        run: ci/check-rpcs3-snapshot.sh
+
   # THE MECHANICAL HALF OF THE AUDIT OF 2026-11-03: only what a pull request
   # touches, so the old tree never fails it. Its report-only week is its own.
   code-and-docs-agree:

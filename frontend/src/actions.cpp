@@ -133,5 +133,8 @@ void App::apply(const screens::Result& res) {
         case screens::Action::LinkUp:
             applyLinkUp(res);
             break;
+        case screens::Action::StopDownload:
+            pressStopDownload(res);
+            break;
     }
 }

@@ -1,14 +1,16 @@
 # Install
 
 CabinetOS replaces everything on the drive you install it to. It is a whole
-operating system, not an app.
+operating system, not an app. To try it first without installing:
+[Run from a USB drive](portable.md).
 
 ## What you need
 
-- **A PC for under the TV.** x86-64, with an AMD Radeon graphics chip. The
-  only machine CabinetOS has been tested on is the **GEEKOM A9 Max** (Ryzen AI 9
-  HX 370, Radeon 890M). Other AMD machines may work; reports are welcome, with
-  the machine named.
+- **A PC for under the TV.** x86-64, with an AMD Radeon graphics chip.
+  CabinetOS is tested on the **GEEKOM A9 Max** (Ryzen AI 9 HX 370, Radeon 890M).
+  Other AMD machines may work; reports are welcome, with the machine named.
+  On a PC with two graphics chips, such as a gaming laptop, the console draws
+  on the one the screen is plugged into.
 - **A USB stick** of 8 GB or more, for the installer.
 - **A USB keyboard** for the installer and for first run. After that a
   controller does everything.
@@ -21,7 +23,7 @@ operating system, not an app.
 
 **Handhelds are not supported.** Bazzite keeps a separate image for handhelds
 (`bazzite-deck`); CabinetOS builds on Bazzite's desktop image and is made for a
-TV, tested on one mini PC by a maintainer who will never own a handheld. It may
+TV, tested on a mini PC by a maintainer who will never own a handheld. It may
 run on one, but nothing handheld-specific is tested or planned: the console
 uses a classic controller layout only, and a handheld's extra buttons,
 trackpads and paddles do nothing on its screens. The one exception is a Steam

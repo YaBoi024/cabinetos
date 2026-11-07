@@ -130,6 +130,14 @@ else
         if grep -qF "$l" <<<"$used"; then ok "RPCS3:$l"
         else bad "RPCS3: wrote '$l', its log does not show it: renamed?"; fi
     done <<<"$cfg"
+    # And the RPCS3 team's per-game settings the image carries, which
+    # standalone_rpcs3.cpp places as GuiConfigs/config_database.dat: RPCS3
+    # says when it has read the file, and when this game got its entry.
+    if grep -q "Finished reading config database from file" <<<"$used"; then
+        ok "RPCS3: read the per-game settings database"
+        if grep -q "Applying database config" <<<"$used"; then ok "RPCS3: applied this game's entry"
+        else note "RPCS3: this game has no entry in the database"; fi
+    else bad "RPCS3: its log does not say it read GuiConfigs/config_database.dat: renamed?"; fi
 fi
 
 # xemu warns on a key it does not know and rewrites the file with only what

@@ -165,6 +165,12 @@ bool pickQueueFamily(VkPhysicalDevice gpu, uint32_t* out) {
     return false;
 }
 
+// THE DEVICE gpu.cpp CHOSE, found again in this instance by its UUID: the
+// GPU the screen is on (#659, gpu.h). This instance is the core's, made with
+// the core's own application info, so the device is matched here rather
+// than carried over as a handle. The old order, a discrete card first and
+// then anything that is not software, remains for an instance whose loader
+// cannot read UUIDs, so that the two never silently disagree.
 bool chooseGpu(std::string* err) {
     uint32_t count = 0;
     gApi.enumeratePhysicalDevices(gInstance, &count, nullptr);
@@ -175,16 +181,36 @@ bool chooseGpu(std::string* err) {
     std::vector<VkPhysicalDevice> devices(count);
     gApi.enumeratePhysicalDevices(gInstance, &count, devices.data());
     VkPhysicalDeviceProperties best{};
-    for (VkPhysicalDevice d : devices) {
-        VkPhysicalDeviceProperties p{};
-        gApi.getPhysicalDeviceProperties(d, &p);
-        if (p.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU) continue;
-        const bool better = gGpu == VK_NULL_HANDLE ||
-                            (p.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
-                             best.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU);
-        if (better) {
-            gGpu = d;
-            best = p;
+    const std::string& want = gpu::vulkan().deviceUuid;
+    if (gApi.getPhysicalDeviceProperties2 && want.size() == 32) {
+        for (VkPhysicalDevice d : devices) {
+            VkPhysicalDeviceIDProperties id{};
+            id.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES;
+            VkPhysicalDeviceProperties2 p2{};
+            p2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+            p2.pNext = &id;
+            gApi.getPhysicalDeviceProperties2(d, &p2);
+            if (gpu::uuidString(id.deviceUUID) == want) {
+                gGpu = d;
+                best = p2.properties;
+                break;
+            }
+        }
+    }
+    if (gGpu == VK_NULL_HANDLE) {
+        std::fprintf(stderr, "[vulkan] the GPU the console chose is not in the core's list; "
+                             "taking a discrete card first\n");
+        for (VkPhysicalDevice d : devices) {
+            VkPhysicalDeviceProperties p{};
+            gApi.getPhysicalDeviceProperties(d, &p);
+            if (p.deviceType == VK_PHYSICAL_DEVICE_TYPE_CPU) continue;
+            const bool better = gGpu == VK_NULL_HANDLE ||
+                                (p.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU &&
+                                 best.deviceType != VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU);
+            if (better) {
+                gGpu = d;
+                best = p;
+            }
         }
     }
     if (gGpu == VK_NULL_HANDLE) {
@@ -328,6 +354,7 @@ bool createCoreDevice(std::string* err) {
     }
     retro_vulkan_context ctx{};
     VkPhysicalDeviceFeatures features{};
+    const VkPhysicalDevice handed = gGpu;
     const bool ok = gNegotiation->create_device(
         &ctx, gInstance, gGpu, gSurface, coreGetInstanceProcAddr,
         gRequiredDeviceExtensions.data(),
@@ -345,6 +372,19 @@ bool createCoreDevice(std::string* err) {
     if (ctx.device == VK_NULL_HANDLE || ctx.queue == VK_NULL_HANDLE) {
         *err = "the core reported success from create_device and handed back nothing";
         return false;
+    }
+    // A core may make its device on a GPU of its own choosing; the contract
+    // allows it. Said out loud, because on a machine with two GPUs that is
+    // the picture crossing from one to the other to reach the screen, which
+    // is the fault the choice above exists to avoid (#659).
+    if (ctx.gpu != VK_NULL_HANDLE && ctx.gpu != handed) {
+        VkPhysicalDeviceProperties p{};
+        gApi.getPhysicalDeviceProperties(ctx.gpu, &p);
+        std::fprintf(stderr,
+                     "[vulkan] the core made its device on %s, not the GPU it was handed; "
+                     "its picture will cross GPUs to reach the screen\n",
+                     p.deviceName);
+        gDescription = std::string(p.deviceName) + ", Vulkan " + gpu::versionString(p.apiVersion);
     }
     if (ctx.gpu != VK_NULL_HANDLE) gGpu = ctx.gpu;
     gDevice = ctx.device;
@@ -506,6 +546,7 @@ bool createContext(std::string* err) {
     loadInstance(gApi.destroyInstance, "vkDestroyInstance");
     loadInstance(gApi.enumeratePhysicalDevices, "vkEnumeratePhysicalDevices");
     loadInstance(gApi.getPhysicalDeviceProperties, "vkGetPhysicalDeviceProperties");
+    loadInstance(gApi.getPhysicalDeviceProperties2, "vkGetPhysicalDeviceProperties2");
     loadInstance(gApi.getQueueFamilyProperties, "vkGetPhysicalDeviceQueueFamilyProperties");
     loadInstance(gApi.getMemoryProperties, "vkGetPhysicalDeviceMemoryProperties");
     loadInstance(gApi.createDevice, "vkCreateDevice");

@@ -365,6 +365,8 @@ struct App {
     bool filesTestMode = false;
     // --vectrex-sheets-test: which Vectrex game takes which sheet (#224).
     bool vectrexSheetsTestMode = false;
+    // --gpu-choice-test: which GPU the games draw on, with two (#659).
+    bool gpuChoiceTestMode = false;
     // Opens the overlay and takes Exit to Home, so the whole leave-a-game path
     // can be proved on a machine with nothing attached.
     bool overlayExitDemo = false;
@@ -2318,6 +2320,8 @@ struct App {
     // downloadsflow.cpp
     void pressDownloads();
     void pressRemoveDownload(const screens::Result& res);
+    void pressStopDownload(const screens::Result& res);
+    void followStopAsk();
     // steamflow.cpp
     void pressSteamShow();
     void pressSteam();

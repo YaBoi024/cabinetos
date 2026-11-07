@@ -227,6 +227,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             filesTestMode = true;
         } else if (SDL_strcmp(argv[i], "--vectrex-sheets-test") == 0) {
             vectrexSheetsTestMode = true;
+        } else if (SDL_strcmp(argv[i], "--gpu-choice-test") == 0) {
+            gpuChoiceTestMode = true;
         } else if (SDL_strcmp(argv[i], "--load-state") == 0 && i + 1 < argc) {
             loadStateAfter = SDL_atoi(argv[++i]);
         } else if (SDL_strcmp(argv[i], "--sync-test") == 0) {
