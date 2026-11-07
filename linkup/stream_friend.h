@@ -60,4 +60,6 @@ private:
     std::atomic<int64_t> lastPacketMs_{0};
     std::atomic<int64_t> lastPictureMs_{0};
     int64_t lastAskMs_ = 0;
+    std::atomic<uint32_t> pictures_{0};
+    uint32_t asks_ = 0;
 };

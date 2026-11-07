@@ -311,7 +311,10 @@ bool App::takeStandaloneEvent(const SDL_Event& e) {
                 // A PRESS IS SOMEBODY THERE (#604): it lifts the dim over the
                 // game (watchStandalone) and still goes on to the game, as a
                 // press does in every other game.
-                if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) idleWatch.input(clockSeconds());
+                if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
+                    idleWatch.input(clockSeconds());
+                    menuNotice.pressed();
+                }
                 const int p = players::playerOf(e.gbutton.which);
                 const auto b = static_cast<SDL_GamepadButton>(e.gbutton.button);
                 const bool down = e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
@@ -474,6 +477,16 @@ bool App::watchStandalone(float dt) {
         // are drawn while either changes, and over either, the frames that
         // clear this window draw them instead, so they stay over the game.
         pointerTick(dt);
+        // AND A PILL, as over any game: LinkUp's invite, or its slow connection. Drawn while it
+        // lasts, and cleared off the game when it has gone.
+        menuNotice.tick(dt);
+        if (!menuNotice.text.empty()) {
+            pointer.dirty = std::max(pointer.dirty, 3);
+            standaloneNoticeUp = true;
+        } else if (standaloneNoticeUp) {
+            standaloneNoticeUp = false;
+            standaloneClearFrames = 30;
+        }
         if (std::abs(dimLayer.value() - standaloneDimDrawn) > 0.001f)
             pointer.dirty = std::max(pointer.dirty, 3);
         if ((pointer.on || dimLayer.value() > 0.001f) && standaloneClearFrames > 0) {
@@ -743,6 +756,7 @@ void App::drawOverGame() {
         dot.shadowColor = ui::Color::black(0.4f);
         renderer.draw(dot);
     }
+    drawNotice(renderer.scale());
     drawDim(/*onOverlay=*/true);
     standaloneDimDrawn = dimLayer.value();
     renderer.setPixelShift(shiftShown.dx, shiftShown.dy);

@@ -55,7 +55,9 @@ GstPadProbeReturn StreamFriend::onPacket(GstPad*, GstPadProbeInfo*, gpointer sel
 }
 
 GstPadProbeReturn StreamFriend::onPicture(GstPad*, GstPadProbeInfo*, gpointer self) {
-    static_cast<StreamFriend*>(self)->lastPictureMs_ = Rtc::nowMs();
+    auto* me = static_cast<StreamFriend*>(self);
+    me->lastPictureMs_ = Rtc::nowMs();
+    ++me->pictures_;
     return GST_PAD_PROBE_OK;
 }
 
@@ -128,6 +130,7 @@ gboolean StreamFriend::onWatchdog(gpointer self) {
     // stopped sending because something else is on its screen.
     if (packet != 0 && now - packet < kNoPictureMs && now - picture > kNoPictureMs && now - me->lastAskMs_ > kNoPictureMs) {
         me->lastAskMs_ = now;
+        ++me->asks_;
         if (me->askFull_) me->askFull_();
     }
     return G_SOURCE_CONTINUE;
@@ -162,6 +165,7 @@ void StreamFriend::stop() {
     if (watchdog_) g_source_remove(watchdog_);
     watchdog_ = 0;
     if (!pipeline_) return;
+    std::fprintf(stderr, "[linkup] friend: %u pictures decoded, asked for a full one %u times\n", pictures_.load(), asks_);
     gst_element_set_state(pipeline_, GST_STATE_NULL);
     g_signal_handlers_disconnect_by_data(webrtc_, this);
     rtc_.reset();

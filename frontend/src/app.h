@@ -690,6 +690,7 @@ struct App {
     bool linkupGameAsked = false;
     double linkupGameStartedAt = 0.0;
     bool linkupPictureSent = false;
+    bool standaloneNoticeUp = false;   // a pill over an emulator run as a program (drawOverGame)
     bool linkupFriendShowsPicture = false;
     bool linkupOverlayMarked = false;
     bool linkupPausedHere = false;

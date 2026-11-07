@@ -6,8 +6,8 @@
 #
 # THE LOCK. It opens the firewall table for this program and closes it behind it, so a stop, a crash or
 # a reboot all leave it closed. It does not Require the lock's one-shot: restarting that would restart
-# this with the table ending open. Before the open step it tests that the saved switch is on, so a
-# stray start never opens the lock.
+# this with the table ending open. It starts only with the saved switch on, so a stray start never
+# opens the lock.
 #
 # EACH LIMIT IS THERE BECAUSE ITS ABSENCE GOT PAST THE LOCK WHEN TRIED (#654's second comment):
 # NoNewPrivileges, or `sg` walks out of the group; no CAP_NET_RAW, or a raw frame passes. The rule
@@ -23,6 +23,7 @@
 Description=CabinetOS LinkUp
 Documentation=https://github.com/MMagTech/cabinetos/issues/654
 After=network.target cabinetos-linkup-lock.service cabinetos-session.service
+ConditionPathExists=/var/lib/cabinetos/linkup/on
 
 [Service]
 User=cabinet
@@ -31,7 +32,6 @@ Environment=HOME=/var/lib/cabinetos/linkup
 Environment=XDG_RUNTIME_DIR=/run/user/1000
 Environment=PIPEWIRE_RUNTIME_DIR=/run/user/1000
 Environment=XDG_CACHE_HOME=/var/lib/cabinetos/linkup/cache
-ExecStartPre=+/usr/bin/test -e /var/lib/cabinetos/linkup/on
 ExecStartPre=+/usr/libexec/cabinetos-linkup-firewall open
 ExecStart=/usr/libexec/cabinetos-linkup
 ExecStopPost=+/usr/libexec/cabinetos-linkup-firewall closed

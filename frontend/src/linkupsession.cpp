@@ -162,6 +162,9 @@ void App::linkupFollowAccount() {
         linkupUser = got;
         linkupUserFor = got.id;
         linkupSignedIn = false;
+        // Status belongs to each account.
+        linkUp.appearOffline = !cab::readBytes(storage::userDir(storage::currentUser()) + "/linkup-offline").empty();
+        refreshLinkUpScreen();
     }
     if (linkupUserJob.busy()) return;
     const int active = accounts::activeId();
@@ -519,7 +522,11 @@ void App::linkupConnectFailed(const std::string& reason) {
     std::fprintf(stderr, "[linkup] could not connect: %s\n", reason.c_str());
     linkupSend(command("end"));
     linkupSessionClosed();
-    linkupPanel(linkup::cantConnectTo(who), reason == "relay_limit" ? "The relay has reached its limit" : "", {}, 0, [](int) {});
+    // A real break names who is behind. An update is never forced.
+    const std::string title = reason == "friend_behind" ? linkup::needsUpdate(who)
+                              : reason == "this_behind" ? linkup::kThisNeedsUpdate
+                                                        : linkup::cantConnectTo(who);
+    linkupPanel(title, reason == "relay_limit" ? "The relay has reached its limit" : "", {}, 0, [](int) {});
     choiceScreen.setPrompt("Press", "A", "to continue");
     choiceScreen.setOnlyA(true);
 }

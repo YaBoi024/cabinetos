@@ -86,6 +86,7 @@ private:
     std::atomic<bool> pictureOn_{true};
     std::atomic<bool> wantFull_{false};
     uint32_t keyAsks_ = 0;
+    uint32_t framesIn_ = 0;
     guint primeSource_ = 0;
     int primeWith_ = 0;
 };

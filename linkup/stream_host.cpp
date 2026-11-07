@@ -222,6 +222,8 @@ void StreamHost::stop() {
     stopPriming();
     capture_.stop();
     destroyPipeline();
+    std::fprintf(stderr, "[linkup] host: %u frames sent to the encoder, at bitrate step %d of %d\n", framesIn_, bitrate_.stepIndex() + 1,
+                 bitrate_.stepCount());
 }
 
 void StreamHost::onFrame(const uint8_t* y, int yStride, const uint8_t* uv, int uvStride, int w, int h) {
@@ -242,6 +244,7 @@ void StreamHost::pushLocked(const uint8_t* y, int yStride, const uint8_t* uv, in
         capsW_ = w;
         capsH_ = h;
     }
+    ++framesIn_;
     const size_t ySize = static_cast<size_t>(w) * static_cast<size_t>(h);
     GstBuffer* buf = gst_buffer_new_allocate(nullptr, ySize * 3 / 2, nullptr);
     GstMapInfo m;

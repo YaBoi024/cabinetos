@@ -838,7 +838,22 @@ void Conductor::onSignalBox(const std::string& sealed) {
         game_->friendH265 = flag(hello, "h265");
         game_->friendH264 = flag(hello, "h264");
         game_->haveHello = true;
+        // A number moves only on a real break, and a console names who is behind. An update is never
+        // forced: the two simply cannot play until it comes.
+        const int theirStream = static_cast<int>(num(hello, "stream", 1));
+        const int theirOldest = static_cast<int>(num(hello, "oldest", 1));
         json_object_put(d);
+        if (theirStream < ServerLink::kStream || ServerLink::kStream < theirOldest) {
+            json_object* ev = eventNamed("connect_failed");
+            set(ev, "reason", theirStream < ServerLink::kStream ? "friend_behind" : "this_behind");
+            local_.sendJson(ev);
+            json_object* q = requestNamed("report");
+            set(q, "session", game_->sessionId);
+            set(q, "path", "failed");
+            set(q, "reason", "behind");
+            ask(q, nullptr);
+            return;
+        }
         maybeStartStream();
         return;
     }
