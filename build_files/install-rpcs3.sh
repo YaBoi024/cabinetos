@@ -74,9 +74,15 @@ printf '%s\n' "${RPCS3_VERSION}" > "${DEST}/VERSION"
 # settings at every boot, `--no-gui` included; the console fetches nothing
 # from there, so the image carries a snapshot of that file,
 # /ctx/rpcs3-config-database.json (build_files/, refreshed by
-# tools/fetch-rpcs3-config-database.py), and the console copies it into
-# RPCS3's config folder before every start (frontend/src/standalone_rpcs3.cpp,
-# prepareRpcs3). docs/decisions/2026-11-06-rpcs3-settings-database-snapshot.md.
+# tools/fetch-rpcs3-config-database.py when the pin above moves), and the
+# console copies it into RPCS3's config folder before every start
+# (frontend/src/standalone_rpcs3.cpp, prepareRpcs3).
+# docs/decisions/2026-11-06-rpcs3-settings-database-snapshot.md.
+#
+# TAKEN AGAINST THIS BUILD, or the build stops: the tool writes the pin it
+# ran against as the first word of /ctx/rpcs3-config-database.pin, and a
+# snapshot from an older build drifts from what this one needs (the decision
+# says how). ci/check-rpcs3-snapshot.sh says the same on the pull request.
 #
 # CHECKED AS RPCS3 CHECKS IT (rpcs3qt/config_database.cpp, read_json): JSON,
 # an object, `return_code` not negative, `games` an object, every game a
@@ -86,6 +92,11 @@ printf '%s\n' "${RPCS3_VERSION}" > "${DEST}/VERSION"
 # the program's own text, and a build that renames them fails here rather
 # than silently giving no game its entry.
 readonly DATABASE=/ctx/rpcs3-config-database.json
+taken="$(head -1 /ctx/rpcs3-config-database.pin | cut -d' ' -f1)"
+if [[ "${taken}" != "${RPCS3_VERSION}" ]]; then
+    log "ERROR: the settings snapshot was taken against RPCS3 ${taken}, this build is ${RPCS3_VERSION}: run tools/fetch-rpcs3-config-database.py"
+    exit 1
+fi
 games="$(python3 -I - "${DATABASE}" <<'PY'
 import json, sys
 with open(sys.argv[1], "rb") as f:

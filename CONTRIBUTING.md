@@ -429,6 +429,12 @@ runs `checks.yml`, a few seconds each:
   name the repository, path and revision SOURCES pins, fails: a text added by
   hand or a pin moved without running `tools/fetch-licences.py`. Nothing is
   downloaded. Report only until 2026-11-08.
+- **RPCS3 snapshot** (`ci/check-rpcs3-snapshot.sh`): the pin recorded in
+  `build_files/rpcs3-config-database.pin`, which
+  `tools/fetch-rpcs3-config-database.py` writes beside the snapshot of
+  RPCS3's per-game settings, must be the `RPCS3_VERSION` of
+  `build_files/install-rpcs3.sh`: a pin moved without running the tool
+  fails. Nothing is downloaded. Report only until 2026-11-13.
 - **Code and docs agree** (`ci/check-code-and-docs-agree.py`): only what the
   pull request touches, so the old tree never fails it. A comment it adds or
   changes in `frontend/src`, `frontend/ps2`, `wiibridge`, `build_files`, `ci`,
@@ -673,17 +679,19 @@ here, not reworded; follow the link for the full text.
   and ask the stability question above. Moving any emulator's or Sunshine's
   pin, go through its rows in docs/ARCHITECTURE.md, "What leans on other
   projects", too.
-- **Moving RPCS3's pin, and the monthly base update:** run
-  `tools/fetch-rpcs3-config-database.py` and commit what it changes in
-  `build_files/rpcs3-config-database.json`, the snapshot of the RPCS3
-  team's per-game settings the image carries
-  (docs/decisions/2026-11-06-rpcs3-settings-database-snapshot.md); on the
-  base update's pull request, push it by hand. The pull request says how
-  many of its entries the pinned build rejects: on the testing image, start
-  any PlayStation 3 game and count the serials after
-  `Config database error - Invalid config for` in its `RPCS3.log`, under the
-  game's folder in the cache (each is logged twice, since RPCS3 reads the
-  file twice). The console never fetches it.
+- **Moving RPCS3's pin:** in the same pull request, after the pin has
+  moved, run `tools/fetch-rpcs3-config-database.py` and commit what it
+  changes: `build_files/rpcs3-config-database.json`, the snapshot of the
+  RPCS3 team's per-game settings the image carries, and
+  `build_files/rpcs3-config-database.pin`, the pin it was taken against
+  (docs/decisions/2026-11-06-rpcs3-settings-database-snapshot.md). It is
+  not refreshed between pin moves. `ci/check-rpcs3-snapshot.sh` fails a
+  pull request whose snapshot was taken against another pin, and the image
+  build stops on it too. The pull request says how many of its entries the
+  new build rejects: on the testing image, start any PlayStation 3 game and
+  count the serials after `Config database error - Invalid config for` in
+  its `RPCS3.log`, under the game's folder in the cache (each is logged
+  twice, since RPCS3 reads the file twice). The console never fetches it.
 - **Leaning on another project's internals** (asked for by MMagTech,
   2026-10-21): anything that works only because another project behaves a
   way it does not promise (a patch to its source, a settings key or file it
