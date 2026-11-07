@@ -350,6 +350,8 @@ void App::linkupInviteEnded(const std::string& who) {
 
 void App::linkupJoin(const linkup::Friend& f) {
     sound::play(sound::Cue::Activate);
+    // The pill has said what it came to say.
+    if (menuNotice.text == linkup::invitedYou(f.name)) menuNotice.text.clear();
     linkupHost = f.name;
     linkupGame = f.game;
     linkupPlay.open(screens::LinkUpPlayScreen::Shows::Waiting, linkup::waitingFor(f.name), f.game,

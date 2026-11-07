@@ -1102,6 +1102,7 @@ void App::tickLinkUpSession(float dt) {
 //   waitgame                     until the game is on the screen
 //   sleep <seconds>
 //   pad <bits>                   the friend's buttons, by SDL's numbers, as if held
+//   next <rom id>                the next game, in the same session
 //   pause | enter | leave | quit | end | offline | online
 void App::runLinkUpScript() {
     if (linkupScript.empty() || clockSeconds() < linkupScriptWaitUntil) return;
@@ -1160,6 +1161,16 @@ void App::runLinkUpScript() {
             else linkupSendDecline(copy);
             break;
         }
+    } else if (word == "next") {
+        linkupGameId = std::atoi(a.c_str());
+        std::string title = "Game " + a;
+        romm::Game g;
+        std::string err;
+        if (liveClient.fetchGame(linkupGameId, &g, &err)) {
+            title = g.name;
+            appendGame(lib, g);
+        }
+        linkupNextStarts(title);
     } else if (word == "waitstream") done = linkupStreamUp;
     else if (word == "waitgame") done = linkupSide != LinkupSide::Host || linkupGameAloneOnScreen();
     else if (word == "sleep") linkupScriptWaitUntil = clockSeconds() + std::atof(a.c_str());
