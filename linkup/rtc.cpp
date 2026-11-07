@@ -213,11 +213,30 @@ void Rtc::onStats(GstPromise* promise, gpointer self) {
     runOnMain([me, path]() { me->hooks_.connected(path); });
 }
 
+// The bitrate's steps work from what the friend's console reports. RTCP's own arithmetic shares a very
+// small bandwidth, and on a low bitrate with some loss the reports came over half a minute apart
+// (measured, #654), which is no use for falling fast. So they are allowed a little more, once a second.
+void Rtc::reportEverySecond() {
+    GstElement* rtpbin = gst_bin_get_by_name(GST_BIN(webrtc_), "rtpbin");
+    if (!rtpbin) return;
+    GObject* session = nullptr;
+    g_signal_emit_by_name(rtpbin, "get-internal-session", 0u, &session);
+    if (session) {
+        constexpr int kReportBitsPerSecond = 100000;
+        g_object_set(session, "rtcp-min-interval", static_cast<guint64>(GST_SECOND), "rtcp-rr-bandwidth", kReportBitsPerSecond,
+                     "rtcp-rs-bandwidth", kReportBitsPerSecond, nullptr);
+        g_object_unref(session);
+    }
+    gst_object_unref(rtpbin);
+}
+
 void Rtc::onConnectionState(GObject* o, GParamSpec*, gpointer self) {
     auto* me = static_cast<Rtc*>(self);
     GstWebRTCPeerConnectionState state = GST_WEBRTC_PEER_CONNECTION_STATE_NEW;
     g_object_get(o, "connection-state", &state, nullptr);
     std::fprintf(stderr, "[linkup] connection state %d\n", static_cast<int>(state));
+    if (state == GST_WEBRTC_PEER_CONNECTION_STATE_CONNECTING || state == GST_WEBRTC_PEER_CONNECTION_STATE_CONNECTED)
+        me->reportEverySecond();
     if (state == GST_WEBRTC_PEER_CONNECTION_STATE_CONNECTED && !me->saidConnected_) {
         me->saidConnected_ = true;
         GstPromise* promise = gst_promise_new_with_change_func(onStats, self, nullptr);

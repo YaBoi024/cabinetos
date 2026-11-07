@@ -95,6 +95,8 @@ private:
     int capsH_ = 0;
     std::atomic<bool> pictureOn_{true};
     std::atomic<bool> wantFull_{false};
+    guint reportHighest_ = 0;   // the main thread's: the friend's console's running totals
+    int reportLost_ = 0;
     uint32_t keyAsks_ = 0;
     uint32_t framesIn_ = 0;
     guint primeSource_ = 0;

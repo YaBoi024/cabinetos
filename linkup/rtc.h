@@ -61,6 +61,7 @@ public:
 private:
     static void onNegotiationNeeded(GstElement* w, gpointer self);
     static void onIceCandidate(GstElement* w, guint mline, gchar* candidate, gpointer self);
+    void reportEverySecond();
     static void onConnectionState(GObject* o, GParamSpec*, gpointer self);
     static void onDataChannel(GstElement* w, GObject* channel, gpointer self);
     static void onOfferCreated(GstPromise* promise, gpointer self);

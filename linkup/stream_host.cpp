@@ -2,6 +2,7 @@
 
 #include "stream_host.h"
 
+#include <algorithm>
 #include <gst/app/gstappsrc.h>
 #include <gst/video/video.h>
 #include <gst/webrtc/webrtc.h>
@@ -173,6 +174,8 @@ bool StreamHost::buildPipeline() {
     const bool h265 = settings_.h265;
     kbit_ = bitrate_.step().kbit;
     encoderW_ = encoderH_ = 0;
+    reportHighest_ = 0;
+    reportLost_ = 0;
     closing_ = false;
     const std::string encoder = encoderDescription(kbit_.load());
     const std::string payload = h265 ? "h265parse config-interval=-1 ! rtph265pay mtu=1200 config-interval=-1 aggregate-mode=zero-latency ! "
@@ -372,10 +375,15 @@ void StreamHost::applyStep(const Bitrate::Step& step) {
                  bitrate_.stepCount(), step.kbit, step.width, step.height);
 }
 
+// The share of the picture's packets lost since the friend's console last reported, from its running
+// totals: a report's own "fraction lost" covers only the moments since its previous report, which can be
+// a few packets, and the same report can be read twice. No new report, no new figure.
 void StreamHost::onStatsReply(GstPromise* promise, gpointer self) {
     auto* me = static_cast<StreamHost*>(self);
     const GstStructure* reply = gst_promise_get_reply(promise);
-    double lost = -1;
+    int lostTotal = 0;
+    guint highest = 0;
+    bool found = false;
     if (reply) {
         const int fields = gst_structure_n_fields(reply);
         for (int i = 0; i < fields; ++i) {
@@ -384,20 +392,35 @@ void StreamHost::onStatsReply(GstPromise* promise, gpointer self) {
             const GstStructure* s = gst_value_get_structure(value);
             GstWebRTCStatsType type = GST_WEBRTC_STATS_CODEC;
             if (!gst_structure_get(s, "type", GST_TYPE_WEBRTC_STATS_TYPE, &type, nullptr)) continue;
-            if (type != GST_WEBRTC_STATS_REMOTE_INBOUND_RTP) continue;
-            double fraction = 0;
-            if (gst_structure_get_double(s, "fraction-lost", &fraction) && fraction > lost) lost = fraction;
+            if (type != GST_WEBRTC_STATS_OUTBOUND_RTP) continue;
+            const gchar* kind = gst_structure_get_string(s, "kind");
+            if (!kind || std::strcmp(kind, "video") != 0) continue;
+            GstStructure* source = nullptr;
+            if (!gst_structure_get(s, "gst-rtpsource-stats", GST_TYPE_STRUCTURE, &source, nullptr)) continue;
+            gboolean have = FALSE;
+            if (gst_structure_get_boolean(source, "have-rb", &have) && have && gst_structure_get_int(source, "rb-packetslost", &lostTotal) &&
+                gst_structure_get_uint(source, "rb-exthighestseq", &highest))
+                found = true;
+            gst_structure_free(source);
         }
     }
     gst_promise_unref(promise);
-    if (lost < 0) return;
+    if (!found) return;
     g_main_context_invoke_full(
         nullptr, G_PRIORITY_DEFAULT,
         [](gpointer data) -> gboolean {
             (*static_cast<std::function<void()>*>(data))();
             return G_SOURCE_REMOVE;
         },
-        new std::function<void()>([me, lost]() {
+        new std::function<void()>([me, lostTotal, highest]() {
+            const int64_t sentSince = static_cast<int64_t>(highest) - static_cast<int64_t>(me->reportHighest_);
+            const int64_t lostSince = lostTotal - me->reportLost_;
+            if (sentSince <= 0) return;
+            const bool first = me->reportHighest_ == 0;
+            me->reportHighest_ = highest;
+            me->reportLost_ = lostTotal;
+            if (first) return;
+            const double lost = std::clamp(static_cast<double>(lostSince) / static_cast<double>(sentSince), 0.0, 1.0);
             const Bitrate::Result r = me->bitrate_.report(lost, Rtc::nowMs());
             if (r.changed) me->applyStep(me->bitrate_.step());
             if (r.tooSlow && me->onSlow_) me->onSlow_();

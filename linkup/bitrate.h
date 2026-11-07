@@ -27,7 +27,8 @@ public:
     // The host's own size, capped at 1080p already.
     void reset(int width, int height);
 
-    // Once a second, with the share of packets lost since the last report (0 to 1).
+    // With each new report from the friend's console, about one a second: the share of the picture's
+    // packets lost since the last one (0 to 1).
     Result report(double lost, int64_t nowMs);
 
     const Step& step() const { return steps_[at_]; }
