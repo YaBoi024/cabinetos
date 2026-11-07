@@ -62,6 +62,10 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [sound-backup-output](2026-10-26-sound-backup-output.md): the image starts pipewire-pulse at login, so a backup output catches the console's sound while the TV's is gone.
 - [games-draw-on-the-screens-gpu](2026-11-06-games-draw-on-the-screens-gpu.md): on a PC with two GPUs, games draw on the one the screen is on, matched by device UUID; one GPU is unchanged; the old order is the fallback.
 
+### LinkUp
+
+- [linkup-picture-floor](2026-11-07-linkup-picture-floor.md): a LinkUp picture never goes below 720p at 3.5 Mbit/s; below that both consoles say *Slow connection* and the game carries on.
+
 ### RomM and the library
 
 - [arcade-discs-one-folder](2026-10-28-arcade-discs-one-folder.md): an arcade game with a disc is one folder with its CHD at the top, the only layout RomM documents.

@@ -269,7 +269,8 @@ Read before working on a screen, the network, Bluetooth, pairing or first run.
   `vcn_unified_0` within a few changes, with no game running, for both codecs. A 20-line loop with no stream
   showed it. The ring reset leaves the game running, but Mesa then aborts the program that held the context.
   1080p and 720p changed places over 400 times with none. Test size changes on the A9 and not only on the mini,
-  which did all of these without a fault. Why is not known.
+  which did all of these without a fault. Why is not known. LinkUp's floor of 720p is a decision of its own
+  (docs/decisions/2026-11-07-linkup-picture-floor.md) and stays if this is fixed.
 - **`fraction-lost` in the WebRTC stats can be half a minute old.** RTCP's arithmetic shares a tiny bandwidth by
   default, and the same stale report reads the same every second. So the steps seemed to react 49 seconds after
   the loss began, sometimes after it ended. Reports are allowed once a second, and the share comes from the
