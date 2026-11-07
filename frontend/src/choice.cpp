@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "panels.h"
+#include "screenparts.h"
 #include "sound.h"
 
 #include <algorithm>
@@ -290,7 +291,13 @@ void ChoiceScreen::draw(Ctx& c) {
     if (fixedW_ > 0.0f) rowW = innerW = std::min(fixedW_, kPanelMaxW - kPanelPad * 2);
     const float panelW = std::min(kPanelMaxW, innerW + kPanelPad * 2);
     const float textMax = panelW - kPanelPad * 2;
-    const float titleH = c.text.lineHeight(TextStyle::Title2, sc);
+    // A panel of a set width takes a long title on two lines rather than cutting it: LinkUp's say a
+    // friend's name, and "cabinet_tester ended the session" came out without its last word.
+    const auto titleLines = [&](const std::string& s) {
+        return fixedW_ > 0.0f ? wrapTwoLines(c.text, s, TextStyle::Title2, sc, textMax) : std::vector<std::string>{s};
+    };
+    const float titleLine = c.text.lineHeight(TextStyle::Title2, sc);
+    const float titleH = titleLine * static_cast<float>(titleLines(title_).size());
     const float lineH = c.text.lineHeight(TextStyle::Callout, sc);
     const float detailH = lines.empty() ? 0.0f : 8.0f + lineH * lines.size();
     const int n = static_cast<int>(options_.size());
@@ -325,13 +332,15 @@ void ChoiceScreen::draw(Ctx& c) {
     float y = py + kPanelPad;
     // A changed title: the old words go, a moment passes, and the new ones come.
     constexpr float kTitleLeave = 0.45f, kTitleGap = 0.10f, kTitleArrive = 0.45f;
-    if (titleChange_ < kTitleLeave) {
-        centred(titleWas_, y + c.text.ascent(TextStyle::Title2, sc), TextStyle::Title2,
-                1.0f - design::easeInOut(titleChange_ / kTitleLeave));
-    } else {
-        centred(title_, y + c.text.ascent(TextStyle::Title2, sc), TextStyle::Title2,
-                design::easeInOut((titleChange_ - kTitleLeave - kTitleGap) / kTitleArrive));
-    }
+    const auto drawTitle = [&](const std::string& s, float alpha) {
+        float base = y + c.text.ascent(TextStyle::Title2, sc);
+        for (const std::string& l : titleLines(s)) {
+            centred(l, base, TextStyle::Title2, alpha);
+            base += titleLine;
+        }
+    };
+    if (titleChange_ < kTitleLeave) drawTitle(titleWas_, 1.0f - design::easeInOut(titleChange_ / kTitleLeave));
+    else drawTitle(title_, design::easeInOut((titleChange_ - kTitleLeave - kTitleGap) / kTitleArrive));
     y += titleH;
     for (size_t i = 0; i < lines.size(); ++i)
         centred(lines[i], y + 8.0f + lineH * i + c.text.ascent(TextStyle::Callout, sc),
