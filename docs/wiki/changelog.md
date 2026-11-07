@@ -4,7 +4,7 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## 2026.11.07.3 {#v2026-11-07-3}
+## 2026.11.07.6 {#v2026-11-07-6}
 
 - **New:** LinkUp, a game with a friend on their console, from their house. Turn it on in Settings,
   **Streaming**, then press **Server** and type the address and code the server's owner sends you. LinkUp then
