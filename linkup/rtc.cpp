@@ -12,22 +12,33 @@
 
 namespace {
 
-void runOnMain(std::function<void()> fn) {
-    g_main_context_invoke_full(
-        nullptr, G_PRIORITY_DEFAULT,
-        [](gpointer data) -> gboolean {
-            (*static_cast<std::function<void()>*>(data))();
-            return G_SOURCE_REMOVE;
-        },
-        new std::function<void()>(std::move(fn)), [](gpointer data) { delete static_cast<std::function<void()>*>(data); });
-}
-
 void setIfThere(GObject* o, const char* name, gboolean value) {
     if (g_object_class_find_property(G_OBJECT_GET_CLASS(o), name)) g_object_set(o, name, value, nullptr);
     else std::fprintf(stderr, "[linkup] no property %s on %s\n", name, G_OBJECT_TYPE_NAME(o));
 }
 
 }  // namespace
+
+// On the main loop's thread, or not at all. GLib's own g_main_context_invoke runs a function on the
+// thread that asked when no loop owns the context, as while shutting down, and that stopped a stream
+// from two threads at once (a crash in Capture::stop, #654).
+void Rtc::onMain(std::function<void()> fn) {
+    if (g_main_context_is_owner(nullptr)) {
+        fn();
+        return;
+    }
+    GSource* source = g_idle_source_new();
+    g_source_set_priority(source, G_PRIORITY_DEFAULT);
+    g_source_set_callback(
+        source,
+        [](gpointer data) -> gboolean {
+            (*static_cast<std::function<void()>*>(data))();
+            return G_SOURCE_REMOVE;
+        },
+        new std::function<void()>(std::move(fn)), [](gpointer data) { delete static_cast<std::function<void()>*>(data); });
+    g_source_attach(source, nullptr);
+    g_source_unref(source);
+}
 
 int64_t Rtc::nowMs() {
     timespec ts{};
@@ -129,7 +140,7 @@ void Rtc::sendDescription(const char* kind, GstWebRTCSessionDescription* d) {
     g_free(text);
     const std::string details = jsonutil::text(o);
     json_object_put(o);
-    runOnMain([this, details]() { hooks_.signal(details); });
+    Rtc::onMain([this, details]() { hooks_.signal(details); });
 }
 
 void Rtc::onOfferCreated(GstPromise* promise, gpointer self) {
@@ -163,7 +174,7 @@ void Rtc::onIceCandidate(GstElement*, guint mline, gchar* candidate, gpointer se
     jsonutil::set(o, "m", static_cast<int>(mline));
     const std::string details = jsonutil::text(o);
     json_object_put(o);
-    runOnMain([me, details]() { me->hooks_.signal(details); });
+    Rtc::onMain([me, details]() { me->hooks_.signal(details); });
 }
 
 void Rtc::onSignal(const std::string& kind, const std::string& text, unsigned mline) {
@@ -210,7 +221,7 @@ void Rtc::onStats(GstPromise* promise, gpointer self) {
         }
     }
     gst_promise_unref(promise);
-    runOnMain([me, path]() { me->hooks_.connected(path); });
+    Rtc::onMain([me, path]() { me->hooks_.connected(path); });
 }
 
 // The bitrate's steps work from what the friend's console reports. RTCP's own arithmetic shares a very
@@ -242,7 +253,7 @@ void Rtc::onConnectionState(GObject* o, GParamSpec*, gpointer self) {
         GstPromise* promise = gst_promise_new_with_change_func(onStats, self, nullptr);
         g_signal_emit_by_name(me->webrtc_, "get-stats", nullptr, promise);
     } else if (state == GST_WEBRTC_PEER_CONNECTION_STATE_FAILED) {
-        runOnMain([me]() { me->hooks_.failed(); });
+        Rtc::onMain([me]() { me->hooks_.failed(); });
     }
 }
 
@@ -250,7 +261,7 @@ void Rtc::onControlString(GObject*, gchar* text, gpointer self) {
     auto* me = static_cast<Rtc*>(self);
     me->heard();
     const std::string copy = text ? text : "";
-    runOnMain([me, copy]() { me->hooks_.control(copy); });
+    Rtc::onMain([me, copy]() { me->hooks_.control(copy); });
 }
 
 void Rtc::onFastData(GObject*, GBytes* data, gpointer self) {

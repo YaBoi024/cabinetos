@@ -222,10 +222,17 @@ case "$LAST" in *'"server":"Morgan'*) pass "with sam's server's name" ;; *) fail
 
 say "== taken off the server"
 page "$work/a.jar" "$AA" /people
-grep -o 'name="console" value="[0-9]*"' "$work/out.html" | sed 's/.*value="//; s/"//' | sort -un > "$work/consoles"
-last=$(tail -1 "$work/consoles")
+last=
+grep -o 'people?person=[^"]*' "$work/out.html" | sed 's/.*=//' | sort -u > "$work/people"
+while read -r person; do
+    page "$work/a.jar" "$AA" "/people?person=$person"
+    if grep -q 'detail-title">maya<' "$work/out.html"; then
+        last=$(grep -o '/consoles/remove?id=[0-9]*' "$work/out.html" | sed 's/.*id=//' | head -1)
+        break
+    fi
+done < "$work/people"
 if [ -n "$last" ]; then
-    page "$work/a.jar" "$AA" /consoles/remove -d "console=$last"
+    page "$work/a.jar" "$AA" /consoles/remove -d "id=$last"
     want "a removed console hears it, and only from the server" removed "$probe" "$work/maya" op '{"op":"friends"}'
 else
     fail "no console to remove on the owner's page"

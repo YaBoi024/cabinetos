@@ -406,26 +406,19 @@ void StreamHost::onStatsReply(GstPromise* promise, gpointer self) {
     }
     gst_promise_unref(promise);
     if (!found) return;
-    g_main_context_invoke_full(
-        nullptr, G_PRIORITY_DEFAULT,
-        [](gpointer data) -> gboolean {
-            (*static_cast<std::function<void()>*>(data))();
-            return G_SOURCE_REMOVE;
-        },
-        new std::function<void()>([me, lostTotal, highest]() {
-            const int64_t sentSince = static_cast<int64_t>(highest) - static_cast<int64_t>(me->reportHighest_);
-            const int64_t lostSince = lostTotal - me->reportLost_;
-            if (sentSince <= 0) return;
-            const bool first = me->reportHighest_ == 0;
-            me->reportHighest_ = highest;
-            me->reportLost_ = lostTotal;
-            if (first) return;
-            const double lost = std::clamp(static_cast<double>(lostSince) / static_cast<double>(sentSince), 0.0, 1.0);
-            const Bitrate::Result r = me->bitrate_.report(lost, Rtc::nowMs());
-            if (r.changed) me->applyStep(me->bitrate_.step());
-            if (r.tooSlow && me->onSlow_) me->onSlow_();
-        }),
-        [](gpointer data) { delete static_cast<std::function<void()>*>(data); });
+    Rtc::onMain([me, lostTotal, highest]() {
+        const int64_t sentSince = static_cast<int64_t>(highest) - static_cast<int64_t>(me->reportHighest_);
+        const int64_t lostSince = lostTotal - me->reportLost_;
+        if (sentSince <= 0) return;
+        const bool first = me->reportHighest_ == 0;
+        me->reportHighest_ = highest;
+        me->reportLost_ = lostTotal;
+        if (first) return;
+        const double lost = std::clamp(static_cast<double>(lostSince) / static_cast<double>(sentSince), 0.0, 1.0);
+        const Bitrate::Result r = me->bitrate_.report(lost, Rtc::nowMs());
+        if (r.changed) me->applyStep(me->bitrate_.step());
+        if (r.tooSlow && me->onSlow_) me->onSlow_();
+    });
 }
 
 void StreamHost::pollStats() {

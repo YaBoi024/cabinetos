@@ -57,6 +57,7 @@ public:
     void heard();
 
     static int64_t nowMs();
+    static void onMain(std::function<void()> fn);
 
 private:
     static void onNegotiationNeeded(GstElement* w, gpointer self);

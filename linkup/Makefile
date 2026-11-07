@@ -24,8 +24,8 @@ cabinetos-linkup: $(STREAM_SRC) $(STREAM_HDR) $(SERVER_SRC) $(SERVER_HDR)
 	$(CXX) $(CXXFLAGS) $(BASE_CFLAGS) $(STREAM_CFLAGS) -pthread -o $@ $(STREAM_SRC) $(SERVER_SRC) $(BASE_LIBS) $(STREAM_LIBS)
 
 # The Noise test (noise-test.cpp): no network, no hardware.
-noise-test: noise-test.cpp noise.cpp noise.h box.cpp box.h
-	$(CXX) $(CXXFLAGS) $(BASE_CFLAGS) -o $@ noise-test.cpp noise.cpp box.cpp $(BASE_LIBS)
+noise-test: noise-test.cpp $(SERVER_SRC) $(SERVER_HDR)
+	$(CXX) $(CXXFLAGS) $(BASE_CFLAGS) -pthread -o $@ noise-test.cpp $(SERVER_SRC) $(BASE_LIBS)
 
 # A console on the command line, for tools/linkup-interop.sh. Not in the image.
 linkup-probe: probe.cpp $(SERVER_SRC) $(SERVER_HDR)

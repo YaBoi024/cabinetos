@@ -43,16 +43,6 @@ constexpr int64_t kReconnectEveryMs = 15000;
 constexpr int64_t kConnectLimitMs = 30000;
 constexpr int64_t kBoxLifeSeconds = 300;
 
-void runOnMain(std::function<void()> fn) {
-    g_main_context_invoke_full(
-        nullptr, G_PRIORITY_DEFAULT,
-        [](gpointer data) -> gboolean {
-            (*static_cast<std::function<void()>*>(data))();
-            return G_SOURCE_REMOVE;
-        },
-        new std::function<void()>(std::move(fn)), [](gpointer data) { delete static_cast<std::function<void()>*>(data); });
-}
-
 json_object* eventNamed(const char* name) {
     json_object* o = json_object_new_object();
     set(o, "ev", name);
@@ -257,7 +247,7 @@ void Conductor::cmdPair(json_object* o) {
     work([this, address, code, joining]() {
         std::string name;
         const pairing::Result result = pairing::pair(keys_, address, code, joining, name);
-        runOnMain([this, result, name]() {
+        Rtc::onMain([this, result, name]() {
             const char* word = "failed";
             switch (result) {
                 case pairing::Result::Paired: word = "paired"; break;
@@ -291,7 +281,7 @@ void Conductor::cmdRetype(json_object* o) {
         link_.reset();
         std::string answer;
         const ServerLink::Outcome outcome = link_.call("{\"op\":\"config\"}", answer);
-        runOnMain([this, outcome]() {
+        Rtc::onMain([this, outcome]() {
             ++waitGeneration_;
             setConnection(outcome);
             sendState();
@@ -475,7 +465,7 @@ void Conductor::ask(json_object* request, Then then) {
     work([this, text, then = std::move(then)]() {
         std::string answer;
         const ServerLink::Outcome outcome = link_.call(text, answer);
-        runOnMain([this, outcome, answer, then]() {
+        Rtc::onMain([this, outcome, answer, then]() {
             json_object* o = jsonutil::parse(answer);
             setConnection(outcome);
             if (then) then(outcome, o);
@@ -503,7 +493,7 @@ void Conductor::waitLoop() {
         std::string answer;
         const ServerLink::Outcome outcome = link_.call(request, answer, 40);
         if (outcome != ServerLink::Outcome::Ok) {
-            runOnMain([this, outcome]() { setConnection(outcome); });
+            Rtc::onMain([this, outcome]() { setConnection(outcome); });
             link_.waitBeforeRetry([this, generation]() { return stopping_.load() || generation != waitGeneration_.load(); });
             continue;
         }
@@ -518,7 +508,7 @@ void Conductor::waitLoop() {
         std::string events = "[]";
         if (json_object* list = get(o, "events")) events = jsonutil::text(list);
         json_object_put(o);
-        runOnMain([this, events, restarted]() {
+        Rtc::onMain([this, events, restarted]() {
             setConnection(ServerLink::Outcome::Ok);
             if (restarted) {
                 fetchFriends();
@@ -751,7 +741,7 @@ void Conductor::onFast(const uint8_t* data, size_t len) {
             int64_t sent = 0;
             std::memcpy(&sent, data + 1, sizeof sent);
             const int rtt = static_cast<int>(Rtc::nowMs() - sent);
-            runOnMain([this, rtt]() { rttSamples_.push_back(rtt); });
+            Rtc::onMain([this, rtt]() { rttSamples_.push_back(rtt); });
             break;
         }
         default:
@@ -909,7 +899,7 @@ void Conductor::prepareConnection() {
         }
         work([this, invite, list]() {
             const std::string first = firstStunThatAnswers(list);
-            runOnMain([this, invite, first]() {
+            Rtc::onMain([this, invite, first]() {
                 if (!game_ || game_->inviteId != invite) return;
                 game_->stun = first;
                 game_->haveConfig = true;

@@ -19,14 +19,14 @@ void Bitrate::reset(int width, int height) {
     steps_.push_back({kTopKbit, width, height});
     steps_.push_back({12000, width, height});
     steps_.push_back({8000, width, height});
-    if (height > 720) {
-        const int w = (width * 720 / height) & ~1;
-        steps_.push_back({6000, w, 720});
-    }
-    if (height > 540) {
-        const int w = (width * 540 / height) & ~1;
-        steps_.push_back({3500, w, 540});
-    }
+    // Smaller only from 1080p, and only to 720p. An encoder opened straight after another hung the
+    // reference console's video engine, with no game running and for either codec, going from 720p to
+    // 576p, 540p or 480p and between 900p and 720p, and the driver then ends this program. 1080p and
+    // 720p have changed places hundreds of times without it. Why is not known (#654).
+    const int lowWidth = height >= 1080 ? (width * 720 / height) & ~1 : width;
+    const int lowHeight = height >= 1080 ? 720 : height;
+    steps_.push_back({6000, lowWidth, lowHeight});
+    steps_.push_back({3500, lowWidth, lowHeight});
     at_ = 0;
     badSeconds_ = goodSeconds_ = bottomBadSeconds_ = 0;
 }

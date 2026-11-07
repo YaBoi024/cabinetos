@@ -1,7 +1,8 @@
 // `make test`: noise.cpp held to the published Noise vectors (noise-vectors.txt) and to the
 // answers the server's own code makes (proof-vectors.txt, written by internal/proof in
 // MMagTech/cabinet-linkup). No network. A hand-written Noise is the largest risk the security
-// review left, so this runs in CI and every message has to match to the byte.
+// review left, so this runs in CI and every message has to match to the byte. Also what sits
+// next to it: names cleaned, boxes dropped when they do not fit, what an address means.
 //
 //   noise-test <folder holding the two files>
 
@@ -15,6 +16,7 @@
 
 #include "box.h"
 #include "noise.h"
+#include "server_link.h"
 
 using noise::Bytes;
 using noise::Handshake;
@@ -376,6 +378,89 @@ void serverAnswers(const std::string& folder) {
     std::printf("  the server's answers\n");
 }
 
+// What a friend's console or a server can put on a television goes through this.
+void cleanTextHolds() {
+    const auto clean = [](const std::string& t, size_t max = 100) { return box::cleanText(t, max); };
+    check(clean("Contra III") == "Contra III", "plain text changed");
+    check(clean("Pok\xC3\xA9mon \xE3\x83\x9E\xF0\x9F\x8E\xAE") == "Pok\xC3\xA9mon \xE3\x83\x9E\xF0\x9F\x8E\xAE", "real UTF-8 was changed");
+    check(clean("a\nb\tc\x7F" "d") == "abcd", "control characters stayed");
+    check(clean("a\xC2\x85" "b") == "ab", "a C1 control stayed");
+    check(clean("a\xE2\x80\xAE" "b") == "ab", "a right-to-left override stayed");
+    check(clean("a\xE2\x80\x8B" "b\xEF\xBB\xBF" "c") == "abc", "a zero-width character stayed");
+    check(clean("a\xEE\x80\x80" "b\xF3\xA0\x80\x81" "c") == "abc", "a private use or tag character stayed");
+    check(clean("a\xC0\x80" "b") == "ab", "an overlong form stayed");
+    check(clean("a\xED\xA0\x80" "b") == "ab", "a surrogate stayed");
+    check(clean("a\xC3") == "a", "a cut character stayed");
+    check(clean("a\xFF" "b") == "ab", "a byte that is no UTF-8 stayed");
+    check(clean("\xC3\xA9\xC3\xA9", 3) == "\xC3\xA9", "cut inside a character");
+    check(clean("abcdef", 3) == "abc", "not cut at the limit");
+    std::printf("  names cleaned on the way in\n");
+}
+
+// A sealed box can be sent twice, or sent to someone else, so a reader drops what does not fit.
+void readerDropsWhatDoesNotFit() {
+    const auto bytes = [](const std::string& t) { return Bytes(t.begin(), t.end()); };
+    box::Contents invite;
+    invite.type = "invite";
+    invite.n = 1;
+    invite.expires = 1000;
+    invite.from = "alex";
+    invite.to = "sam";
+    invite.stream = 1;
+    invite.game = "Contra\nIII";
+    const Bytes good = bytes(box::write(invite));
+    box::Contents out;
+
+    box::Reader first;
+    check(first.read(good, "invite", "alex", "sam", 1000, out), "a good invite was dropped");
+    check(out.game == "ContraIII" && out.stream == 1 && out.from == "alex", "an invite read wrongly");
+    check(!first.read(good, "invite", "alex", "sam", 1000, out), "the same box was read twice");
+    box::Contents later = invite;
+    later.n = 2;
+    check(first.read(bytes(box::write(later)), "invite", "alex", "sam", 1000, out), "the next count was dropped");
+
+    box::Reader r;
+    check(!r.read(good, "invite", "alex", "sam", 1001, out), "a box past its time was read");
+    check(!r.read(good, "signal", "alex", "sam", 1000, out), "a box of another type was read");
+    check(!r.read(good, "invite", "riley", "sam", 1000, out), "a box from someone else was read");
+    check(!r.read(good, "invite", "alex", "riley", 1000, out), "a box to someone else was read");
+    check(!r.read(bytes("not json"), "invite", "alex", "sam", 1000, out), "something that is not JSON was read");
+    check(!r.read(bytes("[1]"), "invite", "alex", "sam", 1000, out), "a list was read");
+    box::Contents none = invite;
+    none.n = 0;
+    check(!r.read(bytes(box::write(none)), "invite", "alex", "sam", 1000, out), "a count of 0 was read");
+    check(!r.read(bytes("{\"type\":\"invite\",\"n\":9,\"expires\":1000,\"from\":\"alex\",\"to\":\"sam\"}"), "invite", "alex", "sam", 1000, out),
+          "an invite with no game was read");
+    check(!r.read(bytes("{\"type\":\"signal\",\"n\":9,\"expires\":1000,\"from\":\"alex\",\"to\":\"sam\"}"), "signal", "alex", "sam", 1000, out),
+          "a signal with no details was read");
+    // A dropped box does not use up its count.
+    check(r.read(good, "invite", "alex", "sam", 1000, out), "a dropped box used up its count");
+
+    box::Contents signal;
+    signal.type = "signal";
+    signal.n = 1;
+    signal.expires = 1000;
+    signal.from = "sam";
+    signal.to = "alex";
+    signal.details = "{\"kind\":\"offer\"}";
+    box::Reader s;
+    check(s.read(bytes(box::write(signal)), "signal", "sam", "alex", 1000, out) && out.details == signal.details, "a signal read wrongly");
+    std::printf("  boxes that do not fit are dropped\n");
+}
+
+// PROTOCOL.md's table of what an address means.
+void addressesMean() {
+    using List = std::vector<std::string>;
+    check(ServerLink::bases("name.example.net") == List{"https://name.example.net", "http://name.example.net"}, "a host name");
+    check(ServerLink::bases("name.example.net:7845") == List{"http://name.example.net:7845"}, "a host and a port");
+    check(ServerLink::bases("https://name.example.net") == List{"https://name.example.net"}, "a scheme is kept");
+    check(ServerLink::bases("http://name.example.net:7845/") == List{"http://name.example.net:7845"}, "a last slash goes");
+    check(ServerLink::bases("  name.example.net/linkup/  ") == List{"https://name.example.net/linkup", "http://name.example.net/linkup"}, "a path, with spaces");
+    check(ServerLink::bases("[2001:db8::1]:7845") == List{"http://[2001:db8::1]:7845"}, "IPv6 with a port");
+    check(ServerLink::bases("[2001:db8::1]") == List{"https://[2001:db8::1]", "http://[2001:db8::1]"}, "IPv6 with none");
+    std::printf("  what an address means\n");
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -385,6 +470,9 @@ int main(int argc, char** argv) {
     brokenMessages();
     slowHashAnswer();
     serverAnswers(folder);
+    cleanTextHolds();
+    readerDropsWhatDoesNotFit();
+    addressesMean();
     if (failures > 0) {
         std::fprintf(stderr, "%d failed\n", failures);
         return 1;
