@@ -139,7 +139,7 @@ void App::removeDownload(int romId) {
 // (launchById). On slow Wi-Fi a wrong press on a big game tied the console
 // up for an hour (a player's report, 2026-11-06). The row asks first, as
 // Remove download does (#188): a mis-press would cost whatever had arrived.
-// Cancel is focused, and B is the same answer. Stop sets the job's cancel,
+// Continue is focused, and B is the same answer. Stop sets the job's cancel,
 // which the worker answers at every step (#472): the job ends Failed, the
 // keep comes out, the half-written file goes, and the page says nothing
 // (takeFinishedJob, a cancel says nothing). One question for every stage,
@@ -152,9 +152,12 @@ void App::removeDownload(int romId) {
 // sits under the game's own title, and Keep going is not a word the
 // console uses. Now it is a one-verb question, as "Sign out?" is, about
 // what the row under it is doing ("this" was tried and he does not like
-// the word), Cancel first as the storage boxes have it, and no line under
-// it: the size is on the page two lines up, and the bar is under the
-// scrim. docs/decisions/2026-11-06-stop-a-download-from-its-row.md.
+// the word), and no line under it: the size is on the page two lines up,
+// and the bar is under the scrim. CONTINUE, NOT CANCEL, for the harmless
+// answer: under "Stop downloading?" a Cancel reads as cancelling the
+// download, the opposite of what it does (MMagTech, the same evening),
+// and Exit is the word for leaving a game (Exit to Home). Continue says
+// what happens. docs/decisions/2026-11-06-stop-a-download-from-its-row.md.
 namespace {
 constexpr const char* kStopTitle = "Stop downloading?";
 }
@@ -163,7 +166,7 @@ void App::pressStopDownload(const screens::Result& res) {
     const int romId = res.value;
     if (!launchJob.busy() || launchJob.romId != romId) return;
     sound::play(sound::Cue::Activate);
-    askChoice(kStopTitle, "", {"Cancel", "Stop"}, 0, [&, romId](int answer) {
+    askChoice(kStopTitle, "", {"Continue", "Stop"}, 0, [&, romId](int answer) {
         if (answer != 1) return;
         // Ended while the question was up (followStopAsk closes the box
         // then, but the answer can land the same frame).
