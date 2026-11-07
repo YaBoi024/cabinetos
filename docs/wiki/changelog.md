@@ -4,6 +4,20 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.11.07.2 {#v2026-11-07-2}
+
+- **Fixed:** PlayStation 3 games made with Unreal Engine 3 drew red speckle
+  over the whole picture as soon as play started, while their menus and
+  cutscenes looked right, and some kept red in the shadows at the Balanced
+  and Quality picture levels. They draw right now, at every level.
+  ([#664](https://github.com/MMagTech/cabinetos/pull/664))
+
+- **Improved:** PlayStation 3 games now start with the settings the RPCS3
+  team keeps for each game, the same ones RPCS3 uses on a computer, so a
+  game that needs a particular setting to draw or run right gets it without
+  anyone choosing it. A game the team has no entry for plays as before.
+  ([#665](https://github.com/MMagTech/cabinetos/pull/665))
+
 ## 2026.11.07 {#v2026-11-07}
 
 - **New:** a download you no longer want can be stopped. Until now it ran to

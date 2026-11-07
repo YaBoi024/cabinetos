@@ -40,6 +40,8 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [model-3-net-board-linked-to-itself](2026-10-29-model-3-net-board-linked-to-itself.md): Model 3's net board is on, linked to itself, inside the empty network every emulator gets.
 - [xbox-360-unreal-engine-3-fix](2026-11-01-xbox-360-unreal-engine-3-fix.md): every Xbox 360 game draws at the Xenos sample positions with the window offset in the viewport, so Unreal Engine 3 games lose their black patches.
 - [dirt-devils-supermodel-patch](2026-11-01-dirt-devils-supermodel-patch.md): a patch to Supermodel runs a machine linked to itself as the only cabinet, so Dirt Devils plays.
+- [ps3-filtering-as-the-game-asked](2026-11-06-ps3-filtering-as-the-game-asked.md): on PS3 the anisotropic filter is the game's own, not the forced 16x, and buffers up to 320 pixels stay unscaled, so Unreal Engine 3 games draw without red.
+- [rpcs3-settings-database-snapshot](2026-11-06-rpcs3-settings-database-snapshot.md): the RPCS3 team's per-game settings ride in the image as a committed snapshot, refreshed by a tool only when RPCS3's pin moves, held to that pin by the build and CI, never fetched by the console or the build.
 
 ### Controls
 

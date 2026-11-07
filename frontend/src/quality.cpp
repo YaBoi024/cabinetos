@@ -330,9 +330,23 @@ std::string rpcs3(Level l) {
     // measured (the game would not load past its menu that once). The game's
     // own video mode stays 720p; that one changes the game. Lines inside
     // RPCS3's `Video:` section, which standalone_rpcs3.cpp opens.
+    //
+    // FILTERING IS THE GAME'S OWN here, not the 16x every other system gets
+    // (quality.h): RPCS3's override replaces what a game asked for on every
+    // texture, the ones it reads as data too, and Unreal Engine 3 games then
+    // draw red noise over the whole picture in play while their menus stay
+    // right (Lollipop Chainsaw and Batman: Arkham City on the A9,
+    // 2026-11-06; RPCS3's pages for both say to leave it on Auto). Not
+    // written, so RPCS3's default, the game's choice, stands. BUFFERS UP TO
+    // 320 PIXELS ON THEIR LONGER SIDE STAY UNSCALED ("Minimum Scalable
+    // Dimension", RPCS3's resolution scale threshold, 16 as it ships): with
+    // the filter fixed, a scaled shadow buffer still left red in the
+    // shadows at 150%, and the pages give 256 and 320 for the two games.
+    // The 720p picture is far above it, so the level's scale is untouched.
+    // docs/decisions/2026-11-06-ps3-filtering-as-the-game-asked.md.
     static const char* const kScale[] = {"100", "150", "150"};
     return std::string("  Resolution Scale: ") + pick(l, kScale) +
-           "\n  Anisotropic Filter Override: 16\n";
+           "\n  Minimum Scalable Dimension: 320\n";
 }
 
 std::string xemu(Level l) {
