@@ -673,6 +673,17 @@ here, not reworded; follow the link for the full text.
   and ask the stability question above. Moving any emulator's or Sunshine's
   pin, go through its rows in docs/ARCHITECTURE.md, "What leans on other
   projects", too.
+- **Moving RPCS3's pin, and the monthly base update:** run
+  `tools/fetch-rpcs3-config-database.py` and commit what it changes in
+  `build_files/rpcs3-config-database.json`, the snapshot of the RPCS3
+  team's per-game settings the image carries
+  (docs/decisions/2026-11-06-rpcs3-settings-database-snapshot.md); on the
+  base update's pull request, push it by hand. The pull request says how
+  many of its entries the pinned build rejects: on the testing image, start
+  any PlayStation 3 game and count the serials after
+  `Config database error - Invalid config for` in its `RPCS3.log`, under the
+  game's folder in the cache (each is logged twice, since RPCS3 reads the
+  file twice). The console never fetches it.
 - **Leaning on another project's internals** (asked for by MMagTech,
   2026-10-21): anything that works only because another project behaves a
   way it does not promise (a patch to its source, a settings key or file it

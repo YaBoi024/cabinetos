@@ -12,6 +12,12 @@ one you install, so you only ever install the newest.
   and Quality picture levels. They draw right now, at every level.
   ([#664](https://github.com/MMagTech/cabinetos/pull/664))
 
+- **Improved:** PlayStation 3 games now start with the settings the RPCS3
+  team keeps for each game, the same ones RPCS3 uses on a computer, so a
+  game that needs a particular setting to draw or run right gets it without
+  anyone choosing it. A game the team has no entry for plays as before.
+  ([#665](https://github.com/MMagTech/cabinetos/pull/665))
+
 ## 2026.11.06 {#v2026-11-06}
 
 - **Fixed:** on a PC with two graphics chips, such as a gaming laptop or a

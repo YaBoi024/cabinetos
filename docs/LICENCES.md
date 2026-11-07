@@ -292,6 +292,17 @@ no statement of its own; GameTDB's FAQ describes all its databases as "for
 anyone to use in any game-related project". It decides which Wii U games play
 on an ordinary pad (open question 36).
 
+**RPCS3's per-game settings database** (api.rpcs3.net, kept by the RPCS3
+team) is carried as data: `/usr/lib/cabinetos/rpcs3/config_database.dat`, a
+snapshot of the file RPCS3's own window downloads for every copy of RPCS3,
+unmodified, pinned in this repository (`build_files/rpcs3-config-database.json`)
+and refreshed by `tools/fetch-rpcs3-config-database.py` with each move of
+RPCS3's pin and the monthly base update; first taken from the server's file
+of 2026-10-31 (2,294 games). It is a list of serials and the settings RPCS3
+should use for each, served by the RPCS3 team to every copy of its program,
+and carries no licence statement of its own
+(docs/decisions/2026-11-06-rpcs3-settings-database-snapshot.md).
+
 ## Not bundled
 
 **Games, BIOS and firmware.** All come from the person's own RomM server.

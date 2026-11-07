@@ -443,10 +443,16 @@ code.
   downloads (`https://api.rpcs3.net/config/?api=v1`, saved as
   `GuiConfigs/config_database.dat`, 2,294 games on 2026-11-06) and applies
   over the global config at every boot, `--no-gui` included, when the file is
-  there. The console starts RPCS3 without its window, so no game gets its
-  entry; the log says `Cannot find database config for`. Not shipped: the
-  console connects only to RomM and GitHub, so it would be a snapshot in the
-  repository. A per-game `custom_configs/config_<serial>.yml` under RPCS3's
+  there. The console starts RPCS3 without its window, so until #665 no game
+  got its entry and the log said `Cannot find database config for`. Since
+  then the image carries a snapshot (`build_files/rpcs3-config-database.json`,
+  refreshed by `tools/fetch-rpcs3-config-database.py`; the console connects
+  only to RomM and GitHub) that `prepareRpcs3` copies in before every start,
+  and the log says `Applying database config`. RPCS3 checks every entry
+  against its own build as it reads the file and drops an entry whole at the
+  first setting it does not know (39 of 2,294 on the pinned build, each
+  logged twice because it reads the file twice): a newer entry is lost, never
+  half applied. A per-game `custom_configs/config_<serial>.yml` under RPCS3's
   config folder overlays the global config too, and silences the database
   for that game: the way to test one setting on one game on the A9.
 
