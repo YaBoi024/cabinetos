@@ -92,6 +92,23 @@ file there must be added to `wiibridge/Makefile`. `make test` there builds
 and runs its one test, `wiibridge/pacing-test.cpp` (#480): two Remotes on
 socket pairs through the bridge's own loop, no hardware.
 
+**LinkUp's program** (`linkup/`, its own program so a firewall can tell it from the frontend), in the
+same builder, with the whole repository mounted, because it borrows the frontend's `fileio.cpp` and
+`linkup_wire.h`, from the repository root:
+
+```bash
+podman run --rm -v "$PWD":/repo:Z -w /repo/linkup cabinetos-builder make cabinetos-linkup
+```
+
+Like the bridge's, its Makefile lists its files by hand. `make test` there builds and runs
+`linkup/noise-test.cpp`: its hand-written Noise against the published vectors and the server's own
+answers, no network and no hardware. `tools/linkup-interop.sh` holds the rest of what it says to a server
+against two real containers, on a Linux machine with podman; `make linkup-probe` builds what it drives.
+What a console and a server say is `PROTOCOL.md` in MMagTech/cabinet-linkup, which is private until
+LinkUp ships. `--linkup-gallery` shows every screen with made-up friends and needs no server;
+`--linkup-script "<steps>"` runs a real session between two real consoles with nothing pressed
+(`frontend/src/linkupsession.cpp` lists its steps).
+
 **A libretro core:** `cores/build-core.sh <core>` from the repository root,
 where `<core>` is the name of one of its `case` arms (the same 23 names as
 `build-core.yml`'s list). Git runs on the host and the compile runs in
@@ -116,7 +133,7 @@ script's header says how to run it.
 **The whole image** is normally built only by CI (`build.yml`). On a Linux
 box it is `ci/stage-image-payload.sh` with no arguments, which collects and
 checks your local builds into `image_payload/`, then `just build`. It needs
-every piece built first: the frontend, the Wii bridge, all 23 cores,
+every piece built first: the frontend, the Wii bridge, LinkUp's program, all 23 cores,
 MAME 0.289, PCSX2, Cemu, sm2-emu, Supermodel and Sunshine under `cores/build/`,
 the arcade emulators' catalogues (`cores/arcade-sets.sh`, sm2-emu's into
 `cores/build/sm2emu/` and Supermodel's into `cores/build/supermodel/`) and
@@ -209,7 +226,7 @@ with 0 when it passes, and CI runs every one ("What CI checks"):
 | `--first-run-rules` | all 576 combinations of facts first run can be handed, from the network and from the time zone, asserting what it must refuse |
 | `--first-run-writes` | that finishing first run actually sticks |
 | `--accounts-test` | the rules for the people on a console and switching between them |
-| `--players-test` | the rules for which controller is which player |
+| `--players-test` | the rules for which controller is which player, and LinkUp's friend as player two: no third seat, a TV's other controllers heard by no game, and the TV's numbers back as they were |
 | `--fightstick-test` | which fight sticks are known, and where a game's buttons go on one: every count of buttons in the arcade cores' orders, a Naomi board's in Flycast, MAME 0.289's from its catalogue's count with its 7th and 8th on the stick clicks, and no layout for any other pad or a Dreamcast game |
 | `--arcade-settings-test` | holding Start in an arcade game: a hold of about a second presses a MAME's menu key once, in MAME 2003-Plus or MAME 0.289, or a Naomi or Atomiswave board's Test button in Flycast, a tap or a shorter hold presses nothing, a second hold closes MAME's menu, player 1's left stick click never reaches MAME 2003-Plus and does reach MAME 0.289 (its button 7), no player's stick clicks reach a board, and nothing changes on FinalBurn Neo, a Dreamcast game or any other core |
 | `--arcade-match-test` | which emulator plays an arcade game (`arcadematch.cpp`), on catalogues written in the test: by the zip's name for a grid, by its files and CHDs at Play, an emulator that marks the set not working skipped, MAME 2003-Plus before MAME 0.289 and never for a 7z, a disc going to the MAME its CHD was made for, a disc name with spaces, a light-gun game greyed for a light gun, one any list marks as made for anything but a controller not supported, a Dreamcast zip only Flycast's, and the reason when no emulator's files fit |
@@ -234,7 +251,7 @@ under load, against the stand-in server `tools/racemock.py <port>` only
 (start it, then `--romm-race-test 127.0.0.1:<port> 30`; it exits 0 when
 nothing went out wrong); do not point it at a real RomM.
 
-**Every flag is in `frontend/src/cli.cpp`**, 116 of them plus
+**Every flag is in `frontend/src/cli.cpp`**, 122 of them plus
 `--check-option-tables` in `main.cpp`; there is no `--help`.
 `frontend/README.md` holds the build recipe and the storage tree. What it
 said about running and the flags in September 2026 is history, in
@@ -317,7 +334,8 @@ something besides `.md` files and `docs/`):
   `disk_config/iso.toml`; and every Python file, the ones that ship
   included, is parsed. `just lint` runs the first two commands.
 - **The frontend** (`build-frontend.yml`): it compiles the frontend and the
-  Wii bridge in the builder, runs the bridge's `make test` (report only
+  Wii bridge and LinkUp's program in the builder, runs LinkUp's Noise test (report only until 2026-11-14),
+  runs the bridge's `make test` (report only
   until the date below), `--check-option-tables` and the self-tests,
   summarises the compiler's warnings, fails a new one, and lists the code
   nothing calls (below). When the pull request changes what an arcade
@@ -424,6 +442,9 @@ runs `checks.yml`, a few seconds each:
   "not fixed", "still open" or "left for later" is a warning on the pull
   request and never a failure: a decision file holds no fault (CLAUDE.md,
   rule 7).
+- **LinkUp holds no internet in the main program** (`ci/check-linkup-no-network.sh`): an internet call in
+  one of the frontend's LinkUp files fails, because everything on LinkUp's network is its own program, which
+  is what lets a firewall tell it from RomM. Report only until 2026-11-14.
 - **Licences** (`ci/check-licences.sh`): a text in `licences/` that
   `licences/SOURCES` lists and that is missing, or whose first line does not
   name the repository, path and revision SOURCES pins, fails: a text added by
@@ -794,5 +815,8 @@ index in docs/decisions/, then docs/PROJECT.md for anything before
 - The Wii bridge is GPL-2.0-or-later and its own program, because it carries
   Dolphin's extension encryption; the frontend stays MIT and only starts it
   (`wiibridge/bridge.cpp`'s header).
+- LinkUp's program (`linkup/`) is MIT, like the frontend. It links GStreamer (LGPL) and is its own program
+  for another reason: a firewall can tell it from RomM. Its test vectors keep their own terms, named at the
+  top of `linkup/noise-vectors.txt`.
 - The `Containerfile`, `Justfile`, `disk_config/` and `.github/workflows/`
   derive from the Universal Blue image template (Apache-2.0).

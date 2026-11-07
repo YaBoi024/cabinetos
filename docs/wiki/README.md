@@ -23,6 +23,7 @@ from a blank PC to playing.
 - [Screenshots](screenshots.md)
 - [Achievements](achievements.md)
 - [Remote Play](remote-play.md): play from a phone, tablet or computer.
+- [LinkUp](linkup.md): play a game with a friend on their console, from their house.
 - [Steam](steam.md)
 
 ## Systems

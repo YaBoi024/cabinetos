@@ -14,7 +14,7 @@ Buttons are named by position, Xbox style: **A** is the bottom face button
 | D-pad | Move. Hold to repeat. |
 | **A** | Select |
 | **B** | Back |
-| **L1** / **R1** | Previous / next of Home, Library, Search, Settings |
+| **L1** / **R1** | Previous / next of Home, Library, Search, [LinkUp](linkup.md) where it is on, Settings |
 | **L2** / **R2** | In a system's games: previous / next letter; hold to keep going. In Collections: previous / next person |
 | **Start** | The Power menu (Sleep, Restart, Power off, Switch to Steam) |
 | Up from the top row | The top bar |

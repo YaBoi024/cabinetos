@@ -365,6 +365,35 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
   last frame and the next.
 - **One server at a time.** A friend's server is sign out, then sign in.
 
+## Streaming: LinkUp
+
+Playing a game with a friend on another CabinetOS console over the internet, through a small server its
+owner runs (#654). The design and why each thing is as it is are on that issue; `docs/wiki/linkup.md` is how
+a player and an owner use it.
+
+- **Two rows, after Remote Play's. A feature that is off shows only its switch.**
+  - **LinkUp**: On or Off. Off on every new console. **Off means off:** its program is not running, nothing
+    listens, nothing is contacted, and the firewall blocks it in both directions. Turning it on asks for the
+    PIN when one is set, on any account but the owner's; off at once. It stays on through restarts, and
+    turning it back on needs no new pairing.
+  - **Server**: hidden while off. "None", or the address. Pressing it opens a panel: **Add a server** or
+    **Change server**, **Run your own** (a QR code to the server's repository), and **Leave**. Adding,
+    changing and leaving ask for the PIN. Changing the address needs no new code: the console remembers the
+    server's key.
+- **Adding a server** is the address, then the 12-character code, typed on the on-screen keyboard. The account
+  signed in at that moment becomes the friend the code was made for. A code that fails says *Wrong or expired
+  code*, too many tries *Too many tries*, nothing at that address *Can't reach that server*, and something there
+  that cannot prove it holds the code *That server failed its check*, the one sign of a typo in the address or a
+  fake server.
+- **With LinkUp on and no server yet, nothing runs.** Once paired, LinkUp joins the top bar for everyone on
+  that console: Home, Library, Search, LinkUp, Settings. It greys where the top bar says Offline.
+- **Status belongs to each account**, kept in that person's folder, and asks for no PIN. A person also shows
+  Offline after 15 minutes with no press, when the screen turns off, when the console sleeps, during a Remote
+  Play stream, and in Steam.
+- **One at a time with Remote Play.** While a device streams, the rows are greyed and every friend is grey with
+  their real status. While a session is open, on either console, Sunshine is stopped, and comes back by itself
+  with the switch unchanged.
+
 ## Streaming: Remote Play
 
 Sunshine on the console, Moonlight on a phone, tablet or computer to play

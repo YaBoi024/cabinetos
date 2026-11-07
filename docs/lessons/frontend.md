@@ -244,3 +244,21 @@ Read before working on a screen, the network, Bluetooth, pairing or first run.
   reading the mask's phase column by column in a 4K capture, after two wrong
   explanations; when a fault splits a picture down a line, look for the
   column where the pattern breaks.
+
+## LinkUp's stream, 2026-11-06 (#654)
+
+- **webrtcbin makes no offer until caps reach every one of its pads**, and it says nothing while it waits. A
+  picture held off and sound behind a valve looked like a fault in the signalling. An encoder says what it
+  makes only once it has made some, so the host feeds black frames until it is connected, and the sound's
+  valve sits after the encoder, forwarding caps and dropping everything else.
+- **A valve's mode is `forward-sticky-events`.** A wrong enum in a pipeline string only warns, and the pipeline
+  runs in the default, which drops the caps too.
+- **`gamescopectl screenshot` does not capture the overlay,** so on a friend's console it shows the frozen game
+  under a panel the person can see. SIGUSR1 is what shows what the frontend drew.
+- **A panel over a pause menu with `setOverPauseMenu` draws no title.** A level of the menu is rows, so a panel
+  with only a title and a prompt came up empty. A plain panel over the open menu hides its rows and reads whole.
+- **Noise's protocol name is hashed only when it is longer than a hash.** `Noise_XX_25519_ChaChaPoly_SHA256` is
+  exactly 32 bytes and `Noise_XXpsk0_...` is 36, so a shortcut passes the one pattern pairing uses and fails the
+  others. The published vectors caught this the first time they ran.
+- **A console that keeps checking in never counts as silent on the server,** so a program that dies in a session
+  would leave two people Linked up for a day. It keeps the session's id on disk and ends it when it comes back.
