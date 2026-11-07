@@ -4,7 +4,7 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## Next
+## 2026.11.07.2 {#v2026-11-07-2}
 
 - **Fixed:** PlayStation 3 games made with Unreal Engine 3 drew red speckle
   over the whole picture as soon as play started, while their menus and
