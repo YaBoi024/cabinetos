@@ -32,6 +32,12 @@ public:
     // Leaves: the server is forgotten, the console's own key stays.
     bool forget();
 
+    // The session this console is in, kept so that a program that died in one can end it when it comes
+    // back: a console that keeps checking in never counts as silent, so the server would hold both
+    // people as Linked up for a day. Empty for none.
+    void setOpenSession(const std::string& session);
+    std::string openSession() const;
+
     // PROTOCOL.md's `t`: the larger of now in nanoseconds and one more than the last, on disk
     // before it goes out, so a clock that moves back cannot lock this console out.
     int64_t nextT();

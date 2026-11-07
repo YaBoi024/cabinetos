@@ -50,6 +50,9 @@ public:
 
     void setOnSlow(std::function<void()> fn) { onSlow_ = std::move(fn); }
 
+    // The two consoles are connected: from here only the game goes in.
+    void stopPriming();
+
     // Whether this console can encode each codec at all.
     static bool canEncodeH265();
     static bool canEncodeH264();
@@ -58,6 +61,9 @@ private:
     bool buildPipeline();
     void destroyPipeline();
     void onFrame(const uint8_t* y, int yStride, const uint8_t* uv, int uvStride, int w, int h);
+    void pushLocked(const uint8_t* y, int yStride, const uint8_t* uv, int uvStride, int w, int h);
+    void pushBlack();
+    static gboolean onPrime(gpointer self);
     void applyStep(const Bitrate::Step& step);
     static GstPadProbeReturn dropFiller(GstPad*, GstPadProbeInfo* info, gpointer fillerType);
     static void onStatsReply(GstPromise* promise, gpointer self);
@@ -80,4 +86,6 @@ private:
     std::atomic<bool> pictureOn_{true};
     std::atomic<bool> wantFull_{false};
     uint32_t keyAsks_ = 0;
+    guint primeSource_ = 0;
+    int primeWith_ = 0;
 };

@@ -64,6 +64,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
         } else if (SDL_strcmp(argv[i], "--linkup-scene") == 0 && i + 1 < argc) {
             linkupGallery = true;
             linkupGalleryStart = SDL_atoi(argv[++i]) - 1;
+        } else if (SDL_strcmp(argv[i], "--linkup-script") == 0 && i + 1 < argc) {
+            linkupScript = argv[++i];
         } else if (SDL_strcmp(argv[i], "--menu-rise") == 0 && i + 1 < argc) {
             overlayRise = static_cast<float>(SDL_atof(argv[++i]));
         } else if (SDL_strcmp(argv[i], "--menu-fade") == 0 && i + 1 < argc) {

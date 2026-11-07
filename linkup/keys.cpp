@@ -92,6 +92,19 @@ bool Keys::forget() {
     return cab::removeFile(folder_ + "/server.json");
 }
 
+void Keys::setOpenSession(const std::string& session) {
+    std::lock_guard<std::mutex> lk(mu_);
+    const std::string path = folder_ + "/open-session";
+    if (session.empty()) cab::removeFile(path);
+    else cab::writeBytes(path, session, 0600);
+}
+
+std::string Keys::openSession() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    const std::vector<uint8_t> held = cab::readBytes(folder_ + "/open-session");
+    return std::string(held.begin(), held.end());
+}
+
 int64_t Keys::nextT() {
     std::lock_guard<std::mutex> lk(mu_);
     const int64_t now = std::chrono::duration_cast<std::chrono::nanoseconds>(

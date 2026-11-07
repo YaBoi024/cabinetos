@@ -677,6 +677,10 @@ struct App {
     int linkupUserFor = 0;
     cab::Job<romm::User> linkupUserJob;
     std::string linkupPairingCode;      // waiting for the program to be there
+    // --linkup-script: a real session with nothing pressed (linkupsession.cpp, runLinkUpScript).
+    std::string linkupScript;
+    double linkupScriptWaitUntil = 0.0;
+    uint32_t linkupScriptPad = 0;
     enum class LinkupSide { None, Host, Friend };
     LinkupSide linkupSide = LinkupSide::None;
     std::string linkupGuestId;
@@ -2430,6 +2434,7 @@ struct App {
     void linkupIdlePause();
     void tickLinkUpSession(float dt);
     void tickLinkUpLive(float dt);
+    void runLinkUpScript();
     // linkup.cpp
     bool linkupInBar() const;
     bool linkupSessionOpen() const;

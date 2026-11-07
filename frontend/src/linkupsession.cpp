@@ -87,7 +87,7 @@ int gamescopePid() {
         const size_t close = line.rfind(')');
         if (open == std::string::npos || close == std::string::npos) return 0;
         const std::string comm = line.substr(open + 1, close - open - 1);
-        if (comm.rfind("gamescope", 0) == 0) return pid;
+        if (comm.rfind("gamescope", 0) == 0 && comm != "gamescopereaper") return pid;
         std::istringstream rest(line.substr(close + 2));
         std::string state;
         int parent = 0;
@@ -745,6 +745,7 @@ void App::linkupSendPad(float dt) {
     linkupwire::Pad pad;
     SDL_Gamepad* gp = players::gamepad(0);
     const bool asleep = !linkupPictureBehind() || choiceScreen.visible();
+    pad.buttons = linkupScriptPad;
     if (gp && !asleep) {
         for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; ++b) {
             // The console's own button never reaches the other console, and a shortcut button is this
@@ -1077,9 +1078,89 @@ void App::tickLinkUpSession(float dt) {
     }
 }
 
+// --linkup-script "<step;step;...>": a real session between two real consoles with nothing pressed,
+// through the same calls a press makes, for the checks a television is not needed for. A step waits
+// where it says so, and the next one runs when it is met. Its words:
+//   on | off                     the switch
+//   pair <address> <code>        adds a server
+//   waitpaired                   until it is paired, and signed in
+//   waitonline <name>            until that friend is Online
+//   waitinvite                   until an invite is on the list
+//   invite <name> <rom id>       invites them to that game
+//   join | decline               answers the invite on the list
+//   waitstream                   until the two consoles are connected
+//   waitgame                     until the game is on the screen
+//   sleep <seconds>
+//   pad <bits>                   the friend's buttons, by SDL's numbers, as if held
+//   pause | enter | leave | quit | end | offline | online
+void App::runLinkUpScript() {
+    if (linkupScript.empty() || clockSeconds() < linkupScriptWaitUntil) return;
+    const size_t semi = linkupScript.find(';');
+    const std::string step = linkupScript.substr(0, semi);
+    std::istringstream in(step);
+    std::string word, a, b;
+    in >> word >> a >> b;
+    bool done = true;
+    auto findFriend = [&](const std::string& name) -> const linkup::Friend* {
+        for (const linkup::Friend& f : linkUp.friends)
+            if (f.name == name) return &f;
+        return nullptr;
+    };
+    if (word == "on") linkupSetSwitch(true);
+    else if (word == "off") linkupSetSwitch(false);
+    else if (word == "pair") linkupBeginPairing(a, b);
+    else if (word == "waitpaired") done = linkUp.paired && linkupSignedIn;
+    else if (word == "waitonline") {
+        const linkup::Friend* f = findFriend(a);
+        done = f && f->status == linkup::Status::Online;
+    } else if (word == "waitinvite") {
+        done = false;
+        for (const linkup::Friend& f : linkUp.friends) done = done || !f.invite.empty();
+    } else if (word == "invite") {
+        const linkup::Friend* f = findFriend(a);
+        if (f) {
+            linkupGuestId = f->id;
+            linkupGuest = f->name;
+            linkupGameId = std::atoi(b.c_str());
+            std::string title = "Game " + b;
+            for (const romm::Game& g : games)
+                if (g.id == linkupGameId) title = g.name;
+            goToDestination(BarLinkUp);
+            linkupInvite(title);
+        }
+    } else if (word == "join" || word == "decline") {
+        for (const linkup::Friend& f : linkUp.friends) {
+            if (f.invite.empty()) continue;
+            const linkup::Friend copy = f;
+            goToDestination(BarLinkUp);
+            if (word == "join") linkupJoin(copy);
+            else linkupSendDecline(copy);
+            break;
+        }
+    } else if (word == "waitstream") done = linkupStreamUp;
+    else if (word == "waitgame") done = linkupSide != LinkupSide::Host || linkupGameAloneOnScreen();
+    else if (word == "sleep") linkupScriptWaitUntil = clockSeconds() + std::atof(a.c_str());
+    else if (word == "pad") linkupScriptPad = static_cast<uint32_t>(std::strtoul(a.c_str(), nullptr, 0));
+    else if (word == "pause") {
+        if (linkupSide == LinkupSide::Friend) linkupAskLeave();
+        else linkupPauseGame();
+    } else if (word == "enter") navigate(screens::Nav::Activate);
+    else if (word == "leave") linkupFriendLeaves();
+    else if (word == "quit") exitToHome();
+    else if (word == "end") linkupNextDone();
+    else if (word == "offline" || word == "online") {
+        linkUp.appearOffline = word == "offline";
+        refreshLinkUpScreen();
+    } else if (!word.empty()) std::fprintf(stderr, "[linkup] script: no step %s\n", word.c_str());
+    if (!done) return;
+    std::fprintf(stderr, "[linkup] script: %s\n", step.c_str());
+    linkupScript = semi == std::string::npos ? std::string() : linkupScript.substr(semi + 1);
+}
+
 // Every frame, before anything is drawn.
 void App::tickLinkUpLive(float dt) {
     if (linkupGallery) return;
+    runLinkUpScript();
     linkupFollowAccount();
     linkupFollowLink();
     linkupFollowStatus();

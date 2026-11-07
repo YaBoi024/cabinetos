@@ -138,6 +138,14 @@ void Conductor::start() {
     worker_ = std::thread([this]() { workerLoop(); });
     waiter_ = std::thread([this]() { waitLoop(); });
     tickSource_ = g_timeout_add(50, onTick, this);
+    // The last run of this program died in a game. The game is gone; the server has to hear.
+    const std::string left = keys_.openSession();
+    if (!left.empty() && paired_.load()) {
+        json_object* q = requestNamed("end");
+        set(q, "session", left);
+        ask(q, nullptr);
+    }
+    keys_.setOpenSession("");
 }
 
 void Conductor::shutDown() {
@@ -155,7 +163,12 @@ void Conductor::shutDown() {
 void Conductor::onClient(bool connected) {
     std::fprintf(stderr, connected ? "[linkup] the main program is here\n" : "[linkup] the main program has gone\n");
     // Nobody at the console can answer a knock: it is restarting, it crashed, or it is in Steam, where
-    // nothing of it runs. Back again, it signs in with its own status.
+    // nothing of it runs. Back again, it signs in with its own status. A session does not outlive it:
+    // the game and the screens it was for have gone with it.
+    if (!connected && game_) {
+        if (Rtc* r = rtc()) r->sendControl("bye");
+        cmdEnd();
+    }
     if (!connected && signedIn_) {
         json_object* q = requestNamed("status");
         set(q, "status", "offline");
@@ -412,6 +425,7 @@ void Conductor::cmdJoin(json_object* o) {
             return;
         }
         game_->sessionId = session;
+        keys_.setOpenSession(session);
         sendHello();
         prepareConnection();
     });
@@ -540,6 +554,7 @@ void Conductor::onEvents(json_object* events) {
         } else if (type == "joined") {
             if (game_ && game_->host && game_->sessionId.empty()) {
                 game_->sessionId = str(e, "session");
+                keys_.setOpenSession(game_->sessionId);
                 local_.sendJson(eventNamed("joined"));
                 prepareConnection();
             }
@@ -695,6 +710,7 @@ Rtc::Hooks Conductor::makeHooks() {
         if (!game_) return;
         game_->connected = true;
         path_ = path;
+        if (host_) host_->stopPriming();
         std::fprintf(stderr, "[linkup] connected: %s\n", path.c_str());
         json_object* ev = eventNamed("connected");
         set(ev, "path", path);
@@ -759,6 +775,10 @@ void Conductor::onControl(const std::string& text) {
 
 void Conductor::sendSignal(const std::string& details) {
     if (!game_ || game_->sessionId.empty()) return;
+    // Which kind only: a candidate holds an internet address, and none goes in the log.
+    json_object* said = jsonutil::parse(details);
+    std::fprintf(stderr, "[linkup] connection details out: %s\n", str(said, "kind").empty() ? "candidate or hello" : str(said, "kind").c_str());
+    if (said) json_object_put(said);
     json_object* wrap = json_object_new_object();
     set(wrap, "g", game_->generation);
     set(wrap, "d", details);
@@ -849,6 +869,7 @@ void Conductor::applySignal(const std::string& details) {
     if (!d) return;
     const std::string sdp = str(d, "sdp");
     if (!sdp.empty()) {
+        std::fprintf(stderr, "[linkup] connection details in: %s\n", str(d, "kind").c_str());
         r->onSignal(str(d, "kind"), sdp, 0);
     } else {
         const std::string ice = str(d, "ice");
@@ -984,6 +1005,7 @@ void Conductor::startFriend() {
 }
 
 void Conductor::endGame() {
+    keys_.setOpenSession("");
     if (host_) host_->stop();
     if (friend_) friend_->stop();
     host_.reset();

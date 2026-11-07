@@ -109,9 +109,12 @@ bool StreamHost::buildPipeline() {
     const std::string sound =
         "pipewiresrc name=sound do-timestamp=true " + target +
         "stream-properties=\"props,stream.capture.sink=(boolean)true,media.type=(string)Audio,media.category=(string)Capture,node.latency=(string)256/48000\" ! "
-        "audio/x-raw,format=S16LE,rate=48000,channels=2 ! valve name=mute drop=false ! audioconvert ! audioresample ! "
+        "audio/x-raw,format=S16LE,rate=48000,channels=2 ! audioconvert ! audioresample ! "
         "opusenc frame-size=10 bitrate=128000 audio-type=restricted-lowdelay ! rtpopuspay pt=97 ! "
-        "application/x-rtp,media=audio,encoding-name=OPUS,payload=97,clock-rate=48000";
+        "application/x-rtp,media=audio,encoding-name=OPUS,payload=97,clock-rate=48000 ! "
+        // After the encoder, which says what it makes only once it has made some, and webrtcbin makes no
+        // offer until it knows: the caps pass this valve while no sound does.
+        "valve name=mute drop=true drop-mode=forward-sticky-events";
     const std::string description =
         "webrtcbin name=w bundle-policy=max-bundle latency=100 "
         "appsrc name=cap is-live=true format=time do-timestamp=false max-bytes=0 max-buffers=2 leaky-type=downstream block=false ! " +
@@ -147,7 +150,38 @@ bool StreamHost::buildPipeline() {
     rtc_->makeChannels();
     gst_element_set_state(pipeline_, GST_STATE_PLAYING);
     capsW_ = capsH_ = 0;
+    // webrtcbin makes no offer until the picture's caps reach it, and those come from the encoder's first
+    // frame, and the real picture stays off until the game is on the screen. So until the two consoles
+    // are connected a black frame goes in now and then. Nothing leaves before they are, and the
+    // friend's console says Waiting over its first picture.
+    primeWith_ = 0;
+    if (!primeSource_) primeSource_ = g_timeout_add(100, onPrime, this);
     return true;
+}
+
+gboolean StreamHost::onPrime(gpointer self) {
+    auto* me = static_cast<StreamHost*>(self);
+    if (++me->primeWith_ > 100) {
+        me->primeSource_ = 0;
+        return G_SOURCE_REMOVE;
+    }
+    me->pushBlack();
+    return G_SOURCE_CONTINUE;
+}
+
+void StreamHost::stopPriming() {
+    if (primeSource_) g_source_remove(primeSource_);
+    primeSource_ = 0;
+}
+
+void StreamHost::pushBlack() {
+    const int w = settings_.width;
+    const int h = settings_.height;
+    const size_t ySize = static_cast<size_t>(w) * static_cast<size_t>(h);
+    std::vector<uint8_t> frame(ySize * 3 / 2, 128);
+    std::memset(frame.data(), 16, ySize);
+    std::lock_guard<std::mutex> lk(frameMu_);
+    if (appsrc_) pushLocked(frame.data(), w, frame.data() + ySize, w, w, h);
 }
 
 void StreamHost::destroyPipeline() {
@@ -179,11 +213,13 @@ bool StreamHost::start(const Settings& settings) {
 }
 
 bool StreamHost::reconnect() {
+    stopPriming();
     destroyPipeline();
     return buildPipeline();
 }
 
 void StreamHost::stop() {
+    stopPriming();
     capture_.stop();
     destroyPipeline();
 }
@@ -191,6 +227,10 @@ void StreamHost::stop() {
 void StreamHost::onFrame(const uint8_t* y, int yStride, const uint8_t* uv, int uvStride, int w, int h) {
     std::lock_guard<std::mutex> lk(frameMu_);
     if (!appsrc_ || !pictureOn_.load()) return;
+    pushLocked(y, yStride, uv, uvStride, w, h);
+}
+
+void StreamHost::pushLocked(const uint8_t* y, int yStride, const uint8_t* uv, int uvStride, int w, int h) {
     if (w != capsW_ || h != capsH_) {
         // gamescope states no frame rate, and the encoder took that for 30 and sent twice the
         // bitrate asked for, so one is stated here. Its NV12 is BT.601 limited.
