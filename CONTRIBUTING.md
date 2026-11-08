@@ -668,7 +668,14 @@ here, not reworded; follow the link for the full text.
 - **The console connects only to fixed places the code chooses:** the
   player's RomM server, GitHub for updates, and RetroAchievements, Flathub,
   Tailscale or Steam when the player uses them. Never to an address found in
-  the data, such as a cover's web address.
+  the data, such as a cover's web address. LinkUp is the one curated
+  exception. While a player has it on, it connects to the LinkUp server they
+  paired with and the addresses that server hands it: a friend's console, a
+  relay and STUN helpers. While it is off, its program does not run and the
+  firewall blocks it.
+- **A feature a person does not use is completely off:** off to start with,
+  and off means its program is not running, nothing listens and nothing is
+  contacted.
 - **No em dashes in anything the console shows on screen.** Use a full stop,
   a comma or two short sentences.
 - **No CabinetOS fix may need Steam.** Steam is optional, so a fix never asks
