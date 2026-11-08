@@ -93,6 +93,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [portable-first-start](2026-11-04-portable-first-start.md): what a first start would write on a USB stick is done when the file is made, or waits: the boot setting, the update source, the filesystem's layout, and the emulators, 15 minutes in at idle priority; the log stays on.
 - [portable-for-others-as-an-alpha](2026-11-04-portable-for-others-as-an-alpha.md): anyone may try the portable install from its wiki page, which calls it an alpha and lists what has and has not been tried.
 - [portable-secure-boot](2026-11-04-portable-secure-boot.md): with Secure Boot on, a portable drive brings up shim's key screen by itself and the tester enrols the key once per PC; nobody is asked to change Secure Boot, and everybody is told to save their BitLocker key first.
+- [wifi-scans-and-power-saving](2026-11-08-wifi-scans-and-power-saving.md): Wi-Fi scans only when the signal drops below -70 dBm, then every 6 minutes, in place of NetworkManager's every 5 minutes on a home with two access points; Wi-Fi power saving is off.
 
 ### Building and checking
 

@@ -506,6 +506,17 @@ log: nmcli still answers in the fields the console reads :: s=$(nmcli -t -f DEVI
 # open to the home network. A base whose zone closes them leaves a phone
 # unable to reach either, and nothing on the console says so.
 log: The firewall still lets a phone reach Remote Play and the report's link :: z=$(sed -n 's/^DefaultZone=//p' /etc/firewalld/firewalld.conf); f=/etc/firewalld/zones/$z.xml; [ -e "$f" ] || f=/usr/lib/firewalld/zones/$z.xml; grep -qE '<port (protocol="tcp" port="1025-65535"|port="1025-65535" protocol="tcp")/>' "$f" || { echo "the default zone ${z:-(none)} ($f) does not open TCP 1025-65535"; exit 1; }
+# After each Wi-Fi connect a dispatcher script replaces NetworkManager's
+# background scan rule with one that scans only on a weak signal (#666,
+# system_files/usr/lib/NetworkManager/dispatcher.d/50-cabinetos-wifi-scans).
+# wpa_supplicant's D-Bus answers only root, so this reads the journal: the
+# last rule set this boot is the script's, not NetworkManager's own. The
+# image build checks NetworkManager's rules themselves
+# (build_files/wifi-scan-rule.sh).
+log: Wi-Fi scans only on a weak signal :: nmcli -t -f TYPE,STATE dev | grep -q '^wifi:connected$' || exit 0; l=$(journalctl -b -o cat -t NetworkManager -t cabinetos-wifi-scans | grep -E "Config: added 'bgscan'|background scan" | tail -1); grep -q 'background scan simple:360:-70:86400' <<<"$l" || { echo "the last word this boot on the Wi-Fi scan rule: ${l:-none}"; exit 1; }
+# Power saving off (system_files/usr/lib/NetworkManager/conf.d/50-cabinetos-wifi.conf),
+# as the Wi-Fi card itself reports it.
+log: Wi-Fi power saving is off :: d=$(nmcli -t -f DEVICE,TYPE,STATE dev | sed -n 's/^\([^:]*\):wifi:connected$/\1/p' | head -1); [ -n "$d" ] || exit 0; p=$(iw dev "$d" get power_save); [ "$p" = "Power save: off" ] || { echo "$d: $p"; exit 1; }
 NetworkManager
 NetworkManager-*
 wpa_supplicant

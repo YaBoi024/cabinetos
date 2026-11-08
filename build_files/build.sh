@@ -120,7 +120,9 @@ for expected in \
     /usr/lib/udev/rules.d/90-cabinetos-system-disk.rules \
     /usr/lib/udev/rules.d/72-cabinetos-wii-remote.rules \
     /usr/lib/udev/rules.d/99-cabinetos-wii-remote.rules \
-    /etc/ssh/sshd_config.d/30-cabinetos.conf
+    /etc/ssh/sshd_config.d/30-cabinetos.conf \
+    /usr/lib/NetworkManager/dispatcher.d/50-cabinetos-wifi-scans \
+    /usr/lib/NetworkManager/conf.d/50-cabinetos-wifi.conf
 do
     if [[ -e "${expected}" ]]; then
         log "  overlaid: ${expected}"
@@ -389,6 +391,16 @@ done
 # Dummy Output catches the console's sound while the TV sleeps, and fails the
 # build if a PipeWire update moved the unit or that output's default.
 /ctx/sound-backup-output.sh
+
+# ---------------------------------------------------------------------------
+# Wi-Fi scans only on a weak signal, and Wi-Fi power saving off (#666).
+# ---------------------------------------------------------------------------
+#
+# Fails the build, saying what to redo, if a NetworkManager or wpa_supplicant
+# update changed what the scan rule replaces or stands on, or NetworkManager
+# no longer reads the power saving setting: either failing would not stop
+# Wi-Fi, only bring back a stutter in streamed games.
+/ctx/wifi-scan-rule.sh
 
 # ---------------------------------------------------------------------------
 # The console itself is NOT installed here, as of 2026-09-23.

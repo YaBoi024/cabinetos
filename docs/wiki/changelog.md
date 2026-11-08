@@ -4,6 +4,15 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## Next
+
+- **Fixed:** on Wi-Fi, a game streamed from the console, to a friend with
+  LinkUp or to a phone with Remote Play, could stutter for several seconds
+  every five minutes in most homes, while the console looked for other Wi-Fi
+  networks. It now looks only when its signal gets weak, and keeps its Wi-Fi
+  awake while connected, so a friend's sound arrives on time.
+  ([#666](https://github.com/MMagTech/cabinetos/pull/666))
+
 ## 2026.11.08 {#v2026-11-08}
 
 - **New:** LinkUp, a game with a friend on their console, from their house. Turn it on in Settings,
