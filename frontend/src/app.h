@@ -2406,7 +2406,7 @@ struct App {
     void linkupSendCancel();
     void linkupSendJoin(const linkup::Friend& f);
     void linkupSendDecline(const linkup::Friend& f);
-    void linkupTellPeer(const std::string& word);
+    void linkupTellPeer(const std::string& word, const std::string& game = "");
     void linkupConnected(const std::string& path);
     void linkupStartGame();
     void linkupConnectFailed(const std::string& reason);

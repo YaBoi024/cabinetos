@@ -485,9 +485,10 @@ void App::linkupSendDecline(const linkup::Friend& f) {
     linkupSend(c);
 }
 
-void App::linkupTellPeer(const std::string& word) {
+void App::linkupTellPeer(const std::string& word, const std::string& game) {
     json_object* inner = json_object_new_object();
     setText(inner, "t", word);
+    if (!game.empty()) setText(inner, "game", game);
     json_object* c = command("peer");
     setText(c, "text", json_object_to_json_string_ext(inner, JSON_C_TO_STRING_PLAIN));
     json_object_put(inner);
@@ -513,7 +514,8 @@ void App::linkupConnected(const std::string& path) {
 void App::linkupStartGame() {
     linkupGameAsked = true;
     linkupGameStartedAt = clockSeconds();
-    linkupTellPeer("starting");
+    // With its name: a session's next game is not the one the invite named.
+    linkupTellPeer("starting", linkupGame);
     std::fprintf(stderr, "[linkup] starting the game for both\n");
     if (!launchById(linkupGameId)) std::fprintf(stderr, "[linkup] that game would not start\n");
 }
@@ -663,6 +665,12 @@ void App::linkupFollowGame() {
 // The game has ended, however it ended. Quitting a game keeps the session: the friend waits, and the
 // person hosting lands on the game list.
 void App::linkupHostGameEnded() {
+    // The friend left during the game (linkupFriendLeft): the session ended then, and its screen, still
+    // under the game, goes now, or the game's title and its dots stay with nothing behind them.
+    if (linkupSide == LinkupSide::None) {
+        if (std::find(stack.begin(), stack.end(), Screen::LinkUpPlay) != stack.end()) linkupSessionClosed();
+        return;
+    }
     if (linkupSide != LinkupSide::Host) return;
     linkupGameAsked = false;
     linkupPictureSent = false;
@@ -852,7 +860,7 @@ bool App::linkupWatchPicture(float dt) {
 
 // ---- What the two consoles say to each other --------------------------------------
 
-void App::linkupFromPeer(const std::string& word, json_object*) {
+void App::linkupFromPeer(const std::string& word, json_object* message) {
     const std::string who = linkupSide == LinkupSide::Host ? linkupGuest : linkupHost;
     using Shows = screens::LinkUpPlayScreen::Shows;
     if (word == "press") {
@@ -890,6 +898,8 @@ void App::linkupFromPeer(const std::string& word, json_object*) {
         if (!linkupPausedHere && !linkupFriendShowsPicture)
             linkupPlay.open(Shows::Waiting, linkup::waitingFor(who), linkupGame, /*friendSide=*/true);
     } else if (word == "starting" && linkupSide == LinkupSide::Friend) {
+        const std::string game = textOf(message, "game");
+        if (!game.empty()) linkupGame = game;
         linkupPlay.open(Shows::Waiting, linkup::waitingFor(who), linkupGame, /*friendSide=*/true);
     } else if (word == "quit" && linkupSide == LinkupSide::Friend) {
         linkupPlay.open(Shows::Waiting, linkup::waitingFor(who), "", /*friendSide=*/true);
