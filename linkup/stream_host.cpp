@@ -185,10 +185,13 @@ bool StreamHost::buildPipeline() {
     std::string target;
     if (!settings_.soundTarget.empty()) target = "target-object=" + settings_.soundTarget + " ";
     const std::string sound =
-        "pipewiresrc name=sound do-timestamp=true " + target +
+        // The capture's own timestamps and the encoder counting samples, as Selkies does, so the sound's
+        // RTP timestamps are as steady as its samples, not as uneven as the moments each chunk arrived.
+        "pipewiresrc name=sound do-timestamp=false " + target +
         "stream-properties=\"props,stream.capture.sink=(boolean)true,media.type=(string)Audio,media.category=(string)Capture,node.latency=(string)256/48000\" ! "
         "audio/x-raw,format=S16LE,rate=48000,channels=2 ! audioconvert ! audioresample ! "
-        "opusenc frame-size=10 bitrate=128000 audio-type=restricted-lowdelay ! rtpopuspay pt=97 ! "
+        "opusenc frame-size=10 bitrate=128000 bitrate-type=cbr audio-type=restricted-lowdelay perfect-timestamp=true ! "
+        "rtpopuspay pt=97 ! "
         "application/x-rtp,media=audio,encoding-name=OPUS,payload=97,clock-rate=48000 ! "
         // After the encoder, which says what it makes only once it has made some, and webrtcbin makes no
         // offer until it knows: the caps pass this valve while no sound does.

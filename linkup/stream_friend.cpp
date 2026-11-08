@@ -11,6 +11,7 @@
 namespace {
 
 constexpr int64_t kNoPictureMs = 150;
+constexpr guint kSoundCushionMs = 60;   // stream_friend.h, "The sound is played as it arrives"
 
 bool hasElement(const char* name) {
     GstElementFactory* f = gst_element_factory_find(name);
@@ -40,6 +41,13 @@ StreamFriend::StreamFriend(Rtc::Hooks hooks, std::function<void()> askFullPictur
 StreamFriend::~StreamFriend() { stop(); }
 
 gboolean StreamFriend::onBus(GstBus*, GstMessage* m, gpointer) {
+    if (GST_MESSAGE_TYPE(m) == GST_MESSAGE_WARNING) {
+        GError* e = nullptr;
+        gst_message_parse_warning(m, &e, nullptr);
+        std::fprintf(stderr, "[linkup] friend: %s: %s\n", GST_OBJECT_NAME(m->src), e ? e->message : "");
+        g_clear_error(&e);
+        return TRUE;
+    }
     if (GST_MESSAGE_TYPE(m) == GST_MESSAGE_ERROR) {
         GError* e = nullptr;
         gst_message_parse_error(m, &e, nullptr);
@@ -84,9 +92,12 @@ void StreamFriend::onPadAdded(GstElement*, GstPad* pad, gpointer self) {
                       decoder + " name=dec ! capssetter caps=video/x-raw,colorimetry=(string)bt601 ! "
                                 "queue max-size-buffers=1 max-size-bytes=0 max-size-time=0 leaky=downstream ! glimagesink sync=false";
     } else {
-        description = "rtpopusdepay ! opusdec ! audio/x-raw,format=S16LE,rate=48000,channels=2 ! audioconvert ! "
-                      "pipewiresink async=false sync=false "
-                      "stream-properties=\"props,media.category=(string)Playback,media.role=(string)Game,node.latency=(string)256/48000\"";
+        guint ssrc = 0;
+        if (gst_structure_get_uint(s, "ssrc", &ssrc)) me->cushionSound(ssrc);
+        else std::fprintf(stderr, "[linkup] friend: the sound came with no SSRC; its cushion stays at the picture's\n");
+        description = "rtpopusdepay ! opusdec plc=true ! audio/x-raw,format=S16LE,rate=48000,channels=2 ! audioconvert ! "
+                      "pulsesink async=false sync=false buffer-time=60000 latency-time=10000 "
+                      "client-name=LinkUp stream-properties=\"props,media.role=(string)game\"";
     }
     gst_caps_unref(caps);
     GError* error = nullptr;
@@ -121,6 +132,28 @@ void StreamFriend::onNewTransceiver(GstElement*, GstWebRTCRTPTransceiver* t, gpo
     g_object_set(t, "do-nack", TRUE, nullptr);
 }
 
+// Every stream gets a jitter buffer as its first packet arrives, before its pad: kept by SSRC until the
+// pad says which one is the sound.
+void StreamFriend::onNewJitterbuffer(GstElement*, GstElement* jitterbuffer, guint, guint ssrc, gpointer self) {
+    auto* me = static_cast<StreamFriend*>(self);
+    std::lock_guard<std::mutex> lk(me->jitterMu_);
+    auto it = me->jitterbuffers_.find(ssrc);
+    if (it != me->jitterbuffers_.end()) gst_object_unref(it->second);
+    me->jitterbuffers_[ssrc] = GST_ELEMENT(gst_object_ref(jitterbuffer));
+}
+
+void StreamFriend::cushionSound(guint ssrc) {
+    std::lock_guard<std::mutex> lk(jitterMu_);
+    auto it = jitterbuffers_.find(ssrc);
+    if (it == jitterbuffers_.end()) {
+        std::fprintf(stderr, "[linkup] friend: no jitter buffer for the sound; its cushion stays at the picture's\n");
+        return;
+    }
+    // Lost is said downstream, so the decoder fills the hole in.
+    g_object_set(it->second, "latency", kSoundCushionMs, "do-lost", TRUE, nullptr);
+    std::fprintf(stderr, "[linkup] friend: the sound waits up to %u ms for a missing piece\n", kSoundCushionMs);
+}
+
 gboolean StreamFriend::onWatchdog(gpointer self) {
     auto* me = static_cast<StreamFriend*>(self);
     const int64_t now = Rtc::nowMs();
@@ -149,6 +182,8 @@ bool StreamFriend::start(const Settings& settings) {
     }
     g_object_set(webrtc_, "bundle-policy", GST_WEBRTC_BUNDLE_POLICY_MAX_BUNDLE, "latency", 100u, nullptr);
     gst_bin_add(GST_BIN(pipeline_), webrtc_);
+    rtpbin_ = gst_bin_get_by_name(GST_BIN(webrtc_), "rtpbin");
+    if (rtpbin_) g_signal_connect(rtpbin_, "new-jitterbuffer", G_CALLBACK(onNewJitterbuffer), this);
     gst_bus_add_watch(GST_ELEMENT_BUS(pipeline_), onBus, this);
     rtc_ = std::make_unique<Rtc>(webrtc_, /*offerer=*/false, hooks_);
     rtc_->configure(settings.paths);
@@ -168,6 +203,16 @@ void StreamFriend::stop() {
     std::fprintf(stderr, "[linkup] friend: %u pictures decoded, asked for a full one %u times\n", pictures_.load(), asks_);
     gst_element_set_state(pipeline_, GST_STATE_NULL);
     g_signal_handlers_disconnect_by_data(webrtc_, this);
+    if (rtpbin_) {
+        g_signal_handlers_disconnect_by_data(rtpbin_, this);
+        gst_object_unref(rtpbin_);
+        rtpbin_ = nullptr;
+    }
+    {
+        std::lock_guard<std::mutex> lk(jitterMu_);
+        for (auto& [ssrc, jb] : jitterbuffers_) gst_object_unref(jb);
+        jitterbuffers_.clear();
+    }
     rtc_.reset();
     gst_bus_remove_watch(GST_ELEMENT_BUS(pipeline_));
     gst_object_unref(pipeline_);

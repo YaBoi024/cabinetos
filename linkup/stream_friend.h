@@ -11,6 +11,17 @@
 // depayloader asks once for a fresh full picture, and that picture can lose a packet too. So while
 // packets are arriving and no picture has come out for 150 ms, this asks the host over the data
 // channel, and keeps asking.
+//
+// THE SOUND IS PLAYED AS IT ARRIVES, INTO A QUEUE, as the console's own games play theirs through SDL:
+// pulsesink keeps 60 ms ready in front of the output and starts once it holds that much, so Wi-Fi's
+// unevenness drains and refills the queue instead of leaving holes. Its jitter buffer waits up to 60 ms
+// for a missing piece, then Opus fills it in. Measured on the reference console's HDMI output, in games
+// hosted on the mini PC over Wi-Fi (#654): pipewiresink with 5 ms in hand ran dry about every 0.6 s, 127
+// times in two minutes; played on timestamps instead, a sink added mid-stream took every piece as late and
+// played none of it. NOT YET RIGHT: the host's sound clock is not the friend's (the mini PC measured
+// 47,960.6 samples a second against the reference console's 48,000), so this queue runs dry after a
+// minute or so and crackles from then on. The friend has to follow the host's pace; that is the next
+// piece of work. The picture's buffer stays at 100 ms, the time it has for a resend.
 
 #pragma once
 
@@ -19,7 +30,9 @@
 #include <atomic>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 
 #include "rtc.h"
@@ -46,6 +59,8 @@ public:
 private:
     static void onPadAdded(GstElement*, GstPad* pad, gpointer self);
     static void onNewTransceiver(GstElement*, GstWebRTCRTPTransceiver* t, gpointer self);
+    static void onNewJitterbuffer(GstElement*, GstElement* jitterbuffer, guint session, guint ssrc, gpointer self);
+    void cushionSound(guint ssrc);
     static gboolean onBus(GstBus*, GstMessage* m, gpointer self);
     static GstPadProbeReturn onPacket(GstPad*, GstPadProbeInfo*, gpointer self);
     static GstPadProbeReturn onPicture(GstPad*, GstPadProbeInfo*, gpointer self);
@@ -56,6 +71,9 @@ private:
     GstElement* pipeline_ = nullptr;
     GstElement* webrtc_ = nullptr;
     std::unique_ptr<Rtc> rtc_;
+    GstElement* rtpbin_ = nullptr;
+    std::mutex jitterMu_;
+    std::map<guint, GstElement*> jitterbuffers_;   // by SSRC, each held by a reference
     guint watchdog_ = 0;
     std::atomic<int64_t> lastPacketMs_{0};
     std::atomic<int64_t> lastPictureMs_{0};
