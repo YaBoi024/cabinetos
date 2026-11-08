@@ -963,7 +963,6 @@ void Conductor::startHost() {
     }
     s.paths.stun = game_->stun;
     s.paths.turn = game_->turn;
-    s.paths.relayOnly = std::getenv("CABINETOS_LINKUP_RELAY_ONLY") != nullptr;
     host_ = std::make_unique<StreamHost>(makeHooks());
     host_->setOnSlow([this]() {
         local_.sendJson(eventNamed("slow"));
@@ -989,7 +988,6 @@ void Conductor::startFriend() {
     StreamFriend::Settings s;
     s.paths.stun = game_->stun;
     s.paths.turn = game_->turn;
-    s.paths.relayOnly = std::getenv("CABINETOS_LINKUP_RELAY_ONLY") != nullptr;
     s.display = game_->display;
     s.xauthority = game_->xauthority;
     friend_ = std::make_unique<StreamFriend>(makeHooks(), [this]() {

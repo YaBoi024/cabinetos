@@ -30,9 +30,8 @@ public:
         std::function<void(const uint8_t* data, size_t len)> fast;   // any thread
     };
     struct Paths {
-        std::string stun;         // host:port, or empty
-        std::string turn;         // turn://user:password@host:port, or empty
-        bool relayOnly = false;   // for the forced relay test
+        std::string stun;   // host:port, or empty
+        std::string turn;   // turn://user:password@host:port, or empty
     };
 
     // The ports LinkUp's firewall table opens: nothing else on the console uses them.

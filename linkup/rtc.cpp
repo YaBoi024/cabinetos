@@ -91,8 +91,6 @@ void Rtc::configure(const Paths& paths) {
         g_signal_emit_by_name(webrtc_, "add-turn-server", paths.turn.c_str(), &ok);
         if (!ok) std::fprintf(stderr, "[linkup] webrtcbin refused the relay\n");
     }
-    if (paths.relayOnly)
-        g_object_set(webrtc_, "ice-transport-policy", GST_WEBRTC_ICE_TRANSPORT_POLICY_RELAY, nullptr);
 }
 
 void Rtc::makeChannels() {
