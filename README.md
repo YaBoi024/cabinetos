@@ -63,6 +63,9 @@ handheld? You can switch to this image without a stick:
 2. Restart the handheld. It now runs CabinetOS Handheld and updates from this
    repository's image.
 
+**Try it without installing:** [run it from a USB drive](docs/wiki/portable.md).
+Your PC's own drives stay as they are.
+
 ## Thanks
 
 CabinetOS Handheld stands on other people's work.

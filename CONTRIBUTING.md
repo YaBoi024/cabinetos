@@ -226,6 +226,7 @@ with 0 when it passes, and CI runs every one ("What CI checks"):
 | `--files-test` | that a full disk leaves the file it was replacing whole, credentials stay 0600, a cut save's marker is not counted as owed, two settings changed at once both stick, the cover sweeps spare the tile map, a cover being written and what a link points at, and a game's archive keeps its folders and refuses a name outside them or one that comes twice, and is not unpacked again at a later start, but is when a file that came out of it was changed or cut short, its unpacking was cancelled, or it was downloaded again |
 | `--gone-games-test` | a game RomM no longer has (#625, `gonegames.h`): gone only when its own entry answers 404 to every person on the console, never for a 5xx, a 403, no answer, a list that does not come or a game another person can see; and on a scratch drive, a played copy with its manual, a download kept by two people with both keeps, the record and the covers removed, a game being played or still holding Xbox saves left, a game RomM has untouched; then every person's saves, states, screenshots and copy of RomM's saves of it removed, the signed-in person's owed save only once RomM has refused it this run, a person's saves still in an emulator's folder left, and a live game's owed save still owed |
 | `--vectrex-sheets-test` | which Vectrex game takes which screen sheet: RomM's md5 first, then the longest name token, and the sheets that never shipped drawing nothing, against `frontend/data/vectrex-overlays.json` |
+| `--gpu-choice-test` | which GPU the games draw on (#659, `gpu.h`), on made-up devices: with one GPU that one; with two, the one the screen is on, in either order and whether or not it is the discrete card; the screen's GPU not known or not among them, a discrete card first and then the first listed; no device, none |
 | `--check-option-tables cores/options` | that every option the console sets (`coreoptions.cpp`, `quality.cpp`, `sysopts.cpp`, the Wii's rumble in `wii.cpp` and the Vectrex sheets' fit in `vectrexsheets.cpp`, with every answer that depends on the machine or a setting) exists in the core it is set on, and that every libretro core in `catalog.cpp`'s table has its list in `cores/options/` (CI runs it as a step of its own) |
 
 `--romm-race-test <address> <seconds>` checks the RomM client's thread rule
@@ -428,6 +429,26 @@ runs `checks.yml`, a few seconds each:
   name the repository, path and revision SOURCES pins, fails: a text added by
   hand or a pin moved without running `tools/fetch-licences.py`. Nothing is
   downloaded. Report only until 2026-11-08.
+- **RPCS3 snapshot** (`ci/check-rpcs3-snapshot.sh`): the pin recorded in
+  `build_files/rpcs3-config-database.pin`, which
+  `tools/fetch-rpcs3-config-database.py` writes beside the snapshot of
+  RPCS3's per-game settings, must be the `RPCS3_VERSION` of
+  `build_files/install-rpcs3.sh`: a pin moved without running the tool
+  fails. Nothing is downloaded. Report only until 2026-11-13.
+- **Code and docs agree** (`ci/check-code-and-docs-agree.py`): only what the
+  pull request touches, so the old tree never fails it. A comment it adds or
+  changes in `frontend/src`, `frontend/ps2`, `wiibridge`, `build_files`, `ci`,
+  `system_files`, `tools` or `cores` fails when it names something of ours that
+  is not there: a file, an `ns::name`, a name it pairs with a file of ours
+  (launch.cpp's startPlaying), or a frontend flag. Other projects' names do not
+  count: the script's header says what does, and its `SKIP` holds what is left
+  over. A header in `frontend/src` or `frontend/ps2` that declares a function
+  nothing defines fails, on a line the pull request changes or when it takes the
+  definition away, and so does a private address (10/8, 172.16/12, 192.168/16) on
+  a line it adds to any tracked file, outside the script's list of documented
+  examples. A stale comment on a line no pull request touches is for
+  `--whole-tree`, which the skill `check-code-and-docs-agree` runs. Report only
+  until 2026-11-10.
 
 **A check's first week is report only.** Until the end of the date in
 `checks.yml`'s `REPORT_ONLY_UNTIL` (2026-10-25, UTC; `build-frontend.yml`
@@ -658,6 +679,19 @@ here, not reworded; follow the link for the full text.
   and ask the stability question above. Moving any emulator's or Sunshine's
   pin, go through its rows in docs/ARCHITECTURE.md, "What leans on other
   projects", too.
+- **Moving RPCS3's pin:** in the same pull request, after the pin has
+  moved, run `tools/fetch-rpcs3-config-database.py` and commit what it
+  changes: `build_files/rpcs3-config-database.json`, the snapshot of the
+  RPCS3 team's per-game settings the image carries, and
+  `build_files/rpcs3-config-database.pin`, the pin it was taken against
+  (docs/decisions/2026-11-06-rpcs3-settings-database-snapshot.md). It is
+  not refreshed between pin moves. `ci/check-rpcs3-snapshot.sh` fails a
+  pull request whose snapshot was taken against another pin, and the image
+  build stops on it too. The pull request says how many of its entries the
+  new build rejects: on the testing image, start any PlayStation 3 game and
+  count the serials after `Config database error - Invalid config for` in
+  its `RPCS3.log`, under the game's folder in the cache (each is logged
+  twice, since RPCS3 reads the file twice). The console never fetches it.
 - **Leaning on another project's internals** (asked for by MMagTech,
   2026-10-21): anything that works only because another project behaves a
   way it does not promise (a patch to its source, a settings key or file it

@@ -466,6 +466,10 @@ log: The sound devices are there :: wpctl status | sed -n '/^Audio/,/^Video/p' |
 # TV's output is gone. `is-enabled` says "disabled" for the image's link, so
 # this reads is-active.
 log: pipewire-pulse runs from login, so a backup output can catch the console's sound :: s=$(systemctl --user is-active pipewire-pulse.service); [ "$s" = active ] || { echo "pipewire-pulse.service is $s"; exit 1; }
+# The sound rule (#655, wireplumber/scripts/cabinetos-sound-output.lua). The
+# build checks the files it stands on (build_files/sound-output-rule.sh); this
+# reads that it loaded, started once it saw the TV, and has had no fault.
+log: The sound rule started and has had no fault :: j=$(journalctl --user -u wireplumber -b -o cat); grep -q 'the sound rule started' <<<"$j" || { echo "no line says the sound rule started (is the TV awake?)"; exit 1; }; if grep -F '[string "cabinetos-sound-output.lua"]' <<<"$j"; then exit 1; fi
 # The volume keys (volume.cpp) read `wpctl get-volume`'s "Volume: 0.50"
 # (" [MUTED]" after it when muted) and set it the same way. With the TV
 # asleep there is no output to ask, so this fails then: wake the TV first.

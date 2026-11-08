@@ -83,6 +83,7 @@ enum class Action {
     Play,              // value is a rom id
     Download,          // value is a rom id — fetch it AND keep it
     RemoveDownload,    // value is a rom id — release the keep AND delete the game
+    StopDownload,      // value is a rom id — the row showing its download was pressed: ask, then stop it
     PlayState,         // value is a RomM state id — play, starting from that state
     ToggleFavorite,    // value is a rom id — the game's page heart/star (#267)
     ShowAchievements,  // value is a rom id — its RetroAchievements list (#74)

@@ -3,8 +3,8 @@
 # A BACKUP SOUND OUTPUT WHILE THE TV'S IS GONE (#228, "Sound can die until a
 # restart"). pipewire-pulse starts at every login of the console's user, so
 # PipeWire's own Dummy Output is there whenever no other output is. The rest
-# of the sound rule is in system_files/usr/share/wireplumber/
-# wireplumber.conf.d/60-cabinetos-sound-output.conf.
+# of the sound rule is in system_files/usr/share/wireplumber/scripts/
+# cabinetos-sound-output.lua.
 #
 # WHY. SDL 3.4.18, which plays all of the console's own sound, leaves its
 # stream on a dead device when the TV's output disappears (the screen asleep,

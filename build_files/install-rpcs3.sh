@@ -68,6 +68,58 @@ mkdir -p "${DEST}"
 cp -a "${root}/usr" "${DEST}/"
 printf '%s\n' "${RPCS3_VERSION}" > "${DEST}/VERSION"
 
+# THE RPCS3 TEAM'S PER-GAME SETTINGS, beside the program. RPCS3's own window
+# downloads them (https://api.rpcs3.net/config/?api=v1) into
+# GuiConfigs/config_database.dat and lays a game's entry over the global
+# settings at every boot, `--no-gui` included; the console fetches nothing
+# from there, so the image carries a snapshot of that file,
+# /ctx/rpcs3-config-database.json (build_files/, refreshed by
+# tools/fetch-rpcs3-config-database.py when the pin above moves), and the
+# console copies it into RPCS3's config folder before every start
+# (frontend/src/standalone_rpcs3.cpp, prepareRpcs3).
+# docs/decisions/2026-11-06-rpcs3-settings-database-snapshot.md.
+#
+# TAKEN AGAINST THIS BUILD, or the build stops: the tool writes the pin it
+# ran against as the first word of /ctx/rpcs3-config-database.pin, and a
+# snapshot from an older build drifts from what this one needs (the decision
+# says how). ci/check-rpcs3-snapshot.sh says the same on the pull request.
+#
+# CHECKED AS RPCS3 CHECKS IT (rpcs3qt/config_database.cpp, read_json): JSON,
+# an object, `return_code` not negative, `games` an object, every game a
+# `config` string. An entry the pinned build cannot read is RPCS3's to skip,
+# one by one, at every start. The file's name and the two log lines the
+# console reads for it (standalone_rpcs3.cpp, tools/check-applied.sh) are in
+# the program's own text, and a build that renames them fails here rather
+# than silently giving no game its entry.
+readonly DATABASE=/ctx/rpcs3-config-database.json
+taken="$(head -1 /ctx/rpcs3-config-database.pin | cut -d' ' -f1)"
+if [[ "${taken}" != "${RPCS3_VERSION}" ]]; then
+    log "ERROR: the settings snapshot was taken against RPCS3 ${taken}, this build is ${RPCS3_VERSION}: run tools/fetch-rpcs3-config-database.py"
+    exit 1
+fi
+games="$(python3 -I - "${DATABASE}" <<'PY'
+import json, sys
+with open(sys.argv[1], "rb") as f:
+    data = json.load(f)
+if not isinstance(data, dict) or not isinstance(data.get("return_code"), int) or data["return_code"] < 0:
+    sys.exit("no non-negative return_code")
+games = data.get("games")
+if not isinstance(games, dict) or not games:
+    sys.exit("no games object")
+for serial, game in games.items():
+    if not isinstance(game, dict) or not isinstance(game.get("config"), str):
+        sys.exit(f"{serial} has no config string")
+print(len(games))
+PY
+)" || { log "ERROR: ${DATABASE} is not RPCS3's settings database"; exit 1; }
+for phrase in "config_database.dat" "Finished reading config database from file" \
+              "Applying database config"; do
+    grep -q -a -F "${phrase}" "${root}/usr/bin/rpcs3" ||
+        { log "ERROR: RPCS3 no longer has '${phrase}': the per-game database moved"; exit 1; }
+done
+install -m 0644 "${DATABASE}" "${DEST}/config_database.dat"
+log "  per-game settings database: ${games} games"
+
 # READABLE BY EVERYONE: the console runs as `cabinet`, and the checks below run
 # as root, so they would pass on a folder only root can read. Xenia's AppImage
 # unpacks that way and its first testing image shipped it (install-xenia.sh).

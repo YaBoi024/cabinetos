@@ -365,12 +365,13 @@ for needed in /usr/lib64/libvulkan.so.1 /usr/lib64/libvulkan_radeon.so; do
 done
 
 # ---------------------------------------------------------------------------
-# A built-in speaker counts as not there (#547).
+# The sound rule still fits WirePlumber (#655).
 # ---------------------------------------------------------------------------
 #
-# Edits one PipeWire file so a speaker inside the case never takes the sound
-# from the TV, and fails the build if a PipeWire update changed that file.
-/ctx/built-in-speaker.sh
+# Fails the build, saying what to redo, if a WirePlumber update changed a step
+# the sound rule stands on: the rule failing would not stop the sound, only
+# send it to the wrong output on some PCs.
+/ctx/sound-output-rule.sh
 
 # ---------------------------------------------------------------------------
 # A backup sound output while the TV's is gone (#228).
@@ -646,7 +647,7 @@ for needed in sfdisk partx btrfs xfs_growfs resize2fs unshare lsblk realpath; do
     fi
 done
 [[ "$(systemctl is-enabled cabinetos-grow-root.service 2>/dev/null)" == enabled ]] || {
-    log "  MISSING: cabinetos-grow-root.service is not enabled; a portable would keep a 7 GB system"
+    log "  MISSING: cabinetos-grow-root.service is not enabled; a portable would never fill its drive"
     failed=1
 }
 for needed in /usr/share/zoneinfo/zone.tab /usr/share/zoneinfo/iso3166.tab /usr/lib/systemd/system/chronyd.service; do

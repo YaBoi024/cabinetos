@@ -88,5 +88,5 @@ If the console does not get as far as Settings, a report from the next boot
 still has the boot that failed. With Developer access, `cabinetos-report`
 makes the same file.
 
-CabinetOS Handheld is tested on the Steam Deck OLED so far, so reports from
+CabinetOS Handheld is tested on the Steam Deck OLED and LCD so far, so reports from
 other handhelds are how it gets better on them.

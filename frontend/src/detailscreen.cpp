@@ -206,12 +206,15 @@ Result DetailScreen::step(Nav n) {
         if (next != slot_) { slot_ = next; refocus(); }
         return {};
     }
-    // A row that is showing a download's progress does nothing (#185): the
-    // game counts as downloaded from the first byte, so the row under the
-    // progress is Remove download, and what removing a half-written game
-    // should do was never designed. It is answered when the download lands.
-    if (n == Nav::Activate && !rowBusy(slot_))
-        return {rows_[slot_].action, game_.romId};
+    // A ROW SHOWING A DOWNLOAD'S PROGRESS ASKS TO STOP IT (MMagTech,
+    // 2026-11-06, for a player on slow Wi-Fi with no way out of a download).
+    // It did nothing (#185): the game counts as downloaded from the first
+    // byte, so the row under the progress is Remove download, and what
+    // removing a half-written game should do was never designed. A stop is
+    // not a remove: the app asks first (pressStopDownload), and Stop ends
+    // the job as Escape on a keyboard does, safe at every step since #472.
+    if (n == Nav::Activate)
+        return {rowBusy(slot_) ? Action::StopDownload : rows_[slot_].action, game_.romId};
     return {};
 }
 
