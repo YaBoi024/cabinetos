@@ -2483,7 +2483,7 @@ struct App {
     void linkupAskPin(const std::string& detail, std::function<void()> then);
     void pressLinkUpSwitch();
     void linkupAskAddress(const std::string& typed);
-    void linkupAskCode(const std::string& address, const std::string& typed);
+    void linkupAskCode(std::string address, const std::string& typed);
     void linkupRetypeAddress();
     void pressRunYourOwn();
     void pressLinkUpServer();

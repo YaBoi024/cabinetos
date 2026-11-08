@@ -458,6 +458,7 @@ void addressesMean() {
     check(ServerLink::bases("  name.example.net/linkup/  ") == List{"https://name.example.net/linkup", "http://name.example.net/linkup"}, "a path, with spaces");
     check(ServerLink::bases("[2001:db8::1]:7845") == List{"http://[2001:db8::1]:7845"}, "IPv6 with a port");
     check(ServerLink::bases("[2001:db8::1]") == List{"https://[2001:db8::1]", "http://[2001:db8::1]"}, "IPv6 with none");
+    check(ServerLink::bases("").empty() && ServerLink::bases("  /").empty(), "no address is no place");
     std::printf("  what an address means\n");
 }
 

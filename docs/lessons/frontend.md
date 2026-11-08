@@ -271,6 +271,13 @@ Read before working on a screen, the network, Bluetooth, pairing or first run.
   1080p and 720p changed places over 400 times with none. Test size changes on the A9 and not only on the mini,
   which did all of these without a fault. Why is not known. LinkUp's floor of 720p is a decision of its own
   (docs/decisions/2026-11-07-linkup-picture-floor.md) and stays if this is fixed.
+- **What `keyboard.value()` hands on is the keyboard's own text, and the next `keyboard.open` empties it.**
+  LinkUp's address went to the code step by reference, the code keyboard opened, and the address saved was
+  empty, while the hint line under "Code", copied a moment before, showed it right. LinkUp then asked the
+  network for a machine called linkup. Every test had paired through `--linkup-script`, which skips both
+  keyboards, and the gallery sends nothing, so the first pairing typed at the TV, on the testing image, was
+  the first to fail. Copy what a keyboard gave before opening the next one, and test a flow the way a player
+  goes through it, keyboards included, not only through the script.
 - **A setting made every frame overrides everyone who sets it once.** The window's see-through background is
   set by whoever puts something under it, when it starts and when it ends: an emulator of its own, PCSX2's
   window. LinkUp's live tick set it every frame and listed only the pause menu over one, so PS3, PS2 and

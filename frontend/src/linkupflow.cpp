@@ -78,7 +78,8 @@ void App::linkupAskAddress(const std::string& typed) {
     };
 }
 
-void App::linkupAskCode(const std::string& address, const std::string& typed) {
+// The address is a copy: it comes from keyboard.value(), which the open below empties.
+void App::linkupAskCode(std::string address, const std::string& typed) {
     ui::Keyboard::Config cfg;
     cfg.title = "Code";
     cfg.hint = address;

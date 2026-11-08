@@ -56,6 +56,9 @@ std::vector<std::string> ServerLink::bases(const std::string& typed) {
     while (!a.empty() && std::isspace(static_cast<unsigned char>(a.front()))) a.erase(a.begin());
     while (!a.empty() && (std::isspace(static_cast<unsigned char>(a.back())) || a.back() == '/')) a.pop_back();
     if (a.rfind("http://", 0) == 0 || a.rfind("https://", 0) == 0) return {a};
+    // No address is no place: "http://" + "" + "/linkup/v1" would ask the network for a machine
+    // called linkup.
+    if (a.empty() || a[0] == '/') return {};
     std::string host = a;
     std::string path;
     const size_t slash = a.find('/');
