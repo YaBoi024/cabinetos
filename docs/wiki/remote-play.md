@@ -1,6 +1,6 @@
 # Remote Play
 
-![Remote Play in Settings](../media/settings-remoteplay.webp)
+![Streaming in Settings, with Remote Play on](../media/settings-remoteplay.webp)
 
 Play the console from a phone, tablet or computer with
 [Moonlight](https://moonlight-stream.org). The whole console streams: Home, the
