@@ -195,6 +195,7 @@ void App::runFrameLoop() {
 
             pumpSearch(dt);
             drainGridPages();
+            takeInviteReadAhead(/*wait=*/false);
 
             drainCovers();
 

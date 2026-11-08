@@ -285,7 +285,10 @@ Nothing here is on the frontend's network: each step on the wire is the program'
 the frontend asks for it over the local socket (`linkup_wire.h`, `linkupsession.cpp`).
 
 1. **Inviting.** A press on an Online friend, then a game, comes to `linkupPickedGame` (`linkup.cpp`),
-   which goes to the waiting screen and sends `invite` to the program. The program picks the invite's id,
+   which goes to the waiting screen and sends `invite` to the program. The game list has a system only
+   when a friend can play one of its games (`inviteHasSystem` in `gridfill.cpp`, the rule in
+   `linkuprules.cpp`); the systems judged game by game are read ahead as the LinkUp tab opens
+   (`readAheadForInvite`, from `goToDestination`). The program picks the invite's id,
    seals the game's name for that friend (`box.cpp`) and knocks (`conductor.cpp`). A game not on the drive
    starts downloading (`linkupFetchGame`).
 2. **Answering.** The friend's program hears the knock on its long request (`waitLoop`), fetches the

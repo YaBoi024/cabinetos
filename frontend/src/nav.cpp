@@ -50,6 +50,7 @@ void App::goToDestination(int d) {
         openSearchKeyboard();
     } else if (d == BarLinkUp) {
         refreshLinkUpScreen();
+        readAheadForInvite();
         linkupScreen.enter();
         stack.push_back(Screen::LinkUp);
     } else if (d == BarSettings) {

@@ -123,6 +123,13 @@ bool handheldSystem(const std::string& slug) {
     return false;
 }
 
+bool systemOnInvite(const SystemSeen& s) {
+    if (s.count == 0) return false;
+    // Past a first page with none, the rest is read as its grid opens.
+    if (s.read) return s.friendCanPlayOne || s.more;
+    return true;
+}
+
 namespace {
 constexpr int kCodeLength = 12;
 constexpr int kCodeGroup = 4;
@@ -164,6 +171,12 @@ int test() {
     check(tidyCode("0O1IL") == "", "the look-alikes are dropped");
     check(handheldSystem("gba") && handheldSystem("psp") && !handheldSystem("snes") && !handheldSystem("ps3"),
           "a handheld has no second port, and a console does");
+    check(!systemOnInvite({0, false, false, false}), "a system with no games has no tile while inviting");
+    check(systemOnInvite({12, false, false, false}), "a system whose games all play as it does keeps its tile");
+    check(systemOnInvite({-1, false, false, false}), "a system the server said nothing of keeps its tile");
+    check(systemOnInvite({52, true, true, false}), "a system with a game a friend can play keeps its tile");
+    check(!systemOnInvite({4, true, false, false}), "a system left with none a friend can play has no tile");
+    check(systemOnInvite({900, true, false, true}), "a first page with none keeps the tile while more are to come");
     check(tidyCode("K7MR4QXT9HPVABCD") == "K7MR-4QXT-9HPV", "a code stops at 12 characters");
     check(codeComplete("K7MR-4QXT-9HPV"), "12 characters in 3 groups is complete");
     check(!codeComplete("K7MR-4QXT"), "8 characters is not");

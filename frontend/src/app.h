@@ -841,6 +841,18 @@ struct App {
         std::thread th;
     };
     std::vector<std::unique_ptr<GridFill>> gridFills;
+    // LinkUp's invite: the first page of each system whose games are judged
+    // one by one, read ahead as the LinkUp tab opens (readAheadForInvite), and
+    // the person it was read for.
+    struct FirstPage {
+        std::string query;   // the tile's (Tile::query)
+        std::vector<romm::Game> games;
+        int total = 0;
+        bool ok = false;
+        std::string err;
+    };
+    cab::Job<std::vector<FirstPage>> inviteReadAhead;
+    int inviteReadAheadFor = 0;
     // The tile the grid screen was last opened on, and which reading of it.
     std::string gridTileQuery;
     unsigned gridReadId = 0;
@@ -2313,6 +2325,9 @@ struct App {
     bool takeGridPages(GridFill& f, bool toScreen);
     void fillGrid(screens::Tile& t);
     void openTile(const screens::Result& res);
+    void readAheadForInvite();
+    void takeInviteReadAhead(bool wait);
+    bool inviteHasSystem(screens::Tile& t);
     // about.cpp
     void pressCredits();
     void pressHowTo();

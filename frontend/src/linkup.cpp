@@ -102,9 +102,16 @@ void App::linkupPickGame(const std::string& who) {
     if (linkupGallery) {
         linkupGalleryLibrary();
     } else {
+        // A system left with nothing a friend can play has no tile (inviteHasSystem).
+        takeInviteReadAhead(/*wait=*/true);
         std::vector<screens::Tile> tiles;
-        for (const screens::Tile& t : platformTiles)
-            if (t.enterable && !linkup::handheldSystem(t.slug)) tiles.push_back(t);
+        std::string none;
+        for (screens::Tile& t : platformTiles) {
+            if (!t.enterable || linkup::handheldSystem(t.slug)) continue;
+            if (inviteHasSystem(t)) tiles.push_back(t);
+            else none += (none.empty() ? "" : ", ") + t.title;
+        }
+        if (!none.empty()) std::fprintf(stderr, "[linkup] inviting: nothing a friend can play in %s\n", none.c_str());
         libraryScreen.build(tiles, {});
     }
     libraryScreen.enter();

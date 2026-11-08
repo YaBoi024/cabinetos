@@ -98,6 +98,22 @@ std::string needsUpdate(const std::string& who);
 // A system with no second controller port, whose games a friend cannot join.
 bool handheldSystem(const std::string& slug);
 
+// What the invite's list knows of a system: how many games the server says it
+// holds (-1 when it did not say), whether its list has been read, and if so,
+// whether what was read holds a game a friend can play and whether the server
+// holds more than was read.
+struct SystemSeen {
+    int count = -1;
+    bool read = false;
+    bool friendCanPlayOne = false;
+    bool more = false;
+};
+// Whether that system has a tile while inviting: only one with a game a friend
+// can play (#654). A system whose list has not been read is one whose games all
+// play as the system does (catalog::judgesEachGame), or one the server could
+// not answer for, which keeps its tile.
+bool systemOnInvite(const SystemSeen& s);
+
 // A pairing code is 12 characters in 3 groups of 4, with no look-alikes. What
 // was typed comes back upper case and grouped, anything else dropped.
 std::string tidyCode(const std::string& typed);
