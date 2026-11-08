@@ -214,6 +214,11 @@ void App::openTile(const screens::Result& res) {
 
 // ---- LinkUp's invite: the systems with a game a friend can play ----------
 
+// A tile with no list in hand: never read from the server. An offline tile
+// (offlineLibrary) is never read either, and holds the drive's games from the
+// start, which are all it can offer.
+static bool unread(const screens::Tile& t) { return t.readId == 0 && t.cards.empty(); }
+
 // READ AHEAD AS THE LINKUP TAB OPENS, so a press on a friend waits for nothing.
 // The invite lists a system only when a friend can play one of its games
 // (linkup::systemOnInvite), which for a system judged game by game
@@ -224,7 +229,7 @@ void App::readAheadForInvite() {
     if (linkupGallery || inviteReadAhead.busy()) return;
     std::vector<std::string> queries;
     for (const screens::Tile& t : platformTiles)
-        if (t.enterable && t.readId == 0 && !linkup::handheldSystem(t.slug) && catalog::judgesEachGame(t.slug))
+        if (t.enterable && unread(t) && !linkup::handheldSystem(t.slug) && catalog::judgesEachGame(t.slug))
             queries.push_back(t.query);
     if (queries.empty()) return;
     inviteReadAheadFor = storage::currentUser().id;
@@ -253,7 +258,7 @@ void App::takeInviteReadAhead(bool wait) {
             continue;
         }
         for (screens::Tile& t : platformTiles) {
-            if (t.query != p.query || t.readId != 0) continue;
+            if (t.query != p.query || !unread(t)) continue;
             takeFirstPage(lib, t, std::move(p.games), p.total);
             libraryScreen.learnedTile(t.query, t.detail, t.cover);
             break;
@@ -265,12 +270,12 @@ void App::takeInviteReadAhead(bool wait) {
 // game that the read-ahead has not reached is read here, one page, as walking
 // into it would be.
 bool App::inviteHasSystem(screens::Tile& t) {
-    if (t.readId == 0 && catalog::judgesEachGame(t.slug) && loadTileGames(liveClient, lib, t))
+    if (unread(t) && catalog::judgesEachGame(t.slug) && loadTileGames(liveClient, lib, t))
         libraryScreen.learnedTile(t.query, t.detail, t.cover);
     linkup::SystemSeen seen;
     const auto counted = lib.tileCache.find(t.id);
     if (counted != lib.tileCache.end()) seen.count = counted->second.romCount;
-    seen.read = t.readId != 0;
+    seen.read = !unread(t);
     seen.more = t.fetched < t.total;
     for (int i : t.cards) seen.friendCanPlayOne = seen.friendCanPlayOne || linkupFriendCanPlay(i);
     return linkup::systemOnInvite(seen);
