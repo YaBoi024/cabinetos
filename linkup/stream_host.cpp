@@ -182,14 +182,19 @@ bool StreamHost::buildPipeline() {
                                        "application/x-rtp,media=video,encoding-name=H265,payload=96"
                                      : "h264parse config-interval=-1 ! rtph264pay mtu=1200 config-interval=-1 aggregate-mode=zero-latency ! "
                                        "application/x-rtp,media=video,encoding-name=H264,payload=96";
-    std::string target;
-    if (!settings_.soundTarget.empty()) target = "target-object=" + settings_.soundTarget + " ";
+    // The default output's monitor, through pipewire-pulse. Not pipewiresrc: on the mini PC it alone, in a
+    // pipeline of nothing else, handed over less and less of the sound after its first 80 seconds (187
+    // buffers a second falling to 80 within four minutes), where pulsesrc kept all of it; on the
+    // reference console it lost none (#654). The Pulse elements are what GStreamer's and PipeWire's own
+    // maintainers recommend for sound.
+    const std::string device = settings_.soundTarget.empty() ? "@DEFAULT_MONITOR@" : settings_.soundTarget + ".monitor";
     const std::string sound =
-        // The capture's own timestamps and the encoder counting samples, as Selkies does, so the sound's
-        // RTP timestamps are as steady as its samples, not as uneven as the moments each chunk arrived.
-        "pipewiresrc name=sound do-timestamp=false " + target +
-        "stream-properties=\"props,stream.capture.sink=(boolean)true,media.type=(string)Audio,media.category=(string)Capture,node.latency=(string)256/48000\" ! "
+        "pulsesrc name=sound device=\"" + device + "\" buffer-time=40000 latency-time=10000 client-name=LinkUp ! "
+        // The capture's thread only captures. webrtcbin pushes the sound and the picture through one lock
+        // (rtpfunnel), so without this queue a burst of the picture's packets would hold the capture up.
+        "queue max-size-buffers=0 max-size-bytes=0 max-size-time=200000000 leaky=downstream ! "
         "audio/x-raw,format=S16LE,rate=48000,channels=2 ! audioconvert ! audioresample ! "
+        // The encoder counts samples for the RTP timestamps, so they are as steady as the sound itself.
         "opusenc frame-size=10 bitrate=128000 bitrate-type=cbr audio-type=restricted-lowdelay perfect-timestamp=true ! "
         "rtpopuspay pt=97 ! "
         "application/x-rtp,media=audio,encoding-name=OPUS,payload=97,clock-rate=48000 ! "

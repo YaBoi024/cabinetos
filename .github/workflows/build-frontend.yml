@@ -136,8 +136,8 @@ jobs:
           podman run --rm -v "$PWD":/repo:Z -w /repo/linkup cabinetos-builder \
             make -j"$(nproc)" cabinetos-linkup 2>&1 | tee -a /tmp/build.log
 
-      # ITS NOISE, HELD TO THE PUBLISHED VECTORS AND THE SERVER'S OWN ANSWERS (linkup/noise-test.cpp): no
-      # network and no hardware. Report only until LINKUP_REPORT_ONLY_UNTIL, then a failure, as every
+      # ITS NOISE, HELD TO THE PUBLISHED VECTORS AND THE SERVER'S OWN ANSWERS (linkup/noise-test.cpp, with the
+      # friend's sound queue beside it): no network and no hardware. Report only until LINKUP_REPORT_ONLY_UNTIL, then a failure, as every
       # new check here starts.
       - name: Test LinkUp's Noise
         run: |

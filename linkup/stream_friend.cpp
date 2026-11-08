@@ -2,6 +2,7 @@
 
 #include "stream_friend.h"
 
+#include <gst/app/gstappsink.h>
 #include <gst/webrtc/webrtc.h>
 
 #include <cstdio>
@@ -11,7 +12,7 @@
 namespace {
 
 constexpr int64_t kNoPictureMs = 150;
-constexpr guint kSoundCushionMs = 60;   // stream_friend.h, "The sound is played as it arrives"
+constexpr guint kSoundCushionMs = 60;   // stream_friend.h, "The sound is played as it arrives, into a queue"
 
 bool hasElement(const char* name) {
     GstElementFactory* f = gst_element_factory_find(name);
@@ -62,6 +63,21 @@ GstPadProbeReturn StreamFriend::onPacket(GstPad*, GstPadProbeInfo*, gpointer sel
     return GST_PAD_PROBE_OK;
 }
 
+// The decoder's sound into the program's own queue (friend_sound.h), on GStreamer's thread.
+GstFlowReturn StreamFriend::onSound(GstAppSink* sink, gpointer self) {
+    GstSample* sample = gst_app_sink_pull_sample(sink);
+    if (!sample) return GST_FLOW_OK;
+    GstBuffer* buffer = gst_sample_get_buffer(sample);
+    GstMapInfo map;
+    if (buffer && gst_buffer_map(buffer, &map, GST_MAP_READ)) {
+        static_cast<StreamFriend*>(self)->sound_.push(reinterpret_cast<const int16_t*>(map.data),
+                                                     static_cast<uint32_t>(map.size / (SoundQueue::kChannels * sizeof(int16_t))));
+        gst_buffer_unmap(buffer, &map);
+    }
+    gst_sample_unref(sample);
+    return GST_FLOW_OK;
+}
+
 GstPadProbeReturn StreamFriend::onPicture(GstPad*, GstPadProbeInfo*, gpointer self) {
     auto* me = static_cast<StreamFriend*>(self);
     me->lastPictureMs_ = Rtc::nowMs();
@@ -95,9 +111,10 @@ void StreamFriend::onPadAdded(GstElement*, GstPad* pad, gpointer self) {
         guint ssrc = 0;
         if (gst_structure_get_uint(s, "ssrc", &ssrc)) me->cushionSound(ssrc);
         else std::fprintf(stderr, "[linkup] friend: the sound came with no SSRC; its cushion stays at the picture's\n");
-        description = "rtpopusdepay ! opusdec plc=true ! audio/x-raw,format=S16LE,rate=48000,channels=2 ! audioconvert ! "
-                      "pulsesink async=false sync=false buffer-time=60000 latency-time=10000 "
-                      "client-name=LinkUp stream-properties=\"props,media.role=(string)game\"";
+        // Unplayed, it still has to be taken: a queue nobody empties drops what does not fit.
+        if (!me->sound_.start()) std::fprintf(stderr, "[linkup] friend: the sound will not be heard\n");
+        description = "rtpopusdepay ! opusdec plc=true ! audio/x-raw,format=S16LE,rate=48000,channels=2 ! "
+                      "appsink name=sound sync=false async=false";
     }
     gst_caps_unref(caps);
     GError* error = nullptr;
@@ -106,6 +123,13 @@ void StreamFriend::onPadAdded(GstElement*, GstPad* pad, gpointer self) {
         std::fprintf(stderr, "[linkup] friend: %s\n", error ? error->message : "");
         g_clear_error(&error);
         return;
+    }
+    // Before the first piece can arrive, or appsink keeps what came first as delay for good.
+    if (GstElement* sound = gst_bin_get_by_name(GST_BIN(bin), "sound")) {
+        GstAppSinkCallbacks callbacks{};
+        callbacks.new_sample = onSound;
+        gst_app_sink_set_callbacks(GST_APP_SINK(sound), &callbacks, me, nullptr);
+        gst_object_unref(sound);
     }
     gst_bin_add(GST_BIN(me->pipeline_), bin);
     gst_element_sync_state_with_parent(bin);
@@ -202,6 +226,13 @@ void StreamFriend::stop() {
     if (!pipeline_) return;
     std::fprintf(stderr, "[linkup] friend: %u pictures decoded, asked for a full one %u times\n", pictures_.load(), asks_);
     gst_element_set_state(pipeline_, GST_STATE_NULL);
+    if (sound_.running()) {
+        const SoundQueue::Stats s = sound_.stats();
+        std::fprintf(stderr, "[linkup] friend: sound ran dry %u times, held at %+.0f ppm, least in hand %.0f ms, "
+                             "dropped %u times over and %u for no room, rate refused %u\n",
+                     s.underruns, s.trimPpm, s.lowMs, s.tooFull, s.noRoom, sound_.rateRefused());
+    }
+    sound_.stop();
     g_signal_handlers_disconnect_by_data(webrtc_, this);
     if (rtpbin_) {
         g_signal_handlers_disconnect_by_data(rtpbin_, this);

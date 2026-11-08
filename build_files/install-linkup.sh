@@ -20,7 +20,7 @@ missing=0
 for element in webrtcbin nicesrc nicesink sctpenc appsrc valve capssetter queue \
                rtph265pay rtph265depay h265parse rtph264pay rtph264depay h264parse \
                opusenc opusdec rtpopuspay rtpopusdepay audioconvert audioresample \
-               pipewiresrc pipewiresink glimagesink; do
+               pulsesrc appsink glimagesink; do
     if ! gst-inspect-1.0 --exists "${element}"; then
         log "ERROR: LinkUp needs the GStreamer element ${element}, and it is not in the image"
         missing=1

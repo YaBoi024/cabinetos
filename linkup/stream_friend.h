@@ -12,19 +12,20 @@
 // packets are arriving and no picture has come out for 150 ms, this asks the host over the data
 // channel, and keeps asking.
 //
-// THE SOUND IS PLAYED AS IT ARRIVES, INTO A QUEUE, as the console's own games play theirs through SDL:
-// pulsesink keeps 60 ms ready in front of the output and starts once it holds that much, so Wi-Fi's
-// unevenness drains and refills the queue instead of leaving holes. Its jitter buffer waits up to 60 ms
-// for a missing piece, then Opus fills it in. Measured on the reference console's HDMI output, in games
-// hosted on the mini PC over Wi-Fi (#654): pipewiresink with 5 ms in hand ran dry about every 0.6 s, 127
-// times in two minutes; played on timestamps instead, a sink added mid-stream took every piece as late and
-// played none of it. NOT YET RIGHT: the host's sound clock is not the friend's (the mini PC measured
-// 47,960.6 samples a second against the reference console's 48,000), so this queue runs dry after a
-// minute or so and crackles from then on. The friend has to follow the host's pace; that is the next
-// piece of work. The picture's buffer stays at 100 ms, the time it has for a resend.
+// THE SOUND IS PLAYED AS IT ARRIVES, INTO A QUEUE OF THE PROGRAM'S OWN, AT THE HOST'S PACE
+// (friend_sound.h): the decoder hands it over, and the program plays it through PipeWire, keeping 40 ms
+// in hand, more after a Wi-Fi stall, so Wi-Fi's unevenness drains and refills the queue instead of
+// leaving holes, and trimming the pace to the host's sound clock, which is not the friend's. Its jitter
+// buffer waits up to 60 ms for a missing piece, then Opus fills it in. Measured on the reference
+// console's HDMI output, in games hosted on the mini PC over Wi-Fi (#654): pipewiresink with 5 ms in hand
+// ran dry about every 0.6 s, 127 times in two minutes; played on timestamps instead, a sink added
+// mid-stream took every piece as late and played none of it; pulsesink with 60 ms ran dry after 30 to 70
+// seconds, the mini PC sending 47,960.6 samples a second by the reference console's clock. The
+// picture's buffer stays at 100 ms, the time it has for a resend.
 
 #pragma once
 
+#include <gst/app/gstappsink.h>
 #include <gst/gst.h>
 
 #include <atomic>
@@ -35,6 +36,7 @@
 #include <mutex>
 #include <string>
 
+#include "friend_sound.h"
 #include "rtc.h"
 
 class StreamFriend {
@@ -64,6 +66,7 @@ private:
     static gboolean onBus(GstBus*, GstMessage* m, gpointer self);
     static GstPadProbeReturn onPacket(GstPad*, GstPadProbeInfo*, gpointer self);
     static GstPadProbeReturn onPicture(GstPad*, GstPadProbeInfo*, gpointer self);
+    static GstFlowReturn onSound(GstAppSink* sink, gpointer self);
     static gboolean onWatchdog(gpointer self);
 
     Rtc::Hooks hooks_;
@@ -80,4 +83,5 @@ private:
     int64_t lastAskMs_ = 0;
     std::atomic<uint32_t> pictures_{0};
     uint32_t asks_ = 0;
+    FriendSound sound_;
 };

@@ -2,10 +2,13 @@
 // answers the server's own code makes (proof-vectors.txt, written by internal/proof in
 // MMagTech/cabinet-linkup). No network. A hand-written Noise is the largest risk the security
 // review left, so this runs in CI and every message has to match to the byte. Also what sits
-// next to it: names cleaned, boxes dropped when they do not fit, what an address means.
+// next to it: names cleaned, boxes dropped when they do not fit, what an address means, and the
+// friend's sound keeping a host's pace.
 //
 //   noise-test <folder holding the two files>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <fstream>
@@ -15,6 +18,7 @@
 #include <vector>
 
 #include "box.h"
+#include "friend_sound.h"
 #include "noise.h"
 #include "server_link.h"
 
@@ -462,6 +466,160 @@ void addressesMean() {
     std::printf("  what an address means\n");
 }
 
+// The friend's sound queue (friend_sound.h) against a host whose sound clock is not the friend's,
+// simulated: the host sends 10 ms pieces by its own clock, each arrives late by up to jitterMs and, every
+// three seconds or so, held up for stallMs and then in a burst, as on Wi-Fi; PipeWire takes quantum
+// frames a cycle, as many more or fewer as the queue's rate asks. Each frame carries a count, so a frame
+// lost, doubled or out of order shows.
+struct SoundRun {
+    uint32_t underruns = 0;
+    uint32_t outOfOrder = 0;
+    double lowMs = 1e9;    // in hand after a pull, from settleS on
+    double highMs = 0;
+    double trimPpm = 0;    // the mean over the last minute
+    uint32_t underrunsAfterSettle = 0;
+    double mostTargetMs = 0;
+    double targetMs = 0;   // what it kept at the end
+};
+
+SoundRun runSound(double hostPpm, uint32_t quantum, double seconds, double jitterMs, double stallMs, double settleS,
+                  double quietAtS = -1, double quietMs = 0, double stallsUntilS = 1e9) {
+    constexpr uint32_t kPiece = 480;
+    constexpr uint32_t kRate = SoundQueue::kRate;
+    SoundQueue q;
+    SoundRun run;
+    uint32_t seed = 12345;
+    const auto random01 = [&seed]() {
+        seed = seed * 1664525u + 1013904223u;
+        return (seed >> 8) / 16777216.0;
+    };
+    std::vector<int16_t> piece(kPiece * SoundQueue::kChannels);
+    std::vector<int16_t> out(8192 * SoundQueue::kChannels);
+    uint32_t sent = 0;
+    double pending = -1;
+    double lastArrival = 0;
+    double nextStall = 3.0;
+    uint32_t count = 0;    // what the next frame sent carries, 1 to 30000; silence is 0
+    uint32_t expect = 1;
+    double owed = 0;
+    double trimSum = 0;
+    uint32_t trimN = 0;
+    for (uint64_t cycle = 0;; ++cycle) {
+        const double now = static_cast<double>(cycle) * quantum / kRate;
+        if (now >= seconds) break;
+        for (;;) {
+            if (pending < 0) {
+                double send = static_cast<double>(sent) * kPiece / (kRate * (1 + hostPpm * 1e-6));
+                if (quietAtS >= 0 && send >= quietAtS) send += quietMs / 1000;
+                double arrive = send + 0.002 + random01() * jitterMs / 1000;
+                if (stallMs > 0 && send < stallsUntilS && send >= nextStall) {
+                    if (send < nextStall + stallMs / 1000) arrive = std::max(arrive, nextStall + stallMs / 1000 + 0.002);
+                    else nextStall += 3.0 * (0.5 + random01());
+                }
+                pending = std::max(arrive, lastArrival);
+            }
+            if (pending > now) break;
+            for (uint32_t i = 0; i < kPiece; ++i) {
+                count = count % 30000 + 1;
+                piece[i * 2] = piece[i * 2 + 1] = static_cast<int16_t>(count);
+            }
+            q.push(piece.data(), kPiece);
+            ++sent;
+            lastArrival = pending;
+            pending = -1;
+        }
+        owed += quantum / q.rate();
+        const uint32_t take = static_cast<uint32_t>(owed);
+        owed -= take;
+        q.pull(out.data(), take);
+        for (uint32_t i = 0; i < take; ++i) {
+            const int16_t v = out[i * 2];
+            if (v == 0) continue;
+            if (static_cast<uint32_t>(v) != expect || out[i * 2 + 1] != v) ++run.outOfOrder;
+            expect = static_cast<uint32_t>(v) % 30000 + 1;
+        }
+        if (now >= settleS && take > 0 && out[(take - 1) * 2] != 0) {
+            const double inHand = q.queued() * 1000.0 / kRate;
+            run.lowMs = std::min(run.lowMs, inHand);
+            run.highMs = std::max(run.highMs, inHand);
+        }
+        if (now >= seconds - 60) {
+            trimSum += q.stats().trimPpm;
+            ++trimN;
+        }
+        if (now < settleS) run.underrunsAfterSettle = q.stats().underruns;
+        run.mostTargetMs = std::max(run.mostTargetMs, q.stats().targetMs);
+    }
+    run.underruns = q.stats().underruns;
+    run.underrunsAfterSettle = run.underruns - run.underrunsAfterSettle;
+    run.targetMs = q.stats().targetMs;
+    run.trimPpm = trimN ? trimSum / trimN : 0;
+    return run;
+}
+
+void soundKeepsPace() {
+    const auto say = [](const char* what, const SoundRun& r) {
+        std::printf("    %s: ran dry %u (%u after settling), out of order %u, %.1f to %.1f ms in hand, held at %+.0f ppm, "
+                    "kept up to %.0f ms, %.0f at the end\n", what, r.underruns, r.underrunsAfterSettle, r.outOfOrder, r.lowMs,
+                    r.highMs, r.trimPpm, r.mostTargetMs, r.targetMs);
+    };
+    // The mini PC hosting the reference console, measured: 820 ppm slow. Wi-Fi's unevenness, ten minutes.
+    const SoundRun slow = runSound(-820, 480, 600, 20, 30, 60);
+    say("a host 820 ppm slow", slow);
+    check(slow.underruns == 0 && slow.outOfOrder == 0, "a slow host's sound ran dry or came out wrong");
+    check(std::abs(slow.trimPpm + 820) < 60, "the queue did not follow a slow host");
+    check(slow.lowMs > 10 && slow.highMs < 70, "a slow host's queue wandered from its 40 ms");
+    // The other way round, and PipeWire taking twice as much a cycle.
+    const SoundRun fast = runSound(820, 1024, 600, 20, 20, 60);
+    say("a host 820 ppm fast", fast);
+    check(fast.underruns == 0 && fast.outOfOrder == 0, "a fast host's sound ran dry or came out wrong");
+    check(std::abs(fast.trimPpm - 820) < 60, "the queue did not follow a fast host");
+    check(fast.lowMs > 5 && fast.highMs < 75, "a fast host's queue wandered from its 40 ms");
+    // A steady network: from the very first second, it keeps at least half its 40 ms while it learns.
+    const SoundRun learn = runSound(-1000, 480, 300, 0, 0, 0);
+    say("learning a host 1000 ppm slow", learn);
+    check(learn.underruns == 0 && learn.lowMs > 20 && learn.highMs < 60, "learning the host's pace strayed too far");
+    // The same clocks: it stays put.
+    const SoundRun same = runSound(0, 480, 300, 20, 30, 60);
+    check(same.underruns == 0 && std::abs(same.trimPpm) < 60, "the queue moved with nothing to follow");
+    // The host goes quiet for 400 ms: one real underrun, silence, then the target again, nothing lost.
+    const SoundRun quiet = runSound(-820, 480, 300, 20, 0, 0, 100, 400);
+    say("a host quiet for 400 ms", quiet);
+    check(quiet.underruns == 1 && quiet.outOfOrder == 0, "a quiet host was not one underrun and a clean refill");
+    check(std::abs(quiet.trimPpm + 820) < 60, "after a quiet host the queue lost its pace");
+    check(quiet.mostTargetMs == 40, "a host gone quiet was taken for the network and grew the queue");
+    // Wi-Fi holding the sound back 70 ms every few seconds: the queue grows until it covers that, then
+    // runs dry no more, and stays under its 100 ms.
+    const SoundRun stalls = runSound(-820, 480, 300, 20, 70, 60);
+    say("stalls of 70 ms every few seconds", stalls);
+    check(stalls.underrunsAfterSettle == 0 && stalls.outOfOrder == 0, "the queue did not grow to cover the stalls");
+    check(stalls.mostTargetMs > 40 && stalls.mostTargetMs <= 100, "the queue grew past its 100 ms, or not at all");
+    // The stalls end after a minute: ten calm minutes bring it back to 40 ms.
+    const SoundRun calm = runSound(-820, 480, 720, 20, 70, 60, -1, 0, 60);
+    say("stalls for a minute, then calm", calm);
+    check(calm.underrunsAfterSettle == 0 && calm.targetMs == 40, "a calm network did not bring the queue back to 40 ms");
+
+    // Nothing plays until the target is in hand, and nothing is taken while it waits.
+    const uint32_t ms = SoundQueue::kRate / 1000;
+    std::vector<int16_t> sound(400 * ms * SoundQueue::kChannels, 7);
+    std::vector<int16_t> out(10 * ms * SoundQueue::kChannels, 1);
+    SoundQueue q;
+    q.push(sound.data(), 30 * ms);
+    q.pull(out.data(), 10 * ms);
+    check(out[0] == 0 && out.back() == 0 && q.queued() == 30 * ms, "the queue played before it held its 40 ms");
+    q.push(sound.data(), 20 * ms);
+    q.pull(out.data(), 10 * ms);
+    check(out[0] == 7 && out.back() == 7 && q.queued() == 40 * ms, "the queue did not start once it held its 40 ms");
+    // A burst far over the target: the oldest goes, back to 40 ms.
+    q.push(sound.data(), 200 * ms);
+    q.pull(out.data(), 10 * ms);
+    check(q.queued() == 40 * ms && q.stats().tooFull == 1, "a queue far over its target kept it all");
+    // Full: what arrives is dropped, and the decoder's thread never waits.
+    for (int i = 0; i < 6; ++i) q.push(sound.data(), 400 * ms);
+    check(q.stats().noRoom > 0 && q.queued() <= (1u << 16), "a full queue took more");
+    std::printf("  the friend's sound keeps the host's pace\n");
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -474,6 +632,7 @@ int main(int argc, char** argv) {
     cleanTextHolds();
     readerDropsWhatDoesNotFit();
     addressesMean();
+    soundKeepsPace();
     if (failures > 0) {
         std::fprintf(stderr, "%d failed\n", failures);
         return 1;

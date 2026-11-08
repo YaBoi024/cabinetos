@@ -65,6 +65,8 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 ### LinkUp
 
 - [linkup-picture-floor](2026-11-07-linkup-picture-floor.md): a LinkUp picture never goes below 720p at 3.5 Mbit/s; below that both consoles say *Slow connection* and the game carries on.
+- [linkup-friend-sound-queue](2026-11-08-linkup-friend-sound-queue.md): a friend plays the sound from LinkUp's own queue at the host's pace, keeping 40 ms, more after a Wi-Fi stall, at most 100.
+- [linkup-host-sound-through-pulse](2026-11-08-linkup-host-sound-through-pulse.md): a host captures its sound with pulsesrc, because pipewiresrc lost more and more of it on the mini PC.
 
 ### RomM and the library
 
