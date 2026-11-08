@@ -6,6 +6,9 @@
 // #654's second comment: libnice asks a router for a permanent lease on every local address, and
 // leaves them behind when it dies). Those ports are the ones the firewall lock opens.
 //
+// A CABLE CARRIES THE GAME WHEN ONE IS CONNECTED: ICE gathers on its addresses alone, on the host's
+// side and the friend's. By the kind of link, a cable or not, and never by its name.
+//
 // TWO DATA CHANNELS, both made by the host. "control" is ordered and reliable, for what must arrive:
 // a pause, a leave. "fast" is unordered with no retries, for a pad's state and the heartbeat: a later
 // one replaces a lost one, and a retry would only be late.

@@ -3,10 +3,19 @@
 #include "rtc.h"
 
 #include <gst/sdp/sdp.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <netdb.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
 
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <fstream>
+#include <set>
+#include <sstream>
+#include <vector>
 
 #include "jsonutil.h"
 
@@ -15,6 +24,68 @@ namespace {
 void setIfThere(GObject* o, const char* name, gboolean value) {
     if (g_object_class_find_property(G_OBJECT_GET_CLASS(o), name)) g_object_set(o, name, value, nullptr);
     else std::fprintf(stderr, "[linkup] no property %s on %s\n", name, G_OBJECT_TYPE_NAME(o));
+}
+
+bool exists(const std::string& path) {
+    struct stat st{};
+    return stat(path.c_str(), &st) == 0;
+}
+
+// A cable: an Ethernet link on a device of its own, which no Wi-Fi card, bridge, tunnel or
+// container's link is.
+bool wired(const std::string& link) {
+    const std::string at = "/sys/class/net/" + link;
+    if (exists(at + "/wireless") || exists(at + "/phy80211") || !exists(at + "/device")) return false;
+    std::ifstream type(at + "/type");
+    int arphrd = 0;
+    return (type >> arphrd) && arphrd == 1;   // ARPHRD_ETHER
+}
+
+// The links a default route leaves by, IPv4 or IPv6: a link that reaches past its own network.
+std::set<std::string> linksOut() {
+    std::set<std::string> out;
+    std::ifstream v4("/proc/net/route");
+    std::string line;
+    std::getline(v4, line);   // the heading
+    while (std::getline(v4, line)) {
+        std::istringstream f(line);
+        std::string link, destination, gateway, flags, refs, use, metric, mask;
+        if ((f >> link >> destination >> gateway >> flags >> refs >> use >> metric >> mask) &&
+            destination == "00000000" && mask == "00000000")
+            out.insert(link);
+    }
+    std::ifstream v6("/proc/net/ipv6_route");
+    while (std::getline(v6, line)) {
+        std::istringstream f(line);
+        std::string destination, length, source, sourceLength, next, metric, refs, use, flags, link;
+        if (!(f >> destination >> length >> source >> sourceLength >> next >> metric >> refs >> use >> flags >> link)) continue;
+        constexpr unsigned long kReject = 0x0200;   // RTF_REJECT: an unreachable route, which goes nowhere
+        if (destination == std::string(32, '0') && length == "00" && !(std::stoul(flags, nullptr, 16) & kReject))
+            out.insert(link);
+    }
+    return out;
+}
+
+// The addresses of every cable that is connected and reaches out, written as libnice writes the ones
+// it finds itself (getnameinfo, a link-local one with its %link), and the links they are on. Empty
+// when no cable is connected.
+std::vector<std::string> cableAddresses(std::set<std::string>* links) {
+    std::vector<std::string> addresses;
+    ifaddrs* all = nullptr;
+    if (getifaddrs(&all) != 0) return addresses;
+    const std::set<std::string> out = linksOut();
+    for (const ifaddrs* a = all; a; a = a->ifa_next) {
+        if (!a->ifa_addr || (a->ifa_addr->sa_family != AF_INET && a->ifa_addr->sa_family != AF_INET6)) continue;
+        if (!(a->ifa_flags & IFF_UP) || !(a->ifa_flags & IFF_RUNNING) || (a->ifa_flags & IFF_LOOPBACK)) continue;
+        if (!out.count(a->ifa_name) || !wired(a->ifa_name)) continue;
+        char text[NI_MAXHOST];
+        const socklen_t size = a->ifa_addr->sa_family == AF_INET ? sizeof(sockaddr_in) : sizeof(sockaddr_in6);
+        if (getnameinfo(a->ifa_addr, size, text, sizeof text, nullptr, 0, NI_NUMERICHOST) != 0) continue;
+        addresses.emplace_back(text);
+        links->insert(a->ifa_name);
+    }
+    freeifaddrs(all);
+    return addresses;
 }
 
 }  // namespace
@@ -64,6 +135,24 @@ Rtc::Rtc(GstElement* webrtcbin, bool offerer, Hooks hooks) : webrtc_(webrtcbin),
             g_object_unref(agent);
         } else {
             std::fprintf(stderr, "[linkup] the ICE agent could not be reached; UPnP is its default\n");
+        }
+        // A CABLE, WHEN ONE IS CONNECTED, CARRIES THE GAME. libnice ranks a console's addresses by where
+        // each comes in the system's list of them, not by what kind of link it is on, so with a cable and
+        // Wi-Fi both connected it chose the Wi-Fi on one run and the cable on others (#654, a packet
+        // capture on the friend's console). Given the cable's addresses, it gathers on those alone, its
+        // way to the server and to the relay included. A cable that reaches no further than its own
+        // network leaves the choice to libnice, as does a console with no cable.
+        std::set<std::string> links;
+        const std::vector<std::string> cable = cableAddresses(&links);
+        for (const std::string& address : cable) {
+            gboolean added = FALSE;
+            g_signal_emit_by_name(ice, "add-local-ip-address", address.c_str(), &added);
+            if (!added) std::fprintf(stderr, "[linkup] the ICE agent refused %s\n", address.c_str());
+        }
+        if (!cable.empty()) {
+            std::string named;
+            for (const std::string& link : links) named += (named.empty() ? "" : ", ") + link;
+            std::fprintf(stderr, "[linkup] on the cable: %s, %zu addresses\n", named.c_str(), cable.size());
         }
         g_object_unref(ice);
     }
