@@ -29,6 +29,8 @@ public:
     void enter();
     void settleArrival();
     void setHasFocus(bool on);
+    // With no friends there is nothing to focus, not even Status (App::screenTakesFocus).
+    bool takesFocus() const { return !tiles_.empty(); }
 
     void tick(float dt);
     Result key(Nav n);

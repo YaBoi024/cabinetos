@@ -2080,6 +2080,7 @@ struct App {
     void switchDestination(int delta);
     bool shoulderOnPage(int dir);
     bool barKey(screens::Nav n);
+    bool screenTakesFocus();
     void removeDownloads();
     void pumpSwitch();
     void pumpLeave();

@@ -19,6 +19,16 @@ namespace {
 constexpr float kBarItemGap = 60.0f;
 }  // namespace
 
+// Whether the screen under the bar has anything to focus, as each screen
+// answers it. Only LinkUp with no friends has nothing; an empty Home still
+// takes A, which opens the Library.
+bool App::screenTakesFocus() {
+    switch (here()) {
+        case Screen::LinkUp: return linkupScreen.takesFocus();
+        default: return true;
+    }
+}
+
 // THE BAR'S OWN KEYS. Offered every key first whenever it holds focus, from
 // whichever screen is underneath — which is the whole point of its cursor
 // living here rather than in a screen.
@@ -58,8 +68,14 @@ auto App::barKey(screens::Nav n) -> bool {
         // DOWN AND BACK BOTH LEAVE IT, and neither leaves the screen. Back
         // out of the bar going to the previous screen would mean a person
         // who walked up to look at it could not simply come back down.
+        // Neither leaves it for a screen with nothing to focus: focus would
+        // go where nobody can see it, and the next Up would come back.
         case screens::Nav::Down:
         case screens::Nav::Back:
+            if (!screenTakesFocus()) {
+                sound::play(sound::Cue::Edge);
+                return true;
+            }
             barFocused = false;
             sound::play(n == screens::Nav::Down ? sound::Cue::Move
                                                 : sound::Cue::Back);
