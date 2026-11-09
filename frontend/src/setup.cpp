@@ -1883,12 +1883,13 @@ Outcome Flow::run() {
                     // THE SYSTEM'S KEY REPEAT, as the console's own input
                     // drops it (input.cpp, #443): a held Return, Space or
                     // Escape acted again at every repeat, and a held
-                    // Backspace went back step after step (#485). Backspace
-                    // still repeats where it deletes, on the keyboard.
+                    // Backspace went back step after step (#485). On the
+                    // keyboard a held Backspace goes on deleting at the
+                    // keyboard's own pace, as X does (#668).
                     if (e.key.repeat &&
                         (e.key.key == SDLK_RETURN || e.key.key == SDLK_KP_ENTER ||
                          e.key.key == SDLK_SPACE || e.key.key == SDLK_ESCAPE ||
-                         (e.key.key == SDLK_BACKSPACE && !keyboard_.isOpen())))
+                         e.key.key == SDLK_BACKSPACE))
                         break;
                     if (keyboard_.isOpen()) {
                         // The arrows hold the keyboard's own way, as the
@@ -1899,7 +1900,7 @@ Outcome Flow::run() {
                             case SDLK_RIGHT: if (!again) keyboard_.holdDirection(+1, 0); break;
                             case SDLK_UP: if (!again) keyboard_.holdDirection(0, -1); break;
                             case SDLK_DOWN: if (!again) keyboard_.holdDirection(0, +1); break;
-                            case SDLK_BACKSPACE: keyboard_.backspace(); break;
+                            case SDLK_BACKSPACE: keyboard_.holdBackspace(); break;
                             case SDLK_RETURN:
                             case SDLK_KP_ENTER: {
                                 const std::string value = keyboard_.value();
@@ -1945,7 +1946,7 @@ Outcome Flow::run() {
                                 typingFinished(keyboard_.pressKey(), value);
                                 break;
                             }
-                            case SDL_GAMEPAD_BUTTON_WEST: keyboard_.backspace(); break;
+                            case SDL_GAMEPAD_BUTTON_WEST: keyboard_.holdBackspace(); break;
                             case SDL_GAMEPAD_BUTTON_NORTH: keyboard_.cycleShift(); break;
                             case SDL_GAMEPAD_BUTTON_START: {
                                 const std::string value = keyboard_.value();
@@ -1972,10 +1973,11 @@ Outcome Flow::run() {
                     }
                     break;
 
-                // The keyboard's held direction lets go with its own key or
-                // button; letting go of another one does not stop it.
+                // The keyboard's held direction or delete lets go with its
+                // own key or button; letting go of another does not stop it.
                 case SDL_EVENT_KEY_UP:
                     switch (e.key.key) {
+                        case SDLK_BACKSPACE: keyboard_.releaseBackspace(); break;
                         case SDLK_LEFT: keyboard_.releaseDirection(-1, 0); break;
                         case SDLK_RIGHT: keyboard_.releaseDirection(+1, 0); break;
                         case SDLK_UP: keyboard_.releaseDirection(0, -1); break;
@@ -1985,6 +1987,7 @@ Outcome Flow::run() {
                     break;
                 case SDL_EVENT_GAMEPAD_BUTTON_UP:
                     switch (e.gbutton.button) {
+                        case SDL_GAMEPAD_BUTTON_WEST: keyboard_.releaseBackspace(); break;
                         case SDL_GAMEPAD_BUTTON_DPAD_LEFT: keyboard_.releaseDirection(-1, 0); break;
                         case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: keyboard_.releaseDirection(+1, 0); break;
                         case SDL_GAMEPAD_BUTTON_DPAD_UP: keyboard_.releaseDirection(0, -1); break;

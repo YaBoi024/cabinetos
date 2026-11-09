@@ -250,11 +250,13 @@ std::optional<int> App::waitForServer(char** argv) {
                 case SDL_EVENT_KEY_DOWN:
                     // THE SYSTEM'S KEY REPEAT, dropped as first run and the
                     // console's own input drop it (#443, #485): a held Return
-                    // committed again and again. Backspace still repeats: here
-                    // it only ever deletes.
+                    // committed again and again. A held Backspace goes on
+                    // deleting at the pace a held X does, the keyboard's and
+                    // the PIN pad's own (#668).
                     if (e.key.repeat && (e.key.key == SDLK_RETURN ||
                                          e.key.key == SDLK_KP_ENTER ||
-                                         e.key.key == SDLK_ESCAPE))
+                                         e.key.key == SDLK_ESCAPE ||
+                                         e.key.key == SDLK_BACKSPACE))
                         break;
                     // Nor an arrow's, on the keyboard: there the arrows hold
                     // its own way, as the d-pad does (#668).
@@ -270,8 +272,8 @@ std::optional<int> App::waitForServer(char** argv) {
                         case SDLK_RIGHT: press(screens::Nav::Right); break;
                         case SDLK_ESCAPE: press(screens::Nav::Back); break;
                         case SDLK_BACKSPACE:
-                            if (pad.isOpen()) pad.deleteDigit();
-                            else if (addrKeyboard.isOpen()) addrKeyboard.backspace();
+                            if (pad.isOpen()) pad.holdDelete();
+                            else if (addrKeyboard.isOpen()) addrKeyboard.holdBackspace();
                             break;
                         case SDLK_RETURN:
                         case SDLK_KP_ENTER:
@@ -292,8 +294,8 @@ std::optional<int> App::waitForServer(char** argv) {
                         case SDL_GAMEPAD_BUTTON_SOUTH: press(screens::Nav::Activate); break;
                         case SDL_GAMEPAD_BUTTON_EAST: press(screens::Nav::Back); break;
                         case SDL_GAMEPAD_BUTTON_WEST:
-                            if (pad.isOpen()) pad.deleteDigit();
-                            else if (addrKeyboard.isOpen()) addrKeyboard.backspace();
+                            if (pad.isOpen()) pad.holdDelete();
+                            else if (addrKeyboard.isOpen()) addrKeyboard.holdBackspace();
                             break;
                         case SDL_GAMEPAD_BUTTON_NORTH:
                             if (addrKeyboard.isOpen()) addrKeyboard.cycleShift();
@@ -305,10 +307,14 @@ std::optional<int> App::waitForServer(char** argv) {
                         default: break;
                     }
                     break;
-                // The keyboard's held direction lets go with its own key or
-                // button; letting go of another one does not stop it.
+                // A held direction or delete lets go with its own key or
+                // button; letting go of another does not stop it.
                 case SDL_EVENT_KEY_UP:
                     switch (e.key.key) {
+                        case SDLK_BACKSPACE:
+                            addrKeyboard.releaseBackspace();
+                            pad.releaseDelete();
+                            break;
                         case SDLK_LEFT: addrKeyboard.releaseDirection(-1, 0); break;
                         case SDLK_RIGHT: addrKeyboard.releaseDirection(+1, 0); break;
                         case SDLK_UP: addrKeyboard.releaseDirection(0, -1); break;
@@ -318,6 +324,10 @@ std::optional<int> App::waitForServer(char** argv) {
                     break;
                 case SDL_EVENT_GAMEPAD_BUTTON_UP:
                     switch (e.gbutton.button) {
+                        case SDL_GAMEPAD_BUTTON_WEST:
+                            addrKeyboard.releaseBackspace();
+                            pad.releaseDelete();
+                            break;
                         case SDL_GAMEPAD_BUTTON_DPAD_LEFT: addrKeyboard.releaseDirection(-1, 0); break;
                         case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: addrKeyboard.releaseDirection(+1, 0); break;
                         case SDL_GAMEPAD_BUTTON_DPAD_UP: addrKeyboard.releaseDirection(0, -1); break;

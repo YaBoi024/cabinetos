@@ -1373,9 +1373,8 @@ struct App {
     // pressing a second direction takes over rather than queueing, so a person
     // rolling their thumb around the pad never ends up with two repeats
     // fighting each other.
-    bool navHeld = false;
+    design::HeldRepeat navHold;
     screens::Nav heldNav = screens::Nav::Down;
-    float heldFor = 0.0f, nextRepeat = 0.0f;
     void holdNav(screens::Nav n);
     void releaseNav(screens::Nav n);
     void letGoOfHeld();

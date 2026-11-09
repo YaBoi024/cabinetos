@@ -119,6 +119,12 @@ PinScreen::Outcome PinScreen::deleteOne() {
     return Outcome::None;
 }
 
+void PinScreen::holdDelete() {
+    if (!open_) return;
+    deleteHold_.start();
+    deleteOne();
+}
+
 PinScreen::Outcome PinScreen::typeDigit(char c) {
     if (!open_ || c < '0' || c > '9') return Outcome::None;
     return add(c);
@@ -162,6 +168,8 @@ PinScreen::Outcome PinScreen::key(Nav n) {
 }
 
 void PinScreen::tick(float dt) {
+    if (!open_) deleteHold_.stop();
+    if (deleteHold_.due(dt)) deleteOne();
     appear_.tick(dt);
     focus_.tick(dt);
     shake_ = std::max(0.0f, shake_ - dt);

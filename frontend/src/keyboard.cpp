@@ -307,30 +307,51 @@ void Keyboard::moveFocus(int dx, int dy) {
     sound::play(row_ == wasRow && col_ == wasCol ? sound::Cue::Edge : sound::Cue::Move);
 }
 
-// The hold's pace is the console's, design::repeatGap, the same one every
-// other screen's held direction keeps (App::repeatHeld). The hold is armed
-// before the first move, because that move can be Up out of Search's field,
-// which lets go of it.
+// The hold's pace is the console's (design::HeldRepeat), the one every other
+// screen's held direction keeps (App::repeatHeld). It is armed before the
+// first move, because that move can be Up out of Search's field, which lets
+// go of it.
 void Keyboard::holdDirection(int dx, int dy) {
     if (!open_) return;
+    holdDelete_ = false;
     holdDx_ = dx;
     holdDy_ = dy;
-    holdFor_ = 0.0f;
-    holdNext_ = design::kRepeatDelay;
+    hold_.start();
     moveFocus(dx, dy);
 }
 
 void Keyboard::releaseDirection(int dx, int dy) {
-    if (holdDx_ == dx && holdDy_ == dy) letGoOfHeld();
+    if (!holdDelete_ && holdDx_ == dx && holdDy_ == dy) letGoOfHeld();
+}
+
+// HELD DELETE GOES ON DELETING (#668), as a computer's Backspace and a
+// phone's delete do: a wrong address is cleared in a second or two rather
+// than a press a character. The slow first repeat is what keeps a tap to one
+// character. Only X and Backspace: A on "del" is a key pressed, and keys do
+// not repeat.
+void Keyboard::holdBackspace() {
+    if (!open_) return;
+    holdDelete_ = true;
+    holdDx_ = holdDy_ = 0;
+    hold_.start();
+    backspace();
+}
+
+void Keyboard::releaseBackspace() {
+    if (holdDelete_) letGoOfHeld();
+}
+
+void Keyboard::letGoOfHeld() {
+    hold_.stop();
+    holdDelete_ = false;
+    holdDx_ = holdDy_ = 0;
 }
 
 void Keyboard::repeatHeld(float dt) {
     if (!open_) letGoOfHeld();
-    if (holdDx_ == 0 && holdDy_ == 0) return;
-    holdFor_ += dt;
-    if (holdFor_ < holdNext_) return;
-    holdNext_ = holdFor_ + design::repeatGap(holdFor_);
-    moveFocus(holdDx_, holdDy_);
+    if (!hold_.due(dt)) return;
+    if (holdDelete_) backspace();
+    else moveFocus(holdDx_, holdDy_);
 }
 
 void Keyboard::restoreHeld() {
@@ -710,10 +731,14 @@ int keyboardTest() {
         std::printf("  %s  %s\n", ok ? "ok  " : "FAIL", what);
         if (!ok) ++failures;
     };
-    // A press and its release, as a d-pad sends them.
+    // A press and its release, as a d-pad and X send them.
     auto tap = [](Keyboard& kb, int dx, int dy) {
         kb.holdDirection(dx, dy);
         kb.releaseDirection(dx, dy);
+    };
+    auto del = [](Keyboard& kb) {
+        kb.holdBackspace();
+        kb.releaseBackspace();
     };
     Keyboard::Config cfg;
     cfg.title = "Test";
@@ -734,13 +759,13 @@ int keyboardTest() {
         kb.typeText("X");
         check(kb.value() == "cafX\xC3\xA9s",
               "Left steps over a two-byte character whole, and typing goes in at the cursor");
-        kb.backspace();
+        del(kb);
         check(kb.value() == "caf\xC3\xA9s", "del takes off the character before the cursor");
         tap(kb, +1, 0);
-        kb.backspace();
+        del(kb);
         check(kb.value() == "cafs", "and takes a two-byte character off whole");
         for (int i = 0; i < 10; ++i) tap(kb, -1, 0);
-        kb.backspace();
+        del(kb);
         check(kb.value() == "cafs", "the cursor stops at the start, where del has nothing to take");
         for (int i = 0; i < 10; ++i) tap(kb, +1, 0);
         kb.typeText("!");
@@ -837,6 +862,27 @@ int keyboardTest() {
         kb.releaseDirection(-1, 0);
         kb.pressKey();
         check(kb.value().size() == 4, "a long hold circles the row and still types one key");
+    }
+    // HELD DELETE, at the same pace, and a tap takes one character.
+    {
+        Keyboard kb;
+        cfg.initial = "romm.local";
+        kb.open(cfg);
+        kb.holdBackspace();
+        kb.repeatHeld(design::kRepeatDelay - 0.01f);
+        check(kb.value() == "romm.loca", "held X deletes once, then waits");
+        kb.repeatHeld(0.02f);
+        check(kb.value() == "romm.loc", "then deletes again after kRepeatDelay");
+        kb.releaseDirection(-1, 0);
+        for (int frame = 0; frame < 120; ++frame) kb.repeatHeld(1.0f / 60.0f);
+        check(kb.value().empty(),
+              "and goes on, faster, until the field is empty; letting go of Left does not stop it");
+        kb.releaseBackspace();
+        kb.typeText("abc");
+        del(kb);
+        kb.repeatHeld(1.0f);
+        check(kb.value() == "ab", "a tap of X takes one character");
+        cfg.initial.clear();
     }
     // UP OUT OF SEARCH'S FIELD ends the hold: the results get one press.
     {

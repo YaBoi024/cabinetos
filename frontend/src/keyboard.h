@@ -58,6 +58,8 @@
 #include <string>
 #include <vector>
 
+#include "design.h"
+
 namespace ui {
 
 class Renderer;
@@ -117,22 +119,25 @@ public:
     void open(const Config& config);
     bool isOpen() const { return open_; }
 
-    // DIRECTIONAL INPUT, from a pad or the arrow keys: the layer above does
+    // DIRECTIONS AND DELETE, from a pad or a keyboard: the layer above does
     // not say which, because nothing here may depend on the answer.
     //
-    // A direction that goes down moves focus once and is held
-    // (holdDirection); the same direction coming up lets go
-    // (releaseDirection), and letting go of another one does not stop it;
-    // repeatHeld, every frame the keyboard has the input, moves it again at
-    // the console's pace. A system's own key repeat is not a press: the loops
-    // drop it for the arrows, so a keyboard's arrows hold exactly as a pad's
-    // d-pad does. letGoOfHeld ends the hold whatever is down, for a loop
-    // whose presses stop reaching the keyboard (focus gone to Search's
-    // results, a menu over it, a game).
+    // A direction, or delete (X, Backspace), that goes down acts once and is
+    // held (holdDirection, holdBackspace); the same one coming up lets go
+    // (releaseDirection, releaseBackspace), and letting go of another does
+    // not stop it; repeatHeld, every frame the keyboard has the input, acts
+    // again at the console's pace (design::HeldRepeat). One thing is held at
+    // a time, the last pressed, as a d-pad has one direction. A system's own
+    // key repeat is not a press: the loops drop it for the arrows and
+    // Backspace, so a keyboard holds exactly as a pad does. letGoOfHeld ends
+    // the hold whatever is down, for a loop whose presses stop reaching the
+    // keyboard (focus gone to Search's results, a menu over it, a game).
     void holdDirection(int dx, int dy);
     void releaseDirection(int dx, int dy);
+    void holdBackspace();
+    void releaseBackspace();
     void repeatHeld(float dt);
-    void letGoOfHeld() { holdDx_ = holdDy_ = 0; }
+    void letGoOfHeld();
     // Presses the focused key. RETURNS A RESULT, because two of the keys on
     // this layout end the whole session — "done" and "cancel" — and until
     // 2026-09-20 this returned void and handled them silently. So somebody
@@ -145,8 +150,6 @@ public:
     // focus left, as Down does: focus never sits on something that ignores
     // the button.
     KeyboardResult pressKey();
-    // Deletes the character before the cursor.
-    void backspace();
     // Off, the next letter only, locked, off again: the Shift key and Y.
     void cycleShift();
     void toggleConceal();
@@ -249,6 +252,8 @@ private:
     void clampFocus();
     void moveFocus(int dx, int dy);
     void insert(const std::string& text);
+    // Deletes the character before the cursor.
+    void backspace();
 
     // Where `draw` last put each key, in canvas points. The draw pass fills it
     // and the event pass reads it on the frame after — the same order the rest
@@ -279,16 +284,16 @@ private:
     bool revealLast_ = false;
     size_t revealAt_ = 0;
     int row_ = 0, col_ = 0;
-    // The held direction (0, 0 when none), how long it has been held and
-    // when it moves next.
+    // What is held: delete, or a direction (holdDx_, holdDy_), and its pace.
+    design::HeldRepeat hold_;
+    bool holdDelete_ = false;
     int holdDx_ = 0, holdDy_ = 0;
-    float holdFor_ = 0.0f, holdNext_ = 0.0f;
     float panelTop_ = 0.0f;
     std::vector<std::vector<Key>> lower_, upper_;
 };
 
 // --keyboard-test: the cursor, Shift's three presses and the held repeat's
-// pace, with no screen, no pad and no sound. 0 when all pass.
+// pace, directions and delete, with no screen, no pad and no sound. 0 when all pass.
 int keyboardTest();
 
 }  // namespace ui

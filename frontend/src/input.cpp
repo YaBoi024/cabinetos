@@ -15,16 +15,14 @@
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
 
 void App::holdNav(screens::Nav n) {
-    navHeld = true;
     heldNav = n;
-    heldFor = 0.0f;
-    nextRepeat = kRepeatDelay;
+    navHold.start();
 }
 
 void App::releaseNav(screens::Nav n) {
     // Only the direction that is actually held releases it. Letting go of
     // Left while holding Down must not stop the Down.
-    if (navHeld && heldNav == n) navHeld = false;
+    if (navHold.held && heldNav == n) navHold.stop();
     // The on-screen keyboard's own hold, by the same rule.
     keyboard.releaseDirection(n == screens::Nav::Left ? -1 : n == screens::Nav::Right ? 1 : 0,
                               n == screens::Nav::Up ? -1 : n == screens::Nav::Down ? 1 : 0);
@@ -37,8 +35,9 @@ void App::releaseNav(screens::Nav n) {
 // nothing (#398, PLAY-14).
 void App::letGoOfHeld() {
     pressing = false;
-    navHeld = false;
+    navHold.stop();
     keyboard.letGoOfHeld();
+    pinScreen.releaseDelete();
     letterHeld = 0;
     l2Held = r2Held = false;
 }
@@ -175,19 +174,18 @@ void App::handleEvent(const SDL_Event& e) {
             // Space, Escape or Backspace again and again, and each
             // repeat reached whatever the first press had opened:
             // Return held on Exit to Home quit the game and started it
-            // again from Home. Backspace still repeats where it
-            // deletes, on the on-screen keyboard and the PIN pad. The
-            // arrows hold the console's own way, below.
+            // again from Home. The arrows hold the console's own way,
+            // below, and so does Backspace where it deletes, on the
+            // on-screen keyboard and the PIN pad, at the pace a held X
+            // deletes there (#668).
             if (e.key.repeat) {
                 const SDL_Keycode k = e.key.key;
-                const bool deletes = owner == InputOwner::Keyboard ||
-                                     (pinScreen.isOpen() && owner == InputOwner::UI);
                 // And `[` and `]`, which moved along the bar again and
                 // again, and F5, which wrote a save state at every
                 // repeat (#484).
                 if (k == SDLK_RETURN || k == SDLK_SPACE || k == SDLK_ESCAPE ||
                     k == SDLK_LEFTBRACKET || k == SDLK_RIGHTBRACKET || k == SDLK_F5 ||
-                    k == SDLK_F8 || (k == SDLK_BACKSPACE && !deletes))
+                    k == SDLK_F8 || k == SDLK_BACKSPACE)
                     break;
             }
             // A physical keyboard's digits go into the PIN pad, the
@@ -200,7 +198,7 @@ void App::handleEvent(const SDL_Event& e) {
                     d = static_cast<char>('1' + (k - SDLK_KP_1));
                 else if (k == SDLK_KP_0) d = '0';
                 if (d) { pinOutcome(pinScreen.typeDigit(d)); break; }
-                if (k == SDLK_BACKSPACE) { pinScreen.deleteDigit(); break; }
+                if (k == SDLK_BACKSPACE) { pinScreen.holdDelete(); break; }
                 if (k == SDLK_ESCAPE) { navigate(screens::Nav::Back); break; }
             }
             if (owner == InputOwner::Keyboard) {
@@ -215,7 +213,7 @@ void App::handleEvent(const SDL_Event& e) {
                     case SDLK_RIGHT: if (!again) keyboard.holdDirection(+1, 0); break;
                     case SDLK_UP: if (!again) keyboard.holdDirection(0, -1); break;
                     case SDLK_DOWN: if (!again) keyboard.holdDirection(0, +1); break;
-                    case SDLK_BACKSPACE: keyboard.backspace(); break;
+                    case SDLK_BACKSPACE: keyboard.holdBackspace(); break;
                     case SDLK_RETURN: {
                         // ITS LENGTH, NEVER THE TEXT: a Wi-Fi or
                         // RetroAchievements password reached the log, and a
@@ -359,6 +357,10 @@ void App::handleEvent(const SDL_Event& e) {
             if (e.key.key == SDLK_RIGHT) releaseNav(screens::Nav::Right);
             if (e.key.key == SDLK_UP) releaseNav(screens::Nav::Up);
             if (e.key.key == SDLK_DOWN) releaseNav(screens::Nav::Down);
+            if (e.key.key == SDLK_BACKSPACE) {
+                keyboard.releaseBackspace();
+                pinScreen.releaseDelete();
+            }
             if (e.key.key == SDLK_RETURN || e.key.key == SDLK_SPACE) pressing = false;
             break;
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
@@ -376,11 +378,12 @@ void App::handleEvent(const SDL_Event& e) {
                     e.gbutton.button == SDL_GAMEPAD_BUTTON_LEFT_SHOULDER ? -1 : +1);
                 break;
             }
-            // X TAKES A DIGIT OFF THE PIN, as it takes a letter off
-            // the on-screen keyboard. B leaves the pad.
+            // X TAKES A DIGIT OFF THE PIN, and held goes on taking them
+            // (#668), as it does letters off the on-screen keyboard. B
+            // leaves the pad.
             if (pinScreen.isOpen() && owner == InputOwner::UI &&
                 e.gbutton.button == SDL_GAMEPAD_BUTTON_WEST) {
-                pinScreen.deleteDigit();
+                pinScreen.holdDelete();
                 break;
             }
             if (owner == InputOwner::Keyboard) {
@@ -390,7 +393,7 @@ void App::handleEvent(const SDL_Event& e) {
                     case SDL_GAMEPAD_BUTTON_DPAD_UP: keyboard.holdDirection(0, -1); break;
                     case SDL_GAMEPAD_BUTTON_DPAD_DOWN: keyboard.holdDirection(0, +1); break;
                     case SDL_GAMEPAD_BUTTON_SOUTH: keyboardResult(keyboard.pressKey()); break;
-                    case SDL_GAMEPAD_BUTTON_WEST: keyboard.backspace(); break;
+                    case SDL_GAMEPAD_BUTTON_WEST: keyboard.holdBackspace(); break;
                     case SDL_GAMEPAD_BUTTON_NORTH: keyboard.cycleShift(); break;
                     case SDL_GAMEPAD_BUTTON_START: {
                         // ITS LENGTH, NEVER THE TEXT: a Wi-Fi or
@@ -606,6 +609,10 @@ void App::handleEvent(const SDL_Event& e) {
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_RIGHT_STICK)
                 r3Down = false;
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_SOUTH) pressing = false;
+            if (e.gbutton.button == SDL_GAMEPAD_BUTTON_WEST) {
+                keyboard.releaseBackspace();
+                pinScreen.releaseDelete();
+            }
             break;
         default:
             break;
@@ -625,14 +632,10 @@ void App::repeatHeld(float dt) {
     // at all while a button is held down. `!keyboard.isOpen()` now excludes
     // only Search with its keyboard up under the results or the bar: a held
     // direction there moves once, as before #668, which leaves it alone.
-    if (navHeld && inputOwner() == InputOwner::UI && !keyboard.isOpen()) {
-        heldFor += dt;
-        if (heldFor >= nextRepeat) {
-            navigate(heldNav);
-            nextRepeat = heldFor + repeatGap(heldFor);
-        }
+    if (navHold.held && inputOwner() == InputOwner::UI && !keyboard.isOpen()) {
+        if (navHold.due(dt)) navigate(heldNav);
     } else {
-        navHeld = false;
+        navHold.stop();
     }
     // The held trigger, a letter at a time at a steady pace: each jump
     // can cross dozens of games, so it does not speed up the way a held

@@ -49,7 +49,7 @@ back to the keyboard, **B** goes to Home.
 it, Left or **B** comes back. On a row with a value, Left and Right change it
 and **A** steps through it.
 
-**PIN pad.** **A** presses a key, **X** deletes a digit, **B** cancels.
+**PIN pad.** **A** presses a key, **X** deletes a digit (hold it to keep deleting), **B** cancels.
 
 ## In a game
 
@@ -109,7 +109,7 @@ use the pause menu for the rest.
 | Button | Does |
 |---|---|
 | **A** | Type the key |
-| **X** | Delete the character before the cursor |
+| **X** | Delete the character before the cursor; hold to keep deleting |
 | **Y** | Shift: press once for one capital, twice to keep capitals on, again to turn them off |
 | **Start** | Done |
 | **B** | Cancel |

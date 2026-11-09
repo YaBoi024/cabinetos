@@ -8,7 +8,8 @@ one you install, so you only ever install the newest.
 
 - **Improved:** the on-screen keyboard is quicker for long entries such as a
   server address, a code or a Wi-Fi password. Holding a direction now keeps
-  moving, slowly at first and then faster, as everywhere else on the console.
+  moving, slowly at first and then faster, as everywhere else on the console,
+  and holding **X** keeps deleting, on the PIN pad too.
   **Y** (or the Shift key) pressed once capitalises the next letter; pressed
   twice it keeps capitals on, shown underlined, until you press it again. And
   a typo no longer means deleting back to it: press Up from the numbers to
