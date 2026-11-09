@@ -1484,9 +1484,8 @@ struct App {
     // pressing a second direction takes over rather than queueing, so a person
     // rolling their thumb around the pad never ends up with two repeats
     // fighting each other.
-    bool navHeld = false;
+    design::HeldRepeat navHold;
     screens::Nav heldNav = screens::Nav::Down;
-    float heldFor = 0.0f, nextRepeat = 0.0f;
     void holdNav(screens::Nav n);
     void releaseNav(screens::Nav n);
     void letGoOfHeld();
@@ -2113,7 +2112,6 @@ struct App {
     // nobody chose. Found by someone actually playing it.
     enum class InputOwner { Keyboard, Overlay, Game, UI };
     InputOwner inputOwner();
-    void keyboardUp();
     void keyboardResult(ui::KeyboardResult res);
 
     // Leaving a game. The save goes up FIRST — this is the trigger that matters

@@ -46,6 +46,7 @@ TESTS=(
     --controls-test
     --netblock-test
     --idle-test
+    --keyboard-test
     --battery-test
     --volume-test
     --playtime-test

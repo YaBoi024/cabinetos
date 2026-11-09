@@ -179,8 +179,12 @@ presses would land on a Home nobody can see yet and be dropped. It does not
 reach first run's screens, which run before it. Its words are `up`, `down`,
 `left`, `right`, `a`, `b`, `l1`, `r1` and a PIN digit; `key:<name>` (a key
 by SDL's name, `key:]`, `key:F5`), `held:<name>` (the system's repeat of a
-key already down) and `start` (the pad's Start) go through the event
-handler, `input.cpp`, as SDL's own events do.
+key already down), `start` (the pad's Start), `pad:<name>` (a pad button by
+SDL's name, pressed and let go: `pad:y`, `pad:dpup`) and `text:<text>` (what
+a physical keyboard types) go through the event handler, `input.cpp`, as
+SDL's own events do. The on-screen keyboard is driven only that way:
+`--keyboard --nav "text:romm,pad:dpup,pad:dpup,pad:dpleft"` puts focus in its
+field with the cursor before the last letter.
 
 `--no-setup` skips first run; on a machine with no server address it shows
 a stand-in library of six made-up games. The server is the first of
@@ -236,6 +240,7 @@ with 0 when it passes, and CI runs every one ("What CI checks"):
 | `--controls-test` | an arcade game's Controls: every state a person can reach by every press, from the default, on a pad and on the fight stick (each press a swap or a move, two buttons never on one, nothing lost, every refused press changing nothing), which buttons are rows and what they are called, a trigger's pull following its button, and the file written, read back after a hand edit, and deleted by Reset |
 | `--netblock-test` | that no emulator reaches the network (`netblock.cpp`): the program's own `socket`, lookups and `pthread_create` are what every library reaches; code standing in for an emulator is refused an IPv4, IPv6 or raw socket and every lookup, and so is curl inside its call, on curl's own lookup thread; a Unix socket, and the console's own sockets and lookups, even from inside the emulator's call, are left alone |
 | `--idle-test` | the screen's dim and off, and the 3 seconds after a wake in which no press does anything in a menu |
+| `--keyboard-test` | the on-screen keyboard (`keyboard.cpp`): typing and del at the cursor, a two-byte character stepped over and deleted whole, Up from the digits into the field and Down or A back to the key it left, an address kept behind a message brought back to fix but not while the panel waits; Shift's one press capitalising the next letter only (a digit leaves it waiting), two locking capitals on through show and hide, three turning them off; a held direction moving once, again after the console's delay and faster after, stopping only when that direction is let go, circling a row; a held X deleting the same way until the field is empty, and a tap deleting one character; and a held Up out of Search's field reaching the results once |
 | `--battery-test` | how a controller's battery reading becomes the row in the top bar |
 | `--volume-test` | the volume keys' rules |
 | `--playtime-test` | time played: the clock and what is reported to RomM |

@@ -4,6 +4,22 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.11.09.4 {#v2026-11-09-4}
+
+- **Improved:** the on-screen keyboard is quicker for long entries such as a
+  server address, a code or a Wi-Fi password. Holding a direction now keeps
+  moving, slowly at first and then faster, as everywhere else on the console,
+  and holding **X** keeps deleting, on the PIN pad too.
+  **Y** (or the Shift key) pressed once capitalises the next letter; pressed
+  twice it keeps capitals on, shown underlined, until you press it again. And
+  a typo no longer means deleting back to it: press Up from the numbers to
+  move into the field, Left and Right to move the cursor, then type or press
+  **X** there, and Down to go back to the keys. In Search, Up from the field
+  goes on to the results, and holding Left or Right there keeps moving
+  along the covers, which it did only after **Start**.
+  ([#668](https://github.com/MMagTech/cabinetos/issues/668),
+  [the on-screen keyboard](navigation.md#the-on-screen-keyboard))
+
 ## 2026.11.09.3 {#v2026-11-09-3}
 
 - **New:** LinkUp, a game with a friend on their console, from their house. It needs a small server that

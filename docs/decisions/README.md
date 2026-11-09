@@ -116,6 +116,8 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 ### Screens and settings
 
 - [focused-game-names-its-system](2026-10-25-focused-game-names-its-system.md): the focused game's line names its system on Home, in a collection and in Search, and not in a system's own grid.
+- [keyboard-field-above-the-digits](2026-11-08-keyboard-field-above-the-digits.md): Up from the digits moves into the field on every on-screen keyboard, where a cursor moves; on Search, Up from the field goes to the results.
+- [keyboard-shift-by-presses](2026-11-08-keyboard-shift-by-presses.md): Shift is off, one capital, then capitals locked, a press each with no timing; the key reads abc, Abc or ABC underlined.
 - [no-ui-for-the-few](2026-10-13-no-ui-for-the-few.md): an option only a few players would use never goes on Home, a grid or a game's page.
 - [stop-a-download-from-its-row](2026-11-06-stop-a-download-from-its-row.md): A on the row that is filling asks "Stop downloading?", Continue focused; no other button stops a download.
 

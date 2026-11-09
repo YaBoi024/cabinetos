@@ -5,7 +5,6 @@
 
 #include "app.h"
 
-#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
@@ -16,16 +15,17 @@
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
 
 void App::holdNav(screens::Nav n) {
-    navHeld = true;
     heldNav = n;
-    heldFor = 0.0f;
-    nextRepeat = kRepeatDelay;
+    navHold.start();
 }
 
 void App::releaseNav(screens::Nav n) {
     // Only the direction that is actually held releases it. Letting go of
     // Left while holding Down must not stop the Down.
-    if (navHeld && heldNav == n) navHeld = false;
+    if (navHold.held && heldNav == n) navHold.stop();
+    // The on-screen keyboard's own hold, by the same rule.
+    keyboard.releaseDirection(n == screens::Nav::Left ? -1 : n == screens::Nav::Right ? 1 : 0,
+                              n == screens::Nav::Up ? -1 : n == screens::Nav::Down ? 1 : 0);
 }
 
 // EVERYTHING HELD IS LET GO when presses stop reaching this loop and when
@@ -35,7 +35,9 @@ void App::releaseNav(screens::Nav n) {
 // nothing (#398, PLAY-14).
 void App::letGoOfHeld() {
     pressing = false;
-    navHeld = false;
+    navHold.stop();
+    keyboard.letGoOfHeld();
+    pinScreen.releaseDelete();
     letterHeld = 0;
     l2Held = r2Held = false;
 }
@@ -173,19 +175,18 @@ void App::handleEvent(const SDL_Event& e) {
             // Space, Escape or Backspace again and again, and each
             // repeat reached whatever the first press had opened:
             // Return held on Exit to Home quit the game and started it
-            // again from Home. Backspace still repeats where it
-            // deletes, on the on-screen keyboard and the PIN pad. The
-            // arrows hold the console's own way, below.
+            // again from Home. The arrows hold the console's own way,
+            // below, and so does Backspace where it deletes, on the
+            // on-screen keyboard and the PIN pad, at the pace a held X
+            // deletes there (#668).
             if (e.key.repeat) {
                 const SDL_Keycode k = e.key.key;
-                const bool deletes = owner == InputOwner::Keyboard ||
-                                     (pinScreen.isOpen() && owner == InputOwner::UI);
                 // And `[` and `]`, which moved along the bar again and
                 // again, and F5, which wrote a save state at every
                 // repeat (#484).
                 if (k == SDLK_RETURN || k == SDLK_SPACE || k == SDLK_ESCAPE ||
                     k == SDLK_LEFTBRACKET || k == SDLK_RIGHTBRACKET || k == SDLK_F5 ||
-                    k == SDLK_F8 || (k == SDLK_BACKSPACE && !deletes))
+                    k == SDLK_F8 || k == SDLK_BACKSPACE)
                     break;
             }
             // A physical keyboard's digits go into the PIN pad, the
@@ -198,19 +199,22 @@ void App::handleEvent(const SDL_Event& e) {
                     d = static_cast<char>('1' + (k - SDLK_KP_1));
                 else if (k == SDLK_KP_0) d = '0';
                 if (d) { pinOutcome(pinScreen.typeDigit(d)); break; }
-                if (k == SDLK_BACKSPACE) { pinScreen.deleteDigit(); break; }
+                if (k == SDLK_BACKSPACE) { pinScreen.holdDelete(); break; }
                 if (k == SDLK_ESCAPE) { navigate(screens::Nav::Back); break; }
             }
             if (owner == InputOwner::Keyboard) {
                 // While it owns input it takes every key, the same way
                 // the core owns the pad while a game runs. A control
-                // that means two things at once is the bug.
+                // that means two things at once is the bug. The arrows
+                // hold the keyboard's own way, as the d-pad does (#668),
+                // so the system's repeat of one is not a press.
+                const bool again = e.key.repeat;
                 switch (e.key.key) {
-                    case SDLK_LEFT: keyboard.moveFocus(-1, 0); break;
-                    case SDLK_RIGHT: keyboard.moveFocus(+1, 0); break;
-                    case SDLK_UP: keyboardUp(); break;
-                    case SDLK_DOWN: keyboard.moveFocus(0, +1); break;
-                    case SDLK_BACKSPACE: keyboard.backspace(); break;
+                    case SDLK_LEFT: if (!again) keyboard.holdDirection(-1, 0); break;
+                    case SDLK_RIGHT: if (!again) keyboard.holdDirection(+1, 0); break;
+                    case SDLK_UP: if (!again) keyboard.holdDirection(0, -1); break;
+                    case SDLK_DOWN: if (!again) keyboard.holdDirection(0, +1); break;
+                    case SDLK_BACKSPACE: keyboard.holdBackspace(); break;
                     case SDLK_RETURN: {
                         // ITS LENGTH, NEVER THE TEXT: a Wi-Fi or
                         // RetroAchievements password reached the log, and a
@@ -354,6 +358,10 @@ void App::handleEvent(const SDL_Event& e) {
             if (e.key.key == SDLK_RIGHT) releaseNav(screens::Nav::Right);
             if (e.key.key == SDLK_UP) releaseNav(screens::Nav::Up);
             if (e.key.key == SDLK_DOWN) releaseNav(screens::Nav::Down);
+            if (e.key.key == SDLK_BACKSPACE) {
+                keyboard.releaseBackspace();
+                pinScreen.releaseDelete();
+            }
             if (e.key.key == SDLK_RETURN || e.key.key == SDLK_SPACE) pressing = false;
             break;
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
@@ -371,22 +379,23 @@ void App::handleEvent(const SDL_Event& e) {
                     e.gbutton.button == SDL_GAMEPAD_BUTTON_LEFT_SHOULDER ? -1 : +1);
                 break;
             }
-            // X TAKES A DIGIT OFF THE PIN, as it takes a letter off
-            // the on-screen keyboard. B leaves the pad.
+            // X TAKES A DIGIT OFF THE PIN, and held goes on taking them
+            // (#668), as it does letters off the on-screen keyboard. B
+            // leaves the pad.
             if (pinScreen.isOpen() && owner == InputOwner::UI &&
                 e.gbutton.button == SDL_GAMEPAD_BUTTON_WEST) {
-                pinScreen.deleteDigit();
+                pinScreen.holdDelete();
                 break;
             }
             if (owner == InputOwner::Keyboard) {
                 switch (e.gbutton.button) {
-                    case SDL_GAMEPAD_BUTTON_DPAD_LEFT: keyboard.moveFocus(-1, 0); break;
-                    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: keyboard.moveFocus(+1, 0); break;
-                    case SDL_GAMEPAD_BUTTON_DPAD_UP: keyboardUp(); break;
-                    case SDL_GAMEPAD_BUTTON_DPAD_DOWN: keyboard.moveFocus(0, +1); break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_LEFT: keyboard.holdDirection(-1, 0); break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: keyboard.holdDirection(+1, 0); break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_UP: keyboard.holdDirection(0, -1); break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_DOWN: keyboard.holdDirection(0, +1); break;
                     case SDL_GAMEPAD_BUTTON_SOUTH: keyboardResult(keyboard.pressKey()); break;
-                    case SDL_GAMEPAD_BUTTON_WEST: keyboard.backspace(); break;
-                    case SDL_GAMEPAD_BUTTON_NORTH: keyboard.toggleShift(); break;
+                    case SDL_GAMEPAD_BUTTON_WEST: keyboard.holdBackspace(); break;
+                    case SDL_GAMEPAD_BUTTON_NORTH: keyboard.cycleShift(); break;
                     case SDL_GAMEPAD_BUTTON_START: {
                         // ITS LENGTH, NEVER THE TEXT: a Wi-Fi or
                         // RetroAchievements password reached the log, and a
@@ -606,6 +615,10 @@ void App::handleEvent(const SDL_Event& e) {
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_RIGHT_STICK)
                 r3Down = false;
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_SOUTH) pressing = false;
+            if (e.gbutton.button == SDL_GAMEPAD_BUTTON_WEST) {
+                keyboard.releaseBackspace();
+                pinScreen.releaseDelete();
+            }
             break;
         default:
             break;
@@ -614,18 +627,24 @@ void App::handleEvent(const SDL_Event& e) {
 
 // Every frame: a held direction, and a held trigger on a grid, repeat.
 void App::repeatHeld(float dt) {
+    // THE ON-SCREEN KEYBOARD HOLDS ITS OWN DIRECTION (#668), at the same pace
+    // (Keyboard::holdDirection), so first run's and the startup screen's
+    // keyboards repeat the same way. Only while it has the input: focus gone
+    // up into Search's results, or a menu over it, ends the hold.
+    if (inputOwner() == InputOwner::Keyboard) keyboard.repeatHeld(dt);
+    else keyboard.letGoOfHeld();
     // The held direction, repeating and speeding up. Driven from the frame
     // loop rather than from the event queue, because the pad sends nothing
-    // at all while a button is held down.
-    if (navHeld && inputOwner() == InputOwner::UI && !keyboard.isOpen()) {
-        heldFor += dt;
-        if (heldFor >= nextRepeat) {
-            navigate(heldNav);
-            const float t = std::clamp(heldFor / kRepeatRamp, 0.0f, 1.0f);
-            nextRepeat = heldFor + (kRepeatStart + (kRepeatFast - kRepeatStart) * t);
-        }
+    // at all while a button is held down. ON EVERY SCREEN, Search's results
+    // and the bar above them included while Search's keyboard is still up
+    // (#668): this skipped any open keyboard, which since inputOwner learned
+    // that Search's results can have the input left only that case, where a
+    // held Right moved one cover and stopped. The keyboard holds for itself
+    // above, while it has the input.
+    if (navHold.held && inputOwner() == InputOwner::UI) {
+        if (navHold.due(dt)) navigate(heldNav);
     } else {
-        navHeld = false;
+        navHold.stop();
     }
     // The held trigger, a letter at a time at a steady pace: each jump
     // can cross dozens of games, so it does not speed up the way a held

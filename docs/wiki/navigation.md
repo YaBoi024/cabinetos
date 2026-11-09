@@ -49,7 +49,7 @@ back to the keyboard, **B** goes to Home.
 it, Left or **B** comes back. On a row with a value, Left and Right change it
 and **A** steps through it.
 
-**PIN pad.** **A** presses a key, **X** deletes a digit, **B** cancels.
+**PIN pad.** **A** presses a key, **X** deletes a digit (hold it to keep deleting), **B** cancels.
 
 ## In a game
 
@@ -109,14 +109,22 @@ use the pause menu for the rest.
 | Button | Does |
 |---|---|
 | **A** | Type the key |
-| **X** | Delete |
-| **Y** | Shift (one letter) |
+| **X** | Delete the character before the cursor; hold to keep deleting |
+| **Y** | Shift: press once for one capital, twice to keep capitals on, again to turn them off |
 | **Start** | Done |
 | **B** | Cancel |
 
-Left and Right wrap around the rows. **show** reveals a password. Some fields
-add keys of their own, such as `.local` and `:8080` for a server address. A USB
-keyboard types into the same field.
+Left and Right wrap around the rows, and a held direction keeps moving. The
+Shift key shows **abc**, **Abc** for one capital, or **ABC** underlined while
+capitals stay on.
+
+To fix a typo, press Up from the numbers to move into the field. Left and Right
+move the cursor; what you type and **X** go in at the cursor. Down or **A** goes
+back to the keys. In Search, Up from the field goes to the results.
+
+**show** reveals a password. Some fields add keys of their own, such as
+`.local` and `:8080` for a server address. A USB keyboard types into the same
+field.
 
 ## A USB keyboard
 
