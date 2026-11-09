@@ -18,10 +18,16 @@
 CabinetOS turns a small PC into a games console. It starts straight into its
 own menus, and from there a controller does everything. Games, covers, BIOS and
 saves all live on your RomM server, so the console is only ever a screen away
-from your whole library.
+from your whole library. And with LinkUp, a friend's console across town is
+the second seat on your couch.
 
 - **Pick up where you left off.** Saves and save states go to RomM by
   themselves, and every game page shows your last three states with a picture.
+- **Play with a friend from their house.** [LinkUp](docs/wiki/linkup.md) streams
+  your game to a friend's CabinetOS console, where they play as player two, and
+  only you need the game. It runs through a small server you or a friend host,
+  [cabinet-linkup](https://github.com/MMagTech/cabinet-linkup), and it is off
+  until you turn it on.
 - **Every system tuned.** An emulator chosen and set up for each of 35 systems,
   rendering up to 4K, with one pause menu in every game.
 - **Make it look right.** CRT and LCD looks per system, and sixteen colours for
@@ -29,11 +35,6 @@ from your whole library.
 - **Everyone their own.** Each person signs in with a QR code and gets their own
   saves, favourites, play time, achievements and colour. A PIN guards the rest.
 - **Four players, real Wii Remotes**, and your Miis in every Wii game.
-- **Play with a friend from their house.** [LinkUp](docs/wiki/linkup.md) streams
-  your game to a friend's CabinetOS console, where they play as player two, and
-  only you need the game. It runs through a small server you or a friend host,
-  [cabinet-linkup](https://github.com/MMagTech/cabinet-linkup), and it is off
-  until you turn it on.
 - **Play from your phone** with Moonlight, at home or away over Tailscale.
 - **Your Steam games too.** One press hands the TV to Steam's Big Picture, and
   quitting Steam brings you back to Home. Remote Play streams it to your phone.
@@ -48,6 +49,7 @@ from your whole library.
 |---|---|---|
 | ![The Library](docs/media/library.webp) | ![A game's page with three save states](docs/media/game.webp) | ![The pause menu](docs/media/pause-menu.webp) |
 | ![Zero Gunner 2 on Dreamcast](docs/media/play-dreamcast.webp) | ![Deathsmiles in the arcade, CRT look](docs/media/play-arcade.webp) | ![Six of the sixteen colours](docs/media/colours-grid.webp) |
+| ![LinkUp: your friends, one with an invite](docs/media/linkup-friends.webp) | ![Steam's Big Picture, one press from Home](docs/media/steam-bigpicture.webp) | ![Hammerin' Hero on PSP](docs/media/play-psp.webp) |
 
 Every picture here was captured from a running console. The
 [showcase page](https://cabinetos.mmagtech.com/) has the videos.
