@@ -104,9 +104,9 @@ downloads anything new into the console's shared BIOS folder.
 
 ## Nintendo DS
 
-- **The two screens side by side**, the top screen on the left. Click L3 for
-  the top screen alone, again for the bottom screen alone, and again for
-  both. Every game starts with both.
+- **The two screens one above the other.** Click L3 for the top screen alone,
+  again for the bottom screen alone, and again for both. Every game starts
+  with both.
 - **Touch screen:** the right stick moves a pointer on the touch screen and
   pressing it (R3) touches.
 - **The lid:** hold **R2** to close it, for the few games that ask for it.
