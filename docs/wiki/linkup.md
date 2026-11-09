@@ -29,12 +29,22 @@ address and the code.
 A code works once and lasts 7 days. Everyone on your console can use LinkUp after that, and each person has their
 own friends: a child sees only their own, and only the server's owner can add one.
 
+![The LinkUp tab before anyone has added you as a friend](../media/linkup-no-friends.webp)
+
 ## Play
 
 1. Open **LinkUp** in the top bar. Press an **Online** friend, then a game. Games a friend cannot play are not on
    the list: Wii games that need a Remote, light-gun games, handhelds and Steam.
+
+   ![The LinkUp tab with friends Online, Offline, in a game, and one who invited you](../media/linkup-friends.webp)
+
+   ![Picking a game to invite Alex to](../media/linkup-pick-game.webp)
+
 2. Your console waits on *Waiting for Alex* for up to 30 minutes. **B** cancels. If the game still has to download,
    it starts now.
+
+   ![Waiting for Alex to join Contra III](../media/linkup-waiting.webp)
+
 3. Your friend sees a pill, *Invite from Alex*, and their list says *Invited: Contra III*. They press it, then
    **Join** or **Decline**.
 4. The game starts on both when they join, so you both begin at its title screen. You are player one, they are
@@ -57,11 +67,17 @@ show Offline after 15 minutes with no press, when the screen is off, while the c
 - **After 10 minutes with no press from either of you,** the game pauses on both. After 15 more, the session ends,
   and your game stays paused on your TV.
 
+![Alex paused the game, and A resumes it](../media/linkup-paused.webp)
+
 ## What your friend can see
 
 Everything is encrypted, and the server never learns what you play. But a game that connects directly shows each
 console the other's internet address, as any direct connection does. LinkUp is only for people a server's owner
 chose, and that is one more reason.
+
+![An invite from Alex arrives while your friend is playing](../media/linkup-invite-arrives.webp)
+
+![Your friend's screen while your console shows something other than the game](../media/linkup-friend-waiting.webp)
 
 ## If it won't connect
 
