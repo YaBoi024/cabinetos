@@ -655,11 +655,21 @@ void Keyboard::draw(Renderer& r, TextRenderer& text, float scale) {
         // barely wider than the caret, and white touching white letters read
         // as part of them (the A9's 4K frames, #668); it was white at 0.75
         // while it only ever sat after the last letter.
+        //
+        // AND ON THE LETTERS, not the box: from a little above the capitals,
+        // where a tall l ends, to a little below the line, where a g's tail
+        // ends. Centred on the field it rose 17 points above the tallest
+        // letter and reached 4 below the line, and looked to float up off
+        // the text (MMagTech at the TV, 2026-11-08).
         constexpr float kCaretW = 3.0f;
+        constexpr float kCaretOver = 5.0f;
+        constexpr float kCaretUnder = 8.0f;
+        const float capH = text.capHeight(TextStyle::Title3, scale);
         const float caretX = panelX + pad + 20.0f +
                              text.measure(run(first, caret), TextStyle::Title3, scale) -
                              kCaretW * 0.5f;
-        r.draw(Rect{caretX, y + 22.0f, kCaretW, fieldH - 44.0f, 1.5f, palette::kScreenCyan});
+        r.draw(Rect{caretX, fieldBaseline - capH - kCaretOver, kCaretW,
+                    capH + kCaretOver + kCaretUnder, 1.5f, palette::kScreenCyan});
     }
     y += fieldH + (dock ? 20.0f : 28.0f);
 
