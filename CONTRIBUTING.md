@@ -105,8 +105,8 @@ Like the bridge's, its Makefile lists its files by hand. `make test` there build
 answers, names cleaned on the way in, sealed boxes that do not fit, what an address means, and the
 friend's sound queue keeping a host's pace, simulated, no network and no hardware. `tools/linkup-interop.sh` holds the rest of what it says to a server
 against two real containers, on a Linux machine with podman; `make linkup-probe` builds what it drives.
-What a console and a server say is `PROTOCOL.md` in MMagTech/cabinet-linkup, which is private until
-LinkUp ships. `--linkup-gallery` shows every screen with made-up friends and needs no server;
+What a console and a server say is `PROTOCOL.md` in MMagTech/cabinet-linkup, and CabinetOS pins the one release it is tested against in
+`ci/linkup-server.txt`. `--linkup-gallery` shows every screen with made-up friends and needs no server;
 `--linkup-script "<steps>"` runs a real session between two real consoles with nothing pressed
 (`frontend/src/linkupsession.cpp` lists its steps).
 
@@ -336,7 +336,8 @@ something besides `.md` files and `docs/`):
   `disk_config/iso.toml`; and every Python file, the ones that ship
   included, is parsed. `just lint` runs the first two commands.
 - **The frontend** (`build-frontend.yml`): it compiles the frontend and the
-  Wii bridge and LinkUp's program in the builder, runs LinkUp's Noise test (report only until 2026-11-14),
+  Wii bridge and LinkUp's program in the builder, runs LinkUp's Noise test and the console's probe
+  against the pinned LinkUp server (both report only until 2026-11-14),
   runs the bridge's `make test` (report only
   until the date below), `--check-option-tables` and the self-tests,
   summarises the compiler's warnings, fails a new one, and lists the code
@@ -447,6 +448,11 @@ runs `checks.yml`, a few seconds each:
 - **LinkUp holds no internet in the main program** (`ci/check-linkup-no-network.sh`): an internet call in
   one of the frontend's LinkUp files fails, because everything on LinkUp's network is its own program, which
   is what lets a firewall tell it from RomM. Report only until 2026-11-14.
+- **The console against the pinned LinkUp server** (`ci/linkup-server.txt`, run in
+  `build-frontend.yml`): two containers of the one server release CabinetOS is tested against start
+  with podman, and the console's probe (`linkup/probe.cpp`, built and run in the builder) speaks every
+  part of PROTOCOL.md to them through `tools/linkup-interop.sh`. Moving the pin is a pull request.
+  Report only until 2026-11-14.
 - **Licences** (`ci/check-licences.sh`): a text in `licences/` that
   `licences/SOURCES` lists and that is missing, or whose first line does not
   name the repository, path and revision SOURCES pins, fails: a text added by

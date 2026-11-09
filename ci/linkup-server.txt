@@ -1,0 +1,1 @@
+ghcr.io/mmagtech/cabinet-linkup@sha256:e2b6a5c4d3d1d7fa9d3272d33564c3a3e8b156192d97b505ce0d4ce23713108b v0.1.1

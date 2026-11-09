@@ -103,6 +103,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [linkup-server-small-surface](2026-11-03-linkup-server-small-surface.md): the server holds no logins and has no public page, runs without admin rights, and its worst case cannot reach anyone's RomM.
 - [linkup-server-log-without-names](2026-11-03-linkup-server-log-without-names.md): the server's log is a capped file in its data folder and never holds codes, keys, addresses, usernames or game titles.
 - [linkup-admin-page](2026-11-06-linkup-admin-page.md): the admin page has no setup code, a layout for phones and for computers, CabinetOS's look with four themes, and Copy as its only button.
+- [linkup-first-run-by-home-name](2026-11-09-linkup-first-run-by-home-name.md): until a password is set, a server's admin page opens only by an address or a home name, so a stray web page cannot claim a new server.
 
 ### RomM and the library
 

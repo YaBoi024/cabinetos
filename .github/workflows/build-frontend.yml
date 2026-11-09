@@ -150,6 +150,43 @@ jobs:
             exit 1
           fi
 
+      # THE CONSOLE AGAINST THE ONE SERVER IT IS TESTED WITH (#654, "Keeping the two in sync"):
+      # ci/linkup-server.txt pins one release of MMagTech/cabinet-linkup by digest. Two containers of
+      # it start here with podman, and the console's probe (linkup/probe.cpp, built and run in the
+      # builder, because it needs the builder's libraries) speaks every part of PROTOCOL.md to them
+      # through tools/linkup-interop.sh, with the server's own stand-in console beside it. Moving the
+      # pin is a pull request. Report only until LINKUP_REPORT_ONLY_UNTIL, then a failure.
+      - name: Fetch the pinned LinkUp server's stand-in
+        run: |
+          set -euo pipefail
+          read -r image version < ci/linkup-server.txt
+          git clone --quiet --depth 1 --branch "$version" https://github.com/MMagTech/cabinet-linkup .linkup-server
+          echo "LINKUP_IMAGE=$image" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version-file: .linkup-server/go.mod
+          cache: false
+
+      - name: The console against the pinned LinkUp server
+        run: |
+          set -euo pipefail
+          (cd .linkup-server && CGO_ENABLED=0 go build -o ../linkup-standin ./cmd/standin)
+          podman pull "$LINKUP_IMAGE"
+          podman run --rm -v "$PWD":/repo:Z -w /repo/linkup cabinetos-builder make linkup-probe
+          cat > linkup-probe-in-builder <<EOF
+          #!/usr/bin/env bash
+          exec podman run --rm --network=host -v "$PWD":/repo:Z -v /tmp:/tmp cabinetos-builder /repo/linkup/linkup-probe "\$@"
+          EOF
+          chmod +x linkup-probe-in-builder
+          if ! tools/linkup-interop.sh "$PWD/linkup-probe-in-builder" "$PWD/linkup-standin" "$LINKUP_IMAGE"; then
+            if [[ ! "$(date -u +%F)" > "${LINKUP_REPORT_ONLY_UNTIL}" ]]; then
+              echo "::warning::The console's probe failed against the pinned LinkUp server. Report only until ${LINKUP_REPORT_ONLY_UNTIL} (UTC): passing. From the next day this fails."
+              exit 0
+            fi
+            exit 1
+          fi
+
       # EVERY OPTION VALUE THE CONSOLE SETS, AGAINST WHAT EACH CORE DECLARES
       # (#63, the version-bump check, frontend/src/optcheck.h). A table that
       # names a key a core does not have, or a value it does not accept,
