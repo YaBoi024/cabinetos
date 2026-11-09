@@ -31,11 +31,17 @@ bool exists(const std::string& path) {
     return stat(path.c_str(), &st) == 0;
 }
 
-// A cable: an Ethernet link on a device of its own, which no Wi-Fi card, bridge, tunnel or
-// container's link is.
+// A link on a device of its own: a cable, a Wi-Fi card, a USB adapter. A tunnel has none (Tailscale's
+// and WireGuard's are ARPHRD_NONE, with no hardware address), nor has a bridge or a container's link,
+// and none of those reaches a friend.
+bool onDevice(const std::string& link) {
+    return exists("/sys/class/net/" + link + "/device");
+}
+
+// A cable: an Ethernet link on a device of its own, which no Wi-Fi card is.
 bool wired(const std::string& link) {
     const std::string at = "/sys/class/net/" + link;
-    if (exists(at + "/wireless") || exists(at + "/phy80211") || !exists(at + "/device")) return false;
+    if (exists(at + "/wireless") || exists(at + "/phy80211") || !onDevice(link)) return false;
     std::ifstream type(at + "/type");
     int arphrd = 0;
     return (type >> arphrd) && arphrd == 1;   // ARPHRD_ETHER
@@ -66,18 +72,16 @@ std::set<std::string> linksOut() {
     return out;
 }
 
-// The addresses of every cable that is connected and reaches out, written as libnice writes the ones
-// it finds itself (getnameinfo, a link-local one with its %link), and the links they are on. Empty
-// when no cable is connected.
-std::vector<std::string> cableAddresses(std::set<std::string>* links) {
+// The addresses of every link that is connected and `fits`, written as libnice writes the ones it
+// finds itself (getnameinfo, a link-local one with its %link), and the links they are on.
+std::vector<std::string> addressesOn(const std::function<bool(const std::string&)>& fits, std::set<std::string>* links) {
     std::vector<std::string> addresses;
     ifaddrs* all = nullptr;
     if (getifaddrs(&all) != 0) return addresses;
-    const std::set<std::string> out = linksOut();
     for (const ifaddrs* a = all; a; a = a->ifa_next) {
         if (!a->ifa_addr || (a->ifa_addr->sa_family != AF_INET && a->ifa_addr->sa_family != AF_INET6)) continue;
         if (!(a->ifa_flags & IFF_UP) || !(a->ifa_flags & IFF_RUNNING) || (a->ifa_flags & IFF_LOOPBACK)) continue;
-        if (!out.count(a->ifa_name) || !wired(a->ifa_name)) continue;
+        if (!fits(a->ifa_name)) continue;
         char text[NI_MAXHOST];
         const socklen_t size = a->ifa_addr->sa_family == AF_INET ? sizeof(sockaddr_in) : sizeof(sockaddr_in6);
         if (getnameinfo(a->ifa_addr, size, text, sizeof text, nullptr, 0, NI_NUMERICHOST) != 0) continue;
@@ -141,18 +145,25 @@ Rtc::Rtc(GstElement* webrtcbin, bool offerer, Hooks hooks) : webrtc_(webrtcbin),
         // Wi-Fi both connected it chose the Wi-Fi on one run and the cable on others (#654, a packet
         // capture on the friend's console). Given the cable's addresses, it gathers on those alone, its
         // way to the server and to the relay included. A cable that reaches no further than its own
-        // network leaves the choice to libnice, as does a console with no cable.
+        // network counts as none.
+        // WITH NO CABLE, EVERY LINK ON A DEVICE OF ITS OWN. Left to itself libnice also gathers on a
+        // tunnel: on a console with Tailscale up it sent STUN from its Tailscale address and offered that
+        // address to the friend (#654, a packet capture on the reference console). A console with no such
+        // link at all leaves the choice to libnice.
         std::set<std::string> links;
-        const std::vector<std::string> cable = cableAddresses(&links);
-        for (const std::string& address : cable) {
+        const std::set<std::string> out = linksOut();
+        std::vector<std::string> mine = addressesOn([&](const std::string& link) { return out.count(link) && wired(link); }, &links);
+        const bool cable = !mine.empty();
+        if (!cable) mine = addressesOn(onDevice, &links);
+        for (const std::string& address : mine) {
             gboolean added = FALSE;
             g_signal_emit_by_name(ice, "add-local-ip-address", address.c_str(), &added);
             if (!added) std::fprintf(stderr, "[linkup] the ICE agent refused %s\n", address.c_str());
         }
-        if (!cable.empty()) {
+        if (!mine.empty()) {
             std::string named;
             for (const std::string& link : links) named += (named.empty() ? "" : ", ") + link;
-            std::fprintf(stderr, "[linkup] on the cable: %s, %zu addresses\n", named.c_str(), cable.size());
+            std::fprintf(stderr, "[linkup] %s: %s, %zu addresses\n", cable ? "on the cable" : "on", named.c_str(), mine.size());
         }
         g_object_unref(ice);
     }

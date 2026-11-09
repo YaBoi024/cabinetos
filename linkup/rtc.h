@@ -7,7 +7,8 @@
 // leaves them behind when it dies). Those ports are the ones the firewall lock opens.
 //
 // A CABLE CARRIES THE GAME WHEN ONE IS CONNECTED: ICE gathers on its addresses alone, on the host's
-// side and the friend's. By the kind of link, a cable or not, and never by its name.
+// side and the friend's. With none, it gathers on every link on a device of its own, so a tunnel such
+// as Tailscale's is left out. By the kind of link, and never by its name.
 //
 // TWO DATA CHANNELS, both made by the host. "control" is ordered and reliable, for what must arrive:
 // a pause, a leave. "fast" is unordered with no retries, for a pad's state and the heartbeat: a later
