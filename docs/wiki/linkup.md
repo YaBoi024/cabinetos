@@ -38,8 +38,6 @@ own friends: a child sees only their own, and only the server's owner can add on
 
    ![The LinkUp tab with friends Online, Offline, in a game, and one who invited you](../media/linkup-friends.webp)
 
-   ![Picking a game to invite Alex to](../media/linkup-pick-game.webp)
-
 2. Your console waits on *Waiting for Alex* for up to 30 minutes. **B** cancels. If the game still has to download,
    it starts now.
 
@@ -74,10 +72,6 @@ show Offline after 15 minutes with no press, when the screen is off, while the c
 Everything is encrypted, and the server never learns what you play. But a game that connects directly shows each
 console the other's internet address, as any direct connection does. LinkUp is only for people a server's owner
 chose, and that is one more reason.
-
-![An invite from Alex arrives while your friend is playing](../media/linkup-invite-arrives.webp)
-
-![Your friend's screen while your console shows something other than the game](../media/linkup-friend-waiting.webp)
 
 ## If it won't connect
 
