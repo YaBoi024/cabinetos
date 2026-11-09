@@ -2000,7 +2000,6 @@ struct App {
     // nobody chose. Found by someone actually playing it.
     enum class InputOwner { Keyboard, Overlay, Game, UI };
     InputOwner inputOwner();
-    void keyboardUp();
     void keyboardResult(ui::KeyboardResult res);
 
     // Leaving a game. The save goes up FIRST — this is the trigger that matters

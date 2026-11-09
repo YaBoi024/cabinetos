@@ -191,6 +191,39 @@ void App::walkNavScript() {
                 if (!*p) break;
                 continue;
             }
+            // A PAD BUTTON PRESSED AND LET GO, by SDL's name for it
+            // ("pad:y", "pad:dpup"), and TEXT a physical keyboard typed
+            // ("text:romm.local"), through the event handler too: the
+            // on-screen keyboard is driven only there, its Y and A are a
+            // pad's, and a direction pressed and never let go would go on
+            // repeating (#668).
+            if (!ok && word.rfind("pad:", 0) == 0) {
+                const SDL_GamepadButton b = SDL_GetGamepadButtonFromString(word.c_str() + 4);
+                if (b == SDL_GAMEPAD_BUTTON_INVALID) {
+                    std::fprintf(stderr, "[nav] unknown button '%s'\n", word.c_str());
+                } else {
+                    SDL_Event e{};
+                    e.type = SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+                    e.gbutton.button = static_cast<Uint8>(b);
+                    e.gbutton.down = true;
+                    handleEvent(e);
+                    e.type = SDL_EVENT_GAMEPAD_BUTTON_UP;
+                    e.gbutton.down = false;
+                    handleEvent(e);
+                }
+                word.clear();
+                if (!*p) break;
+                continue;
+            }
+            if (!ok && word.rfind("text:", 0) == 0) {
+                SDL_Event e{};
+                e.type = SDL_EVENT_TEXT_INPUT;
+                e.text.text = word.c_str() + 5;
+                handleEvent(e);
+                word.clear();
+                if (!*p) break;
+                continue;
+            }
             // A digit is a PIN pad key typed on a keyboard, so a whole PIN
             // can be walked headless: "down,a,4,8,2,1,4,8,2,1".
             if (!ok && word.size() == 1 && word[0] >= '0' && word[0] <= '9') {

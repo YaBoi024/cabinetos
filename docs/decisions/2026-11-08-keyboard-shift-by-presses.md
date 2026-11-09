@@ -1,0 +1,7 @@
+# Shift on the on-screen keyboard is three presses, with no timing
+
+- **Decided:** Shift on the on-screen keyboard, the key or Y, goes off, then one capital, then capitals locked on, then off, one step per press however far apart the presses are. One capital ends at the next letter; a digit, a symbol or a shortcut key leaves it waiting. The Shift key reads abc, Abc or ABC, and ABC is underlined in the accent while locked.
+- **Date:** 2026-11-08
+- **Why:** Every capital took its own Shift press, which a 12-character code and a server address made obvious at the TV. The options were a phone's double tap, where a second tap within about half a second locks and a slower one turns Shift off, or a press count. A controller has no convention for a quick second press, and a press that means something else when it comes a little late cannot be learned by looking; a count can, because the key says which of the three it is in. The labels say the state rather than what a press gives, since a press now gives two different things; they are the three letter cases an old phone's keypad showed. The underline marks the lock for a sofa's distance, where Abc and ABC are one letter apart; a fill was not used, because a lit key on this keyboard is the focused one.
+- **Numbers:** #668, "On-screen keyboard: a held direction does not repeat, and Shift cannot stay on".
+- **Replaces:** Shift as one capital only, with no lock (`keyboard.cpp`, since the keyboard was built).

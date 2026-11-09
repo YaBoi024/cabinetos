@@ -105,20 +105,17 @@ void App::openSearchKeyboard() {
     cfg.placeholder = "Search\xE2\x80\xA6";
     cfg.dockedBottom = true;
     cfg.initial = searchTyped;
-    keyboard.open(cfg);
-}
-
-// UP OUT OF THE KEYBOARD'S TOP ROW. It means nothing anywhere else — this
-// keyboard deliberately does not wrap — and on Search it is how a person
-// gets from what they typed to what it found.
-void App::keyboardUp() {
-    if (here() == Screen::Search && keyboard.atTopRow() &&
-        searchScreen.resultCount() > 0) {
+    // UP OUT OF THE FIELD is how a person gets from what they typed to what
+    // it found; anywhere else it is the edge. From the field, not the top row
+    // of keys, since the field has a cursor (#668): Up from the digits goes
+    // into it on every keyboard, this one too.
+    cfg.upFromField = [this] {
+        if (here() != Screen::Search || searchScreen.resultCount() == 0) return false;
         searchScreen.setFocused(true);
         sound::play(sound::Cue::Move);
-        return;
-    }
-    keyboard.moveFocus(0, -1);
+        return true;
+    };
+    keyboard.open(cfg);
 }
 
 // Search's half of keyboardResult (input.cpp), which calls it last.

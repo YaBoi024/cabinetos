@@ -302,6 +302,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             return netblock::test();
         } else if (SDL_strcmp(argv[i], "--idle-test") == 0) {
             return idle::test();
+        } else if (SDL_strcmp(argv[i], "--keyboard-test") == 0) {
+            return ui::keyboardTest();
         } else if (SDL_strcmp(argv[i], "--gone-games-test") == 0) {
             return gone::test();
         } else if (SDL_strcmp(argv[i], "--battery-test") == 0) {

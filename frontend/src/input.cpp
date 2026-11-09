@@ -5,7 +5,6 @@
 
 #include "app.h"
 
-#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
@@ -26,6 +25,9 @@ void App::releaseNav(screens::Nav n) {
     // Only the direction that is actually held releases it. Letting go of
     // Left while holding Down must not stop the Down.
     if (navHeld && heldNav == n) navHeld = false;
+    // The on-screen keyboard's own hold, by the same rule.
+    keyboard.releaseDirection(n == screens::Nav::Left ? -1 : n == screens::Nav::Right ? 1 : 0,
+                              n == screens::Nav::Up ? -1 : n == screens::Nav::Down ? 1 : 0);
 }
 
 // EVERYTHING HELD IS LET GO when presses stop reaching this loop and when
@@ -36,6 +38,7 @@ void App::releaseNav(screens::Nav n) {
 void App::letGoOfHeld() {
     pressing = false;
     navHeld = false;
+    keyboard.letGoOfHeld();
     letterHeld = 0;
     l2Held = r2Held = false;
 }
@@ -203,12 +206,15 @@ void App::handleEvent(const SDL_Event& e) {
             if (owner == InputOwner::Keyboard) {
                 // While it owns input it takes every key, the same way
                 // the core owns the pad while a game runs. A control
-                // that means two things at once is the bug.
+                // that means two things at once is the bug. The arrows
+                // hold the keyboard's own way, as the d-pad does (#668),
+                // so the system's repeat of one is not a press.
+                const bool again = e.key.repeat;
                 switch (e.key.key) {
-                    case SDLK_LEFT: keyboard.moveFocus(-1, 0); break;
-                    case SDLK_RIGHT: keyboard.moveFocus(+1, 0); break;
-                    case SDLK_UP: keyboardUp(); break;
-                    case SDLK_DOWN: keyboard.moveFocus(0, +1); break;
+                    case SDLK_LEFT: if (!again) keyboard.holdDirection(-1, 0); break;
+                    case SDLK_RIGHT: if (!again) keyboard.holdDirection(+1, 0); break;
+                    case SDLK_UP: if (!again) keyboard.holdDirection(0, -1); break;
+                    case SDLK_DOWN: if (!again) keyboard.holdDirection(0, +1); break;
                     case SDLK_BACKSPACE: keyboard.backspace(); break;
                     case SDLK_RETURN: {
                         // ITS LENGTH, NEVER THE TEXT: a Wi-Fi or
@@ -379,13 +385,13 @@ void App::handleEvent(const SDL_Event& e) {
             }
             if (owner == InputOwner::Keyboard) {
                 switch (e.gbutton.button) {
-                    case SDL_GAMEPAD_BUTTON_DPAD_LEFT: keyboard.moveFocus(-1, 0); break;
-                    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: keyboard.moveFocus(+1, 0); break;
-                    case SDL_GAMEPAD_BUTTON_DPAD_UP: keyboardUp(); break;
-                    case SDL_GAMEPAD_BUTTON_DPAD_DOWN: keyboard.moveFocus(0, +1); break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_LEFT: keyboard.holdDirection(-1, 0); break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: keyboard.holdDirection(+1, 0); break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_UP: keyboard.holdDirection(0, -1); break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_DOWN: keyboard.holdDirection(0, +1); break;
                     case SDL_GAMEPAD_BUTTON_SOUTH: keyboardResult(keyboard.pressKey()); break;
                     case SDL_GAMEPAD_BUTTON_WEST: keyboard.backspace(); break;
-                    case SDL_GAMEPAD_BUTTON_NORTH: keyboard.toggleShift(); break;
+                    case SDL_GAMEPAD_BUTTON_NORTH: keyboard.cycleShift(); break;
                     case SDL_GAMEPAD_BUTTON_START: {
                         // ITS LENGTH, NEVER THE TEXT: a Wi-Fi or
                         // RetroAchievements password reached the log, and a
@@ -608,15 +614,22 @@ void App::handleEvent(const SDL_Event& e) {
 
 // Every frame: a held direction, and a held trigger on a grid, repeat.
 void App::repeatHeld(float dt) {
+    // THE ON-SCREEN KEYBOARD HOLDS ITS OWN DIRECTION (#668), at the same pace
+    // (Keyboard::holdDirection), so first run's and the startup screen's
+    // keyboards repeat the same way. Only while it has the input: focus gone
+    // up into Search's results, or a menu over it, ends the hold.
+    if (inputOwner() == InputOwner::Keyboard) keyboard.repeatHeld(dt);
+    else keyboard.letGoOfHeld();
     // The held direction, repeating and speeding up. Driven from the frame
     // loop rather than from the event queue, because the pad sends nothing
-    // at all while a button is held down.
+    // at all while a button is held down. `!keyboard.isOpen()` now excludes
+    // only Search with its keyboard up under the results or the bar: a held
+    // direction there moves once, as before #668, which leaves it alone.
     if (navHeld && inputOwner() == InputOwner::UI && !keyboard.isOpen()) {
         heldFor += dt;
         if (heldFor >= nextRepeat) {
             navigate(heldNav);
-            const float t = std::clamp(heldFor / kRepeatRamp, 0.0f, 1.0f);
-            nextRepeat = heldFor + (kRepeatStart + (kRepeatFast - kRepeatStart) * t);
+            nextRepeat = heldFor + repeatGap(heldFor);
         }
     } else {
         navHeld = false;

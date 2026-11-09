@@ -1,8 +1,11 @@
 #include "keyboard.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
+#include <cstdio>
 
+#include "design.h"
 #include "sound.h"
 #include "text.h"
 #include "ui.h"
@@ -36,6 +39,35 @@ Keyboard::Key action(const char* label, Keyboard::Key::Action a, float width = 1
     return key;
 }
 
+// UTF-8, a character at a time: a byte after the first of a character is
+// 10xxxxxx. Every step of the cursor, a delete and a masked field's dots go
+// by these, never by a byte.
+bool continuationByte(char c) { return (static_cast<unsigned char>(c) & 0xC0) == 0x80; }
+size_t previousChar(const std::string& s, size_t at) {
+    if (at == 0 || s.empty()) return 0;
+    size_t i = std::min(at, s.size()) - 1;
+    while (i > 0 && continuationByte(s[i])) --i;
+    return i;
+}
+size_t nextChar(const std::string& s, size_t at) {
+    if (at >= s.size()) return s.size();
+    size_t i = at + 1;
+    while (i < s.size() && continuationByte(s[i])) ++i;
+    return i;
+}
+
+// A key whose character changes with Shift: the one that spends a single
+// Shift press. A digit, a symbol or a shortcut types the same either way, so
+// it leaves the press waiting for the letter it was meant for.
+bool isLetter(const std::string& insert) {
+    return insert.size() == 1 && std::isalpha(static_cast<unsigned char>(insert[0]));
+}
+
+// THE LOCKED SHIFT KEY'S LINE, under its label: the accent, the kept mark's
+// cyan, drawn inside the key so the key and the panel keep their size.
+constexpr float kLockLineHeight = 4.0f;
+constexpr float kLockLineGap = 6.0f;   // below the label's baseline
+
 }  // namespace
 
 void Keyboard::open(const Config& config) {
@@ -45,13 +77,19 @@ void Keyboard::open(const Config& config) {
     held_.clear();
     fieldProblem_ = false;
     value_ = config.initial;
+    cursor_ = value_.size();   // after what is prefilled, where typing goes on
+    revealLast_ = false;
     conceal_ = config.conceal;
-    shifted_ = false;
+    shift_ = Shift::Off;
     row_ = 1;  // the letter row, not the digits: that is where typing starts
     col_ = 0;
+    letGoOfHeld();
     open_ = true;
     ghost_ = false;
+    buildLayouts();
+}
 
+void Keyboard::buildLayouts() {
     // A FIXED 12-COLUMN GRID, every row totalling exactly 12 units.
     //
     // The first version sized the panel to its widest row — a long function
@@ -110,8 +148,16 @@ void Keyboard::open(const Config& config) {
         b.push_back(k("_", "_"));                                       // 9 + 3 = 12
         rows.push_back(b);
 
+        // THE SHIFT KEY SAYS WHICH OF ITS THREE IT IS IN (#668), in the
+        // letters a phone's old keypad used for the same three: lower case,
+        // one capital, all capitals. Locked also gets a line under it (draw).
+        // It said the case a press would give, "ABC" over lower-case keys,
+        // which stopped being one answer once a press can give two.
+        const char* shiftLabel = shift_ == Shift::Off    ? "abc"
+                                 : shift_ == Shift::Once ? "Abc"
+                                                         : "ABC";
         std::vector<Key> c;
-        c.push_back(wide(action(upper ? "abc" : "ABC", Key::Shift), 2.0f));
+        c.push_back(wide(action(shiftLabel, Key::Shift), 2.0f));
         for (const char* p = r3; *p; ++p)
             c.push_back(k(std::string(1, *p).c_str(), std::string(1, *p).c_str()));
         c.push_back(k("@", "@"));
@@ -139,7 +185,7 @@ void Keyboard::open(const Config& config) {
 }
 
 const std::vector<std::vector<Keyboard::Key>>& Keyboard::layout() const {
-    return shifted_ ? upper_ : lower_;
+    return shift_ == Shift::Off ? lower_ : upper_;
 }
 
 bool Keyboard::focusAt(float canvasX, float canvasY) {
@@ -168,8 +214,10 @@ KeyboardResult Keyboard::pressAt(float canvasX, float canvasY, bool* hit) {
 
 void Keyboard::clampFocus() {
     const auto& rows = layout();
-    row_ = std::clamp(row_, 0, static_cast<int>(rows.size()) - 1);
-    col_ = std::clamp(col_, 0, static_cast<int>(rows[row_].size()) - 1);
+    row_ = std::clamp(row_, kField, static_cast<int>(rows.size()) - 1);
+    // In the field, the digit focus came up from, for Down to go back to.
+    const auto& row = rows[static_cast<size_t>(std::max(row_, 0))];
+    col_ = std::clamp(col_, 0, static_cast<int>(row.size()) - 1);
 }
 
 // THE KEYBOARD SOUNDS LIKE THE REST OF THE CONSOLE (#389): a move is Move, a
@@ -179,6 +227,36 @@ void Keyboard::clampFocus() {
 // that finishes nothing (Config::required) is the Edge bump, here.
 void Keyboard::moveFocus(int dx, int dy) {
     if (!open_) return;
+    // IN THE FIELD, Left and Right are the cursor and stop at the ends: a
+    // cursor that wrapped from the end of an address to its start would lose
+    // the place a player is walking it to. Down goes back to the digit focus
+    // came up from; Up is the edge, unless the keyboard shares the screen
+    // with something above it (Config::upFromField).
+    if (row_ == kField) {
+        if (dy > 0) {
+            row_ = 0;
+            clampFocus();
+            sound::play(sound::Cue::Move);
+        } else if (dy < 0) {
+            if (config_.upFromField && config_.upFromField()) letGoOfHeld();
+            else sound::play(sound::Cue::Edge);
+        } else if (dx != 0) {
+            const size_t was = cursor_;
+            cursor_ = dx < 0 ? previousChar(value_, cursor_) : nextChar(value_, cursor_);
+            sound::play(cursor_ == was ? sound::Cue::Edge : sound::Cue::Move);
+        }
+        return;
+    }
+    // UP FROM THE DIGITS IS THE FIELD. An address kept behind a message
+    // ("Can't connect", sayInField's `keep`) comes back to be corrected, as
+    // the next key would bring it back; not while the panel waits on it,
+    // when the message is what is happening.
+    if (dy < 0 && row_ == 0) {
+        if (!busy_) restoreHeld();
+        row_ = kField;
+        sound::play(sound::Cue::Move);
+        return;
+    }
     const int wasRow = row_, wasCol = col_;
     const auto& rows = layout();
     if (dy != 0) {
@@ -216,9 +294,11 @@ void Keyboard::moveFocus(int dx, int dy) {
     // "1" to "del" is eleven presses when it should be one. PlayStation and
     // Xbox both wrap their keyboards for exactly this reason.
     //
-    // Vertical movement still clamps. Five rows is short enough to cross
+    // Vertical movement does not wrap. Five rows is short enough to cross
     // directly, and wrapping from the space bar up to the digits skips the
     // letters — which is where somebody pressing up is almost always going.
+    // Down from the space bar is the edge; Up from the digits is the field
+    // (above).
     if (dx != 0) {
         const int n = static_cast<int>(rows[row_].size());
         col_ = (col_ + dx % n + n) % n;
@@ -227,26 +307,65 @@ void Keyboard::moveFocus(int dx, int dy) {
     sound::play(row_ == wasRow && col_ == wasCol ? sound::Cue::Edge : sound::Cue::Move);
 }
 
+// The hold's pace is the console's, design::repeatGap, the same one every
+// other screen's held direction keeps (App::repeatHeld). The hold is armed
+// before the first move, because that move can be Up out of Search's field,
+// which lets go of it.
+void Keyboard::holdDirection(int dx, int dy) {
+    if (!open_) return;
+    holdDx_ = dx;
+    holdDy_ = dy;
+    holdFor_ = 0.0f;
+    holdNext_ = design::kRepeatDelay;
+    moveFocus(dx, dy);
+}
+
+void Keyboard::releaseDirection(int dx, int dy) {
+    if (holdDx_ == dx && holdDy_ == dy) letGoOfHeld();
+}
+
+void Keyboard::repeatHeld(float dt) {
+    if (!open_) letGoOfHeld();
+    if (holdDx_ == 0 && holdDy_ == 0) return;
+    holdFor_ += dt;
+    if (holdFor_ < holdNext_) return;
+    holdNext_ = holdFor_ + design::repeatGap(holdFor_);
+    moveFocus(holdDx_, holdDy_);
+}
+
 void Keyboard::restoreHeld() {
     if (held_.empty()) return;
     value_ = held_;
     held_.clear();
+    cursor_ = value_.size();
+}
+
+// Everything typed goes in here, at the cursor, which then sits after it.
+void Keyboard::insert(const std::string& text) {
+    restoreHeld();
+    cursor_ = std::min(cursor_, value_.size());
+    value_.insert(cursor_, text);
+    cursor_ += text.size();
+    revealAt_ = previousChar(value_, cursor_);
+    lastTyped_ = std::chrono::steady_clock::now();
+    revealLast_ = true;
 }
 
 KeyboardResult Keyboard::pressKey() {
     if (!open_) return KeyboardResult::Cancelled;
     if (busy_) return KeyboardResult::Typing;
+    if (row_ == kField) {
+        moveFocus(0, +1);
+        return KeyboardResult::Typing;
+    }
     clampFocus();
     const Key& key = layout()[row_][col_];
     switch (key.action) {
         case Key::Backspace: backspace(); return KeyboardResult::Typing;
-        case Key::Shift: toggleShift(); return KeyboardResult::Typing;
+        case Key::Shift: cycleShift(); return KeyboardResult::Typing;
         case Key::Space:
             sound::play(sound::Cue::Type);
-            restoreHeld();
-            value_ += ' ';
-            lastTyped_ = std::chrono::steady_clock::now();
-            revealLast_ = true;
+            insert(" ");
             return KeyboardResult::Typing;
         case Key::Conceal:
             sound::play(sound::Cue::Type);
@@ -256,15 +375,15 @@ KeyboardResult Keyboard::pressKey() {
         case Key::None: break;
     }
     sound::play(sound::Cue::Type);
-    restoreHeld();
-    value_ += key.insert;
-    lastTyped_ = std::chrono::steady_clock::now();
-    revealLast_ = true;
-    // Shift is one-shot, the way a phone keyboard behaves: capitalise a letter
-    // and fall back to lowercase, because the next character almost never wants
-    // the same case.
-    if (shifted_) {
-        shifted_ = false;
+    // A copy: dropping a one-letter Shift rebuilds the layouts the key is in.
+    const std::string typed = key.insert;
+    insert(typed);
+    // ONE SHIFT PRESS IS ONE CAPITAL, the way a phone keyboard behaves:
+    // capitalise a letter and fall back to lower case, because the next
+    // character almost never wants the same case. A lock stays (cycleShift).
+    if (shift_ == Shift::Once && isLetter(typed)) {
+        shift_ = Shift::Off;
+        buildLayouts();
         clampFocus();
     }
     return KeyboardResult::Typing;
@@ -274,49 +393,40 @@ void Keyboard::backspace() {
     if (busy_) return;
     revealLast_ = false;
     restoreHeld();
-    if (value_.empty()) { sound::play(sound::Cue::Edge); return; }
+    if (cursor_ == 0) { sound::play(sound::Cue::Edge); return; }
     sound::play(sound::Cue::Type);
-    // Step back over a whole UTF-8 code point, not a byte. Deleting half of a
-    // multi-byte character leaves an invalid string that will not render.
-    size_t n = value_.size() - 1;
-    while (n > 0 && (static_cast<unsigned char>(value_[n]) & 0xC0) == 0x80) --n;
-    value_.erase(n);
+    const size_t from = previousChar(value_, cursor_);
+    value_.erase(from, cursor_ - from);
+    cursor_ = from;
 }
 
-void Keyboard::toggleShift() {
+void Keyboard::cycleShift() {
     if (busy_) return;
     sound::play(sound::Cue::Type);
-    shifted_ = !shifted_;
+    shift_ = shift_ == Shift::Off    ? Shift::Once
+             : shift_ == Shift::Once ? Shift::Locked
+                                     : Shift::Off;
+    buildLayouts();
     clampFocus();
 }
 
 void Keyboard::toggleConceal() {
     restoreHeld();
     conceal_ = !conceal_;
-    // The labels live in the built layouts, so rebuild them to say the other
+    // The label lives in the built layouts, so rebuild them to say the other
     // thing. Cheap, and it keeps one source of truth for the layout.
-    const std::string keep = value_;
-    const int r = row_, c = col_;
-    Config cfg = config_;
-    cfg.initial = keep;
-    cfg.conceal = conceal_;
-    open(cfg);
-    row_ = r;
-    col_ = c;
-    clampFocus();
+    buildLayouts();
 }
 
 void Keyboard::typeText(const char* utf8) {
-    if (!open_ || !utf8 || busy_) return;
-    restoreHeld();
-    value_ += utf8;
-    lastTyped_ = std::chrono::steady_clock::now();
-    revealLast_ = true;
+    if (!open_ || !utf8 || !*utf8 || busy_) return;
+    insert(utf8);
 }
 
 void Keyboard::sayInField(const std::string& msg, bool problem, bool keep) {
     held_ = keep ? (value_.empty() ? held_ : value_) : std::string();
     value_.clear();
+    cursor_ = 0;
     revealLast_ = false;
     fieldMsg_ = msg;
     fieldProblem_ = problem;
@@ -452,28 +562,46 @@ void Keyboard::draw(Renderer& r, TextRenderer& text, float scale) {
     }
     y += titleH;
 
-    // The field.
-    r.draw(Rect{panelX + pad, y, widest, fieldH, kKeyRadius, Color::black(0.45f)});
-    std::string shown = value_;
-    if (conceal_) {
-        // A dot per character, not per byte, and the last one readable for
-        // a moment after it was typed.
-        constexpr auto kReveal = std::chrono::milliseconds(1500);
-        const bool reveal = revealLast_ &&
-                            std::chrono::steady_clock::now() - lastTyped_ < kReveal;
-        std::vector<std::string> chars;
-        for (size_t i = 0; i < value_.size();) {
-            size_t n = 1;
-            while (i + n < value_.size() &&
-                   (static_cast<unsigned char>(value_[i + n]) & 0xC0) == 0x80)
-                ++n;
-            chars.push_back(value_.substr(i, n));
-            i += n;
-        }
-        shown.clear();
-        for (size_t i = 0; i < chars.size(); ++i)
-            shown += (reveal && i + 1 == chars.size()) ? chars[i] : "\xE2\x80\xA2";
+    // The field. FOCUS IN IT IS THE FOCUS RIM, drawn inside its edge, so the
+    // field, the keys and the panel keep their size and place whether focus
+    // is up there or not (#668).
+    Rect field{panelX + pad, y, widest, fieldH, kKeyRadius, Color::black(0.45f)};
+    if (row_ == kField && open_) {
+        field.border = design::kFocusRimWidth;
+        field.borderColor = palette::kFocusRim;
     }
+    r.draw(field);
+    // What was typed, a character at a time: a masked field draws a dot per
+    // character, not per byte, with the character just typed readable for a
+    // moment wherever the cursor put it; and the cursor sits between
+    // characters, so `caret` counts the ones before it.
+    constexpr auto kReveal = std::chrono::milliseconds(1500);
+    const bool reveal = conceal_ && revealLast_ &&
+                        std::chrono::steady_clock::now() - lastTyped_ < kReveal;
+    std::vector<std::string> chars;
+    size_t caret = 0;
+    for (size_t i = 0; i < value_.size();) {
+        const size_t next = nextChar(value_, i);
+        if (i < cursor_) caret = chars.size() + 1;
+        chars.push_back(!conceal_ || (reveal && i == revealAt_) ? value_.substr(i, next - i)
+                                                                : "\xE2\x80\xA2");
+        i = next;
+    }
+    // When it overflows, the end with the cursor in it: the tail, as before
+    // the cursor, while the cursor is at the end where somebody typing is;
+    // otherwise as much as fits with the cursor in view.
+    const float room = widest - 56.0f;
+    auto run = [&](size_t from, size_t to) {
+        std::string s;
+        for (size_t i = from; i < to; ++i) s += chars[i];
+        return s;
+    };
+    size_t first = 0, last = chars.size();
+    while (last - first > 1 && text.measure(run(first, last), TextStyle::Title3, scale) > room) {
+        if (first < caret) ++first;
+        else --last;
+    }
+    std::string shown = run(first, last);
     const bool empty = shown.empty();
     // A message in the field (sayInField) stands in for the placeholder,
     // and so goes the moment something is typed.
@@ -488,15 +616,6 @@ void Keyboard::draw(Renderer& r, TextRenderer& text, float scale) {
         if (t < kShake) shakeX = std::sin(t * 50.0f) * 18.0f * (1.0f - t / kShake);
     }
     const float fieldBaseline = y + fieldH * 0.5f + text.ascent(TextStyle::Title3, scale) * 0.5f;
-    // Show the tail when it overflows: what someone is typing is at the end,
-    // and a field that scrolls off the right hides exactly the character they
-    // just pressed.
-    const float room = widest - 56.0f;
-    while (text.measure(shown, TextStyle::Title3, scale) > room && shown.size() > 1) {
-        size_t n = 1;
-        while (n < shown.size() && (static_cast<unsigned char>(shown[n]) & 0xC0) == 0x80) ++n;
-        shown.erase(0, n);
-    }
     // WHITE IS WHAT YOU TYPED, GREY IS EVERYTHING ELSE, as in any operating
     // system's text field. A problem ("Wrong password") is as grey as
     // "Joining…" and says it is a problem by its shake; at 0.95 it read as
@@ -506,11 +625,20 @@ void Keyboard::draw(Renderer& r, TextRenderer& text, float scale) {
                       : (empty ? Color::white(0.35f) : Color::white(1.0f)),
               scale);
     if (!empty) {
-        // A caret at the end, so the field reads as active rather than as a
-        // label that happens to contain text.
-        const float caretX =
-            panelX + pad + 20.0f + text.measure(shown, TextStyle::Title3, scale) + 4.0f;
-        r.draw(Rect{caretX, y + 22.0f, 3.0f, fieldH - 44.0f, 1.5f, Color::white(0.75f)});
+        // THE CARET IS THE CURSOR, so the field reads as active rather than
+        // as a label that happens to contain text, and says where the next
+        // key goes. Centred on the gap between two characters and drawn over
+        // the text, never pushing it apart: what follows the cursor stays
+        // where it was as the cursor walks through it. IN THE ACCENT, as a
+        // phone's is in its own: at this size the gap between two letters is
+        // barely wider than the caret, and white touching white letters read
+        // as part of them (the A9's 4K frames, #668); it was white at 0.75
+        // while it only ever sat after the last letter.
+        constexpr float kCaretW = 3.0f;
+        const float caretX = panelX + pad + 20.0f +
+                             text.measure(run(first, caret), TextStyle::Title3, scale) -
+                             kCaretW * 0.5f;
+        r.draw(Rect{caretX, y + 22.0f, kCaretW, fieldH - 44.0f, 1.5f, palette::kScreenCyan});
     }
     y += fieldH + (dock ? 20.0f : 28.0f);
 
@@ -546,9 +674,13 @@ void Keyboard::draw(Renderer& r, TextRenderer& text, float scale) {
 
             const TextStyle st = key.action == Key::None ? TextStyle::Title3 : TextStyle::Callout;
             const float lw = text.measure(key.label, st, scale);
-            text.draw(r, key.label, dx + (dw - lw) * 0.5f,
-                      dy + dh * 0.5f + text.ascent(st, scale) * 0.5f, st,
+            const float baseline = dy + dh * 0.5f + text.ascent(st, scale) * 0.5f;
+            text.draw(r, key.label, dx + (dw - lw) * 0.5f, baseline, st,
                       focused ? Color::white(1.0f) : Color::white(0.75f), scale);
+            // Locked Shift: "ABC" says capitals, the line says they stay.
+            if (key.action == Key::Shift && shift_ == Shift::Locked)
+                r.draw(Rect{dx + (dw - lw) * 0.5f, baseline + kLockLineGap, lw, kLockLineHeight,
+                            kLockLineHeight * 0.5f, palette::kScreenCyan});
             x += kw + gap;
         }
         y += unit + gap;
@@ -565,6 +697,161 @@ void Keyboard::draw(Renderer& r, TextRenderer& text, float scale) {
     text.draw(r, legend, panelX + (panelW - lw) * 0.5f,
               panelY + panelH - pad + 12.0f, TextStyle::Callout, Color::white(0.55f),
               scale);
+}
+
+// ---- --keyboard-test --------------------------------------------------------
+//
+// Everything below is driven the way a loop drives it, a press and a frame's
+// time at a time, and read back only through what was typed: where focus is
+// shows as the key A types.
+int keyboardTest() {
+    int failures = 0;
+    auto check = [&](bool ok, const char* what) {
+        std::printf("  %s  %s\n", ok ? "ok  " : "FAIL", what);
+        if (!ok) ++failures;
+    };
+    // A press and its release, as a d-pad sends them.
+    auto tap = [](Keyboard& kb, int dx, int dy) {
+        kb.holdDirection(dx, dy);
+        kb.releaseDirection(dx, dy);
+    };
+    Keyboard::Config cfg;
+    cfg.title = "Test";
+
+    // THE CURSOR. Focus opens on "q"; Up twice is the digits, then the field.
+    {
+        Keyboard kb;
+        cfg.initial = "caf\xC3\xA9";   // "café", the last character two bytes
+        kb.open(cfg);
+        kb.typeText("s");
+        check(kb.value() == "caf\xC3\xA9s", "typing goes after what was prefilled");
+        tap(kb, 0, -1);
+        check(!kb.inField(), "Up from the letters is the digits");
+        tap(kb, 0, -1);
+        check(kb.inField(), "Up from the digits is the field");
+        tap(kb, -1, 0);
+        tap(kb, -1, 0);
+        kb.typeText("X");
+        check(kb.value() == "cafX\xC3\xA9s",
+              "Left steps over a two-byte character whole, and typing goes in at the cursor");
+        kb.backspace();
+        check(kb.value() == "caf\xC3\xA9s", "del takes off the character before the cursor");
+        tap(kb, +1, 0);
+        kb.backspace();
+        check(kb.value() == "cafs", "and takes a two-byte character off whole");
+        for (int i = 0; i < 10; ++i) tap(kb, -1, 0);
+        kb.backspace();
+        check(kb.value() == "cafs", "the cursor stops at the start, where del has nothing to take");
+        for (int i = 0; i < 10; ++i) tap(kb, +1, 0);
+        kb.typeText("!");
+        check(kb.value() == "cafs!", "and at the end");
+        tap(kb, 0, +1);
+        check(!kb.inField(), "Down from the field is the keys");
+        kb.pressKey();
+        check(kb.value() == "cafs!1", "the digit focus came up from, typed at the cursor");
+        tap(kb, 0, -1);
+        kb.pressKey();
+        check(!kb.inField() && kb.value() == "cafs!1", "A in the field goes back to the keys");
+        tap(kb, 0, -1);
+        tap(kb, 0, -1);
+        check(kb.inField(), "Up from the field with nothing above it stays in the field");
+    }
+    // A KEPT ADDRESS comes back when focus goes into the field to correct it,
+    // and not while the panel is waiting on it.
+    {
+        Keyboard kb;
+        cfg.initial = "romm.local";
+        kb.open(cfg);
+        kb.sayInField("Checking", false, /*keep=*/true);
+        kb.setBusy(true);
+        tap(kb, 0, -1);
+        tap(kb, 0, -1);
+        check(kb.value().empty(), "Up into the field while it waits leaves the message");
+        kb.setBusy(false);
+        kb.sayInField("Can't connect", true, /*keep=*/true);
+        tap(kb, 0, +1);
+        tap(kb, 0, -1);
+        tap(kb, -1, 0);
+        kb.typeText("X");
+        check(kb.value() == "romm.locaXl", "Up into the field brings a kept address back to fix");
+    }
+    // SHIFT: off, the next letter only, locked, off.
+    {
+        Keyboard kb;
+        cfg.initial.clear();
+        kb.open(cfg);
+        kb.cycleShift();
+        kb.pressKey();
+        kb.pressKey();
+        check(kb.value() == "Qq", "one Shift press is one capital");
+        kb.cycleShift();
+        kb.cycleShift();
+        kb.pressKey();
+        kb.pressKey();
+        kb.pressKey();
+        check(kb.value() == "QqQQQ", "two presses lock capitals on");
+        kb.toggleConceal();
+        kb.pressKey();
+        check(kb.value() == "QqQQQQ", "and show or hide leaves the lock on");
+        kb.cycleShift();
+        kb.pressKey();
+        check(kb.value() == "QqQQQQq", "a third press turns them off");
+        kb.cycleShift();
+        tap(kb, 0, -1);
+        kb.pressKey();
+        tap(kb, 0, +1);
+        kb.pressKey();
+        check(kb.value() == "QqQQQQq1Q", "a digit typed after one press leaves it for the letter");
+        kb.pressKey();
+        check(kb.value() == "QqQQQQq1Qq", "which it capitalises, and no more");
+    }
+    // THE HOLD, at the console's pace (design.h). Focus opens on "q", the
+    // first of a row of twelve that wraps.
+    {
+        Keyboard kb;
+        kb.open(cfg);
+        kb.holdDirection(+1, 0);   // "w" at once
+        kb.repeatHeld(design::kRepeatDelay - 0.01f);
+        kb.pressKey();
+        check(kb.value() == "w", "a held direction moves once, then waits");
+        kb.repeatHeld(0.02f);   // past kRepeatDelay: "e"
+        const float gap = design::repeatGap(design::kRepeatDelay + 0.01f);
+        kb.repeatHeld(gap - 0.01f);
+        kb.pressKey();
+        check(kb.value() == "we", "then moves again after kRepeatDelay, and waits the gap");
+        kb.repeatHeld(0.02f);   // "r"
+        kb.releaseDirection(0, +1);
+        kb.repeatHeld(1.0f);    // "t": letting go of Down did not stop Right
+        kb.releaseDirection(+1, 0);
+        kb.repeatHeld(1.0f);
+        kb.pressKey();
+        check(kb.value() == "wet", "only letting go of the held direction stops it");
+        check(std::fabs(design::repeatGap(0.0f) - design::kRepeatStart) < 1e-6f &&
+                  std::fabs(design::repeatGap(design::kRepeatRamp * 2.0f) -
+                            design::kRepeatFast) < 1e-6f,
+              "the gap closes from kRepeatStart to kRepeatFast");
+        // Three seconds of frames at 60 a second: round the row of twelve
+        // several times, left past "q" onto ":" and on.
+        kb.holdDirection(-1, 0);
+        for (int frame = 0; frame < 180; ++frame) kb.repeatHeld(1.0f / 60.0f);
+        kb.releaseDirection(-1, 0);
+        kb.pressKey();
+        check(kb.value().size() == 4, "a long hold circles the row and still types one key");
+    }
+    // UP OUT OF SEARCH'S FIELD ends the hold: the results get one press.
+    {
+        Keyboard kb;
+        int left = 0;
+        Keyboard::Config search = cfg;
+        search.upFromField = [&left] { ++left; return true; };
+        kb.open(search);
+        kb.holdDirection(0, -1);   // the digits
+        kb.repeatHeld(design::kRepeatDelay + 0.01f);   // the field
+        for (int i = 0; i < 60; ++i) kb.repeatHeld(0.05f);
+        check(left == 1, "a held Up leaves the field for the results once, and stops");
+    }
+    std::printf("%s\n", failures ? "FAILED" : "all passed");
+    return failures ? 1 : 0;
 }
 
 }  // namespace ui

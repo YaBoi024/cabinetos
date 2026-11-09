@@ -124,6 +124,14 @@ constexpr float kRepeatDelay = 0.420f;    // before the second move
 constexpr float kRepeatStart = 0.120f;    // and between the ones after it
 constexpr float kRepeatFast = 0.045f;     // once it has been held a while
 constexpr float kRepeatRamp = 1.200f;     // seconds from Start to Fast
+// The wait after a held direction's move made `heldFor` seconds into the
+// hold: kRepeatStart, closing on kRepeatFast over kRepeatRamp. The one pace
+// for every hold, the screens' (App::repeatHeld) and the on-screen
+// keyboard's (Keyboard::repeatHeld).
+inline float repeatGap(float heldFor) {
+    const float t = std::clamp(heldFor / kRepeatRamp, 0.0f, 1.0f);
+    return kRepeatStart + (kRepeatFast - kRepeatStart) * t;
+}
 // A held trigger, between letters. 0.16 was "a little too fast ... the
 // letters are zooming by" (MMagTech, 2026-10-10): each letter has to settle
 // in the capsule long enough to be read before the next one arrives.
