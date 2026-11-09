@@ -68,6 +68,9 @@ bool isLetter(const std::string& insert) {
 constexpr float kLockLineHeight = 4.0f;
 constexpr float kLockLineGap = 6.0f;   // below the label's baseline
 
+// The cursor's blink, on then off, while it waits for a press.
+constexpr float kCaretBlink = 1.0f;   // seconds
+
 }  // namespace
 
 void Keyboard::open(const Config& config) {
@@ -227,6 +230,7 @@ void Keyboard::clampFocus() {
 // that finishes nothing (Config::required) is the Edge bump, here.
 void Keyboard::moveFocus(int dx, int dy) {
     if (!open_) return;
+    cursorStill_ = std::chrono::steady_clock::now();
     // IN THE FIELD, Left and Right are the cursor and stop at the ends: a
     // cursor that wrapped from the end of an address to its start would lose
     // the place a player is walking it to. Down goes back to the digit focus
@@ -369,11 +373,13 @@ void Keyboard::insert(const std::string& text) {
     cursor_ += text.size();
     revealAt_ = previousChar(value_, cursor_);
     lastTyped_ = std::chrono::steady_clock::now();
+    cursorStill_ = lastTyped_;
     revealLast_ = true;
 }
 
 KeyboardResult Keyboard::pressKey() {
     if (!open_) return KeyboardResult::Cancelled;
+    cursorStill_ = std::chrono::steady_clock::now();
     if (busy_) return KeyboardResult::Typing;
     if (row_ == kField) {
         moveFocus(0, +1);
@@ -419,10 +425,12 @@ void Keyboard::backspace() {
     const size_t from = previousChar(value_, cursor_);
     value_.erase(from, cursor_ - from);
     cursor_ = from;
+    cursorStill_ = std::chrono::steady_clock::now();
 }
 
 void Keyboard::cycleShift() {
     if (busy_) return;
+    cursorStill_ = std::chrono::steady_clock::now();
     sound::play(sound::Cue::Type);
     shift_ = shift_ == Shift::Off    ? Shift::Once
              : shift_ == Shift::Once ? Shift::Locked
@@ -668,8 +676,28 @@ void Keyboard::draw(Renderer& r, TextRenderer& text, float scale) {
         const float caretX = panelX + pad + 20.0f +
                              text.measure(run(first, caret), TextStyle::Title3, scale) -
                              kCaretW * 0.5f;
-        r.draw(Rect{caretX, fieldBaseline - capH - kCaretOver, kCaretW,
-                    capH + kCaretOver + kCaretUnder, 1.5f, palette::kScreenCyan});
+        // IT BLINKS ONLY WHILE IT WAITS, as a phone's does: steady while
+        // anything is being pressed, typing, moving or deleting, and half a
+        // second after the last press, wherever focus is, on and off once a
+        // second, fading rather than cutting. Blinking only up in the field
+        // was tried too: stopping on the keys with nothing blinking looked
+        // wrong beside a phone (MMagTech at the TV, 2026-11-08).
+        float on = 1.0f;
+        if (open_) {
+            const float still = std::fmod(
+                std::chrono::duration<float>(std::chrono::steady_clock::now() - cursorStill_)
+                    .count(),
+                kCaretBlink);
+            const float half = kCaretBlink * 0.5f, fade = kCaretBlink * 0.1f;
+            if (still >= kCaretBlink - fade) on = (still - (kCaretBlink - fade)) / fade;
+            else if (still >= half + fade) on = 0.0f;
+            else if (still >= half) on = 1.0f - (still - half) / fade;
+        }
+        Color caretColor = palette::kScreenCyan;
+        caretColor.a *= on;
+        if (on > 0.0f)
+            r.draw(Rect{caretX, fieldBaseline - capH - kCaretOver, kCaretW,
+                        capH + kCaretOver + kCaretUnder, 1.5f, caretColor});
     }
     y += fieldH + (dock ? 20.0f : 28.0f);
 

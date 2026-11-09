@@ -283,6 +283,8 @@ private:
     std::chrono::steady_clock::time_point lastTyped_{};
     bool revealLast_ = false;
     size_t revealAt_ = 0;
+    // The last press of any kind: the cursor blinks only once it is still.
+    std::chrono::steady_clock::time_point cursorStill_{};
     int row_ = 0, col_ = 0;
     // What is held: delete, or a direction (holdDx_, holdDy_), and its pace.
     design::HeldRepeat hold_;
