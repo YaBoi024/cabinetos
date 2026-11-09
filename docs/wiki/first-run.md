@@ -24,7 +24,7 @@ greyed until it is online.
 
 - **Ethernet:** plug in the cable and it connects by itself.
 - **Wi-Fi:** pick your network from the list. A secured network opens the
-  on-screen keyboard for the password (the last character typed stays visible;
+  on-screen keyboard for the password (the character just typed stays visible;
   **show** reveals the rest). *Wrong password* opens the keyboard again.
 - Networks that need a user name as well as a password (802.1X, as used by
   many offices and schools) show *not supported*.

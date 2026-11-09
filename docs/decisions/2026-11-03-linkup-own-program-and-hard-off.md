@@ -1,0 +1,7 @@
+# LinkUp is its own program, and off means the firewall blocks it
+
+- **Decided:** On the console LinkUp is a program of its own, set up like Sunshine (`cabinetos-remoteplay.service`: no [Install], started and stopped by name through polkit, started again at boot when left on). It is off on every new console. Off means the program is not running, nothing listens and nothing is contacted, and a firewall table of its own drops everything the program's group sends or receives. The table is loaded at every boot and closed whenever the program stops, crashes or the console restarts.
+- **Date:** 2026-11-03
+- **Why:** A firewall cannot tell LinkUp from RomM inside one program, so a hard off needs a program of its own. A stream crash also leaves the game running, and GStreamer stays out of the main program. The firewall is a second lock that still holds if a bug ever starts the program, and an off switch that only hides a menu is not off. A table of its own, because the console's default zone leaves 1025 to 65535 open inbound on TCP and UDP and nothing filters outbound, so neither the zones nor "nothing listens" can make the promise alone; it fails closed and needs no change to the zones the console already has. The cost: more to build, and presses and state pass between two programs.
+- **Numbers:** #654, "LinkUp: play a game with a friend on another CabinetOS console over the internet"; PR #666, "LinkUp: the console's side, step 3 of #654".
+- **Replaces:** the first plan's stream running inside the console's main program.

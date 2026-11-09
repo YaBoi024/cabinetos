@@ -91,6 +91,9 @@ void setChimeLevel(Level l);
 Level chimeLevel();
 void playChime();
 
+// A LinkUp invite arriving, once, at the Interface sounds level: Off is silent.
+void playInvite();
+
 // Plays a cue, or does nothing if there is no device or the switch is off.
 // Safe to call from the frame loop as often as input arrives — a cue that is
 // already sounding is simply overlapped rather than queued, so running along a

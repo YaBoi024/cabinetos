@@ -1,0 +1,54 @@
+#!/bin/bash
+#
+# WI-FI SCANS ONLY ON A WEAK SIGNAL (#654's pull request, #666). The decision:
+# docs/decisions/2026-11-08-wifi-scans-and-power-saving.md.
+#
+# At each connect NetworkManager gives wpa_supplicant a background scan rule:
+# simple:30:-65:300 once the network has been seen from two access points or
+# more (a mesh, an extender, or one router's two bands), else
+# simple:30:-70:86400. A scan visits every channel the card has, 98 in 9.6 s
+# on the reference console's MediaTek card, leaving the connection's channel
+# for about 45 ms in every 220. So the first rule stutters a game streamed
+# over Wi-Fi for ten seconds every five minutes, and both rules scan every
+# 40 seconds below their signal threshold. NetworkManager 1.56 has no setting
+# for it.
+#
+# After each Wi-Fi connect this gives the network ChromeOS's rule for one
+# access point instead: no scan while the signal is -70 dBm or better, one at
+# once when it drops below, then one every 6 minutes while it stays below, so
+# a console that has a better access point near still moves to it.
+# wpa_supplicant takes the rule at once, connected, with no reconnect (its
+# D-Bus setter restarts the current network's background scan). A roam, or a
+# reconnect wpa_supplicant makes by itself, keeps it; a new connect runs this
+# again.
+#
+# Only NetworkManager's own two rules are replaced. A network it gave none
+# (one locked to an access point, a hotspot) is left alone.
+# build_files/wifi-scan-rule.sh stops the build if NetworkManager's rules or
+# its Wi-Fi backend change.
+
+[[ $2 == up && -d /sys/class/net/$1/wireless ]] || exit 0
+
+RULE=simple:360:-70:86400
+W=fi.w1.wpa_supplicant1
+say() { logger -t cabinetos-wifi-scans "$1: $2"; }
+
+iface=$(busctl call "$W" /fi/w1/wpa_supplicant1 "$W" GetInterface s "$1" 2>/dev/null | cut -d'"' -f2)
+[[ $iface == /fi/* ]] || { say "$1" "wpa_supplicant does not know it; scans left as they are"; exit 0; }
+net=$(busctl get-property "$W" "$iface" "$W.Interface" CurrentNetwork | cut -d'"' -f2)
+[[ $net == /fi/*/Networks/* ]] || { say "$1" "no current network; scans left as they are"; exit 0; }
+
+# busctl prints the value as wpa_supplicant keeps it, in quotes: "bgscan" s "\"simple:30:-65:300\""
+now=$(busctl get-property "$W" "$net" "$W.Network" Properties | grep -o '"bgscan" s "[^ ]*"' | cut -d'"' -f5)
+now=${now//\\/}
+case $now in
+    simple:30:-65:300 | simple:30:-70:86400) ;;
+    "$RULE") exit 0 ;;
+    "") say "$1" "NetworkManager gave no background scan; none set"; exit 0 ;;
+    *) say "$1" "background scan '${now}' is not NetworkManager's; left as it is"; exit 0 ;;
+esac
+if busctl set-property "$W" "$net" "$W.Network" Properties 'a{sv}' 1 bgscan s "$RULE"; then
+    say "$1" "background scan ${RULE}, was ${now}"
+else
+    say "$1" "background scan could not be set; NetworkManager's ${now} stays"
+fi

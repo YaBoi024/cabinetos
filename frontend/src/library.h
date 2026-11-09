@@ -66,6 +66,13 @@ std::string platformsQuery(std::vector<int> ids);
 // all pass.
 int arcadeTileTest();
 bool loadTileGames(romm::Client& client, Library& lib, screens::Tile& tile);
+// loadTileGames in its two halves, for a caller that reads a tile's first page
+// ahead of time (App::readAheadForInvite): the request, which touches nothing
+// else and may run on a worker, and putting its answer on the tile, on the
+// main thread. False when the request failed.
+bool readFirstPage(romm::Client& client, const std::string& query, std::vector<romm::Game>* games,
+                   int* total, std::string* err);
+void takeFirstPage(Library& lib, screens::Tile& tile, std::vector<romm::Game> games, int total);
 std::vector<int> gridOrder(Library& lib, const screens::Tile& tile);
 // `platformsErr`, when given, is why the platform list did not come: empty
 // when it came, even with nothing in it.

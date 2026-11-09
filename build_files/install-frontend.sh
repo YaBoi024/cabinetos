@@ -197,6 +197,9 @@ log "installed /usr/bin/cabinetos-frontend ($(du -h /usr/bin/cabinetos-frontend 
 # (wiiremote.cpp). Its own program because it is GPL; the frontend only starts it.
 install -D -m 0755 "${PAYLOAD}/bin/cabinetos-wii-bridge" /usr/libexec/cabinetos-wii-bridge
 log "installed /usr/libexec/cabinetos-wii-bridge ($(du -h /usr/libexec/cabinetos-wii-bridge | cut -f1))"
+# LinkUp's program (#654, linkup/), which cabinetos-linkup.service starts.
+install -D -m 0755 "${PAYLOAD}/bin/cabinetos-linkup" /usr/libexec/cabinetos-linkup
+log "installed /usr/libexec/cabinetos-linkup ($(du -h /usr/libexec/cabinetos-linkup | cut -f1))"
 # The controller list, beside the binary that reads it (players::loadMappings)
 # and in the same small layer, so its weekly update ships one file.
 install -D -m 0644 /ctx/frontend-data/gamecontrollerdb.txt /usr/share/cabinetos/gamecontrollerdb.txt
@@ -297,6 +300,7 @@ check_links() {
 
 check_links /usr/bin/cabinetos-frontend
 check_links /usr/libexec/cabinetos-wii-bridge
+check_links /usr/libexec/cabinetos-linkup
 for so in /usr/lib/cabinetos/cores/*.so; do
     check_links "${so}"
 done
@@ -325,6 +329,7 @@ missing=0
 for expected in \
     /usr/bin/cabinetos-frontend \
     /usr/libexec/cabinetos-wii-bridge \
+    /usr/libexec/cabinetos-linkup \
     /usr/lib/cabinetos/cores/cabinetos-ps2.so \
     /usr/share/cabinetos/system/PPSSPP/compat.ini \
     /usr/share/cabinetos/system/pcsx2/resources/GameIndex.yaml

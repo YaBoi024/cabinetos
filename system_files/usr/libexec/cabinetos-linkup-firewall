@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+#
+# The lock on LinkUp's program (#654), its own nftables table, loaded at every boot before the
+# network by cabinetos-linkup-lock.service. Closed, it drops everything going out from the program's
+# group and everything coming in on LinkUp's fixed ports; open, it drops nothing. It needs no change
+# to the zones the console already has, and firewalld's reload and restart leave it alone (measured,
+# #654's second comment).
+#
+# Off means off, and this is the second lock: if a bug ever started the program, it still reaches
+# nothing. Run by the units only, as root:
+#
+#   cabinetos-linkup-firewall load     the table, closed: at boot
+#   cabinetos-linkup-firewall open     the program is starting
+#   cabinetos-linkup-firewall closed   the program has stopped, however it stopped
+#
+# The group's number and the ports are the program's (linkup/main.cpp, linkup/rtc.h). The fixed ports
+# are dropped for every program, not only LinkUp's, so they are ports nothing else on the console uses.
+
+set -euo pipefail
+
+readonly GROUP=4654
+readonly PORTS=47710-47714
+
+closedRules() {
+    cat <<RULES
+add rule inet cabinetos-linkup out meta skgid ${GROUP} drop
+add rule inet cabinetos-linkup in udp dport ${PORTS} drop
+RULES
+}
+
+case "${1:-}" in
+    load)
+        {
+            cat <<TABLE
+table inet cabinetos-linkup {
+    chain out {
+        type filter hook output priority filter; policy accept;
+    }
+    chain in {
+        type filter hook input priority filter; policy accept;
+    }
+}
+TABLE
+            closedRules
+        } | nft -f -
+        ;;
+    open)
+        nft -f - <<RULES
+flush chain inet cabinetos-linkup out
+flush chain inet cabinetos-linkup in
+RULES
+        ;;
+    closed)
+        {
+            printf 'flush chain inet cabinetos-linkup out\nflush chain inet cabinetos-linkup in\n'
+            closedRules
+        } | nft -f -
+        ;;
+    *)
+        echo "usage: cabinetos-linkup-firewall load|open|closed" >&2
+        exit 2
+        ;;
+esac

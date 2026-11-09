@@ -56,6 +56,16 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             raSample = true;
         } else if (SDL_strcmp(argv[i], "--notice-gallery") == 0) {
             noticeGallery = true;
+        } else if (SDL_strcmp(argv[i], "--linkup-gallery") == 0) {
+            linkupGallery = true;
+        } else if (SDL_strcmp(argv[i], "--linkup-section") == 0 && i + 1 < argc) {
+            linkupGallery = true;
+            linkupGallerySection = SDL_atoi(argv[++i]) - 1;
+        } else if (SDL_strcmp(argv[i], "--linkup-scene") == 0 && i + 1 < argc) {
+            linkupGallery = true;
+            linkupGalleryStart = SDL_atoi(argv[++i]) - 1;
+        } else if (SDL_strcmp(argv[i], "--linkup-script") == 0 && i + 1 < argc) {
+            linkupScript = argv[++i];
         } else if (SDL_strcmp(argv[i], "--menu-rise") == 0 && i + 1 < argc) {
             overlayRise = static_cast<float>(SDL_atof(argv[++i]));
         } else if (SDL_strcmp(argv[i], "--menu-fade") == 0 && i + 1 < argc) {
@@ -302,6 +312,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             return netblock::test();
         } else if (SDL_strcmp(argv[i], "--idle-test") == 0) {
             return idle::test();
+        } else if (SDL_strcmp(argv[i], "--keyboard-test") == 0) {
+            return ui::keyboardTest();
         } else if (SDL_strcmp(argv[i], "--gone-games-test") == 0) {
             return gone::test();
         } else if (SDL_strcmp(argv[i], "--battery-test") == 0) {
@@ -329,6 +341,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
         } else if (SDL_strcmp(argv[i], "--first-run-check-server") == 0) {
             firstRunProbeMode = true;
             firstRunServerCheck = true;
+        } else if (SDL_strcmp(argv[i], "--linkup-test") == 0) {
+            return linkup::test();
         } else if (SDL_strcmp(argv[i], "--same-names-test") == 0) {
             return samenames::test();
         } else if (SDL_strcmp(argv[i], "--arcade-tile-test") == 0) {
