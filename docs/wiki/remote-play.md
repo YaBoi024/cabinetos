@@ -8,7 +8,8 @@ Library, every game. The device's controller (or its touch controls) becomes
 player one while it is connected.
 
 Remote Play is off to start with, and nothing listens on the network until you
-turn it on.
+turn it on. It needs a screen to stream, so it starts once the TV is on: with
+the TV off, a device cannot find the console.
 
 ## Turn it on
 
