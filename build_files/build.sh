@@ -93,6 +93,11 @@ for expected in \
     /usr/libexec/cabinetos-steam \
     /usr/lib/systemd/system/cabinetos-steam@.service \
     /usr/share/polkit-1/rules.d/66-cabinetos-steam.rules \
+    /usr/libexec/cabinetos-linkup-firewall \
+    /usr/lib/systemd/system/cabinetos-linkup.service \
+    /usr/lib/systemd/system/cabinetos-linkup-lock.service \
+    /usr/lib/sysusers.d/cabinetos-linkup.conf \
+    /usr/share/polkit-1/rules.d/69-cabinetos-linkup.rules \
     /usr/libexec/cabinetos-pads \
     /usr/lib/systemd/system/cabinetos-pads@.service \
     /usr/share/polkit-1/rules.d/67-cabinetos-pads.rules \
@@ -115,7 +120,9 @@ for expected in \
     /usr/lib/udev/rules.d/90-cabinetos-system-disk.rules \
     /usr/lib/udev/rules.d/72-cabinetos-wii-remote.rules \
     /usr/lib/udev/rules.d/99-cabinetos-wii-remote.rules \
-    /etc/ssh/sshd_config.d/30-cabinetos.conf
+    /etc/ssh/sshd_config.d/30-cabinetos.conf \
+    /usr/lib/NetworkManager/dispatcher.d/50-cabinetos-wifi-scans \
+    /usr/lib/NetworkManager/conf.d/50-cabinetos-wifi.conf
 do
     if [[ -e "${expected}" ]]; then
         log "  overlaid: ${expected}"
@@ -236,6 +243,9 @@ bash /ctx/install-steam-session.sh
 # Sunshine, for Remote Play (#286): Sunshine's own Fedora package, pinned and
 # checksummed. After the strip, so nothing it pulls in is taken out again.
 /ctx/install-sunshine.sh
+
+# What LinkUp needs (#654), for the same reason.
+/ctx/install-linkup.sh
 
 # ---------------------------------------------------------------------------
 # Enable SSH.
@@ -381,6 +391,16 @@ done
 # Dummy Output catches the console's sound while the TV sleeps, and fails the
 # build if a PipeWire update moved the unit or that output's default.
 /ctx/sound-backup-output.sh
+
+# ---------------------------------------------------------------------------
+# Wi-Fi scans only on a weak signal, and Wi-Fi power saving off (#666).
+# ---------------------------------------------------------------------------
+#
+# Fails the build, saying what to redo, if a NetworkManager or wpa_supplicant
+# update changed what the scan rule replaces or stands on, or NetworkManager
+# no longer reads the power saving setting: either failing would not stop
+# Wi-Fi, only bring back a stutter in streamed games.
+/ctx/wifi-scan-rule.sh
 
 # ---------------------------------------------------------------------------
 # The console itself is NOT installed here, as of 2026-09-23.

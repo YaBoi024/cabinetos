@@ -15,13 +15,19 @@
 
 CabinetOS Handheld turns a handheld like a Steam Deck into a games console. It starts straight into its own menus, and from there a controller does everything. Games, covers, BIOS and
 saves all live on your RomM server, so the console is only ever a screen away
-from your whole library.
+from your whole library. And with LinkUp, a friend's console across town is
+the second seat on your couch.
 
 It is a fork of [CabinetOS](https://github.com/MMagTech/cabinetos) by MMagTech,
 adapted for handhelds (tested on Steam Deck OLEDs for now).
 
 - **Pick up where you left off.** Saves and save states go to RomM by
   themselves, and every game page shows your last three states with a picture.
+- **Play with a friend from their house.** [LinkUp](docs/wiki/linkup.md) streams
+  your game to a friend's CabinetOS console, where they play as player two, and
+  only you need the game. It runs through a small server you or a friend host,
+  [cabinet-linkup](https://github.com/MMagTech/cabinet-linkup), and it is off
+  until you turn it on.
 - **Every system tuned.** An emulator chosen and set up for each of 35 systems,
   rendering up to 4K, with one pause menu in every game.
 - **Make it look right.** CRT and LCD looks per system, and sixteen colors for
@@ -37,7 +43,8 @@ adapted for handhelds (tested on Steam Deck OLEDs for now).
   downloaded and the ones you played recently; saves wait and go up when you
   are back.
 - **Install once.** From then on it updates itself in one press, the whole
-  system at once, checked against CabinetOS Handheld's signature.
+  system at once, checked against CabinetOS Handheld's signature, with the
+  version before kept on the console.
 
 ## What you need
 

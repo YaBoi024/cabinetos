@@ -9,24 +9,47 @@
 // There is nothing to copy here. Cabinet never wrote one — tvOS supplied it —
 // so this is designed from the input model rather than ported.
 //
-// Three decisions worth stating, because they are the ones that make it
+// The decisions worth stating, because they are the ones that make it
 // bearable rather than merely possible:
 //
-// A PASSWORD IS MASKED, BUT THE LAST CHARACTER SHOWS. Reversed 2026-09-24 by
-// MMagTech, from "show what was typed, including passwords" (open question
-// 17). The objection to masking was that a typo nobody can see only surfaces
-// as a failed join; showing each character for a moment as it is typed, the
-// way phones do, answers that, and the "show" key reveals the lot before
-// done. Callers ask for it with `conceal`; other fields are shown as typed.
+// A PASSWORD IS MASKED, BUT THE CHARACTER JUST TYPED SHOWS. Reversed
+// 2026-09-24 by MMagTech, from "show what was typed, including passwords"
+// (open question 17). The objection to masking was that a typo nobody can
+// see only surfaces as a failed join; showing each character for a moment as
+// it is typed, the way phones do, answers that, and the "show" key reveals
+// the lot before done. Since the field has a cursor (below) that character
+// can sit anywhere, and it is the one shown, wherever it is. Callers ask for
+// it with `conceal`; other fields are shown as typed.
 //
 // REDUCE TYPING RATHER THAN SPEEDING IT UP. A key that inserts ".com", a
 // prefilled scheme, and a remembered previous value each save more than any
 // amount of layout tuning.
 //
-// NO WRAPPING AT THE EDGES. Moving off the right of the keyboard does nothing
-// rather than teleporting to the left. Wrapping reads as a glitch when you are
-// holding a direction, and the whole point of a ten-foot UI is that focus goes
-// where you pointed.
+// LEFT AND RIGHT WRAP AROUND A ROW; UP AND DOWN DO NOT. Getting from "1" to
+// "del" is one press rather than eleven (moveFocus in keyboard.cpp says why
+// this reversed the first design). A HELD DIRECTION REPEATS, as on every
+// other screen, at the same pace (#668; design.h's kRepeatDelay and the rest):
+// the slow first repeat is what lets a player stop on the key they want in a
+// row that wraps. The hold is the keyboard's own (holdDirection), so the three
+// loops that drive a keyboard, the console's, first run's and the startup
+// screen's, repeat it the same way.
+//
+// THE FIELD HAS A CURSOR (#668). Up from the digits moves focus into the
+// field; there Left and Right move the cursor a character at a time, and Down
+// (or A) goes back to the key focus left. Every key types, and del deletes, at
+// the cursor. A typo early in a long address or password is fixed in place
+// rather than by deleting back to it. On every keyboard alike, Search's
+// included: there Up from the field goes on to the results
+// (Config::upFromField), one press more than before the field had a cursor,
+// because one rule for every field beats a Search that skips its own field.
+//
+// SHIFT IS A CYCLE OF THREE PRESSES, WITH NO TIMING (#668). Off; one press
+// capitalises the next letter only, as a phone does; a second press before a
+// letter locks capitals on until Shift is pressed again. A phone tells a lock
+// from a second tap by how quickly it came; a controller's Y, or A on the
+// Shift key, has no such convention, and a press that means something else if
+// it is a little slow is one a player cannot learn by looking. The Shift key
+// says which of the three it is in.
 
 #pragma once
 
@@ -34,6 +57,8 @@
 #include <functional>
 #include <string>
 #include <vector>
+
+#include "design.h"
 
 namespace ui {
 
@@ -73,12 +98,16 @@ public:
         // hint go too: the field IS the title when you can see what it is
         // filtering.
         bool dockedBottom = false;
+
+        // UP FROM THE FIELD, for a keyboard that shares the screen: Search
+        // goes to its results. Returns whether focus left the keyboard, which
+        // also ends a held Up, so a held Up does in the results only what a
+        // press does. Unset, or false, and Up from the field is the edge.
+        std::function<bool()> upFromField;
     };
 
-    // Whether focus is on the top row of keys, so a caller can decide what UP
-    // means. It means nothing here — this keyboard deliberately does not wrap —
-    // and on Search it means "leave the keyboard and go to the results".
-    bool atTopRow() const { return row_ == 0; }
+    // Whether focus is in the field rather than on a key.
+    bool inField() const { return row_ == kField; }
 
     // Where the panel's top edge is, in canvas points, from the last time it
     // was drawn, a slide included. A docked keyboard shares the screen, so
@@ -90,9 +119,25 @@ public:
     void open(const Config& config);
     bool isOpen() const { return open_; }
 
-    // Directional input, from a pad or the arrow keys — the layer above does
+    // DIRECTIONS AND DELETE, from a pad or a keyboard: the layer above does
     // not say which, because nothing here may depend on the answer.
-    void moveFocus(int dx, int dy);
+    //
+    // A direction, or delete (X, Backspace), that goes down acts once and is
+    // held (holdDirection, holdBackspace); the same one coming up lets go
+    // (releaseDirection, releaseBackspace), and letting go of another does
+    // not stop it; repeatHeld, every frame the keyboard has the input, acts
+    // again at the console's pace (design::HeldRepeat). One thing is held at
+    // a time, the last pressed, as a d-pad has one direction. A system's own
+    // key repeat is not a press: the loops drop it for the arrows and
+    // Backspace, so a keyboard holds exactly as a pad does. letGoOfHeld ends
+    // the hold whatever is down, for a loop whose presses stop reaching the
+    // keyboard (focus gone to Search's results, a menu over it, a game).
+    void holdDirection(int dx, int dy);
+    void releaseDirection(int dx, int dy);
+    void holdBackspace();
+    void releaseBackspace();
+    void repeatHeld(float dt);
+    void letGoOfHeld();
     // Presses the focused key. RETURNS A RESULT, because two of the keys on
     // this layout end the whole session — "done" and "cancel" — and until
     // 2026-09-20 this returned void and handled them silently. So somebody
@@ -100,9 +145,13 @@ public:
     // panel and had what they had typed thrown away: the caller was watching
     // for its own Start button and never learned. The physical keyboard's
     // Return worked, which is exactly why nobody noticed.
+    //
+    // A in the field places the cursor where it is and goes back to the key
+    // focus left, as Down does: focus never sits on something that ignores
+    // the button.
     KeyboardResult pressKey();
-    void backspace();
-    void toggleShift();
+    // Off, the next letter only, locked, off again: the Shift key and Y.
+    void cycleShift();
     void toggleConceal();
     KeyboardResult commit();   // "done"
     KeyboardResult cancel();
@@ -128,7 +177,7 @@ public:
     void sayInField(const std::string& msg, bool problem, bool keep = false);
 
     // A physical keyboard types into the same field. Not a separate path: the
-    // same string, the same commit, the same screen.
+    // same string, the same cursor, the same commit, the same screen.
     void typeText(const char* utf8);
 
     const std::string& value() const { return value_; }
@@ -190,8 +239,21 @@ public:
     };
 
 private:
+    // The field is a row above the digits, so the d-pad, the pointer and the
+    // clamp all move one `row_`. While focus is there `col_` keeps the digit
+    // it came up from, which Down returns to.
+    static constexpr int kField = -1;
+    enum class Shift { Off, Once, Locked };
+
     const std::vector<std::vector<Key>>& layout() const;
+    // Both cases' layouts, with the Shift and show keys saying what they
+    // are now: built at open and again when either changes.
+    void buildLayouts();
     void clampFocus();
+    void moveFocus(int dx, int dy);
+    void insert(const std::string& text);
+    // Deletes the character before the cursor.
+    void backspace();
 
     // Where `draw` last put each key, in canvas points. The draw pass fills it
     // and the event pass reads it on the frame after — the same order the rest
@@ -205,7 +267,10 @@ private:
     float slide_ = 0.0f;
     Config config_;
     std::string value_;
-    bool shifted_ = false;
+    // Where the next character goes, in bytes, always at the start of a
+    // UTF-8 character: half of one is a string that will not render.
+    size_t cursor_ = 0;
+    Shift shift_ = Shift::Off;
     bool conceal_ = false;
     bool busy_ = false;
     std::string fieldMsg_;          // replaces the placeholder while set
@@ -213,12 +278,24 @@ private:
     void restoreHeld();
     bool fieldProblem_ = false;
     std::chrono::steady_clock::time_point shakeAt_{};
-    // The character just typed stays readable this long in a masked field.
+    // The character just typed stays readable this long in a masked field;
+    // `revealAt_` is where it starts, in bytes.
     std::chrono::steady_clock::time_point lastTyped_{};
     bool revealLast_ = false;
+    size_t revealAt_ = 0;
+    // The last press of any kind: the cursor blinks only once it is still.
+    std::chrono::steady_clock::time_point cursorStill_{};
     int row_ = 0, col_ = 0;
+    // What is held: delete, or a direction (holdDx_, holdDy_), and its pace.
+    design::HeldRepeat hold_;
+    bool holdDelete_ = false;
+    int holdDx_ = 0, holdDy_ = 0;
     float panelTop_ = 0.0f;
     std::vector<std::vector<Key>> lower_, upper_;
 };
+
+// --keyboard-test: the cursor, Shift's three presses and the held repeat's
+// pace, directions and delete, with no screen, no pad and no sound. 0 when all pass.
+int keyboardTest();
 
 }  // namespace ui

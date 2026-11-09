@@ -30,6 +30,11 @@ log "unmasking and enabling tuned.service"
 systemctl unmask tuned.service
 systemctl enable tuned.service
 
+# LinkUp's firewall lock, closed, at every boot before the network has an address (#654). LinkUp
+# itself is not enabled: off means off, and the session starts it when it is on and paired.
+log "enabling cabinetos-linkup-lock.service"
+systemctl enable cabinetos-linkup-lock.service
+
 group_end
 
 group_start "Closing the remaining routes to a desktop"

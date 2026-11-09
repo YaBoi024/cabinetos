@@ -92,9 +92,19 @@ int appendGame(Library& lib, const romm::Game& g) {
 // is a different thing and reads differently on the screen.
 bool loadTileGames(romm::Client& client, Library& lib, screens::Tile& tile) {
     if (!tile.cards.empty()) return true;   // already walked into once
-    const std::string& filter = tile.query;
     std::vector<romm::Game> games;
     std::string err;
+    int total = 0;
+    if (!readFirstPage(client, tile.query, &games, &total, &err)) {
+        std::fprintf(stderr, "[library] %s: %s\n", tile.title.c_str(), err.c_str());
+        return false;
+    }
+    takeFirstPage(lib, tile, std::move(games), total);
+    return true;
+}
+
+bool readFirstPage(romm::Client& client, const std::string& filter, std::vector<romm::Game>* games,
+                   int* total, std::string* err) {
     // PAGED, AND CHECKED AGAINST `total`. This asked for ten thousand in one
     // request and called that enough, with a comment claiming it matched
     // fetchGames. It did not: one request is not paging, and a platform past
@@ -105,21 +115,16 @@ bool loadTileGames(romm::Client& client, Library& lib, screens::Tile& tile) {
     // A full MAME set is tens of thousands of roms in a single platform, so
     // this is not a hypothetical library.
     constexpr int kPage = 500;
-    int total = 0;
     // ONLY THE FIRST PAGE, AND THE CALLER DRAWS IT. The rest is somebody
     // else's job — see GridFill. A grid used to fetch the whole platform
     // before anything appeared, which is fine at 141 games and is ten seconds
     // for a full MAME set in one platform.
-    {
-        std::vector<romm::Game> page;
-        // fetchRoms writes the limit itself, so only the offset rides on the
-        // filter.
-        if (!client.fetchRoms(filter, kPage, &page, &err, &total)) {
-            std::fprintf(stderr, "[library] %s: %s\n", tile.title.c_str(), err.c_str());
-            return false;
-        }
-        games = std::move(page);
-    }
+    // fetchRoms writes the limit itself, so only the offset rides on the
+    // filter.
+    return client.fetchRoms(filter, kPage, games, err, total);
+}
+
+void takeFirstPage(Library& lib, screens::Tile& tile, std::vector<romm::Game> games, int total) {
     tile.loadedAtMs = SDL_GetTicks();
     static unsigned reading = 0;
     tile.readId = ++reading;
@@ -163,7 +168,6 @@ bool loadTileGames(romm::Client& client, Library& lib, screens::Tile& tile) {
     std::fprintf(stderr, "[library] %s: %zu game(s)%s\n", tile.title.c_str(),
                  tile.cards.size(),
                  unplayable ? " (some not playable here)" : "");
-    return true;
 }
 
 // A tile's games in the order its grid shows them, each asked again whether
@@ -333,6 +337,7 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
         // Arcade tile counts every arcade folder, so it goes only when all are empty.
         if (romCount == 0) continue;
         tile.query = platformsQuery(ids);
+        tile.slug = group.front().slug;
         tile.title = catalog::displayName(p);
         tile.namesFolder = arcadematch::isArcadeSlug(p.slug);
         tile.enterable = (cov.support == catalog::Support::Playable);

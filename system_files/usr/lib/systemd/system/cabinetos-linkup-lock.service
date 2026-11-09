@@ -1,0 +1,19 @@
+# The lock on LinkUp's program, closed, at every boot before the network has an address (#654). The
+# program opens it through its own unit and closes it behind itself, so a stop, a crash or a reboot all
+# leave it closed. Measured on the test VM: loaded 3.15 s before the first network address.
+[Unit]
+Description=CabinetOS LinkUp lock
+Documentation=https://github.com/MMagTech/cabinetos/issues/654
+DefaultDependencies=no
+After=local-fs.target
+Before=network-pre.target sysinit.target shutdown.target
+Wants=network-pre.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/cabinetos-linkup-firewall load
+
+[Install]
+WantedBy=sysinit.target

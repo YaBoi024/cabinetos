@@ -8,6 +8,7 @@
 #include <string>
 
 #include "achievements.h"
+#include "ui.h"
 
 // WHAT THE PAUSE MENU SAYS BACK — new 2026-09-21.
 //
@@ -39,7 +40,20 @@ struct MenuNotice {
     Tone tone = Tone::Info;
     float life = 0.0f;
     float age = 0.0f;
+    // A pill nobody may be there for: it stays until the next press (App::handleEvent),
+    // then has what is left of its time, and goes soon if that has already passed.
+    bool holdUntilPress = false;
+    // An invite's dot is the friend's own colour.
+    bool ownDot = false;
+    ui::Color dot;
+    void pressed() {
+        if (!holdUntilPress) return;
+        holdUntilPress = false;
+        life = std::max(0.8f, life - age);
+    }
     void say(std::string t, Tone k) {
+        holdUntilPress = false;
+        ownDot = false;
         text = std::move(t);
         tone = k;
         // Busy holds until the answer replaces it; a stuck "Saving…" is still
@@ -60,7 +74,7 @@ struct MenuNotice {
     }
     void tick(float dt) {
         if (life > 0.0f) {
-            life -= dt;
+            if (!holdUntilPress) life -= dt;
             age += dt;
         }
     }

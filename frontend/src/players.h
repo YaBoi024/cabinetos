@@ -62,10 +62,20 @@ public:
     bool inGame() const { return inGame_; }
     const std::vector<Seat>& seats() const { return seats_; }
 
+    // A FRIEND IN LINKUP (#654) IS ALWAYS PLAYER TWO. While one is seated a game hears player one and
+    // the friend and no other controller of the TV's, whatever the game allows, and the TV's own
+    // numbers stay underneath, untouched, for when the friend has gone. 0 takes the friend out.
+    void setFriend(uint32_t id) { friend_ = id; }
+    uint32_t friendId() const { return friend_; }
+    // How many players a game has now.
+    int count() const { return friend_ ? 2 : static_cast<int>(seats_.size()); }
+
 private:
     void closeUp();
+    int seatOf(uint32_t id) const;
     std::vector<Seat> seats_;
     bool inGame_ = false;
+    uint32_t friend_ = 0;
 };
 
 // ---- The console's pads ----------------------------------------------------
@@ -110,6 +120,12 @@ bool sharing();
 // FORK (handheld): a pad's button went down. Called from the event filter; a
 // game starting makes the last-pressed of the Deck and one other pad player one.
 void pressed(SDL_JoystickID id);
+
+// LINKUP'S FRIEND (#654): the pad a friend's presses arrive as. It is player two (Seats::setFriend),
+// and a set-aside pad to everything else, so no menu or screen ever hears it. Taken out, a game keeps
+// its two players until it ends: an unplugged controller stops some games, and an idle one stops none.
+void seatFriend(SDL_JoystickID id);
+void unseatFriend();
 
 // The pad a game hears as `player`, or null.
 SDL_Gamepad* gamepad(int player);

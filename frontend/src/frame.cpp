@@ -36,7 +36,7 @@ void App::runFrameLoop() {
         ra::pump();
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            if (takeStandaloneEvent(e)) continue;
+            if (takeStandaloneEvent(e) || takeLinkUpEvent(e)) continue;
             handleEvent(e);
         }
 
@@ -58,6 +58,10 @@ void App::runFrameLoop() {
             refuseCaptureOverAnotherWindow("the emulator's");
             continue;
         }
+        if (linkupWatchPicture(dt)) {
+            refuseCaptureOverAnotherWindow("LinkUp's");
+            continue;
+        }
 
         // Idle, once a frame. The timers only ever deepen here; input() is
         // what lifts them, above.
@@ -66,7 +70,7 @@ void App::runFrameLoop() {
         // state picked on its page to arrive (#484, PLAY-16), which is when
         // the game itself stands still (pace.cpp).
         const bool gameOnScreen = playing && !overlayOpen && !stateHold && !stateHoldWaiting;
-        idleFrame(dt, gameOnScreen, kScreenOff[screenOffIndex].seconds);
+        idleFrame(dt, gameOnScreen || linkupHoldsScreen(), kScreenOff[screenOffIndex].seconds);
         // TIME PLAYED (#128): the same test the dim uses for "a game is on
         // screen". Written down once a minute, so a power cut loses at most
         // one.
@@ -177,6 +181,7 @@ void App::runFrameLoop() {
         sayUpdatedTo();
         sayStartProblem();
         noticeGalleryHook(dt);
+        tickLinkUp(dt);
         retryOwedUploads(dt);
         followServer(dt);
         sayStateUploaded();
@@ -199,6 +204,7 @@ void App::runFrameLoop() {
 
             pumpSearch(dt);
             drainGridPages();
+            takeInviteReadAhead(/*wait=*/false);
 
             drainCovers();
 
@@ -228,7 +234,8 @@ void App::runFrameLoop() {
         const float sc = renderer.scale();
         // A game is on the screen: ours, or one this window is paused over
         // (standalone.h), where nothing of Home may be drawn under the menu.
-        const bool gameUp = playing || standalonePaused;
+        // Or a friend's game, whose picture is the LinkUp program's window, under this one.
+        const bool gameUp = playing || standalonePaused || linkupPictureBehind();
         drawGround(gameUp, dt);
 
         applyTabContentFade(gameUp);
@@ -306,6 +313,8 @@ void App::runFrameLoop() {
         drawCurtain(sc);
 
         drawKeyboardAndDissolve();
+
+        drawLinkUpGalleryCaption(sc);
 
         drawDim();
 
