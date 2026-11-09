@@ -72,4 +72,5 @@ though a network you already share is treated as any other.
 
 ## Run your own server
 
-The setup guide is in the server's repository: Settings, **Streaming**, **Server**, **Run your own**.
+The setup guide is in the server's repository, [cabinet-linkup](https://github.com/MMagTech/cabinet-linkup). On the
+console, Settings, **Streaming**, **Server**, **Run your own** shows a QR code to it.
