@@ -30,6 +30,7 @@
     - { file: screenshots.md, title: Screenshots }
     - { file: achievements.md, title: Achievements }
     - { file: remote-play.md, title: Remote Play }
+    - { file: linkup.md, title: LinkUp }
     - { file: steam.md, title: Steam }
 - section: Systems
   pages:

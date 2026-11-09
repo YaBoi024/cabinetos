@@ -4,7 +4,7 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## Next
+## 2026.11.09.4 {#v2026-11-09-4}
 
 - **Improved:** the on-screen keyboard is quicker for long entries such as a
   server address, a code or a Wi-Fi password. Holding a direction now keeps
@@ -20,13 +20,15 @@ one you install, so you only ever install the newest.
   ([#668](https://github.com/MMagTech/cabinetos/issues/668),
   [the on-screen keyboard](navigation.md#the-on-screen-keyboard))
 
-## 2026.11.08.2 {#v2026-11-08-2}
+## 2026.11.09.3 {#v2026-11-09-3}
 
-- **New:** LinkUp, a game with a friend on their console, from their house. Turn it on in Settings,
-  **Streaming**, then press **Server** and type the address and code the server's owner sends you. LinkUp then
-  joins the top bar. Press an Online friend, then a game, and they get an invite; the game starts for both of
-  you when they join, and they play as player two. Only you need the game. It is off until you turn it on, and
-  off means nothing runs. [How it works](linkup.md).
+- **New:** LinkUp, a game with a friend on their console, from their house. It needs a small server that
+  you or a friend runs, at home or on a rented machine; whoever runs it follows the guide in
+  [the server's repository](https://github.com/MMagTech/cabinet-linkup), then sends you an address and a
+  code. With those in hand: Settings, **Streaming**, turn LinkUp on, press **Server** and type them in.
+  LinkUp joins the top bar. Press an Online friend, then a game, and they get an invite; the game starts
+  for both of you when they join, and they play as player two. Only you need the game. It is off until
+  you turn it on, and off means nothing runs. [How it works](linkup.md).
   ([#654](https://github.com/MMagTech/cabinetos/issues/654))
 
 - **Fixed:** on Wi-Fi, a game streamed from the console, to a friend with
