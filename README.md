@@ -29,9 +29,10 @@ from your whole library.
 - **Everyone their own.** Each person signs in with a QR code and gets their own
   saves, favourites, play time, achievements and colour. A PIN guards the rest.
 - **Four players, real Wii Remotes**, and your Miis in every Wii game.
-- **Play with a friend from their house.** LinkUp streams your game to a
-  friend's CabinetOS console, where they play as player two, and only you need
-  the game. It runs through a small server you or a friend host, and it is off
+- **Play with a friend from their house.** [LinkUp](docs/wiki/linkup.md) streams
+  your game to a friend's CabinetOS console, where they play as player two, and
+  only you need the game. It runs through a small server you or a friend host,
+  [cabinet-linkup](https://github.com/MMagTech/cabinet-linkup), and it is off
   until you turn it on.
 - **Play from your phone** with Moonlight, at home or away over Tailscale.
 - **Your Steam games too.** One press hands the TV to Steam's Big Picture, and
