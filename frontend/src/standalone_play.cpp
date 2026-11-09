@@ -245,6 +245,7 @@ void App::finishStandalone() {
     dropPressesFromClosing();
     letGoOfHeld();
     std::fprintf(stderr, "[standalone] back to Home\n");
+    linkupHostGameEnded();
     // A Power menu choice made over its pause menu (#473), now that it
     // has gone and its saves are queued.
     if (powerAfterExit) {
@@ -310,7 +311,10 @@ bool App::takeStandaloneEvent(const SDL_Event& e) {
                 // A PRESS IS SOMEBODY THERE (#604): it lifts the dim over the
                 // game (watchStandalone) and still goes on to the game, as a
                 // press does in every other game.
-                if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) idleWatch.input(clockSeconds());
+                if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
+                    idleWatch.input(clockSeconds());
+                    menuNotice.pressed();
+                }
                 const int p = players::playerOf(e.gbutton.which);
                 const auto b = static_cast<SDL_GamepadButton>(e.gbutton.button);
                 const bool down = e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
@@ -455,6 +459,9 @@ bool App::watchStandalone(float dt) {
         }
     }
 
+    // LinkUp, which the frame's own call does not reach while the emulator has the screen.
+    if (standaloneRun.active() && !standalonePaused) tickLinkUpLive(dt);
+
     // WHILE AN EMULATOR OF ITS OWN HAS THE SCREEN, this loop watches it and
     // does little else: nothing drawn but the dots and the dim, and a short
     // sleep so a watcher does not take a core from the game. Play time
@@ -470,6 +477,16 @@ bool App::watchStandalone(float dt) {
         // are drawn while either changes, and over either, the frames that
         // clear this window draw them instead, so they stay over the game.
         pointerTick(dt);
+        // AND A PILL, as over any game: LinkUp's invite, or its slow connection. Drawn while it
+        // lasts, and cleared off the game when it has gone.
+        menuNotice.tick(dt);
+        if (!menuNotice.text.empty()) {
+            pointer.dirty = std::max(pointer.dirty, 3);
+            standaloneNoticeUp = true;
+        } else if (standaloneNoticeUp) {
+            standaloneNoticeUp = false;
+            standaloneClearFrames = 30;
+        }
         if (std::abs(dimLayer.value() - standaloneDimDrawn) > 0.001f)
             pointer.dirty = std::max(pointer.dirty, 3);
         if ((pointer.on || dimLayer.value() > 0.001f) && standaloneClearFrames > 0) {
@@ -513,8 +530,9 @@ bool App::watchStandalone(float dt) {
         // (2026-10-07).
         remotePlayHandover();
         // Until the next press or a sixtieth of a second, whichever is
-        // first: presses pass straight on, and a watcher costs nothing.
-        SDL_WaitEventTimeout(nullptr, 16);
+        // first: presses pass straight on, and a watcher costs nothing. In LinkUp a friend's presses
+        // arrive on another socket, so it looks sooner, or they would wait here.
+        SDL_WaitEventTimeout(nullptr, linkupSessionOpen() ? 3 : 16);
         return true;
     }
     return false;
@@ -738,6 +756,7 @@ void App::drawOverGame() {
         dot.shadowColor = ui::Color::black(0.4f);
         renderer.draw(dot);
     }
+    drawNotice(renderer.scale());
     drawDim(/*onOverlay=*/true);
     standaloneDimDrawn = dimLayer.value();
     renderer.setPixelShift(shiftShown.dx, shiftShown.dy);

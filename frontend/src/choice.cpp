@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "panels.h"
+#include "screenparts.h"
 #include "sound.h"
 
 #include <algorithm>
@@ -33,6 +34,10 @@ void ChoiceScreen::open(std::string title, std::string detail,
                         std::vector<std::string> options, int focus) {
     open_ = true;
     staysOpen_ = false;
+    onlyA_ = false;
+    fading_ = false;
+    dimHeld_ = false;
+    titleChange_ = 10.0f;
     busy_ = false;
     fixedW_ = 0.0f;
     panelW_ = panelH_ = 0.0f;
@@ -125,7 +130,7 @@ void ChoiceScreen::setDisabled(std::vector<bool> disabled) {
 }
 
 ChoiceScreen::Outcome ChoiceScreen::key(Nav n) {
-    if (!open_) return Outcome::None;
+    if (!open_ || fading_) return Outcome::None;
     switch (n) {
         case Nav::Up:
         case Nav::Down: {
@@ -171,7 +176,7 @@ ChoiceScreen::Outcome ChoiceScreen::key(Nav n) {
             sound::play(sound::Cue::Activate);
             return Outcome::Chosen;
         case Nav::Back:
-            if (busy_) {
+            if (busy_ || onlyA_) {
                 sound::play(sound::Cue::Edge);
                 return Outcome::None;
             }
@@ -181,7 +186,14 @@ ChoiceScreen::Outcome ChoiceScreen::key(Nav n) {
     return Outcome::None;
 }
 
+void ChoiceScreen::changeTitle(std::string title) {
+    titleWas_ = std::move(title_);
+    title_ = std::move(title);
+    titleChange_ = 0.0f;
+}
+
 void ChoiceScreen::tick(float dt) {
+    titleChange_ = std::min(titleChange_ + dt, 10.0f);
     appear_.tick(dt);
     listH_.tick(dt);
     focus_.tick(dt);
@@ -279,7 +291,13 @@ void ChoiceScreen::draw(Ctx& c) {
     if (fixedW_ > 0.0f) rowW = innerW = std::min(fixedW_, kPanelMaxW - kPanelPad * 2);
     const float panelW = std::min(kPanelMaxW, innerW + kPanelPad * 2);
     const float textMax = panelW - kPanelPad * 2;
-    const float titleH = c.text.lineHeight(TextStyle::Title2, sc);
+    // A panel of a set width takes a long title on two lines rather than cutting it: LinkUp's say a
+    // friend's name, and "cabinet_tester ended the session" came out without its last word.
+    const auto titleLines = [&](const std::string& s) {
+        return fixedW_ > 0.0f ? wrapTwoLines(c.text, s, TextStyle::Title2, sc, textMax) : std::vector<std::string>{s};
+    };
+    const float titleLine = c.text.lineHeight(TextStyle::Title2, sc);
+    const float titleH = titleLine * static_cast<float>(titleLines(title_).size());
     const float lineH = c.text.lineHeight(TextStyle::Callout, sc);
     const float detailH = lines.empty() ? 0.0f : 8.0f + lineH * lines.size();
     const int n = static_cast<int>(options_.size());
@@ -299,7 +317,7 @@ void ChoiceScreen::draw(Ctx& c) {
     const float px = (W - panelW) * 0.5f, py = (H - panelH) * 0.5f;
 
     c.r.setContentAlpha(1.0f);
-    c.r.draw(ui::Rect{0, 0, W, H, 0, ui::Color::black(0.55f * a)});
+    c.r.draw(ui::Rect{0, 0, W, H, 0, ui::Color::black(0.55f * (dimHeld_ ? 1.0f : a))});
     c.r.setContentAlpha(a);
     // THE PAUSE MENU'S PANEL (design::menuPanel). The keyboard's black glass
     // was tried first (*"forgotten about"*), then the account panel's frosted
@@ -312,7 +330,17 @@ void ChoiceScreen::draw(Ctx& c) {
         c.text.draw(c.r, t, (W - w) * 0.5f, base, st, ui::Color::white(alpha), sc);
     };
     float y = py + kPanelPad;
-    centred(title_, y + c.text.ascent(TextStyle::Title2, sc), TextStyle::Title2, 1.0f);
+    // A changed title: the old words go, a moment passes, and the new ones come.
+    constexpr float kTitleLeave = 0.45f, kTitleGap = 0.10f, kTitleArrive = 0.45f;
+    const auto drawTitle = [&](const std::string& s, float alpha) {
+        float base = y + c.text.ascent(TextStyle::Title2, sc);
+        for (const std::string& l : titleLines(s)) {
+            centred(l, base, TextStyle::Title2, alpha);
+            base += titleLine;
+        }
+    };
+    if (titleChange_ < kTitleLeave) drawTitle(titleWas_, 1.0f - design::easeInOut(titleChange_ / kTitleLeave));
+    else drawTitle(title_, design::easeInOut((titleChange_ - kTitleLeave - kTitleGap) / kTitleArrive));
     y += titleH;
     for (size_t i = 0; i < lines.size(); ++i)
         centred(lines[i], y + 8.0f + lineH * i + c.text.ascent(TextStyle::Callout, sc),

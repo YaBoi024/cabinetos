@@ -99,6 +99,7 @@ void App::handleEvent(const SDL_Event& e) {
     const bool powerKey = e.type == SDL_EVENT_KEY_DOWN &&
                           (e.key.key == SDLK_POWER || e.key.key == SDLK_SLEEP);
     if (touched) playClock.touch();
+    if (touched) menuNotice.pressed();
     // ON THE WAY DOWN NOTHING TAKES A PRESS (#393): the picture is fading
     // to black over Restart or Power off, and the machine goes when it has.
     if (poweringDown && (touched || powerKey)) return;
@@ -550,6 +551,8 @@ void App::handleEvent(const SDL_Event& e) {
                         break;
                     if (here() == Screen::Search && keyboard.isOpen())
                         keyboardResult(keyboard.commit());
+                    else if (here() == Screen::LinkUpPlay && linkupPlay.friendSide())
+                        linkupAskLeave();
                     else
                         openPowerMenu();
                     break;
@@ -578,6 +581,9 @@ void App::handleEvent(const SDL_Event& e) {
             if (held && v < 8000) {
                 held = false;
                 if (letterHeld == dir) letterHeld = 0;
+            } else if (!held && v > 20000 && linkupGallery) {
+                held = true;
+                linkupGalleryStep(dir);
             } else if (!held && v > 20000 && owner == InputOwner::UI) {
                 held = true;
                 if (here() == Screen::Grid) {

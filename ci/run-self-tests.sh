@@ -52,6 +52,7 @@ TESTS=(
     --playtime-test
     --disc-test
     --same-names-test
+    --linkup-test
     --files-test
     --vectrex-sheets-test
     --gone-games-test

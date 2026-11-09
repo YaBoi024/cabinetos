@@ -115,6 +115,8 @@ enum class Action {
     // A Settings choice row moved to another choice. The value is the row's
     // id; SettingsScreen::choiceOf says which choice it is on now.
     SettingChoice,
+    // A press on one of LinkUp's screens. The value says which (linkupscreen.h).
+    LinkUp,
 };
 
 struct Result {

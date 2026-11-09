@@ -30,13 +30,16 @@ status here to Built.
   right, both on screen. Moving through the list changes the right side at
   once. Settings is the one screen allowed to differ from Cabinet's shape.
   **Built.**
-- **Eight categories:** Accounts, Controllers, Network, Remote Play,
+- **Eight categories:** Accounts, Controllers, Network, Streaming,
   Display and Sound, Storage, System, About. **Built.** Remote Play was
   added as its own section, a highlight (MMagTech, 2026-10-07, #286).
+  Streaming is that section, shared with LinkUp (#654) so the list stays
+  at eight.
 - **A plain background in the signed-in person's colour, no game art**,
   because it is a screen of text (Color, under Display and Sound). **Built.**
-- **Every row is built.** A row with nothing to do right now is dimmed and
-  focus skips it, with no explanation (`Disabled` in `settings.h`; MMagTech:
+- **Every row is built,** except what belongs to a feature that is off, which
+  shows only its switch (LinkUp's Server). A row with nothing to do right now
+  is dimmed and focus skips it, with no explanation (`Disabled` in `settings.h`; MMagTech:
   "just gray out the menu option"). **Built.**
 - **Changing category cross-fades the rows**, about 150 ms, no movement.
   **Built.** MMagTech on the TV, 2026-09-24: good.
@@ -362,27 +365,57 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
   last frame and the next.
 - **One server at a time.** A friend's server is sign out, then sign in.
 
-## Remote Play
+## Streaming: LinkUp
+
+Playing a game with a friend on another CabinetOS console over the internet, through a small server its
+owner runs (#654). The design and why each thing is as it is are on that issue; `docs/wiki/linkup.md` is how
+a player and an owner use it.
+
+- **Two rows, after Remote Play's. A feature that is off shows only its switch.**
+  - **LinkUp**: On or Off. Off on every new console. **Off means off:** its program is not running, nothing
+    listens, nothing is contacted, and the firewall blocks it in both directions. Turning it on asks for the
+    PIN when one is set, on any account but the owner's; off at once. It stays on through restarts, and
+    turning it back on needs no new pairing.
+  - **Server**: hidden while off. "None", or the address. Pressing it opens a panel: **Add a server** or
+    **Change server**, **Run your own** (a QR code to the server's repository), and **Leave**. Adding,
+    changing and leaving ask for the PIN. The same server at a new address needs no new code: the console
+    remembers the server's key. Another server's address asks for that server's code on Add a server's Code
+    screen, and pairing with it forgets the old server; cancelled or wrong, the old server stays as it was.
+- **Adding a server** is the address, then the 12-character code, typed on the on-screen keyboard. The account
+  signed in at that moment becomes the friend the code was made for. A code that fails says *Wrong or expired
+  code*, too many tries *Too many tries*, nothing at that address *Can't reach that server*, and something there
+  that cannot prove it holds the code *That server failed its check*, the one sign of a typo in the address or a
+  fake server.
+- **With LinkUp on and no server yet, nothing runs.** Once paired, LinkUp joins the top bar for everyone on
+  that console: Home, Library, Search, LinkUp, Settings. It greys where the top bar says Offline.
+- **Status belongs to each account**, kept in that person's folder, and asks for no PIN. A person also shows
+  Offline after 15 minutes with no press, when the screen turns off, when the console sleeps, during a Remote
+  Play stream, and in Steam.
+- **One at a time with Remote Play.** While a device streams, the rows are greyed and every friend is grey with
+  their real status. While a session is open, on either console, Sunshine is stopped, and comes back by itself
+  with the switch unchanged.
+
+## Streaming: Remote Play
 
 Sunshine on the console, Moonlight on a phone, tablet or computer to play
 from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
 2026-10-08; **merged (#292)**.
 
 - **Three rows.**
-  - **Streaming**: On or Off, "Moonlight app" under it, and "Moonlight app ·
+  - **Remote Play**: On or Off, "Moonlight app" under it, and "Moonlight app ·
     CabinetOS" when on: the app to get, and the name it lists the console
-    under. Not "Remote Play" again (the section's name twice read oddly).
+    under.
     Turning it on asks for the PIN when one is set; off at once. **Off means
     nothing runs or listens**: `cabinetos-remoteplay.service` stopped, no
     port open, not announced on the network, no virtual devices (checked on
     the A9). On is remembered through restarts.
-  - **Paired devices**: "None" or "2 paired", greyed while Streaming is off
+  - **Paired devices**: "None" or "2 paired", greyed while Remote Play is off
     or nobody is paired. One row however many there are; it opens a list.
     Pressing a device offers **Rename** and **Remove** (Remove behind the
     PIN when set).
   - **Tailscale**, for playing away from home (MMagTech, 2026-10-08). Off
-    by default, greyed while Streaming is off, and never running then:
-    turning Streaming off stops it, turning Streaming on brings it back when
+    by default, greyed while Remote Play is off, and never running then:
+    turning Remote Play off stops it, turning it on brings it back when
     it was on. Its states:
     - **Off**: pressing it asks for the PIN when one is set, then **Sign in
       to Tailscale**, the Add an account screen's shape: "Use the Tailscale
@@ -407,8 +440,8 @@ from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
     - **Waiting for approval**, when the owner's Tailscale approves new
       devices by hand; **Logging out…**, **Turning on…**, **Couldn't start**.
   - **While a device is streaming, the whole section is greyed**, and
-    Streaming's line reads **"In use"**. The device's controller drives the
-    console, and one press on Streaming cut the stream it was playing on
+    Remote Play's line reads **"In use"**. The device's controller drives the
+    console, and one press on that switch cut the stream it was playing on
     (MMagTech, from his iPhone, 2026-10-08); Remove could do the same. A
     panel open from the section closes when a stream starts. The console's
     own controllers are set aside during a stream, so nobody loses anything.

@@ -19,6 +19,16 @@ namespace {
 constexpr float kBarItemGap = 60.0f;
 }  // namespace
 
+// Whether the screen under the bar has anything to focus, as each screen
+// answers it. Only LinkUp with no friends has nothing; an empty Home still
+// takes A, which opens the Library.
+bool App::screenTakesFocus() {
+    switch (here()) {
+        case Screen::LinkUp: return linkupScreen.takesFocus();
+        default: return true;
+    }
+}
+
 // THE BAR'S OWN KEYS. Offered every key first whenever it holds focus, from
 // whichever screen is underneath — which is the whole point of its cursor
 // living here rather than in a screen.
@@ -27,8 +37,14 @@ auto App::barKey(screens::Nav n) -> bool {
         case screens::Nav::Left:
         case screens::Nav::Right: {
             const int d = (n == screens::Nav::Right) ? 1 : -1;
-            const int next = std::clamp(barSlot + d, 0, BarCount - 1);
-            if (next == barSlot) { sound::play(sound::Cue::Edge); return true; }
+            // Focus skips LinkUp where it is hidden or greyed.
+            int next = barSlot + d;
+            while (next >= 0 && next < BarCount && !barItemReachable(next)) next += d;
+            next = std::clamp(next, 0, BarCount - 1);
+            if (next == barSlot || !barItemReachable(next)) {
+                sound::play(sound::Cue::Edge);
+                return true;
+            }
             barSlot = next;
             // MOVING ACROSS THE BAR SWITCHES THE SCREEN UNDER IT — MMagTech,
             // 2026-09-24: the shoulders already did, and the d-pad made
@@ -52,8 +68,14 @@ auto App::barKey(screens::Nav n) -> bool {
         // DOWN AND BACK BOTH LEAVE IT, and neither leaves the screen. Back
         // out of the bar going to the previous screen would mean a person
         // who walked up to look at it could not simply come back down.
+        // Neither leaves it for a screen with nothing to focus: focus would
+        // go where nobody can see it, and the next Up would come back.
         case screens::Nav::Down:
         case screens::Nav::Back:
+            if (!screenTakesFocus()) {
+                sound::play(sound::Cue::Edge);
+                return true;
+            }
             barFocused = false;
             sound::play(n == screens::Nav::Down ? sound::Cue::Move
                                                 : sound::Cue::Back);
@@ -100,6 +122,22 @@ auto App::barKey(screens::Nav n) -> bool {
     return false;
 }
 
+// The destination the console is standing in, or -1 on a screen with none. While
+// picking a game to invite with the Library is LinkUp's, so the bar says LinkUp.
+int App::barSlotHere() {
+    if (linkUp.picking) return BarLinkUp;
+    switch (here()) {
+        case Screen::Home: return BarHome;
+        case Screen::Library:
+        case Screen::Grid: return BarLibrary;
+        case Screen::Search: return BarSearch;
+        case Screen::LinkUp: return BarLinkUp;
+        case Screen::Settings:
+        case Screen::HowTo: return BarSettings;
+        default: return -1;
+    }
+}
+
 // ---- The top bar, which is its own strip ----------------------------
 //
 // MMagTech, 2026-09-21: *"the top bar with library settings and search
@@ -131,27 +169,27 @@ auto App::barKey(screens::Nav n) -> bool {
 // once drew no hero, and the bar vanished with it — which left Library
 // unreachable on the one screen that is meant to reach everything.
 void App::drawBar(bool gameUp, float sc, float dt) {
-    if (!gameUp && here() != Screen::Detail) {
+    if (!gameUp && here() != Screen::Detail && here() != Screen::LinkUpPlay) {
         // SELECTION IS NOT FOCUS, and the design system has had both since
         // the switcher pills: a SELECTED destination is where you are, a
         // FOCUSED one is what you would open. Standing in the Library, the
         // bar says Library without pretending the cursor is up there.
-        const int selected = here() == Screen::Home ? BarHome
-                             : (here() == Screen::Library || here() == Screen::Grid)
-                                 ? BarLibrary
-                                 : here() == Screen::Search   ? BarSearch
-                                 : (here() == Screen::Settings || here() == Screen::HowTo)
-                                     ? BarSettings
-                                     : -1;
+        const int selected = barSlotHere();
         const float barX = kContentInset;
         const float barW = ui::kCanvasWidth - kContentInset * 2.0f;
         const float barBaseline =
             barTop + (barHeight - text.lineHeight(ui::TextStyle::Callout, sc)) * 0.5f +
             text.ascent(ui::TextStyle::Callout, sc);
         float bx = barX;
+        const float linkupRoom = linkupBarRoomNow(dt);
         for (int i = 0; i < kBarCapsules; ++i) {
+            if (i == BarLinkUp && linkupRoom <= 0.0f) continue;
+            const float fade = i == BarLinkUp ? linkupBarFade(linkupRoom) : 1.0f;
             const bool on = barFocused && barSlot == i;
             const bool sel = (i == selected);
+            // Greyed in place while the console cannot reach its RomM server, so
+            // the bar's items do not move when the server drops or comes back.
+            const bool greyed = i == BarLinkUp && linkupOffline();
             const float w = text.measure(kBarLabels[i], ui::TextStyle::Callout, sc);
             // SELECTED AND FOCUSED ARE BOTH A CAPSULE, at the design
             // system's two tints. A cyan underline under the selected one
@@ -186,12 +224,12 @@ void App::drawBar(bool gameUp, float sc, float dt) {
                 const float ph = barHeight - kBarPillInsetY * 2.0f;
                 renderer.draw(ui::Rect{bx - kBarPillPadX, barTop + kBarPillInsetY,
                                        w + kBarPillPadX * 2.0f, ph, ph * 0.5f,
-                                       ui::Color::white(on ? kFocusedTint
-                                                           : kSelectedTint)});
+                                       ui::Color::white((on ? kFocusedTint
+                                                            : kSelectedTint) * fade)});
             }
             text.draw(renderer, kBarLabels[i], bx, barBaseline, ui::TextStyle::Callout,
-                      ui::Color::white(on || sel ? 1.0f : 0.65f), sc);
-            bx += w + kBarItemGap;
+                      ui::Color::white((greyed ? kSettingsUnbuiltAlpha : on || sel ? 1.0f : 0.65f) * fade), sc);
+            bx += (w + kBarItemGap) * (i == BarLinkUp ? linkupRoom : 1.0f);
         }
 
         const float rightEdge = barX + barW;
@@ -241,7 +279,7 @@ void App::drawBar(bool gameUp, float sc, float dt) {
         // controllers, Offline and a download at once still overlap, and
         // that was judged not worth more.
         const bool ringUp = launchJob.busy() && launchJob.busyFor >= kProgressDelay;
-        const bool offlineUp = romm::serverAway();
+        const bool offlineUp = linkupOffline();
         const float barEnd = bx - kBarItemGap + 22.0f + 24.0f;
         const float leftOfName =
             (batterySlots.empty() ? 0.0f : kToName + rowW + 10.0f) +

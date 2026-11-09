@@ -376,6 +376,12 @@ def collect_secrets(root):
     for tok in (web or "").split():
         s.add(tok, "secret", numbered=False)
 
+    # LinkUp: the address of the server it is paired with. A friend's name goes in no log (the
+    # program and the frontend name nobody), and the key stays out because no section reads its file.
+    linkup = read_json(os.path.join(root, "linkup", "server.json")) or {}
+    s.add(linkup.get("address"), "linkup server", numbered=False)
+    s.add(linkup.get("name"), "linkup server name", numbered=False)
+
     # File access and Developer access: the console user's login password
     # (system_files/usr/libexec/cabinetos-files). Nothing logs it, but sshd's
     # failures are kept, and one typed as a user name would be in them.
@@ -1060,6 +1066,23 @@ def section_remoteplay(root, frontend_lines):
     return out
 
 
+def section_linkup(root, frontend_lines):
+    server = read_json(os.path.join(root, "linkup", "server.json")) or {}
+    out = kv([
+        ("Switch", "on" if os.path.exists(os.path.join(root, "linkup", "on")) else "off"),
+        ("Paired", "yes" if server.get("address") else "no"),
+        ("Program", first_line(run(["systemctl", "is-active", "cabinetos-linkup.service"]))),
+        ("Lock", first_line(run(["systemctl", "is-active", "cabinetos-linkup-lock.service"]))),
+        ("Firewall table", "closed" if "skgid 4654" in (run(["nft", "list", "table", "inet", "cabinetos-linkup"]) or "")
+         else "open, or not loaded"),
+    ])
+    out += "\n--- What the program said (no internet addresses, by design)\n"
+    out += run(["journalctl", "-u", "cabinetos-linkup.service", "-b", "-o", "cat", "-n", "200", "--no-pager"]) or "(nothing)\n"
+    out += "\n--- What the frontend said about LinkUp\n"
+    out += "".join(l + "\n" for l in frontend_lines if l.startswith("[linkup]"))
+    return out
+
+
 def section_steam(frontend_lines):
     out = kv([
         ("State", (read("/run/cabinetos-steam.state") or "no state file").strip().replace("\n", "; ")),
@@ -1277,6 +1300,7 @@ def build(root, how, frontend_bin):
         ("Sound", lambda: section_sound(frontend)),
         ("Network and Tailscale", section_network),
         ("Remote Play", lambda: section_remoteplay(root, frontend)),
+        ("LinkUp", lambda: section_linkup(root, frontend)),
         ("Steam", lambda: section_steam(frontend)),
         ("Updates", section_updates),
         ("The server and profiles", lambda: section_server(root)),

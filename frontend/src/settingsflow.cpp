@@ -191,12 +191,11 @@ void App::buildSettings() {
                  !radioOn ? "Off" : (onWifi.empty() ? "Not connected" : onWifi)});
     }
 
-    // REMOTE PLAY (#286): its own section, a highlight (MMagTech,
-    // 2026-10-07). Three rows: the switch ("Streaming": "Remote Play"
-    // twice, as section and row, read oddly), with the app to use and the
-    // name to pick in it; the paired devices, one row however many there
-    // are, opening a list; and Tailscale, for playing away from home.
-    // Sunshine's own name is never on screen.
+    // STREAMING: Remote Play (#286) and LinkUp (#654), one section, so LinkUp
+    // does not lengthen the side list. Remote Play has three rows: the switch,
+    // with the app to use and the name to pick in it; the paired devices, one
+    // row however many there are, opening a list; and Tailscale, for playing
+    // away from home. Sunshine's own name is never on screen.
     {
         const bool on = rpState == "active";
         std::string value = on ? "On" : "Off";
@@ -209,7 +208,7 @@ void App::buildSettings() {
         const size_t n = remoteplay::paired().size();
         rpSeen = remoteplay::generation();
         // WHILE A DEVICE STREAMS, THE WHOLE SECTION IS GREYED: its
-        // controller drives the console, and one press on Streaming cut
+        // controller drives the console, and one press on its switch cut
         // the stream it was playing on (MMagTech, from his phone,
         // 2026-10-08); Remove could do the same to the device playing.
         // The console's own controllers are set aside during a stream, so
@@ -218,13 +217,16 @@ void App::buildSettings() {
         // "In use": a grey switch still reading On looks like a fault
         // when the reason is on another device (MMagTech, 2026-10-08).
         if (streamingNow) detail = "In use";
-        cats.push_back({"Remote Play", {
-            {streamingNow ? K::Disabled : K::Toggle, SetRemotePlay, "Streaming", detail, value},
+        std::vector<Row> rows = {
+            {streamingNow ? K::Disabled : K::Toggle, SetRemotePlay,
+             "Remote Play", detail, value},
             {on && n > 0 && !streamingNow ? K::Action : K::Disabled, SetPairedDevices,
              "Paired devices", "",
              n == 0 ? "None" : std::to_string(n) + " paired"},
             tailscaleRow(on, streamingNow),
-        }});
+        };
+        for (Row& r : linkupRows()) rows.push_back(std::move(r));
+        cats.push_back({"Streaming", std::move(rows), {}});
     }
 
     // PICTURE QUALITY IS THE OWNER'S WHEN A PIN IS SET (MMagTech,
@@ -425,7 +427,7 @@ void App::buildSettings() {
         else if (filesState.failed) detail = filesState.reason;
         store.push_back({K::Toggle, SetFiles, "File access", detail, value});
     }
-    cats.push_back({"Storage", std::move(store)});
+    cats.push_back({"Storage", store, {}});
 
     std::vector<Row> sys = {
         updateRow(),
@@ -518,6 +520,7 @@ void App::closeDownloadsOffSettings() {
 }
 
 void App::applySetting(const screens::Result& res) {
+    if (pressLinkUpRow(res.value)) return;
     if (res.value == SetPads) {
         openPadsPanelAt(0);
         sound::play(sound::Cue::Activate);

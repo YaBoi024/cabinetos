@@ -314,7 +314,13 @@ Coverage coverageFor(const romm::Platform& p) {
 // The one platform whose CIA games are Hidden (coverageFor, below).
 static bool hidesCias(const std::string& slug) { return slug == "3ds"; }
 
+bool judgesEachGame(const std::string& slug) {
+    return arcadematch::isArcadeSlug(slug) || slug == "dc" || slug == "wii" || slug == "wiiu" ||
+           hidesCias(slug);
+}
+
 Coverage coverageFor(const romm::Game& g) {
+    if (!judgesEachGame(g.platformSlug)) return answer(lookup(g.platformSlug));
     // AN ARCADE GAME'S EMULATOR COMES FROM ITS ZIP, in every arcade folder
     // and for a zip in Dreamcast's (arcadematch.h).
     const bool dreamcastZip =

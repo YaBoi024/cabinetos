@@ -20,6 +20,22 @@ one you install, so you only ever install the newest.
   ([#668](https://github.com/MMagTech/cabinetos/issues/668),
   [the on-screen keyboard](navigation.md#the-on-screen-keyboard))
 
+## 2026.11.08.2 {#v2026-11-08-2}
+
+- **New:** LinkUp, a game with a friend on their console, from their house. Turn it on in Settings,
+  **Streaming**, then press **Server** and type the address and code the server's owner sends you. LinkUp then
+  joins the top bar. Press an Online friend, then a game, and they get an invite; the game starts for both of
+  you when they join, and they play as player two. Only you need the game. It is off until you turn it on, and
+  off means nothing runs. [How it works](linkup.md).
+  ([#654](https://github.com/MMagTech/cabinetos/issues/654))
+
+- **Fixed:** on Wi-Fi, a game streamed from the console, to a friend with
+  LinkUp or to a phone with Remote Play, could stutter for several seconds
+  every five minutes in most homes, while the console looked for other Wi-Fi
+  networks. It now looks only when its signal gets weak, and keeps its Wi-Fi
+  awake while connected, so a friend's sound arrives on time.
+  ([#666](https://github.com/MMagTech/cabinetos/pull/666))
+
 ## 2026.11.07.2 {#v2026-11-07-2}
 
 - **Fixed:** PlayStation 3 games made with Unreal Engine 3 drew red speckle
