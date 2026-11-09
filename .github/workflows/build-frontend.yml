@@ -169,6 +169,10 @@ jobs:
           cache: false
 
       - name: The console against the pinned LinkUp server
+        # The script kills the fake servers it starts; in a container the probe is PID 1
+        # and would ignore the signal, so --init puts a real PID 1 in front of it. A hang
+        # here fails in minutes, not at GitHub's six-hour limit.
+        timeout-minutes: 15
         run: |
           set -euo pipefail
           (cd .linkup-server && CGO_ENABLED=0 go build -o ../linkup-standin ./cmd/standin)
@@ -176,7 +180,7 @@ jobs:
           podman run --rm -v "$PWD":/repo:Z -w /repo/linkup cabinetos-builder make linkup-probe
           cat > linkup-probe-in-builder <<EOF
           #!/usr/bin/env bash
-          exec podman run --rm --network=host -v "$PWD":/repo:Z -v /tmp:/tmp cabinetos-builder /repo/linkup/linkup-probe "\$@"
+          exec podman run --rm --init --network=host -v "$PWD":/repo:Z -v /tmp:/tmp cabinetos-builder /repo/linkup/linkup-probe "\$@"
           EOF
           chmod +x linkup-probe-in-builder
           if ! tools/linkup-interop.sh "$PWD/linkup-probe-in-builder" "$PWD/linkup-standin" "$LINKUP_IMAGE"; then
