@@ -142,7 +142,10 @@ void App::tickLinkUp(float dt) {
     linkupGalleryTick(dt);
 }
 
-// Retyping needs no new code: the console remembers the server's key.
+// The same server at a new address needs no new code: the console remembers its key. The program
+// checks what answers there, and the row shows the address once the program has it (the state
+// event). Another server's address opens the Code screen instead (another_server,
+// linkupsession.cpp), and the old server stays until that code pairs.
 void App::linkupRetypeAddress() {
     ui::Keyboard::Config cfg;
     cfg.title = "Server address";
@@ -152,14 +155,15 @@ void App::linkupRetypeAddress() {
     keyboard.open(cfg);
     keyboardThen = [&](ui::KeyboardResult r) {
         if (r != ui::KeyboardResult::Committed) return;
-        linkUp.server = keyboard.value();
-        if (!linkupGallery) {
-            json_object* c = json_object_new_object();
-            json_object_object_add(c, "cmd", json_object_new_string("retype"));
-            json_object_object_add(c, "address", json_object_new_string(linkUp.server.c_str()));
-            linkupSend(c);
+        if (linkupGallery) {
+            linkUp.server = keyboard.value();
+            buildSettings();
+            return;
         }
-        buildSettings();
+        json_object* c = json_object_new_object();
+        json_object_object_add(c, "cmd", json_object_new_string("retype"));
+        json_object_object_add(c, "address", json_object_new_string(keyboard.value().c_str()));
+        linkupSend(c);
     };
 }
 

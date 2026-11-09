@@ -158,6 +158,9 @@ want "an address with http in it" ok "$probe" "$work/alex" address "http://$A"
 want "an address with a slash after it" ok "$probe" "$work/alex" address "$A/"
 want "a bad address fails" unreachable "$probe" "$work/alex" address "127.0.0.1:17998"
 "$probe" "$work/alex" address "$A" >/dev/null
+want "another server's address is not kept" another "$probe" "$work/alex" address "$B"
+want "and this server still answers" ok "$probe" "$work/alex" op '{"op":"config"}'
+case "$LAST" in *'"name":"Riley'*) pass "the same server" ;; *) fail "after another server's address: $LAST" ;; esac
 
 say "== friends"
 alexId=$(people "$work/a.jar" "$AA" | grep -m1 alex | sed 's/.*value="//; s/".*//')

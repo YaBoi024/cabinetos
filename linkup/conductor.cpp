@@ -275,11 +275,23 @@ void Conductor::cmdPair(json_object* o) {
     });
 }
 
-// The key is what is checked, so a new address needs no new pairing, and it is kept whether or not
-// anything answers there yet.
+// The key is what is checked, so the same server at a new address needs no new pairing, and an
+// address where nothing answers yet is kept. Another server's address is not: the main program asks
+// for that server's code, and pairing with it forgets this one. Until then nothing here changes.
 void Conductor::cmdRetype(json_object* o) {
-    keys_.setAddress(str(o, "address"));
-    work([this]() {
+    const std::string address = str(o, "address");
+    work([this, address]() {
+        if (link_.whatAnswers(address) == ServerLink::Place::Another) {
+            Rtc::onMain([this, address]() {
+                std::fprintf(stderr, "[linkup] another server at that address\n");
+                json_object* ev = eventNamed("another_server");
+                set(ev, "address", address);
+                local_.sendJson(ev);
+                sendState();
+            });
+            return;
+        }
+        keys_.setAddress(address);
         link_.reset();
         std::string answer;
         const ServerLink::Outcome outcome = link_.call("{\"op\":\"config\"}", answer);

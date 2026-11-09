@@ -52,6 +52,13 @@ public:
     // Drops the session, after the address changed or the console left.
     void reset();
 
+    // What answers at a retyped address, by one Open under the remembered key: this server (a session
+    // opens, or the answer says something only this server could), another (something answered and
+    // no session opened: another server, or no LinkUp server at all), or nothing. Blocks, and keeps
+    // nothing: the address is not this link's until it is remembered.
+    enum class Place { ThisServer, Another, Nothing };
+    Place whatAnswers(const std::string& address, long seconds = 15);
+
     // The places an address could mean, PROTOCOL.md's table. Exposed for the test.
     static std::vector<std::string> bases(const std::string& address);
 
@@ -70,6 +77,8 @@ private:
         noise::Key recv{};
         uint64_t next = 1;
     };
+    using Send = std::function<bool(const std::vector<uint8_t>& body, Post& answer)>;
+    Outcome openBy(const Send& send, std::shared_ptr<Session>& out, bool& answered);
     Outcome open(std::shared_ptr<Session>& out, long seconds);
     Outcome sessionFor(std::shared_ptr<Session>& out, long seconds);
     bool firstPlace(const std::vector<uint8_t>& body, long seconds, Post& out);

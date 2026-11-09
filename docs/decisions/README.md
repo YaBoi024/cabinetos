@@ -73,6 +73,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [linkup-one-server-per-console](2026-11-03-linkup-one-server-per-console.md): a console has one server, set by the admin; friends belong to an account on the server, and only its owner makes friends.
 - [linkup-servers-link-two-accounts](2026-11-03-linkup-servers-link-two-accounts.md): linking two servers connects the two accounts picked and nobody else, with no chain to a third.
 - [linkup-pairing-by-the-owners-code](2026-11-03-linkup-pairing-by-the-owners-code.md): the owner makes a code that works once for 7 days, each side proves it with a slow hash and the code never travels.
+- [linkup-change-server](2026-11-08-linkup-change-server.md): Change server with another server's address asks for that server's code, and the old server stays until it pairs.
 - [linkup-pin-guards-what-is-new](2026-11-03-linkup-pin-guards-what-is-new.md): with a PIN set, turning LinkUp on, changing the server and Leave ask for it, and playing with friends asks nothing.
 - [linkup-works-like-a-friends-house](2026-11-04-linkup-works-like-a-friends-house.md): a game starts by inviting an Online friend and waiting for them to join, and the console never chases anyone.
 - [linkup-friend-sees-only-the-game](2026-11-04-linkup-friend-sees-only-the-game.md): the friend sees only the game and "Waiting for" the host whenever the host's console shows anything else.

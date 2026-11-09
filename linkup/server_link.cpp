@@ -126,7 +126,9 @@ bool ServerLink::firstPlace(const std::vector<uint8_t>& body, long seconds, Post
     return false;
 }
 
-ServerLink::Outcome ServerLink::open(std::shared_ptr<Session>& out, long seconds) {
+// One Open under the remembered key. `send` posts it and says whether anything answered.
+ServerLink::Outcome ServerLink::openBy(const Send& send, std::shared_ptr<Session>& out, bool& answered) {
+    answered = false;
     const auto server = keys_.server();
     if (!server) return Outcome::Unreachable;
 
@@ -151,7 +153,8 @@ ServerLink::Outcome ServerLink::open(std::shared_ptr<Session>& out, long seconds
     std::vector<uint8_t> body{kKindOpen};
     body.insert(body.end(), message.begin(), message.end());
     Post answer;
-    if (!firstPlace(body, seconds, answer) || answer.status != 200) return Outcome::Unreachable;
+    answered = send(body, answer);
+    if (!answered || answer.status != 200) return Outcome::Unreachable;
 
     // A server without the remembered key cannot make one that opens, so a fake server at a
     // typed address stops here.
@@ -178,6 +181,29 @@ ServerLink::Outcome ServerLink::open(std::shared_ptr<Session>& out, long seconds
     }
     json_object_put(theirs);
     return result;
+}
+
+ServerLink::Outcome ServerLink::open(std::shared_ptr<Session>& out, long seconds) {
+    bool answered = false;
+    return openBy([&](const std::vector<uint8_t>& body, Post& answer) { return firstPlace(body, seconds, answer); },
+                  out, answered);
+}
+
+ServerLink::Place ServerLink::whatAnswers(const std::string& address, long seconds) {
+    const std::vector<std::string> places = bases(address);
+    std::shared_ptr<Session> unused;
+    bool answered = false;
+    const Outcome outcome = openBy(
+        [&](const std::vector<uint8_t>& body, Post& answer) {
+            for (const std::string& place : places) {
+                answer = post(place, body, seconds);
+                if (answer.answered) return true;
+            }
+            return false;
+        },
+        unused, answered);
+    if (outcome != Outcome::Unreachable) return Place::ThisServer;
+    return answered ? Place::Another : Place::Nothing;
 }
 
 ServerLink::Outcome ServerLink::sessionFor(std::shared_ptr<Session>& out, long seconds) {

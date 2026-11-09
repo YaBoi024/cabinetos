@@ -264,6 +264,7 @@ void App::linkupOnEvent(json_object* o) {
     if (ev == "state") {
         const std::string connection = textOf(o, "connection");
         const bool wasPaired = linkUp.paired;
+        const std::string wasServer = linkUp.server;
         linkUp.paired = flagOf(o, "paired");
         linkUp.server = textOf(o, "address");
         linkUp.instead = connection == "unreachable"      ? linkup::kCantConnect
@@ -271,8 +272,11 @@ void App::linkupOnEvent(json_object* o) {
                          : connection == "console_behind" ? linkup::kThisNeedsUpdate
                          : connection == "server_behind"  ? linkup::kServerNeedsUpdate
                                                           : std::string();
-        if (wasPaired != linkUp.paired && here() == Screen::Settings) buildSettings();
+        if ((wasPaired != linkUp.paired || wasServer != linkUp.server) && here() == Screen::Settings) buildSettings();
         refreshLinkUpScreen();
+    } else if (ev == "another_server") {
+        // Change server's address is another server's: its code, on Add a server's Code screen.
+        if (here() == Screen::Settings && !keyboard.isOpen()) linkupAskCode(textOf(o, "address"), "");
     } else if (ev == "pair_result") {
         linkupPairingLeft = 0.0f;
         linkupSaidPairing(textOf(o, "result"));

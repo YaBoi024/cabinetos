@@ -193,6 +193,11 @@ int main(int argc, char** argv) {
         return r == pairing::Result::Paired ? 0 : 1;
     }
     if (action == "address" && argc == 4) {
+        // As Change server does it (conductor.cpp, cmdRetype): another server's address is not kept.
+        if (link.whatAnswers(argv[3]) == ServerLink::Place::Another) {
+            std::printf("another\n");
+            return 1;
+        }
         keys.setAddress(argv[3]);
         std::string answer;
         const auto o = link.call("{\"op\":\"config\"}", answer);

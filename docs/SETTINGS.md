@@ -378,8 +378,9 @@ a player and an owner use it.
     turning it back on needs no new pairing.
   - **Server**: hidden while off. "None", or the address. Pressing it opens a panel: **Add a server** or
     **Change server**, **Run your own** (a QR code to the server's repository), and **Leave**. Adding,
-    changing and leaving ask for the PIN. Changing the address needs no new code: the console remembers the
-    server's key.
+    changing and leaving ask for the PIN. The same server at a new address needs no new code: the console
+    remembers the server's key. Another server's address asks for that server's code on Add a server's Code
+    screen, and pairing with it forgets the old server; cancelled or wrong, the old server stays as it was.
 - **Adding a server** is the address, then the 12-character code, typed on the on-screen keyboard. The account
   signed in at that moment becomes the friend the code was made for. A code that fails says *Wrong or expired
   code*, too many tries *Too many tries*, nothing at that address *Can't reach that server*, and something there
