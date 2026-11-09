@@ -160,8 +160,9 @@ void Conductor::onClient(bool connected) {
         cmdEnd();
     }
     if (!connected && signedIn_) {
+        status_ = "offline";
         json_object* q = requestNamed("status");
-        set(q, "status", "offline");
+        set(q, "status", status_);
         ask(q, nullptr);
     }
 }
@@ -201,8 +202,9 @@ void Conductor::onCommand(json_object* o) {
         friends_.clear();
         ask(requestNamed("signout"), nullptr);
     } else if (cmd == "status") {
+        status_ = str(o, "status");
         json_object* q = requestNamed("status");
-        set(q, "status", str(o, "status"));
+        set(q, "status", status_);
         ask(q, nullptr);
     } else if (cmd == "friends") {
         fetchFriends();
@@ -307,15 +309,32 @@ void Conductor::cmdLeave() {
 void Conductor::cmdSignin(json_object* o) {
     username_ = str(o, "username");
     account_ = accountOf(num(o, "id"), str(o, "created"));
+    status_ = str(o, "status");
     signedIn_ = true;
+    signIn();
+}
+
+void Conductor::signIn() {
+    ++signinsOut_;
     json_object* q = requestNamed("signin");
     set(q, "account", account_);
     set(q, "username", username_);
-    set(q, "status", str(o, "status"));
-    ask(q, [this](ServerLink::Outcome outcome, json_object*) {
-        setConnection(outcome);
-        if (outcome == ServerLink::Outcome::Ok) fetchFriends();
+    set(q, "status", status_);
+    ask(q, [this](ServerLink::Outcome outcome, json_object* answer) {
+        --signinsOut_;
+        if (outcome == ServerLink::Outcome::Ok && str(answer, "error").empty()) fetchFriends();
     });
+}
+
+// The server keeps who is signed in on each console in memory only, so after it restarts it knows
+// nobody here: it refuses an invite, a status reaches nobody, and the list stops changing, with
+// nothing on the screen to say so. The console signs in again, with the account and status it last
+// gave, whenever the server comes back or answers `no_account`. One at a time: requests go to the
+// server in the order they were asked, so anything asked after this one finds the account there.
+void Conductor::signInAgain() {
+    if (!signedIn_ || signinsOut_ > 0) return;
+    std::fprintf(stderr, "[linkup] signing in again\n");
+    signIn();
 }
 
 void Conductor::cmdInvite(json_object* o) {
@@ -462,12 +481,24 @@ void Conductor::workerLoop() {
 void Conductor::ask(json_object* request, Then then) {
     const std::string text = jsonutil::text(request);
     json_object_put(request);
-    work([this, text, then = std::move(then)]() {
+    send(text, std::move(then), true);
+}
+
+// A request the server refused because it knows nobody signed in here is asked once more, after the
+// sign-in, so a press made just after a restart still works.
+void Conductor::send(const std::string& request, Then then, bool mayRetry) {
+    work([this, request, then = std::move(then), mayRetry]() {
         std::string answer;
-        const ServerLink::Outcome outcome = link_.call(text, answer);
-        Rtc::onMain([this, outcome, answer, then]() {
+        const ServerLink::Outcome outcome = link_.call(request, answer);
+        Rtc::onMain([this, request, outcome, answer, then, mayRetry]() {
             json_object* o = jsonutil::parse(answer);
             setConnection(outcome);
+            if (mayRetry && signedIn_ && str(o, "error") == "no_account") {
+                if (o) json_object_put(o);
+                signInAgain();
+                send(request, then, false);
+                return;
+            }
             if (then) then(outcome, o);
             if (o) json_object_put(o);
         });
@@ -478,6 +509,8 @@ void Conductor::waitLoop() {
     int after = 0;
     std::string epoch;
     int generation = waitGeneration_.load();
+    bool missed = false;
+    const auto stop = [this, &generation]() { return stopping_.load() || generation != waitGeneration_.load(); };
     while (!stopping_) {
         if (generation != waitGeneration_.load()) {
             generation = waitGeneration_.load();
@@ -489,18 +522,31 @@ void Conductor::waitLoop() {
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
             continue;
         }
+        // After a miss, a short request first. The long one is held up to 25 seconds, so the server
+        // would be seen back, and signed in to again, only that much later.
+        if (missed) {
+            std::string answer;
+            const ServerLink::Outcome outcome = link_.call("{\"op\":\"config\"}", answer);
+            if (outcome == ServerLink::Outcome::Unreachable) {
+                link_.waitBeforeRetry(stop);
+                continue;
+            }
+            missed = false;
+            Rtc::onMain([this, outcome]() { setConnection(outcome); });
+        }
         const std::string request = "{\"op\":\"wait\",\"after\":" + std::to_string(after) + "}";
         std::string answer;
         const ServerLink::Outcome outcome = link_.call(request, answer, 40);
         if (outcome != ServerLink::Outcome::Ok) {
+            missed = outcome == ServerLink::Outcome::Unreachable;
             Rtc::onMain([this, outcome]() { setConnection(outcome); });
-            link_.waitBeforeRetry([this, generation]() { return stopping_.load() || generation != waitGeneration_.load(); });
+            link_.waitBeforeRetry(stop);
             continue;
         }
         json_object* o = jsonutil::parse(answer);
         if (!o) continue;
         const std::string nowEpoch = str(o, "epoch");
-        // The server restarted: fetch the list again, and start over at 0.
+        // The server restarted, perhaps too quickly to be seen as gone: sign in again, and start over at 0.
         const bool restarted = !epoch.empty() && epoch != nowEpoch;
         epoch = nowEpoch;
         const int next = static_cast<int>(num(o, "next"));
@@ -511,7 +557,7 @@ void Conductor::waitLoop() {
         Rtc::onMain([this, events, restarted]() {
             setConnection(ServerLink::Outcome::Ok);
             if (restarted) {
-                fetchFriends();
+                signInAgain();
                 return;
             }
             json_object* list = jsonutil::parse(events);
@@ -672,7 +718,7 @@ void Conductor::setConnection(ServerLink::Outcome outcome) {
     connection_ = word;
     std::fprintf(stderr, "[linkup] the server: %s\n", word.c_str());
     sendState();
-    if (back) fetchFriends();
+    if (back) signInAgain();
 }
 
 void Conductor::sendState() {

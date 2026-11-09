@@ -237,6 +237,17 @@ if [ -n "$last" ]; then
 else
     fail "no console to remove on the owner's page"
 fi
+say "== a restart"
+# The server keeps who is signed in on each console in memory only. After a restart it says so in one
+# word, and the console signs in again on it (conductor.cpp, signInAgain).
+podman restart linkup-i-a >/dev/null || fail "restarting the server"
+for _ in $(seq 1 20); do curl -fs -o /dev/null "$AA/static/mark.svg" && break; sleep 1; done
+want "the list after a restart" ok "$probe" "$work/alex" op '{"op":"friends"}'
+case "$LAST" in *'"error":"no_account"'*) pass "the server says nobody is signed in" ;; *) fail "after a restart: $LAST" ;; esac
+want "signs in again" ok "$probe" "$work/alex" op '{"op":"signin","account":"acct-alex","username":"alex","status":"online"}'
+want "and the list comes" ok "$probe" "$work/alex" op '{"op":"friends"}'
+case "$LAST" in *'"friends":['*) pass "a list" ;; *) fail "the list: $LAST" ;; esac
+
 say "== leaving"
 want "alex leaves" ok "$probe" "$work/alex" op '{"op":"leave"}'
 want "and is gone" unreachable "$probe" "$work/alex" op '{"op":"config"}'

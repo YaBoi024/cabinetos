@@ -104,6 +104,9 @@ private:
     // The server.
     using Then = std::function<void(ServerLink::Outcome, json_object* answer)>;
     void ask(json_object* request, Then then);
+    void send(const std::string& request, Then then, bool mayRetry);
+    void signIn();
+    void signInAgain();
     void work(std::function<void()> onWorker);
     void workerLoop();
     void waitLoop();
@@ -148,8 +151,9 @@ private:
     std::string connection_ = "ok";
     std::string username_;
     std::string account_;
-    std::string serverStatus_;
+    std::string status_;       // the account's own, as the main program last said it
     bool signedIn_ = false;
+    int signinsOut_ = 0;       // sign-ins sent and not yet answered
     std::vector<Friend> friends_;
     std::map<std::string, std::string> inviteGames_;       // invite id, the game its box named
     std::map<std::string, box::Reader> inviteReaders_;
