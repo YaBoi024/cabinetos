@@ -44,6 +44,7 @@
 #
 #   bin/cabinetos-frontend
 #   bin/cabinetos-wii-bridge      the Wii Remotes' bridge (#200, wiibridge/)
+#   bin/cabinetos-linkup          LinkUp's own program (#654, linkup/)
 #   cores/<core>_libretro.so      x23
 #   mame/{mame_libretro.so, .catalogue, plugins/}   MAME 0.289, beside the
 #                                 cores in the image, in a layer of its own
@@ -75,6 +76,7 @@ if [ $# -ge 1 ]; then
     SRC="$1"
     FRONTEND="$SRC/bin/cabinetos-frontend"
     BRIDGE="$SRC/bin/cabinetos-wii-bridge"
+    LINKUP="$SRC/bin/cabinetos-linkup"
     CORES="$SRC/cores"
     SYSTEM="$SRC/system"
     CEMUSRC="$SRC/cemu"
@@ -85,6 +87,7 @@ if [ $# -ge 1 ]; then
 else
     FRONTEND="$ROOT/frontend/build/cabinetos-frontend"
     BRIDGE="$ROOT/wiibridge/cabinetos-wii-bridge"
+    LINKUP="$ROOT/linkup/cabinetos-linkup"
     CORES="$ROOT/cores/build"
     SYSTEM="$ROOT/cores/system"
     CEMUSRC="$ROOT/cores/build/cemu"
@@ -125,13 +128,16 @@ install -m 0755 "$FRONTEND" "$OUT/bin/cabinetos-frontend"
 # Remote still pairs, but no game gets a Nunchuk and Cemu sees no Remote.
 [ -f "$BRIDGE" ] || { echo "no Wii bridge at $BRIDGE" >&2; exit 1; }
 install -m 0755 "$BRIDGE" "$OUT/bin/cabinetos-wii-bridge"
+# LinkUp's program, built beside them. Without it the switch in Settings starts nothing.
+[ -f "$LINKUP" ] || { echo "no LinkUp program at $LINKUP" >&2; exit 1; }
+install -m 0755 "$LINKUP" "$OUT/bin/cabinetos-linkup"
 
 # It has to be an x86-64 executable this machine's kernel will run, not a
 # script, an empty file, a build for another processor, or — the one that has
 # actually happened in this project — an artifact that downloaded as a
 # directory. Without `file` nothing is checked, so it is required.
 command -v file >/dev/null 2>&1 || { echo "file is needed to check the binaries" >&2; exit 1; }
-for bin in cabinetos-frontend cabinetos-wii-bridge; do
+for bin in cabinetos-frontend cabinetos-wii-bridge cabinetos-linkup; do
     case "$(file -b "$OUT/bin/$bin")" in
         ELF\ 64-bit\ LSB\ *executable,\ x86-64,*|ELF\ 64-bit\ LSB\ shared\ object,\ x86-64,*) ;;
         *) echo "$bin is not an x86-64 ELF: $(file -b "$OUT/bin/$bin")" >&2

@@ -558,6 +558,12 @@ constexpr float kSettingsListGap = 8.0f;
 constexpr float kSettingsPaneGap = 60.0f;
 // Between a row's title and its detail line.
 constexpr float kSettingsDetailGap = 4.0f;
+// The two columns, which LinkUp's screen shares with Settings.
+inline float settingsListX() { return kContentInset - kRowPadX * 0.5f; }
+inline float settingsPaneX() { return settingsListX() + kSettingsListWidth + kSettingsPaneGap; }
+inline float settingsPaneW() {
+    return std::min(kRowColumnMaxWidth, ui::kCanvasWidth - kContentInset - settingsPaneX());
+}
 // A Disabled row: built, nothing to do right now. Legible, clearly not live.
 constexpr float kSettingsUnbuiltAlpha = 0.38f;
 // The backdrop under a full-screen cover: the artwork itself, filled and

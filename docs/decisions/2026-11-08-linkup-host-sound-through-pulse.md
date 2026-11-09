@@ -1,0 +1,7 @@
+# A LinkUp host captures its sound with pulsesrc, not pipewiresrc
+
+- **Decided:** The host captures the default output's monitor with GStreamer's pulsesrc, through pipewire-pulse, in 10 ms pieces, with a queue between the capture and the encoder. pipewiresrc is not used for sound.
+- **Date:** 2026-11-08
+- **Why:** On the mini PC, pipewiresrc alone, in a pipeline of nothing but a sink, handed over less and less of the sound after its first 80 seconds: 187 buffers a second falling to 80 within four minutes, so a friend heard half the game and crackles. On the same machine at the same time, pulsesrc and PipeWire's own pw-record kept 100% for four minutes; on the reference console pipewiresrc lost nothing. GStreamer's and PipeWire's maintainers recommend the Pulse elements for sound (Collabora's and Arun Raghavan's 2024 write-ups). The options were pipewiresrc with more buffers, whose fault was not understood, a capture of LinkUp's own on libpipewire as for the picture, which is more code to keep, and pulsesrc, measured right and one element. pipewire-pulse runs on every console from login ([sound-backup-output](2026-10-26-sound-backup-output.md)). The queue keeps the capture's thread off webrtcbin, which sends the sound and the picture through one lock.
+- **Numbers:** #654, "LinkUp: play a game with a friend on another CabinetOS console over the internet"; PR #666, "LinkUp: the console's side, step 3 of #654".
+- **Replaces:** none.

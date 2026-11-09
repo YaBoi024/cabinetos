@@ -61,6 +61,12 @@
 #include "job.h"
 #include "keyboard.h"
 #include "libraryscreen.h"
+struct json_object;
+
+#include "linkup_link.h"
+#include "linkup_wire.h"
+#include "linkuprules.h"
+#include "linkupscreen.h"
 #include "look.h"
 #include "manualview.h"
 #include "net.h"
@@ -207,6 +213,10 @@ struct App {
     bool lookDark = false;
     // Walks the notification pill through every message it can show.
     bool noticeGallery = false;
+    // --linkup-gallery: every LinkUp screen with made-up friends (linkupgallery.cpp).
+    // --linkup-scene opens it at one, for a --screenshot.
+    bool linkupGallery = false;
+    int linkupGalleryStart = 0;
     // --ra-sample: RetroAchievements as for somebody signed in, with a made-up
     // set on every game's page and an unlock a few seconds into a game, so
     // the page and the pop-up can be captured without an account (#74).
@@ -551,10 +561,13 @@ struct App {
     // people the bar is decorative. Since 2026-09-24 moving across the bar
     // switches the screen, so the lit item is always where you stand, and
     // Home is simply one of them. A bar slot is now its destination's number.
-    enum BarItem { BarHome = 0, BarLibrary, BarSearch, BarSettings, BarAccount, BarCount };
-    const char* kBarLabels[BarCount] = { "Home", "Library", "Search", "Settings", "Account" };
+    enum BarItem { BarHome = 0, BarLibrary, BarSearch, BarLinkUp, BarSettings, BarAccount, BarCount };
+    const char* kBarLabels[BarCount] = { "Home", "Library", "Search", "LinkUp", "Settings", "Account" };
     // How many of those draw as labelled capsules. The chip draws itself.
     static constexpr int kBarCapsules = BarAccount;
+    // LinkUp's place in the bar, opening and closing (App::linkupBarRoomNow).
+    design::Animated linkupBarRoom;
+    bool linkupBarRoomSet = false;
     size_t shelfSlots();
     bool haveResume();
     bool haveFavorites();
@@ -607,7 +620,7 @@ struct App {
     // is what makes quitting a game return to the launch screen and backing out
     // again return to the browsing.
     enum class Screen { Home, Library, Grid, Detail, Search, AddAccount, TailscaleSignIn, Report,
-                        HowTo, Settings, WhatsNew };
+                        HowTo, Settings, WhatsNew, LinkUp, LinkUpPlay, LinkUpRunOwn };
     std::vector<Screen> stack{Screen::Home};
     // Which screen last set the room, so a change of screen can be told apart
     // from focus moving within one. See the backdrop block in the frame loop.
@@ -645,6 +658,92 @@ struct App {
     // ABOUT, WHAT'S NEW (#329): the same screen once more, its code the What's
     // new page's, made once by tools/make-wiki-qr.py like How to's Wiki.
     screens::QrLinkScreen whatsNewScreen;
+    // LINKUP (#654): its top-bar screen, what a friend's console shows with no
+    // picture to show, Run your own's QR code, and what they all show. In memory
+    // only until the LinkUp program answers (step 3); linkupgallery.cpp fills it.
+    screens::LinkUpScreen linkupScreen;
+    screens::LinkUpPlayScreen linkupPlay;
+    screens::QrLinkScreen linkupRunOwn;
+    linkup::State linkUp;
+    std::string linkupHost;             // whose game this console is in, as a friend
+    std::string linkupGuest, linkupGame;  // who the host invited, and to what
+    // The live side (linkupsession.cpp): the local socket to the LinkUp program, who is signed in as
+    // it sees them, and a session with a friend.
+    linkup::Link linkupLink;
+    bool linkupProgramWanted = false;
+    bool linkupHelloSent = false;
+    bool linkupSignedIn = false;
+    bool linkupAwaySent = false;
+    std::string linkupStatusSent;
+    romm::User linkupUser;
+    int linkupUserFor = 0;
+    cab::Job<romm::User> linkupUserJob;
+    std::string linkupPairingCode;      // waiting for the program to be there
+    // --linkup-script: a real session with nothing pressed (linkupsession.cpp, runLinkUpScript).
+    std::string linkupScript;
+    double linkupScriptWaitUntil = 0.0;
+    uint32_t linkupScriptPad = 0;
+    enum class LinkupSide { None, Host, Friend };
+    LinkupSide linkupSide = LinkupSide::None;
+    std::string linkupGuestId;
+    int linkupGameId = 0;
+    bool linkupJoined = false;
+    bool linkupStreamUp = false;
+    bool linkupGameAsked = false;
+    double linkupGameStartedAt = 0.0;
+    bool linkupPictureSent = false;
+    bool standaloneNoticeUp = false;   // a pill over an emulator run as a program (drawOverGame)
+    bool linkupFriendShowsPicture = false;
+    bool linkupOverlayMarked = false;
+    bool linkupPausedHere = false;
+    bool linkupPausedThere = false;
+    bool linkupLost = false;
+    float linkupLostFor = 0.0f;
+    float linkupIdleFor = 0.0f;
+    bool linkupIdlePaused = false;
+    bool linkupPressHere = false;
+    bool linkupPressHeard = false;
+    float linkupPressAge = 0.0f;
+    bool linkupHeldRemotePlay = false;
+    SDL_JoystickID linkupFriendJoystick = 0;
+    linkupwire::Pad linkupFriendPad;     // the host: what the friend's pad is doing
+    linkupwire::Pad linkupVpadSaid;      // the host: what an emulator of its own was last told
+    uint16_t linkupLastPadSeq = 0;
+    linkupwire::Pad linkupPadSent;       // the friend: what was last sent
+    uint16_t linkupPadSeq = 0;
+    float linkupPadAge = 0.0f;
+    std::string linkupPairingAddress;   // the address being paired with
+    float linkupPairingLeft = 0.0f;     // until the pairing's answer
+    static constexpr float kWaitEndsFade = 0.75f;
+    static constexpr float kWaitEndsGap = 0.12f;
+    float linkupWaitEndsIn = 0.0f;
+    // The game list after quitting a game with a friend, and how long it has left.
+    std::string linkupAnswering;        // whose invite the Join or Decline panel is for
+    bool linkupNextOpen = false;
+    float linkupNextLeft = 0.0f;
+    std::function<void()> linkupWaitEndsThen;
+    // What the gallery plays the other side of.
+    int linkupGalleryAt = -1;
+    int linkupGallerySection = 0;
+    bool linkupGalleryPin = false;
+    bool linkupGalleryOffline = false;
+    bool linkupGalleryStreaming = false;
+    bool linkupGallerySession = false;
+    std::string linkupGalleryGame;
+    float linkupGalleryPictureIn = 0.0f;
+    float linkupGalleryJoinIn = 0.0f;
+    float linkupGalleryFriendIn = 0.0f;
+    float linkupGalleryNoAnswerIn = 0.0f;
+    float linkupGalleryDeclineIn = 0.0f;
+    float linkupGalleryHostQuitIn = 0.0f;
+    float linkupGalleryRefusedIn = 0.0f;
+    float linkupGalleryInviteEndsIn = 0.0f;
+    float linkupGalleryDownloadLeft = 0.0f;
+    bool linkupGalleryNextSpedUp = false;
+    float linkupGalleryDropEndsIn = 0.0f;
+    float linkupGalleryInviteIn = 0.0f;
+    bool linkupGalleryDropReturns = false;
+    bool linkupGalleryDimmed = false;
     // ABOUT, HOW TO (#314): the controls, in Settings' own shape (a section
     // per row on the left, its lines on the right), so it looks like the
     // console rather than a page of text (MMagTech on the TV, 2026-10-10).
@@ -742,6 +841,18 @@ struct App {
         std::thread th;
     };
     std::vector<std::unique_ptr<GridFill>> gridFills;
+    // LinkUp's invite: the first page of each system whose games are judged
+    // one by one, read ahead as the LinkUp tab opens (readAheadForInvite), and
+    // the person it was read for.
+    struct FirstPage {
+        std::string query;   // the tile's (Tile::query)
+        std::vector<romm::Game> games;
+        int total = 0;
+        bool ok = false;
+        std::string err;
+    };
+    cab::Job<std::vector<FirstPage>> inviteReadAhead;
+    int inviteReadAheadFor = 0;
     // The tile the grid screen was last opened on, and which reading of it.
     std::string gridTileQuery;
     unsigned gridReadId = 0;
@@ -1924,6 +2035,7 @@ struct App {
     void activateHome();
     void goToDestination(int d);
     int destinationHere();
+    int barSlotHere();
 
     // SWITCHING TOP-BAR DESTINATIONS IS A DISSOLVE — 2026-09-24.
     //
@@ -1968,6 +2080,7 @@ struct App {
     void switchDestination(int delta);
     bool shoulderOnPage(int dir);
     bool barKey(screens::Nav n);
+    bool screenTakesFocus();
     void removeDownloads();
     void pumpSwitch();
     void pumpLeave();
@@ -2213,6 +2326,9 @@ struct App {
     bool takeGridPages(GridFill& f, bool toScreen);
     void fillGrid(screens::Tile& t);
     void openTile(const screens::Result& res);
+    void readAheadForInvite();
+    void takeInviteReadAhead(bool wait);
+    bool inviteHasSystem(screens::Tile& t);
     // about.cpp
     void pressCredits();
     void pressHowTo();
@@ -2283,6 +2399,123 @@ struct App {
     void overlayHooks();
     void stateHooks();
     void noticeGalleryHook(float dt);
+    // linkupsession.cpp
+    void linkupStart();
+    void linkupWantProgram(bool on);
+    void linkupSend(json_object* o);
+    void linkupSetSwitch(bool on);
+    void linkupBeginPairing(const std::string& address, const std::string& code);
+    void linkupFollowAccount();
+    std::string linkupStatusWord() const;
+    void linkupFollowStatus();
+    void linkupFollowLink();
+    void linkupOnMessage(const uint8_t* data, size_t len);
+    void linkupOnEvent(json_object* o);
+    void linkupSaidPairing(const std::string& result);
+    void linkupTookFriends(json_object* list);
+    void linkupTookInviteEnded(const std::string& invite, const std::string& reason);
+    bool linkupHostWaiting() const;
+    void linkupSessionOpens(LinkupSide side);
+    void linkupSessionClosed();
+    void linkupSendInvite();
+    void linkupFetchGame();
+    void linkupSendCancel();
+    void linkupSendJoin(const linkup::Friend& f);
+    void linkupSendDecline(const linkup::Friend& f);
+    void linkupTellPeer(const std::string& word, const std::string& game = "");
+    void linkupConnected(const std::string& path);
+    void linkupStartGame();
+    void linkupConnectFailed(const std::string& reason);
+    void linkupSeatFriend();
+    void linkupUnseatFriend();
+    void linkupFriendPadChanged();
+    void linkupPassToEmulator();
+    bool linkupGameAloneOnScreen() const;
+    void linkupFollowGame();
+    void linkupHostGameEnded();
+    void linkupPauseGame();
+    void linkupResumeGame();
+    void linkupHostPanel(const std::string& title, std::function<void()> then);
+    void linkupFriendHandover(bool on);
+    void linkupFriendPicture(bool on);
+    bool linkupPictureOnly();
+    bool linkupPictureBehind();
+    void linkupSendPad(float dt);
+    bool takeLinkUpEvent(const SDL_Event& e);
+    bool linkupWatchPicture(float dt);
+    void linkupFromPeer(const std::string& word, json_object* message);
+    void linkupFriendAsksPause();
+    void linkupFriendLeaves();
+    void linkupFriendLeft();
+    void linkupPeerEndedSession();
+    void linkupPeerLost();
+    void linkupPeerBack();
+    void linkupPeerGone();
+    void linkupProgramLost();
+    void linkupIdlePause();
+    void tickLinkUpSession(float dt);
+    void tickLinkUpLive(float dt);
+    void runLinkUpScript();
+    // linkup.cpp
+    bool linkupInBar() const;
+    bool linkupSessionOpen() const;
+    bool linkupOffline() const;
+    bool barItemReachable(int item) const;
+    bool linkupInUse() const;
+    void refreshLinkUpScreen();
+    void applyLinkUp(const screens::Result& res);
+    void linkupPickGame(const std::string& who);
+    void linkupEndPick();
+    bool linkupFriendCanPlay(int cardIndex) const;
+    bool linkupPickedGame(int cardIndex);
+    void linkupInvite(const std::string& game);
+    void linkupGameStarts();
+    void linkupCancelInvite();
+    float linkupBarRoomNow(float dt);
+    static float linkupBarFade(float room);
+    void linkupGameQuit();
+    void linkupNextStarts(const std::string& game);
+    void linkupNextClose();
+    void linkupNextDone();
+    void linkupAskEndSession();
+    void linkupNextRanOut();
+    void linkupDeclinedBy(const std::string& who);
+    void linkupNoAnswerFrom(const std::string& who);
+    void linkupWaitEndsWith(const std::string& words);
+    void linkupNotAvailable(const std::string& who);
+    void linkupInviteEnded(const std::string& who);
+    void linkupWaitEnds(std::function<void()> then);
+    bool linkupHoldsScreen();
+    void linkupSayInvited(const std::string& who);
+    void linkupPanel(const std::string& title, const std::string& detail,
+                     std::vector<std::string> options, int focus, std::function<void(int)> then);
+    void linkupAnswerInvite(const linkup::Friend& f);
+    void linkupJoin(const linkup::Friend& f);
+    void linkupAskLeave();
+    void linkupPausePanel(const std::string& title);
+    // linkupflow.cpp
+    std::vector<screens::SettingsRow> linkupRows();
+    bool pressLinkUpRow(int id);
+    void linkupAskPin(const std::string& detail, std::function<void()> then);
+    void pressLinkUpSwitch();
+    void linkupAskAddress(const std::string& typed);
+    void linkupAskCode(std::string address, const std::string& typed);
+    void linkupRetypeAddress();
+    void pressRunYourOwn();
+    void pressLinkUpServer();
+    void pressLinkUpLeave();
+    void tickLinkUp(float dt);
+    // linkupgallery.cpp
+    void linkupGalleryLibrary();
+    bool linkupGalleryOpenTile(const screens::Result& res);
+    void linkupGalleryJoined(const std::string& game);
+    void linkupGalleryInvited();
+    void linkupGalleryTick(float dt);
+    void linkupGalleryStep(int dir);
+    int linkupGalleryFirst() const;
+    int linkupGalleryLast() const;
+    void linkupGalleryShow(int index);
+    void drawLinkUpGalleryCaption(float sc);
     void captureFrame(int dw, int dh);
     void refuseCaptureOverAnotherWindow(const char* whose);
     // discrig.cpp

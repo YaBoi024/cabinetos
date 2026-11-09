@@ -1,0 +1,54 @@
+# LinkUp: playing a game with a friend on another CabinetOS console (#654). docs/SETTINGS.md, LinkUp.
+#
+# NOT ENABLED, AND NO [Install]: off by default on every console, and off means this program is not
+# running, nothing listens and nothing is contacted. The session starts and stops it by name
+# (69-cabinetos-linkup.rules), when the switch is on and a server is there.
+#
+# THE LOCK. It opens the firewall table for this program and closes it behind it, so a stop, a crash or
+# a reboot all leave it closed. It does not Require the lock's one-shot: restarting that would restart
+# this with the table ending open. It starts only with the saved switch on, so a stray start never
+# opens the lock.
+#
+# EACH LIMIT IS THERE BECAUSE ITS ABSENCE GOT PAST THE LOCK WHEN TRIED (#654's second comment):
+# NoNewPrivileges, or `sg` walks out of the group; no CAP_NET_RAW, or a raw frame passes. The rule
+# reads the group of whoever opened a socket, so the program takes no socket opened elsewhere and is
+# not socket-activated. It reaches the main program over a Unix socket, because the lock drops TCP on
+# loopback too.
+#
+# WALLED OFF FROM THE HOME FOLDER, which holds the RomM token and the PIN, and from everything else the
+# console keeps: a hacked server can send false connection details, so what this program can read stays
+# small. It needs the session's runtime folder, for PipeWire and its socket to the main program; the
+# graphics device; and gamescope's display socket, as the friend's window.
+[Unit]
+Description=CabinetOS LinkUp
+Documentation=https://github.com/MMagTech/cabinetos/issues/654
+After=network.target cabinetos-linkup-lock.service cabinetos-session.service
+ConditionPathExists=/var/lib/cabinetos/linkup/on
+
+[Service]
+User=cabinet
+Group=cabinetos-linkup
+Environment=HOME=/var/lib/cabinetos/linkup
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=PIPEWIRE_RUNTIME_DIR=/run/user/1000
+Environment=XDG_CACHE_HOME=/var/lib/cabinetos/linkup/cache
+ExecStartPre=+/usr/libexec/cabinetos-linkup-firewall open
+ExecStart=/usr/libexec/cabinetos-linkup
+ExecStopPost=+/usr/libexec/cabinetos-linkup-firewall closed
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=5
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+TemporaryFileSystem=/var/lib/cabinetos:ro
+BindPaths=/var/lib/cabinetos/linkup
+InaccessiblePaths=-/var/home/cabinet -/var/lib/cabinetos-files -/var/lib/cabinetos-steam -/var/mnt
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK

@@ -269,6 +269,7 @@ bool Client::fetchCurrentUser(User* out, std::string* err) {
     // preferences, and none of them are this console's business.
     out->id = static_cast<int>(jint(root, "id"));
     out->username = jstr(root, "username");
+    out->createdAt = jstr(root, "created_at");
     // The device this token is (5.3.1 and 5.4.0 both say), kept for the
     // play-session list so it need not be asked again (#401, deviceId).
     out->deviceId = jstr(root, "current_device_id");

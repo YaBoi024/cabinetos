@@ -65,7 +65,7 @@ graphics under Linux:
 ## Remote Play
 
 - **Steam looks washed out on the device.** Turn on HDR in Moonlight's settings.
-- **The device cannot find the console.** Check Streaming is on, and that the
+- **The device cannot find the console.** Check Remote Play is on, and that the
   device is on the same network (or on Tailscale, using the Tailscale address).
 
 ## Reporting a problem

@@ -159,6 +159,7 @@ void App::finishExit() {
     overlayFade.elapsed = overlayFade.duration;
     dropPressesFromClosing();
     std::fprintf(stderr, "[overlay] exited to Home\n");
+    linkupHostGameEnded();
 }
 
 void App::exitToHome() {
@@ -380,8 +381,10 @@ bool App::readGameInput(cab::Core& core) {
         // OPENS IT THE SAME WAY, in every game: the stick has no stick
         // clicks for the pair (fightstick.h).
         const bool combos = shortcuts::enabled();
+        // LinkUp's friend pauses on their own console: player two's pad holds no shortcut here.
         if (SDL_Gamepad* gp = players::gamepad(p);
-            gp && (combos || players::streaming() || players::stick(SDL_GetGamepadID(gp)))) {
+            gp && !players::setAside(SDL_GetGamepadID(gp)) &&
+            (combos || players::streaming() || players::stick(SDL_GetGamepadID(gp)))) {
             ShortcutHold& h = shortcutHold[p];
             const SDL_JoystickID who = SDL_GetGamepadID(gp);
             if (h.down && h.pad != who) h = {};

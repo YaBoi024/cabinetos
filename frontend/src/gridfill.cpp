@@ -9,6 +9,8 @@
 #include <utility>
 
 #include "catalog.h"
+#include "linkuprules.h"
+#include "users.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
 
@@ -46,7 +48,7 @@ bool App::takeGridPages(GridFill& f, bool toScreen) {
         const int i = appendGame(lib, g);
         // In the server's order, as the first page (gridOrder).
         t->cards.push_back(i);
-        if (toScreen) added.push_back(i);
+        if (toScreen && (!linkUp.picking || linkupFriendCanPlay(i))) added.push_back(i);
     }
     if (toScreen) gridScreen.append(added, cards);
     return ended;
@@ -192,11 +194,89 @@ void App::openTile(const screens::Result& res) {
     const screens::LineNames names = isCollection     ? screens::LineNames::System
                                      : t->namesFolder ? screens::LineNames::Folder
                                                       : screens::LineNames::Nothing;
-    gridScreen.open(t->title, names, gridOrder(lib, *t), cards);
+    std::vector<int> order = gridOrder(lib, *t);
+    // Inviting: what a friend cannot play is not on the list, and a system left with none has no grid.
+    if (linkUp.picking) {
+        order.erase(std::remove_if(order.begin(), order.end(), [&](int i) { return !linkupFriendCanPlay(i); }), order.end());
+        if (order.empty() && t->fetched >= t->total) {
+            sound::play(sound::Cue::Edge);
+            return;
+        }
+    }
+    gridScreen.open(t->title, names, order, cards);
     gridTileQuery = t->query;
     gridReadId = t->readId;
     fillGrid(*t);
     gridScreen.setLoadingMore(t->fetched < t->total);
     stack.push_back(Screen::Grid);
     sound::play(sound::Cue::Activate);
+}
+
+// ---- LinkUp's invite: the systems with a game a friend can play ----------
+
+// A tile with no list in hand: never read from the server. An offline tile
+// (offlineLibrary) is never read either, and holds the drive's games from the
+// start, which are all it can offer.
+static bool unread(const screens::Tile& t) { return t.readId == 0 && t.cards.empty(); }
+
+// READ AHEAD AS THE LINKUP TAB OPENS, so a press on a friend waits for nothing.
+// The invite lists a system only when a friend can play one of its games
+// (linkup::systemOnInvite), which for a system judged game by game
+// (catalog::judgesEachGame) takes its list. Their first page each, as walking
+// into them reads it: on the reference server, Arcade's is 7.8 MB and 0.8 s,
+// Wii's 0.14 s, and every other system needs no read at all.
+void App::readAheadForInvite() {
+    if (linkupGallery || inviteReadAhead.busy()) return;
+    std::vector<std::string> queries;
+    for (const screens::Tile& t : platformTiles)
+        if (t.enterable && unread(t) && !linkup::handheldSystem(t.slug) && catalog::judgesEachGame(t.slug))
+            queries.push_back(t.query);
+    if (queries.empty()) return;
+    inviteReadAheadFor = storage::currentUser().id;
+    inviteReadAhead.start([this, queries](std::vector<FirstPage>& pages, std::string&) {
+        for (const std::string& q : queries) {
+            FirstPage p;
+            p.query = q;
+            p.ok = readFirstPage(liveClient, q, &p.games, &p.total, &p.err);
+            pages.push_back(std::move(p));
+        }
+        return true;
+    });
+}
+
+// What the read-ahead brought, onto tiles nobody has read since: once a frame,
+// and at once with `wait`. Read for somebody the console has since switched
+// from, it is dropped, and the tiles are read for the person now here.
+void App::takeInviteReadAhead(bool wait) {
+    if (wait) inviteReadAhead.wait();
+    std::vector<FirstPage> pages;
+    if (!inviteReadAhead.take(&pages, nullptr, nullptr)) return;
+    if (storage::currentUser().id != inviteReadAheadFor) return;
+    for (FirstPage& p : pages) {
+        if (!p.ok) {
+            std::fprintf(stderr, "[library] %s: %s\n", p.query.c_str(), p.err.c_str());
+            continue;
+        }
+        for (screens::Tile& t : platformTiles) {
+            if (t.query != p.query || !unread(t)) continue;
+            takeFirstPage(lib, t, std::move(p.games), p.total);
+            libraryScreen.learnedTile(t.query, t.detail, t.cover);
+            break;
+        }
+    }
+}
+
+// Whether a system has a tile in the invite's list. A system judged game by
+// game that the read-ahead has not reached is read here, one page, as walking
+// into it would be.
+bool App::inviteHasSystem(screens::Tile& t) {
+    if (unread(t) && catalog::judgesEachGame(t.slug) && loadTileGames(liveClient, lib, t))
+        libraryScreen.learnedTile(t.query, t.detail, t.cover);
+    linkup::SystemSeen seen;
+    const auto counted = lib.tileCache.find(t.id);
+    if (counted != lib.tileCache.end()) seen.count = counted->second.romCount;
+    seen.read = !unread(t);
+    seen.more = t.fetched < t.total;
+    for (int i : t.cards) seen.friendCanPlayOne = seen.friendCanPlayOne || linkupFriendCanPlay(i);
+    return linkup::systemOnInvite(seen);
 }

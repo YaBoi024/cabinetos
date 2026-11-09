@@ -21,6 +21,8 @@ RUN dnf install -y --setopt=install_weak_deps=False \
         wayland-devel freetype-devel libjpeg-turbo-devel libpng-devel \
         libcurl-devel json-c-devel libarchive-devel \
         zlib-ng-compat-devel libzip-devel alsa-lib-devel systemd-devel \
+        openssl-devel gstreamer1-devel gstreamer1-plugins-base-devel \
+        gstreamer1-plugins-bad-free-devel pipewire-devel gupnp-igd-devel \
     && dnf clean all
 
 # vulkan-headers is for the frontend's own Vulkan path, and vulkan-loader-devel
@@ -51,6 +53,11 @@ RUN dnf install -y --setopt=install_weak_deps=False \
 #   * zlib-ng-compat, libzip, alsa-lib, systemd(udev) — Flycast's host-side
 #     dependencies. It vendors most of its deps as submodules and expects
 #     these from the system.
+
+# openssl, gstreamer1, pipewire and gupnp-igd are for the LinkUp program only
+# (linkup/, #654): its own Noise, the stream, the capture and the port it asks a
+# router for. The frontend links none of them: it holds no internet code for
+# LinkUp (ci/check-linkup-no-network.sh).
 
 # git is here for the CORES, not for us. Several libretro Makefiles do
 #   GIT_VERSION := $(shell git rev-parse --short HEAD)

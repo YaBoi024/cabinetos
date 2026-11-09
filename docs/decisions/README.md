@@ -62,6 +62,49 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [sound-backup-output](2026-10-26-sound-backup-output.md): the image starts pipewire-pulse at login, so a backup output catches the console's sound while the TV's is gone.
 - [games-draw-on-the-screens-gpu](2026-11-06-games-draw-on-the-screens-gpu.md): on a PC with two GPUs, games draw on the one the screen is on, matched by device UUID; one GPU is unchanged; the old order is the fallback.
 
+### LinkUp
+
+- [linkup-streams-the-game](2026-11-02-linkup-streams-the-game.md): a friend plays by streaming, with GStreamer's webrtcbin fed by LinkUp's own capture, not by an emulator's netplay or Remote Play.
+- [linkup-built-whole](2026-11-02-linkup-built-whole.md): LinkUp is designed, built and tested as one piece and ships once, in its final form.
+- [linkup-needs-romm](2026-11-03-linkup-needs-romm.md): both consoles need a RomM server, theirs or a shared one, and LinkUp is greyed while the console cannot reach it.
+- [linkup-own-program-and-hard-off](2026-11-03-linkup-own-program-and-hard-off.md): LinkUp is a program of its own, off on every new console, and a firewall table of its own blocks it while it is off.
+- [linkup-self-run-server](2026-11-03-linkup-self-run-server.md): the server is a container anyone runs, from a repository of its own; the project runs no service.
+- [linkup-server-in-go-with-pion](2026-11-03-linkup-server-in-go-with-pion.md): the server is one small Go program with Pion's relay inside, in a nearly empty container, and not coturn.
+- [linkup-one-server-per-console](2026-11-03-linkup-one-server-per-console.md): a console has one server, set by the admin; friends belong to an account on the server, and only its owner makes friends.
+- [linkup-servers-link-two-accounts](2026-11-03-linkup-servers-link-two-accounts.md): linking two servers connects the two accounts picked and nobody else, with no chain to a third.
+- [linkup-pairing-by-the-owners-code](2026-11-03-linkup-pairing-by-the-owners-code.md): the owner makes a code that works once for 7 days, each side proves it with a slow hash and the code never travels.
+- [linkup-change-server](2026-11-08-linkup-change-server.md): Change server with another server's address asks for that server's code, and the old server stays until it pairs.
+- [linkup-pin-guards-what-is-new](2026-11-03-linkup-pin-guards-what-is-new.md): with a PIN set, turning LinkUp on, changing the server and Leave ask for it, and playing with friends asks nothing.
+- [linkup-works-like-a-friends-house](2026-11-04-linkup-works-like-a-friends-house.md): a game starts by inviting an Online friend and waiting for them to join, and the console never chases anyone.
+- [linkup-friend-sees-only-the-game](2026-11-04-linkup-friend-sees-only-the-game.md): the friend sees only the game and "Waiting for" the host whenever the host's console shows anything else.
+- [linkup-friend-is-player-two](2026-11-04-linkup-friend-is-player-two.md): the friend is always player two with no third seat, and the game, its saves and its achievements stay the host's.
+- [linkup-no-voice-chat](2026-11-04-linkup-no-voice-chat.md): LinkUp has no voice chat, ever.
+- [linkup-one-at-a-time-with-remote-play](2026-11-04-linkup-one-at-a-time-with-remote-play.md): Sunshine is stopped for the length of a LinkUp session, and friends grey during a Remote Play stream.
+- [linkup-pause-and-drops](2026-11-05-linkup-pause-and-drops.md): either console's pause stops the game for both, and a drop over about 2 seconds pauses it with "Reconnecting".
+- [linkup-session-outlives-a-game](2026-11-05-linkup-session-outlives-a-game.md): quitting a game keeps the session for the next one, and a friend leaving ends it.
+- [linkup-idle-time](2026-11-02-linkup-idle-time.md): after 10 minutes with no press the game pauses on both screens, and 15 more end the session.
+- [linkup-game-list](2026-11-05-linkup-game-list.md): the list leaves out games a friend cannot play, and one-player games stay.
+- [linkup-status](2026-11-05-linkup-status.md): Status is each account's, and an account also shows Offline after 15 minutes with no press, with the screen off, asleep or in Steam.
+- [linkup-friends-list](2026-11-05-linkup-friends-list.md): friends are ordered by status, each has a colour worked out from their name, and the empty screen stays.
+- [linkup-where-it-lives](2026-11-05-linkup-where-it-lives.md): a top-bar screen and rows in Settings' Streaming section, and while LinkUp is off only its switch shows.
+- [linkup-versions-and-the-pinned-server](2026-11-04-linkup-versions-and-the-pinned-server.md): the protocol only adds, a console names who is behind, no update is forced, and CI runs against one pinned server image.
+- [linkup-paths-tried-together](2026-11-03-linkup-paths-tried-together.md): IPv6, a reachable port, hole punching and the relay are tried together by ICE, and a player never picks one.
+- [linkup-direct-game-shows-addresses](2026-11-05-linkup-direct-game-shows-addresses.md): everything is encrypted, a direct game shows each console the other's address, and the server never learns what anyone plays.
+- [linkup-ports-mapped-by-the-program](2026-11-04-linkup-ports-mapped-by-the-program.md): the program maps its own port with a lease it renews, libnice's UPnP is off, and the ICE agent keeps to fixed ports.
+- [linkup-stun-in-the-container](2026-11-03-linkup-stun-in-the-container.md): the STUN list lives in the server, Cloudflare then Google by default, in an order the owner sets.
+- [linkup-relay-in-the-container](2026-11-03-linkup-relay-in-the-container.md): the relay is a program in the server, off until the owner turns it on, and it is the answer for carrier-grade NAT.
+- [linkup-any-network](2026-11-03-linkup-any-network.md): LinkUp works over any network and is built around none, with nothing built or promised for Tailscale or WireGuard.
+- [linkup-h265-up-to-1080p](2026-11-02-linkup-h265-up-to-1080p.md): the picture is H.265 at the host's own size up to 1080p, with H.264 as the fallback.
+- [linkup-one-bitrate-rule](2026-11-03-linkup-one-bitrate-rule.md): one rule for every game, a steady bitrate up to 18 Mbit/s with a quality floor, and no tiers by system.
+- [linkup-picture-floor](2026-11-07-linkup-picture-floor.md): a LinkUp picture never goes below 720p at 3.5 Mbit/s; below that both consoles say *Slow connection* and the game carries on.
+- [linkup-friends-picture-in-opengl](2026-11-05-linkup-friends-picture-in-opengl.md): the friend's picture is drawn with OpenGL, because Vulkan costs 20 to 40 ms more delay to be as smooth; emulators keep Vulkan.
+- [linkup-friend-sound-queue](2026-11-08-linkup-friend-sound-queue.md): a friend plays the sound from LinkUp's own queue at the host's pace, keeping 40 ms, more after a Wi-Fi stall, at most 100.
+- [linkup-host-sound-through-pulse](2026-11-08-linkup-host-sound-through-pulse.md): a host captures its sound with pulsesrc, because pipewiresrc lost more and more of it on the mini PC.
+- [linkup-server-small-surface](2026-11-03-linkup-server-small-surface.md): the server holds no logins and has no public page, runs without admin rights, and its worst case cannot reach anyone's RomM.
+- [linkup-server-log-without-names](2026-11-03-linkup-server-log-without-names.md): the server's log is a capped file in its data folder and never holds codes, keys, addresses, usernames or game titles.
+- [linkup-admin-page](2026-11-06-linkup-admin-page.md): the admin page has no setup code, a layout for phones and for computers, CabinetOS's look with four themes, and Copy as its only button.
+- [linkup-first-run-by-home-name](2026-11-09-linkup-first-run-by-home-name.md): until a password is set, a server's admin page opens only by an address or a home name, so a stray web page cannot claim a new server.
+
 ### RomM and the library
 
 - [arcade-discs-one-folder](2026-10-28-arcade-discs-one-folder.md): an arcade game with a disc is one folder with its CHD at the top, the only layout RomM documents.
@@ -87,6 +130,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [portable-first-start](2026-11-04-portable-first-start.md): what a first start would write on a USB stick is done when the file is made, or waits: the boot setting, the update source, the filesystem's layout, and the emulators, 15 minutes in at idle priority; the log stays on.
 - [portable-for-others-as-an-alpha](2026-11-04-portable-for-others-as-an-alpha.md): anyone may try the portable install from its wiki page, which calls it an alpha and lists what has and has not been tried.
 - [portable-secure-boot](2026-11-04-portable-secure-boot.md): with Secure Boot on, a portable drive brings up shim's key screen by itself and the tester enrols the key once per PC; nobody is asked to change Secure Boot, and everybody is told to save their BitLocker key first.
+- [wifi-scans-and-power-saving](2026-11-08-wifi-scans-and-power-saving.md): Wi-Fi scans only when the signal drops below -70 dBm, then every 6 minutes, in place of NetworkManager's every 5 minutes on a home with two access points; Wi-Fi power saving is off.
 
 ### Building and checking
 
