@@ -15,12 +15,12 @@ source of truth for anything on RomM's data.
 ## Where things stand
 
 **2026-11-09.** The newest release is 2026.10.10. The newest image promoted
-to consoles is 2026.11.09.3: #666, "LinkUp: the console's side, step 3 of
-#654", merged on 2026-11-09 after his TV checks; LinkUp is on the wiki,
-in the README and in the changelog (#673, #674). Open: #671, "On-screen
-keyboard: a held direction repeats, Shift locks, and the field has a
-cursor", with main merged in and CI green, waiting for his own "push to
-testing"; #528 waits on RomM and #644 is the controller list. #590, "A
+to consoles is 2026.11.09.4: #671, "On-screen keyboard: a held direction
+repeats, Shift locks, and the field has a cursor", merged on 2026-11-09 an
+hour after #666, "LinkUp: the console's side, step 3 of #654"
+(2026.11.09.3), merged after his TV checks; LinkUp is on the wiki, in the
+README and in the changelog (#673, #674). Open: #528 waits on RomM and
+#644 is the controller list. #590, "A
 Wii Remote turned on after a Wii game starts is ignored by the game",
 waits in Later; fix it only in the console's own code, never by patching
 Dolphin (MMagTech, 2026-10-25). What the A9 runs now is not written here:
@@ -58,39 +58,7 @@ RomM: keep test launches under a minute, or have his go.
    LinkUp sidebar line and this file were two misses found on 2026-11-09),
    pages that should merge or split. No edits until he has read the report;
    then small docs-only pull requests per page group, merged on his ask.
-3. **The left stick in Naomi and Atomiswave lever games (his note,
-   2026-10-28, at the TV).** Flycast feeds the analog stick only to a
-   board's analog controls, so a game with a plain lever (Trigger Heart
-   Exelica) moves only on the d-pad. The fix agreed in principle, as its own
-   small pull request after piece 1 merges: when Flycast declares no analog
-   control for a Naomi or Atomiswave game (its input descriptors), the left
-   stick past half travel also presses the lever's directions, in
-   `play.cpp`'s reader; games with analog controls (Crazy Taxi, whose gears
-   are up and down on its lever) unchanged. TV check: Trigger Heart Exelica
-   moves on the stick, Crazy Taxi steers and shifts as before.
-4. **Mario Kart Wii on the TV, with no stream (his check, asked for
-   2026-10-26).** Over a Moonlight stream on 2026.10.27 its races skipped
-   104 game frames per 10 s on average (worst 293) and he heard the sound
-   crackle; on the TV alone before, 1 to 2 (worst 13). Mario Kart DS and
-   Mario Kart 7 were fine over the same stream. His steps: play a race of
-   Mario Kart Wii on the TV, with Moonlight not connected, for a few
-   minutes. Success: smooth sound. Then read the `[pace]` lines of that run
-   (game frames skipped near the old 1 to 2). Smooth means the stream is
-   the cause, and nothing is opened unless he asks; crackling means it is
-   Wii at 5x on the A9, also his call.
-5. **Stop at an out-of-range array write, at the line that does it.**
-   Estimated 300k to 500k Opus tokens (1.2 to 2 weekly points) if no check
-   fires; more if one does.
-   The crash of 2026-10-20 was a write past a two-entry array that landed
-   silently on the grid screen next to it. Build the frontend with
-   `-D_GLIBCXX_ASSERTIONS` and make the fixed arrays indexed by a value
-   set at run time `std::array` (`pillFocus_` in `libraryscreen.h`,
-   `slotFocus` and `slotPress` in `app.h`, and the others a grep finds),
-   so a bad index stops the program and names the line instead of
-   damaging what sits beside it. Measure the frame times on Home and a
-   large grid on the A9 before and after; if the cost shows, stop and
-   say so. One PR, CI green, his word to merge.
-6. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
+3. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
    Kirby: Planet Robobot saved into Mario Kart 7's folder. Read on RomM on
    2026-10-25: Mario Kart 7's save (uploaded 2026-10-22) still carries
    Kirby's save data and its extra data, four files. He wants them gone
@@ -98,7 +66,7 @@ RomM: keep test launches under a minute, or have his go.
    folder, so deleting them on the A9 alone does not last: Mario Kart 7's
    save on RomM has to be replaced. Restate exactly what goes and wait for
    his yes before anything is deleted.
-7. **Words from him, one at a time, no work:** #181, "Updates and DLC as
+4. **Words from him, one at a time, no work:** #181, "Updates and DLC as
    separate files in RomM (Switch, PS3, Xbox 360)", and #215, "Proposal, not
    decided: opt-in "Help improve CabinetOS" report sharing" (he is unsure of
    both); and which of the 36 faults the PROJECT.md scan found with no issue
@@ -121,7 +89,9 @@ RomM: keep test launches under a minute, or have his go.
   #203 closed until libretro/dolphin#508 moves.
 - **Filed, not scheduled:** #559, "A power cut right after a download or an
   unpack can leave a damaged game that the console keeps (exFAT and NTFS
-  drives)".
+  drives)", and #675, "Arcade: a Naomi or Atomiswave game with a plain
+  joystick moves only on the d-pad", the fix agreed in principle on
+  2026-10-28 and written on the issue.
 - **With the next real core change:** the comments #490, "Code comments
   that say what the code no longer does, and machine details left in
   comments", left in the core and PCSX2 build files and `core*.cpp`, kept
