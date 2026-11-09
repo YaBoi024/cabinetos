@@ -629,10 +629,13 @@ void App::repeatHeld(float dt) {
     else keyboard.letGoOfHeld();
     // The held direction, repeating and speeding up. Driven from the frame
     // loop rather than from the event queue, because the pad sends nothing
-    // at all while a button is held down. `!keyboard.isOpen()` now excludes
-    // only Search with its keyboard up under the results or the bar: a held
-    // direction there moves once, as before #668, which leaves it alone.
-    if (navHold.held && inputOwner() == InputOwner::UI && !keyboard.isOpen()) {
+    // at all while a button is held down. ON EVERY SCREEN, Search's results
+    // and the bar above them included while Search's keyboard is still up
+    // (#668): this skipped any open keyboard, which since inputOwner learned
+    // that Search's results can have the input left only that case, where a
+    // held Right moved one cover and stopped. The keyboard holds for itself
+    // above, while it has the input.
+    if (navHold.held && inputOwner() == InputOwner::UI) {
         if (navHold.due(dt)) navigate(heldNav);
     } else {
         navHold.stop();

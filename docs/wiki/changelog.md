@@ -15,7 +15,9 @@ one you install, so you only ever install the newest.
   a typo no longer means deleting back to it: press Up from the numbers to
   move into the field, Left and Right to move the cursor, then type or press
   **X** there, and Down to go back to the keys. In Search, Up from the field
-  goes on to the results. ([#668](https://github.com/MMagTech/cabinetos/issues/668),
+  goes on to the results, and holding Left or Right there keeps moving
+  along the covers, which it did only after **Start**.
+  ([#668](https://github.com/MMagTech/cabinetos/issues/668),
   [the on-screen keyboard](navigation.md#the-on-screen-keyboard))
 
 ## 2026.11.07.2 {#v2026-11-07-2}
