@@ -42,12 +42,6 @@ float rowHeight(Ctx& c, const SettingsRow& row) {
 // back by their own padding so their LABELS sit on the product's one margin,
 // the same rule the bar and the switcher follow; the rows start a gap to the
 // right of the list's capsules.
-float listX() { return design::kContentInset - design::kRowPadX * 0.5f; }
-float paneX() { return listX() + design::kSettingsListWidth + design::kSettingsPaneGap; }
-float paneW() {
-    return std::min(design::kRowColumnMaxWidth,
-                    ui::kCanvasWidth - design::kContentInset - paneX());
-}
 
 }  // namespace
 
@@ -90,6 +84,18 @@ bool SettingsScreen::focusable(int cat, int row) const {
     if (row < 0 || row >= static_cast<int>(rows.size())) return false;
     return rows[row].kind == Kind::Action || rows[row].kind == Kind::Toggle ||
            rows[row].kind == Kind::Choice || (rows[row].kind == Kind::Info && rows[row].pressable);
+}
+
+void SettingsScreen::focusSetting(int id, bool intoRow) {
+    for (int c = 0; c < static_cast<int>(cats_.size()); ++c) {
+        const auto& rows = cats_[static_cast<size_t>(c)].rows;
+        for (int r = 0; r < static_cast<int>(rows.size()); ++r) {
+            if (rows[static_cast<size_t>(r)].id != id) continue;
+            focusCategory(c, false);
+            if (intoRow && focusable(c, r)) row_ = r;
+            return;
+        }
+    }
 }
 
 int SettingsScreen::choiceOf(int id) const {
@@ -302,7 +308,7 @@ void SettingsScreen::drawGlass(Ctx& c) {
         const float s = 1.0f + ff * (design::kRowFocusScale - 1.0f);
         const float w0 = design::kSettingsListWidth;
         const float w = w0 * s, h = itemH * s;
-        const float x = listX() - (w - w0) * 0.5f;
+        const float x = design::settingsListX() - (w - w0) * 0.5f;
         const float iy = y - (h - itemH) * 0.5f;
         if (focused)
             c.r.drawGlass(ui::Rect{x, iy, w, h, design::kRowRadius, ui::Color::white(0)},
@@ -323,7 +329,7 @@ void SettingsScreen::drawGlass(Ctx& c) {
 
     // ---- The rows ----
     const auto& rows = cats_[cat_].rows;
-    const float px = paneX(), pw = paneW();
+    const float px = design::settingsPaneX(), pw = design::settingsPaneW();
     const float gap = design::kDetailRowGap;
 
     // Scroll to keep the focused row on screen, never past the end.

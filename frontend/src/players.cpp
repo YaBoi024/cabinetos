@@ -17,21 +17,31 @@ namespace players {
 
 // ---- The rules --------------------------------------------------------------
 
-int Seats::playerOf(uint32_t id) const {
+int Seats::seatOf(uint32_t id) const {
     if (id == 0) return -1;
     for (size_t i = 0; i < seats_.size(); ++i)
         if (seats_[i].id == id) return static_cast<int>(i);
     return -1;
 }
 
+int Seats::playerOf(uint32_t id) const {
+    if (!friend_) return seatOf(id);
+    if (id == friend_) return 1;
+    return seatOf(id) == 0 ? 0 : -1;
+}
+
 uint32_t Seats::idOf(int player) const {
+    if (friend_) {
+        if (player == 1) return friend_;
+        if (player != 0) return 0;
+    }
     if (player < 0 || player >= static_cast<int>(seats_.size())) return 0;
     return seats_[player].id;
 }
 
 int Seats::add(uint32_t id, const std::string& key) {
     if (id == 0) return -1;
-    if (const int p = playerOf(id); p >= 0) return p;
+    if (const int p = seatOf(id); p >= 0) return p;
     // A pad coming back to the game it left takes its own number back. Known
     // by its key, never by position: two people's pads can both be away.
     if (!key.empty())
@@ -102,6 +112,8 @@ std::mutex gIsRemoteLock;
 std::map<SDL_JoystickID, SDL_Gamepad*> gOpen;
 std::map<SDL_JoystickID, std::string> gDir;   // its HID device, for its battery
 std::map<SDL_JoystickID, const fightstick::Stick*> gStick;   // the open fight sticks
+std::atomic<SDL_JoystickID> gFriend{0};   // LinkUp's, read by setAside on that thread too
+bool gHoldTwo = false;                    // a friend has left, and the game they left runs on
 
 // The seats a game hears now.
 Seats& active() { return gStreaming ? gRemote : gSeats; }
@@ -304,7 +316,7 @@ void loadMappings() {
 }
 
 void added(SDL_JoystickID id) {
-    if (gOpen.count(id)) return;
+    if (gOpen.count(id) || id == gFriend.load()) return;
     SDL_Gamepad* gp = SDL_OpenGamepad(id);
     if (!gp) {
         std::fprintf(stderr, "[players] could not open pad %u: %s\n",
@@ -351,6 +363,7 @@ void removed(SDL_JoystickID id) {
 }
 
 void setInGame(bool on) {
+    if (!on) gHoldTwo = false;
     if (gSeats.inGame() == on) return;
     if (on) {   // FORK (handheld): before the game keeps the numbers
         putLastPressedFirst();
@@ -393,8 +406,31 @@ bool sharing() {
     return on;
 }
 
+void seatFriend(SDL_JoystickID id) {
+    gFriend = id;
+    if (!gOpen.count(id))
+        if (SDL_Gamepad* gp = SDL_OpenGamepad(id)) gOpen[id] = gp;
+    gSeats.setFriend(id);
+    gHoldTwo = false;
+    changed("a friend joined as player 2,", id);
+}
+
+void unseatFriend() {
+    const SDL_JoystickID id = gFriend.exchange(0);
+    if (!id) return;
+    gSeats.setFriend(0);
+    auto it = gOpen.find(id);
+    if (it != gOpen.end()) {
+        SDL_CloseGamepad(it->second);
+        gOpen.erase(it);
+    }
+    gHoldTwo = gSeats.inGame();
+    changed("the friend left,", id);
+}
+
 bool setAside(SDL_JoystickID id) {
-    if (sharing()) return false;
+    if (id == gFriend.load()) return true;
+    if (sharing()) return false;   // FORK (handheld)
     std::lock_guard<std::mutex> lk(gIsRemoteLock);
     auto it = gIsRemote.find(id);
     return it != gIsRemote.end() && it->second != gStreaming;
@@ -414,7 +450,10 @@ const fightstick::Stick* stick(SDL_JoystickID id) {
 
 int playerOf(SDL_JoystickID id) { return active().playerOf(id); }
 
-int count() { return static_cast<int>(active().seats().size()); }
+int count() {
+    const int n = active().count();
+    return gHoldTwo ? std::max(n, 2) : n;
+}
 
 std::vector<Pad> connected() {
     std::vector<Pad> out;
@@ -499,6 +538,26 @@ int test() {
         check(s.seats().empty(), "in a game, every pad off frees every seat");
         check(s.add(22, "b") == 0, "and the first pad back is player 1, whichever it was");
         check(s.add(23, "a") == 1, "and the other is player 2");
+    }
+    {
+        Seats s;
+        s.add(10, "a");
+        s.add(11, "b");
+        s.add(12, "c");
+        s.setFriend(99);
+        check(s.playerOf(99) == 1 && s.idOf(1) == 99, "a friend is player two");
+        check(s.playerOf(10) == 0 && s.idOf(0) == 10, "and player one stays whoever had it");
+        check(s.playerOf(11) == -1 && s.playerOf(12) == -1, "and a game hears no other controller of the TV's");
+        check(s.idOf(2) == 0 && s.count() == 2, "and there is no third seat, whatever the game allows");
+        check(s.add(11, "b") == 1 && s.seats().size() == 3, "a pad of the TV's keeps its own seat underneath");
+        s.setFriend(0);
+        check(s.playerOf(11) == 1 && s.playerOf(12) == 2 && s.count() == 3, "and the TV's numbers come back as they were");
+    }
+    {
+        Seats s;
+        s.setFriend(99);
+        check(s.count() == 2 && s.idOf(0) == 0, "with no pad on at the TV, the friend is still player two");
+        check(s.add(10, "a") == 0 && s.playerOf(10) == 0, "and the first pad on is player one");
     }
     {
         Seats s;

@@ -37,6 +37,8 @@ public:
     // STAYS UP WHEN AN ANSWER IS CHOSEN, for a window that acts on a choice
     // in place (Add a controller pairs the pad it lists). Back still closes.
     // open() clears it.
+    // A panel whose words say to press A: B does nothing, so the words stay true.
+    void setOnlyA(bool on) { onlyA_ = on; }
     void setStaysOpen(bool on) { staysOpen_ = on; }
     bool staysOpen() const { return staysOpen_; }
     // ONE WIDTH FOR AS LONG AS IT IS OPEN, the content's width in canvas
@@ -112,6 +114,8 @@ public:
     bool busy() const { return busy_; }
     // The title alone, keeping everything else ("Paired successfully").
     void setTitle(std::string title) { title_ = std::move(title); }
+    // The title changing while the panel stays: the old words go, then the new ones come.
+    void changeTitle(std::string title);
     // The detail line alone, keeping the answers and focus.
     void setDetail(std::string detail) { detail_ = std::move(detail); }
     // A level of the pause menu fades out, then the menu's rows fade back in.
@@ -122,6 +126,17 @@ public:
         open_ = false;
         withMenu_ = true;
     }
+    // Fades out where it is, taking no presses, for a panel about to replace it. A panel
+    // changing its words and size in place shows both sets of words at once. Only the
+    // box goes: the dim stays, or the whole screen pulses bright and dark behind the swap.
+    void fadeAway(float seconds) {
+        fading_ = true;
+        dimHeld_ = true;
+        appear_.smooth = true;
+        appear_.retarget(0.0f, seconds);
+    }
+    // The panel replacing one that faded away keeps the dim as it was. Call after open.
+    void holdDim() { dimHeld_ = true; }
     // Nothing left of it, at once (the pause menu opening again).
     void forget();
     bool isOpen() const { return open_; }
@@ -140,6 +155,9 @@ public:
 private:
     bool open_ = false;
     bool staysOpen_ = false;
+    bool onlyA_ = false;
+    bool fading_ = false;
+    bool dimHeld_ = false;
     bool busy_ = false;
     float spin_ = 0.0f;
     float fixedW_ = 0.0f;
@@ -155,7 +173,8 @@ private:
     std::string placeholder_;
     design::Animated listH_;
     bool listHSet_ = false;
-    std::string title_, detail_;
+    std::string title_, detail_, titleWas_;
+    float titleChange_ = 10.0f;
     std::vector<std::string> options_;
     std::vector<std::string> values_;
     std::vector<bool> disabled_;

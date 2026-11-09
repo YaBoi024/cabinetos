@@ -1,0 +1,7 @@
+# LinkUp's admin page is made for phones and computers, wears CabinetOS's look, and has Copy only
+
+- **Decided:** Whoever opens the admin page first sets its password; there is no setup code. The page is laid out natively for phones and for computers, a tab bar and sheets on a phone and a side bar and dialogs on a computer, from one page. It wears CabinetOS's colours, mark and Noto Sans by default, with Graphite, Midnight and Light to choose under Settings. Copy is the only button: it takes one ready message with the server's address, the code and the day it expires, and the server sends nothing and stores no email login or address. Dates and times come from the owner's own browser, with the time zone named.
+- **Date:** 2026-11-06
+- **Why:** An owner is as likely to add someone from the couch as from a desk. Copy is the only button because mail and text links behave differently on every device, and the server holds no logins, which is much of why a hacked one does little harm; an email login would break that. The first visitor sets the password, as most self-hosted apps do, because the admin port is not forwarded, and on a VPS it is published only to the VPS itself. A container's clock is usually UTC and the person reading the message may be somewhere else, so the browser supplies the time.
+- **Numbers:** #654, "LinkUp: play a game with a friend on another CabinetOS console over the internet".
+- **Replaces:** the first admin page, with Copy, Email and Text buttons, a setup code and one look.

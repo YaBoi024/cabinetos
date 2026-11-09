@@ -451,7 +451,7 @@ void App::idleFrame(float dt, bool playingNow, double blankAfter) {
     }
     dimLayer.tick(dt);
     // FORK (handheld): sleep when idle on battery (idlesleep.h). Only with no game
-    // loaded, only when the screen has already had its turn to go out, and asked
+    // loaded and none on screen (playingNow: a LinkUp friend's game, too), only when the screen has already had its turn to go out, and asked
     // once per stretch of idleness: a press (idleFor back under 5 s) arms it again.
     {
         static bool sleepAsked = false;
@@ -459,7 +459,7 @@ void App::idleFrame(float dt, bool playingNow, double blankAfter) {
         const double after = idlesleep::seconds();
         const double quiet = idleWatch.idleFor(t);
         if (quiet < 5.0) sleepAsked = false;
-        if (after > 0.0 && !sleepAsked && !playing && !standaloneRun.active() &&
+        if (after > 0.0 && !sleepAsked && !playing && !playingNow && !standaloneRun.active() &&
             quiet >= std::max(after, blankAfter) && t >= nextLook) {
             nextLook = t + 5.0;   // the supply files are not read every frame
             if (idlesleep::onBattery() && power::canRest()) {

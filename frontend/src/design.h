@@ -124,6 +124,35 @@ constexpr float kRepeatDelay = 0.420f;    // before the second move
 constexpr float kRepeatStart = 0.120f;    // and between the ones after it
 constexpr float kRepeatFast = 0.045f;     // once it has been held a while
 constexpr float kRepeatRamp = 1.200f;     // seconds from Start to Fast
+// The wait after a held button's repeat made `heldFor` seconds into the
+// hold: kRepeatStart, closing on kRepeatFast over kRepeatRamp.
+inline float repeatGap(float heldFor) {
+    const float t = std::clamp(heldFor / kRepeatRamp, 0.0f, 1.0f);
+    return kRepeatStart + (kRepeatFast - kRepeatStart) * t;
+}
+// A HELD BUTTON REPEATS AT ONE PACE, on every screen: the press acts at once
+// (the caller's), then again after kRepeatDelay, then faster (repeatGap).
+// Every hold keeps one of these: a screen's held direction
+// (App::repeatHeld), the on-screen keyboard's direction and delete
+// (Keyboard::repeatHeld), the PIN pad's delete (PinScreen::tick).
+struct HeldRepeat {
+    bool held = false;
+    float heldFor = 0.0f, next = 0.0f;
+    void start() {
+        held = true;
+        heldFor = 0.0f;
+        next = kRepeatDelay;
+    }
+    void stop() { held = false; }
+    // Whether a repeat is due, given the frame's time.
+    bool due(float dt) {
+        if (!held) return false;
+        heldFor += dt;
+        if (heldFor < next) return false;
+        next = heldFor + repeatGap(heldFor);
+        return true;
+    }
+};
 // A held trigger, between letters. 0.16 was "a little too fast ... the
 // letters are zooming by" (MMagTech, 2026-10-10): each letter has to settle
 // in the capsule long enough to be read before the next one arrives.
@@ -558,6 +587,12 @@ constexpr float kSettingsListGap = 8.0f;
 constexpr float kSettingsPaneGap = 60.0f;
 // Between a row's title and its detail line.
 constexpr float kSettingsDetailGap = 4.0f;
+// The two columns, which LinkUp's screen shares with Settings.
+inline float settingsListX() { return kContentInset - kRowPadX * 0.5f; }
+inline float settingsPaneX() { return settingsListX() + kSettingsListWidth + kSettingsPaneGap; }
+inline float settingsPaneW() {
+    return std::min(kRowColumnMaxWidth, ui::kCanvasWidth - kContentInset - settingsPaneX());
+}
 // A Disabled row: built, nothing to do right now. Legible, clearly not live.
 constexpr float kSettingsUnbuiltAlpha = 0.38f;
 // The backdrop under a full-screen cover: the artwork itself, filled and

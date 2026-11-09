@@ -1,0 +1,19 @@
+// Let the console turn its own LinkUp program on and off. Nothing else.
+//
+// LinkUp runs as cabinetos-linkup.service, a system unit so that it can open and close its firewall
+// lock as root. The session runs as `cabinet` and starts and stops it by name when the switch in
+// Settings is on and a server is there, as Remote Play's rule does for Sunshine. #654.
+//
+// `subject.local`, as in 60-cabinetos-network.rules: the console on its own seat, not an SSH session.
+
+polkit.addRule(function(action, subject) {
+    if (action.id != "org.freedesktop.systemd1.manage-units" ||
+        subject.user != "cabinet" || !subject.local) {
+        return polkit.Result.NOT_HANDLED;
+    }
+    if (action.lookup("unit") == "cabinetos-linkup.service" &&
+        (action.lookup("verb") == "start" || action.lookup("verb") == "stop")) {
+        return polkit.Result.YES;
+    }
+    return polkit.Result.NOT_HANDLED;
+});

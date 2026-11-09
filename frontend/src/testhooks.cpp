@@ -72,7 +72,7 @@ void App::openScreenForCapture() {
         // `--screen settings --tile N` opens on category N; `--focus-row 1`
         // puts focus in its rows. The network is waited for here, because a
         // capture has no wall clock and would otherwise always say Checking.
-        goToDestination(3);
+        goToDestination(BarSettings);
         if (settingsNet.th.joinable()) settingsNet.th.join();
         if (settingsWifi.th.joinable()) settingsWifi.th.join();
         buildSettings();
@@ -187,6 +187,39 @@ void App::walkNavScript() {
                     std::fprintf(stderr, "[nav] unknown key '%s'\n", word.c_str());
                 else
                     handleEvent(e);
+                word.clear();
+                if (!*p) break;
+                continue;
+            }
+            // A PAD BUTTON PRESSED AND LET GO, by SDL's name for it
+            // ("pad:y", "pad:dpup"), and TEXT a physical keyboard typed
+            // ("text:romm.local"), through the event handler too: the
+            // on-screen keyboard is driven only there, its Y and A are a
+            // pad's, and a direction pressed and never let go would go on
+            // repeating (#668).
+            if (!ok && word.rfind("pad:", 0) == 0) {
+                const SDL_GamepadButton b = SDL_GetGamepadButtonFromString(word.c_str() + 4);
+                if (b == SDL_GAMEPAD_BUTTON_INVALID) {
+                    std::fprintf(stderr, "[nav] unknown button '%s'\n", word.c_str());
+                } else {
+                    SDL_Event e{};
+                    e.type = SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+                    e.gbutton.button = static_cast<Uint8>(b);
+                    e.gbutton.down = true;
+                    handleEvent(e);
+                    e.type = SDL_EVENT_GAMEPAD_BUTTON_UP;
+                    e.gbutton.down = false;
+                    handleEvent(e);
+                }
+                word.clear();
+                if (!*p) break;
+                continue;
+            }
+            if (!ok && word.rfind("text:", 0) == 0) {
+                SDL_Event e{};
+                e.type = SDL_EVENT_TEXT_INPUT;
+                e.text.text = word.c_str() + 5;
+                handleEvent(e);
                 word.clear();
                 if (!*p) break;
                 continue;

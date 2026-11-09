@@ -4,6 +4,40 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.11.09.4 {#v2026-11-09-4}
+
+- **Improved:** the on-screen keyboard is quicker for long entries such as a
+  server address, a code or a Wi-Fi password. Holding a direction now keeps
+  moving, slowly at first and then faster, as everywhere else on the console,
+  and holding **X** keeps deleting, on the PIN pad too.
+  **Y** (or the Shift key) pressed once capitalises the next letter; pressed
+  twice it keeps capitals on, shown underlined, until you press it again. And
+  a typo no longer means deleting back to it: press Up from the numbers to
+  move into the field, Left and Right to move the cursor, then type or press
+  **X** there, and Down to go back to the keys. In Search, Up from the field
+  goes on to the results, and holding Left or Right there keeps moving
+  along the covers, which it did only after **Start**.
+  ([#668](https://github.com/MMagTech/cabinetos/issues/668),
+  [the on-screen keyboard](navigation.md#the-on-screen-keyboard))
+
+## 2026.11.09.3 {#v2026-11-09-3}
+
+- **New:** LinkUp, a game with a friend on their console, from their house. It needs a small server that
+  you or a friend runs, at home or on a rented machine; whoever runs it follows the guide in
+  [the server's repository](https://github.com/MMagTech/cabinet-linkup), then sends you an address and a
+  code. With those in hand: Settings, **Streaming**, turn LinkUp on, press **Server** and type them in.
+  LinkUp joins the top bar. Press an Online friend, then a game, and they get an invite; the game starts
+  for both of you when they join, and they play as player two. Only you need the game. It is off until
+  you turn it on, and off means nothing runs. [How it works](linkup.md).
+  ([#654](https://github.com/MMagTech/cabinetos/issues/654))
+
+- **Fixed:** on Wi-Fi, a game streamed from the console, to a friend with
+  LinkUp or to a phone with Remote Play, could stutter for several seconds
+  every five minutes in most homes, while the console looked for other Wi-Fi
+  networks. It now looks only when its signal gets weak, and keeps its Wi-Fi
+  awake while connected, so a friend's sound arrives on time.
+  ([#666](https://github.com/MMagTech/cabinetos/pull/666))
+
 ## 2026.11.07.2 {#v2026-11-07-2}
 
 - **Fixed:** PlayStation 3 games made with Unreal Engine 3 drew red speckle

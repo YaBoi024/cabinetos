@@ -189,4 +189,11 @@ inline bool playable(const romm::Game& g) {
 // own count includes them, so such a platform's tile is counted from its list.
 bool hidesSomeGames(const romm::Platform& p);
 
+// Whether coverageFor(Game) answers this platform's games one by one, so that
+// some can be greyed or hidden while the platform plays: the arcade folders,
+// Dreamcast (its zips), Wii, Wii U and 3DS. Every other platform's games answer
+// as the platform does, and coverageFor(Game) asks this first, so a rule about
+// one game cannot be added without its platform here.
+bool judgesEachGame(const std::string& slug);
+
 }  // namespace catalog
