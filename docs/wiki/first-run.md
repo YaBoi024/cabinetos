@@ -1,11 +1,21 @@
 # First run
 
-The first time CabinetOS starts, it walks through four steps. Keep the USB
+The first time CabinetOS Handheld starts, it walks through four steps. Keep the USB
 keyboard plugged in until a controller is paired.
 
 **On the keyboard:** arrows move, Return or Space selects, Escape or Backspace
 goes back. **On a pad:** the d-pad moves, **A** selects, **B** goes back. A
 mouse works too.
+
+## Time zone (running from a USB drive)
+
+Only on a console with no time zone yet, which is one running from a USB
+drive: the installer's Time & Date screen sets it on every other. Pick your
+region, then a city in your time zone; **Continue** stays greyed until you
+have. The lists are long, so a letter on the keyboard jumps to the first city
+that starts with it, and **L1** and **R1** (Page Up and Page Down) move a page.
+There is no time zone in Settings: to change it, press **Back** on the next
+screen.
 
 ## 1. Connect to a network
 

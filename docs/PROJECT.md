@@ -111,9 +111,9 @@ down. "Look now at" is where the code or a later decision moved on.
   at: questions 21 and 32.
 - **5. Anaconda ISO vs. a plain disk image for installing to real
   hardware.** "ANSWERED 2026-10-07: keep the ISO, automated down to one
-  question", and built the same day. What the ISO builder will not change is
-  #284 ("Installer: what the ISO builder will not let us change"), closed as
-  cosmetic. Look now at: `disk_config/iso.toml`.
+  question", and built the same day. What the ISO builder will not change
+  (#284) is done since 2026-11-02 by repacking its ISO:
+  [decisions/2026-11-02-installer-iso-repacked.md](decisions/2026-11-02-installer-iso-repacked.md). Look now at: `disk_config/`.
 - **6. `/opt` mutability.** "Left at Bazzite's default". Nothing needed it:
   the emulators built into the image live under `/usr/lib/cabinetos/`.
 - **7. OS branding in `/usr/lib/os-release`.** Its status line, "Deferred to
@@ -316,10 +316,9 @@ down. "Look now at" is where the code or a later decision moved on.
 - **45. Smart collections, issue #352** ("RomM Smart Collections don't show
   up (only regular collections do)"). Decided 2026-10-12, built.
 - **46. Where the sound goes, issue #341** ("No audio [Expected on this
-  machine]"). Decided 2026-10-13, built 2026-10-14. Built-in speakers, #547
-  ("Sounds plays only from onboard speakers (Beelink ser9)"): decided
-  2026-10-21 and 22, built as one PipeWire file edit at image build, never
-  the speaker, silent when the TV's sound is gone.
+  machine]"), and built-in speakers, #547 ("Sounds plays only from onboard
+  speakers (Beelink ser9)"): moved to
+  [decisions/2026-11-04-one-sound-rule.md](decisions/2026-11-04-one-sound-rule.md).
   Open: #390 ("Headphones don't take over after a Remote Play session
   (waiting on Sunshine)") and #391.
 - **47. Interface sounds everywhere, and a calmer set, issue #389**
@@ -6952,9 +6951,9 @@ throwaway VM on the A9 (`tools/installer-vm.sh`: QEMU in podman with
 `/dev/kvm`, an empty NVMe disk, no network, pictures of every screen) and then
 on the real CI-built ISO. What a person sees:
 
-1. The boot menu: **Install CabinetOS 44**. The stick is labelled `CabinetOS`
-   (`[customizations.iso] volume_id`).
-2. Startup text, then a black screen with: *This will erase this machine's
+1. The boot menu: **Install CabinetOS** (its look since 2026-11-02: below,
+   last paragraph). The stick is labelled `CabinetOS`.
+2. A black screen, then: *This will erase this machine's
    2.0 TB drive (WPBSN4M8-2TGP). Continue? (y/n)*. Asked by the kickstart's
    `%pre` on tty8, in double-size text on any screen 1600 pixels wide or
    more. Two or more internal drives: a numbered list, then the same question
@@ -6966,12 +6965,7 @@ on the real CI-built ISO. What a person sees:
    layout the A9 got by hand).
 4. It reboots into the console, which starts first run.
 
-**The account is made by the kickstart, not a screen.** `%post` runs
-`useradd --uid 1000 --groups wheel --home-dir /var/home/cabinet`, then locks
-it. Not left to `sysusers.d`: that makes `cabinet` a system account with no
-home, and every console so far got uid 1000, wheel and a home from the old
-Users screen. Checked on the VM's disk: uid 1000, wheel, home present, root
-and `cabinet` both locked, updates from `ghcr.io/mmagtech/cabinetos:latest`.
+**The account, and the update source, moved to the image on 2026-11-03:** [decisions/2026-11-03-first-time-setup-in-the-os.md](decisions/2026-11-03-first-time-setup-in-the-os.md).
 
 **The install needs no network: proved.** In a VM with no network device at
 all, the real ISO installed and the console came up in first run (*Connect to
@@ -6983,13 +6977,8 @@ firmware is, in first run (#136's plan).
 to osbuild/image-builder on 2026-10-01, so `:latest` will not move by itself
 again, and a new builder is a deliberate change. The ISO is built once per
 release. Its config cannot touch the boot menu, the kernel command line or the
-installer's own files, so four things stay (#284, after first release): the
-Network & Host Name screen is still drawn (module off, screen shown); the
-**Test this media** entry stays, though not as the default, and it passes on a
-perfect copy (the 2026-09-19 failure was the USB read); the startup text is
-not quiet beyond the `quiet` the builder adds; and Fedora's logo strip and
-"44" stay. Each would need the ISO repacked or the successor builder's
-`bootc-installer` type; MMagTech, 2026-10-07: skip what needs repacking.
+installer's own files (#284); since 2026-11-02 its ISO is repacked for them:
+[decisions/2026-11-02-installer-iso-repacked.md](decisions/2026-11-02-installer-iso-repacked.md).
 
 #### The installer runtime carries no firmware — 2026-09-19
 
@@ -17972,25 +17961,7 @@ deletableman's HCAR5000-MI (sold as AM06 Pro) played into an empty jack: its
 jack is a built-in C-Media USB chip that cannot sense a plug, and WirePlumber
 ranks an analog output above HDMI, so the chip won.
 
-**The rule:** the TV the picture is on first; a headphone jack that senses
-the plug takes over while headphones are in and hands back when they come
-out; nothing else takes the sound from the TV (not a jack that cannot sense,
-not USB sound, not Bluetooth for now); no setting. Bluetooth audio, if it
-comes, is one more kind of output in the "takes over" list.
-
-**Built with WirePlumber's own settings only**
-(`system_files/usr/share/wireplumber/wireplumber.conf.d/60-cabinetos-sound-output.conf`),
-as its documentation describes (*Node priorities*): USB sound outputs get
-`priority.session` 100, below any HDMI (696 on the A9), and
-`node.restore-default-targets` is off. A jack that senses the plug needs no
-rule: WirePlumber switches its card off while nothing is plugged in, so the
-output only exists while headphones are in, and its own rank (1009 on the
-A9) is above HDMI. A small WirePlumber script that ignores any output unable
-to sense a plug was considered and rejected: more than standard settings,
-for hardware the rule says not to account for. **Both held only on a sound
-chip with no built-in speaker, as the A9's has none. Built-in speakers are
-handled since 2026-10-22 by one edit to a PipeWire file, not a script (#547,
-below).**
+**The rule, and how it is held:** moved to [decisions/2026-11-04-one-sound-rule.md](decisions/2026-11-04-one-sound-rule.md).
 
 **Why the memory goes off.** A chosen output beats every priority, and
 WirePlumber kept the choice across restarts. On the A9 the TV was chosen, so
@@ -18033,20 +18004,7 @@ priority can fix it: the speaker and the headphone jack are one output
 whose connector changes when headphones go in. The three HCAR5000-MI
 reports (#341, #400, #529) already had the TV as the default.
 
-**Decided by MMagTech, 2026-10-21 and 22.** A built-in speaker never takes
-the sound from the TV. When the TV's sound is gone (the screen asleep, the TV
-off or unplugged) the console is silent, never the speaker: a console is
-designed around a TV, every modern TV has speakers, a monitor without them
-has the jack, and Remote Play carries the sound through Sunshine's own
-output. Falling back to the speaker was considered and rejected: the
-screen's sleep removes the TV's output (#228, below), so the sound would move
-to the speaker at every sleep and come back only if SDL noticed the TV's
-return. No sound menu: picking an output would turn the headphone switching
-off, its "Automatic" would still need this fix, and #341 said no setting.
-Handheld PCs and laptops are not targets (CONTRIBUTING.md, "Made for a PC
-attached to a TV", 2026-10-22): what this does to their built-in speakers
-does not decide anything. He asked for the fix that is easiest to maintain,
-and accepts a build that fails on an upstream change so long as it says so.
+**What was decided:** moved to [decisions/2026-11-04-one-sound-rule.md](decisions/2026-11-04-one-sound-rule.md).
 
 **Researched 2026-10-22** (three agents; GitLab issue pages were unreadable
 to them). No setting in PipeWire or WirePlumber does this; WirePlumber's
@@ -18064,42 +18022,6 @@ the speaker and the headphones apart. Ruled out: raising HDMI's priority
 and a wrong pin silences a machine); a copied profile set (a large file that
 drifts); `api.acp.hidden-ports` (undocumented, and a card with only a
 speaker would still win).
-
-**Built:** `build_files/built-in-speaker.sh`, run by `build.sh`. In PipeWire's
-`/usr/share/alsa-card-profile/mixer/paths/analog-output-speaker.conf` the
-sections `[Jack Speaker Phantom]` and `[Jack Speaker Front Phantom]` change
-`state.plugged` and `state.unplugged` from `unknown` to `no`. The kernel
-gives a built-in speaker a phantom jack that always reads plugged in (since
-2012, so that sound servers could see fixed speakers), and in PipeWire a
-plugged-in jack that says `no` "should override all other availability
-information" (`calc_port_state`, `spa/plugins/alsa/acp/acp.c`, read at
-1.6.9, the image's version). So a built-in speaker counts as an empty
-headphone jack does: the onboard analog output exists only while headphones
-are in, which is how the A9 already behaves. The script fails the build if
-either section does not read exactly as at 1.6.9, or the file is missing.
-Cards set up by their own UCM profile never read this file: the image ships
-one for the Steam Deck (`ucm2/AMD/acp5x`, Valve's Jupiter and Galileo), so a
-Deck keeps its speakers. Not covered, and left as they were: a jack other
-than a speaker that cannot sense a plug, and a speaker with no phantom jack.
-A machine with no HDMI or DisplayPort sound at all is silent through a
-built-in speaker. The diagnostic report's Sound section lists each card's
-outputs and what each connector reads.
-
-**First built as a WirePlumber script, 2026-10-21, and replaced.** A Lua hook
-before `find-best-default-node` dropped every sound-card output that was not
-HDMI and not sensed "yes". It worked in WirePlumber's own Lua against 14
-stand-in setups and loaded in a real WirePlumber on the VM, but it leaned on
-WirePlumber's hook names and needed care to load safely: listed as optional
-in a profile it never loaded, required it would let a broken script stop all
-sound, and loaded after the event source it missed the start-up choice. The
-file edit has none of that.
-
-**Tested 2026-10-22:** the rule above read in PipeWire 1.6.9's source; the
-build step run on the A9 against a copy of the image's file (exactly the
-four lines change; run again on the edited file, on a reworded section and
-with the file missing, it stops the build); the Steam Deck's UCM profile
-found on the image. **Not tested on a real built-in speaker:** the A9 has
-none, so the reporter's update is the test.
 
 #### Sound dying until a restart (#228): the 2026-10-18 failure, read from the A9's logs
 

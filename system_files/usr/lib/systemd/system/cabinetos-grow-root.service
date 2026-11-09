@@ -1,0 +1,32 @@
+[Unit]
+Description=CabinetOS: a portable install fills its drive
+Documentation=https://github.com/MMagTech/cabinetos/blob/main/docs/decisions/2026-11-03-running-from-a-usb-drive.md
+# At every start, early, so the session and Steam see the whole drive from the
+# first start on: /usr/libexec/cabinetos-grow-root says what it touches. After
+# the first start it only looks and finds no free space.
+#
+# ONLY FROM A DRIVE THAT CAN BE UNPLUGGED. An install from the ISO is on the
+# PC's own drive and already fills it, so there it does not run at all: the
+# ExecCondition is the same test that hides the PC's drives
+# (90-cabinetos-system-disk.rules).
+#
+# BEFORE BAZZITE'S HARDWARE SETUP, which restarts a new console once on its
+# first start (cabinetos-update-source.service says so too); sysinit.target
+# already orders it first.
+DefaultDependencies=no
+Conflicts=shutdown.target
+After=local-fs.target
+Before=sysinit.target shutdown.target
+Before=bazzite-hardware-setup.service
+ConditionPathExists=/run/ostree-booted
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecCondition=/usr/libexec/cabinetos-system-disk portable
+ExecStart=/usr/libexec/cabinetos-grow-root
+# A partition table, a kernel notice and an online resize: seconds.
+TimeoutStartSec=120
+
+[Install]
+WantedBy=sysinit.target

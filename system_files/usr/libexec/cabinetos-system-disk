@@ -1,26 +1,89 @@
 #!/usr/bin/bash
 #
 # Prints "system" when the block device named by $1 (a disk or a partition,
-# as udev's %k gives it) is on the disk CabinetOS boots from, and nothing
-# otherwise. Run by 90-cabinetos-system-disk.rules. Issue #223.
+# as udev's %k gives it) is on the disk CabinetOS boots from; "pc" when
+# CabinetOS boots from a drive that can be unplugged and $1 sits on a drive
+# that cannot (the PC's own NVMe, SATA or eMMC drive); and nothing
+# otherwise. Run by 90-cabinetos-system-disk.rules, which hides both from
+# drive lists. Issue #223.
 #
-# WHY: Steam's Storage page lists every drive the system's disk service
-# (udisks) knows and offers to format any it does not use itself, and the
-# console's own drive was one of them on the A9 (2026-10-03): the drive with
-# the system, every kept game, every save and Steam's own slice. A drive
+# `cabinetos-system-disk portable` instead exits 0 when the disk CabinetOS
+# boots from can be unplugged, and 1 when it is the PC's own: the one test
+# for a portable install, which cabinetos-grow-root.service runs too.
+#
+# WHY "system": Steam's Storage page lists every drive the system's disk
+# service (udisks) knows and offers to format any it does not use itself, and
+# the console's own drive was one of them on the A9 (2026-10-03): the drive
+# with the system, every kept game, every save and Steam's own slice. A drive
 # udisks is told to ignore is left out of such lists. The console's own drive
 # code already skips ignored drives and finds its own drive from the mounts,
 # not from this (frontend/src/drives.cpp), so nothing of the console changes.
+#
+# WHY "pc": A PORTABLE INSTALL IS A GUEST ON SOMEBODY'S PC. Written to a USB
+# drive and booted on a PC that has its own system (Windows, usually), it
+# must leave that PC's drives alone: never mount one, never list one in
+# Storage, never offer one for Format or as a games drive, never give one to
+# Steam. Ignored by udisks, a drive is all of those at once, for the same
+# reasons as above: the console mounts, lists and formats only what udisks
+# does not ignore, Steam's Storage page leaves it out, and Steam is given
+# only libraries on drives the console mounted (cabinetos-steam-libraries).
+# Other drives that can be unplugged are used as on any console. Booted from
+# the PC's own drive (an install from the ISO), nothing is "pc".
 #
 # Found from the mounts, never named: on another machine the system disk is
 # an SSD called something else, or a SATA disk.
 
 root=$(/usr/bin/findmnt -n -o SOURCE /sysroot 2>/dev/null || /usr/bin/findmnt -n -o SOURCE /)
 root=${root%%[*}
-[[ "${root}" == /dev/* ]] || exit 0
+if [[ "${root}" != /dev/* ]]; then
+    [[ "$1" == portable ]] && exit 1
+    exit 0
+fi
 rootdisk=$(/usr/bin/lsblk -n -d -o PKNAME "${root}" 2>/dev/null)
 [[ -n "${rootdisk}" ]] || rootdisk=${root#/dev/}
+
+# A DRIVE THAT CAN BE UNPLUGGED, by the console's own test
+# (frontend/src/locations.cpp, isExternalDevice, and its copy in
+# cabinetos-steam-libraries): anything on USB; a disk the kernel marks
+# removable (an SD card); anything behind a port the kernel knows faces
+# outwards (`removable` reads "removable" on the device, a Thunderbolt
+# enclosure). Walked from the disk up to /sys/devices.
+unpluggable() {
+    local at value
+    at=$(/usr/bin/realpath "/sys/class/block/$1" 2>/dev/null) || return 1
+    [[ "${at}" == */usb* ]] && return 0
+    while [[ "${at}" == /sys/devices/* ]]; do
+        value=
+        read -r value 2>/dev/null <"${at}/removable"
+        [[ "${value}" == 1 || "${value}" == removable ]] && return 0
+        at=${at%/*}
+    done
+    return 1
+}
+
+if [[ "$1" == portable ]]; then
+    unpluggable "${rootdisk}"
+    exit
+fi
+
 mine=$(/usr/bin/lsblk -n -d -o PKNAME "/dev/$1" 2>/dev/null)
 [[ -n "${mine}" ]] || mine=$1
-[[ "${mine}" == "${rootdisk}" ]] && echo system
+if [[ "${mine}" == "${rootdisk}" ]]; then
+    echo system
+    exit 0
+fi
+
+unpluggable "${rootdisk}" || exit 0
+# THE DRIVES $1 SITS ON: itself, a partition's disk, or every disk under a
+# volume made of others (LVM, RAID, an encrypted one). A device on none (a
+# loop file) or on a virtual one (zram) is not the PC's, and neither is one
+# on any drive that can be unplugged.
+disks=$(/usr/bin/lsblk -n -s -l -o KNAME,TYPE "/dev/$1" 2>/dev/null |
+        /usr/bin/awk '$2 == "disk" || $2 == "rom" { print $1 }' | /usr/bin/sort -u)
+[[ -n "${disks}" ]] || exit 0
+for d in ${disks}; do
+    [[ "$(/usr/bin/realpath "/sys/class/block/${d}" 2>/dev/null)" == /sys/devices/virtual/* ]] && exit 0
+    unpluggable "${d}" && exit 0
+done
+echo pc
 exit 0

@@ -161,8 +161,9 @@ jobs:
               ast.parse(open(p, encoding="utf-8").read(), p)
           print(len(sys.argv) - 1, "files parse")'
 
-      # The installer's own scripts, %pre and %post in disk_config/iso.toml,
-      # run only when somebody installs. Cut out and checked like the rest.
+      # The installer's own script, the %pre in disk_config/iso.toml (and any
+      # %post), runs only when somebody installs. Cut out and checked like the
+      # rest.
       # SC2094: %pre reads and writes the same terminal on purpose.
       - name: Shellcheck the installer's scripts
         run: |

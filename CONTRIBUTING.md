@@ -5,9 +5,9 @@ CabinetOS, build it, test it, and change one thing safely. A small fix needs
 no asking; anything that decides something new is raised on an issue first
 ("Pull requests and issues", below). It is written from what the code does today. Where an older doc
 describes the code differently, the code wins; docs/decisions/, and
-docs/PROJECT.md before it, stay the record of what was decided. The known
-disagreements are listed at the end of
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+docs/PROJECT.md before it, stay the record of what was decided. Any known
+disagreement is listed in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
+section 7.
 
 **Read in this order:**
 
@@ -40,11 +40,11 @@ downloads a whole new image and boots into it.
   layer of its own, no toolkit). It draws every screen, and it hosts the
   emulators: 24 libretro cores and PCSX2 (PlayStation 2, built as a library)
   run inside its process.
-- **Seven emulators run as separate programs**, started and stopped by the
+- **Eight emulators run as separate programs**, started and stopped by the
   frontend like a game: Eden (Switch) and xemu (Xbox) from Flathub, and RPCS3
   (PlayStation 3), Xenia Edge (Xbox 360), Cemu (Wii U), Vita3K (PlayStation
   Vita), sm2-emu (Sega Model 2) and Supermodel (Sega Model 3) built into the
-  image. Steam's Big Picture is a seventh,
+  image. Steam's Big Picture is a ninth,
   an optional entry that hands the screen over and comes back.
 - **Everything comes from RomM:** games, covers, firmware, saves and save
   states. The console keeps a cache of downloaded games and its own
@@ -181,7 +181,9 @@ the server for a real code, which expires by itself: `--setup` walked to
 the pairing step, or `--setup --setup-step pair`, reaches your real server,
 so point it at the read-only relay, which refuses that request (a POST), unless
 a real code is what you are checking. `--setup-step <name>`
-opens it at `network`, `server`, `pair`, `controller` or `done`; Wi-Fi is
+opens it at `timezone`, `network`, `server`, `pair`, `controller` or `done`
+(first run itself opens at `timezone` only on a console with no time zone,
+`timezone.h`); Wi-Fi is
 part of `network`.
 
 **Reports that print and quit before a window opens**, so over SSH they
@@ -204,7 +206,7 @@ with 0 when it passes, and CI runs every one ("What CI checks"):
 
 | Flag | What it checks |
 |---|---|
-| `--first-run-rules` | all 144 combinations of facts first run can be handed, asserting what it must refuse |
+| `--first-run-rules` | all 576 combinations of facts first run can be handed, from the network and from the time zone, asserting what it must refuse |
 | `--first-run-writes` | that finishing first run actually sticks |
 | `--accounts-test` | the rules for the people on a console and switching between them |
 | `--players-test` | the rules for which controller is which player |
@@ -224,6 +226,7 @@ with 0 when it passes, and CI runs every one ("What CI checks"):
 | `--files-test` | that a full disk leaves the file it was replacing whole, credentials stay 0600, a cut save's marker is not counted as owed, two settings changed at once both stick, the cover sweeps spare the tile map, a cover being written and what a link points at, and a game's archive keeps its folders and refuses a name outside them or one that comes twice, and is not unpacked again at a later start, but is when a file that came out of it was changed or cut short, its unpacking was cancelled, or it was downloaded again |
 | `--gone-games-test` | a game RomM no longer has (#625, `gonegames.h`): gone only when its own entry answers 404 to every person on the console, never for a 5xx, a 403, no answer, a list that does not come or a game another person can see; and on a scratch drive, a played copy with its manual, a download kept by two people with both keeps, the record and the covers removed, a game being played or still holding Xbox saves left, a game RomM has untouched; then every person's saves, states, screenshots and copy of RomM's saves of it removed, the signed-in person's owed save only once RomM has refused it this run, a person's saves still in an emulator's folder left, and a live game's owed save still owed |
 | `--vectrex-sheets-test` | which Vectrex game takes which screen sheet: RomM's md5 first, then the longest name token, and the sheets that never shipped drawing nothing, against `frontend/data/vectrex-overlays.json` |
+| `--gpu-choice-test` | which GPU the games draw on (#659, `gpu.h`), on made-up devices: with one GPU that one; with two, the one the screen is on, in either order and whether or not it is the discrete card; the screen's GPU not known or not among them, a discrete card first and then the first listed; no device, none |
 | `--check-option-tables cores/options` | that every option the console sets (`coreoptions.cpp`, `quality.cpp`, `sysopts.cpp`, the Wii's rumble in `wii.cpp` and the Vectrex sheets' fit in `vectrexsheets.cpp`, with every answer that depends on the machine or a setting) exists in the core it is set on, and that every libretro core in `catalog.cpp`'s table has its list in `cores/options/` (CI runs it as a step of its own) |
 
 `--romm-race-test <address> <seconds>` checks the RomM client's thread rule
@@ -310,7 +313,7 @@ something besides `.md` files and `docs/`):
 
 - **Lint**: shellcheck over every `.sh` in `build_files/`, `ci/` and
   `cores/`, over every shell script in `system_files/` (picked by its
-  first line), and over the installer's `%pre` and `%post` in
+  first line), and over the installer's `%pre` in
   `disk_config/iso.toml`; and every Python file, the ones that ship
   included, is parsed. `just lint` runs the first two commands.
 - **The frontend** (`build-frontend.yml`): it compiles the frontend and the
@@ -426,6 +429,26 @@ runs `checks.yml`, a few seconds each:
   name the repository, path and revision SOURCES pins, fails: a text added by
   hand or a pin moved without running `tools/fetch-licences.py`. Nothing is
   downloaded. Report only until 2026-11-08.
+- **RPCS3 snapshot** (`ci/check-rpcs3-snapshot.sh`): the pin recorded in
+  `build_files/rpcs3-config-database.pin`, which
+  `tools/fetch-rpcs3-config-database.py` writes beside the snapshot of
+  RPCS3's per-game settings, must be the `RPCS3_VERSION` of
+  `build_files/install-rpcs3.sh`: a pin moved without running the tool
+  fails. Nothing is downloaded. Report only until 2026-11-13.
+- **Code and docs agree** (`ci/check-code-and-docs-agree.py`): only what the
+  pull request touches, so the old tree never fails it. A comment it adds or
+  changes in `frontend/src`, `frontend/ps2`, `wiibridge`, `build_files`, `ci`,
+  `system_files`, `tools` or `cores` fails when it names something of ours that
+  is not there: a file, an `ns::name`, a name it pairs with a file of ours
+  (launch.cpp's startPlaying), or a frontend flag. Other projects' names do not
+  count: the script's header says what does, and its `SKIP` holds what is left
+  over. A header in `frontend/src` or `frontend/ps2` that declares a function
+  nothing defines fails, on a line the pull request changes or when it takes the
+  definition away, and so does a private address (10/8, 172.16/12, 192.168/16) on
+  a line it adds to any tracked file, outside the script's list of documented
+  examples. A stale comment on a line no pull request touches is for
+  `--whole-tree`, which the skill `check-code-and-docs-agree` runs. Report only
+  until 2026-11-10.
 
 **A check's first week is report only.** Until the end of the date in
 `checks.yml`'s `REPORT_ONLY_UNTIL` (2026-10-25, UTC; `build-frontend.yml`
@@ -511,16 +534,17 @@ signed with MMagTech's key, whose secret half is never in the repository
    files that use it for updates: `build_files/require-signed-updates.sh`
    (`REPO`, the policy's rule),
    `system_files/etc/containers/registries.d/cabinetos.yaml` (where the
-   signatures are found) and `disk_config/iso.toml` (the image the installer
-   points a console at for its updates). The diagnostic report names it too,
-   in `cabinetos-report`'s `PUBLIC` list of words it never scrubs.
+   signatures are found) and `system_files/usr/libexec/cabinetos-update-source`
+   (`REPO`, the image a new console is pointed at for its updates at its
+   first start). The diagnostic report names it too, in `cabinetos-report`'s
+   `PUBLIC` list of words it never scrubs.
 
 The image name itself needs no edit: `build.yml` publishes to
 `ghcr.io/<owner>/cabinetos`, from the repository's owner in lower case and
 `IMAGE_NAME` in `cabinetos.env`. The key and the image name in the four
 files above are written into tracked files today, so a fork edits them.
 Until it does, its image carries MMagTech's key and a rule for his image,
-and its installer points every console it installs at his image.
+and points every new console at his image.
 
 ### Going back to an earlier version
 
@@ -593,10 +617,7 @@ here, not reworded; follow the link for the full text.
 - **Emulators favour stability over the newest version**: a pin moves only
   for one of five named reasons, with its evidence, and the question is
   asked out loud on the issue or pull request
-  (`docs/decisions/2026-10-23-when-an-emulator-pin-moves.md`). This is the
-  rule for moving a core's pin; the older comment in
-  `cores/build-core.sh` saying pins follow Cabinet's manifest is out of date
-  (docs/ARCHITECTURE.md, section 7).
+  (`docs/decisions/2026-10-23-when-an-emulator-pin-moves.md`).
 - **Fewer settings; no emulator settings page** (docs/SETTINGS.md, "The screen";
   "fewer settings is the rule", docs/PROJECT.md, the glow decision of
   2026-10-04).
@@ -658,6 +679,19 @@ here, not reworded; follow the link for the full text.
   and ask the stability question above. Moving any emulator's or Sunshine's
   pin, go through its rows in docs/ARCHITECTURE.md, "What leans on other
   projects", too.
+- **Moving RPCS3's pin:** in the same pull request, after the pin has
+  moved, run `tools/fetch-rpcs3-config-database.py` and commit what it
+  changes: `build_files/rpcs3-config-database.json`, the snapshot of the
+  RPCS3 team's per-game settings the image carries, and
+  `build_files/rpcs3-config-database.pin`, the pin it was taken against
+  (docs/decisions/2026-11-06-rpcs3-settings-database-snapshot.md). It is
+  not refreshed between pin moves. `ci/check-rpcs3-snapshot.sh` fails a
+  pull request whose snapshot was taken against another pin, and the image
+  build stops on it too. The pull request says how many of its entries the
+  new build rejects: on the testing image, start any PlayStation 3 game and
+  count the serials after `Config database error - Invalid config for` in
+  its `RPCS3.log`, under the game's folder in the cache (each is logged
+  twice, since RPCS3 reads the file twice). The console never fetches it.
 - **Leaning on another project's internals** (asked for by MMagTech,
   2026-10-21): anything that works only because another project behaves a
   way it does not promise (a patch to its source, a settings key or file it

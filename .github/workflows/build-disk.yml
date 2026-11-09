@@ -4,12 +4,16 @@
 # Derived from the Universal Blue image-template (Apache-2.0):
 #   https://github.com/ublue-os/image-template
 #
-# Two outputs:
+# Three outputs:
 #
 #   qcow2        A virtual machine disk, for testing the image in a VM: boot
 #                it and confirm the console comes up.
 #   anaconda-iso An installer ISO. Write it to a USB stick and install to the
 #                target machine. See CONTRIBUTING.md, "Building".
+#   portable     The file a tester writes to a USB drive with Etcher or Rufus,
+#                to run CabinetOS from that drive. CI boots it before the run
+#                can pass. `portable_run` publishes the file from a finished
+#                run, and builds nothing.
 #
 # Run manually, ONCE PER RELEASE, not per update. The ISO carries the whole
 # image, but an installed console updates itself from GHCR from then on, so an
@@ -28,16 +32,21 @@ on:
         default: "latest"
         type: string
       types:
-        description: "Which disk images: anaconda-iso, qcow2, or both"
+        description: "Which disk images: anaconda-iso, qcow2, both of those, or portable"
         required: true
         default: "anaconda-iso"
         type: choice
-        options: ["anaconda-iso", "qcow2", "both"]
+        options: ["anaconda-iso", "qcow2", "both", "portable"]
       publish:
         description: "Publish the ISO as the download (R2, replaces the current one)"
         required: true
         default: false
         type: boolean
+      portable_run:
+        description: "Build nothing: publish the portable file from this run number as the download (R2, replaces the current one)"
+        required: false
+        default: ""
+        type: string
 
 env:
   IMAGE_NAME: ${{ github.event.repository.name }}  # must match build.yml
@@ -58,6 +67,7 @@ concurrency:
 jobs:
   build:
     name: Build ${{ matrix.disk-type }}
+    if: inputs.portable_run == ''
     runs-on: ubuntu-24.04
     # The ISO alone by default: the qcow2 is only for making a new test VM,
     # which is updated in place and almost never remade. A computed matrix,
@@ -102,15 +112,76 @@ jobs:
         uses: osbuild/bootc-image-builder-action@8661cd3832544ad68c12dcde8681b13ab0f56a8d  # main
         with:
           builder-image: ${{ env.BIB_IMAGE }}
-          config-file: ${{ matrix.disk-type == 'anaconda-iso' && './disk_config/iso.toml' || './disk_config/disk.toml' }}
+          config-file: ${{ matrix.disk-type == 'anaconda-iso' && './disk_config/iso.toml' || matrix.disk-type == 'portable' && './disk_config/portable.toml' || './disk_config/disk.toml' }}
           image: ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.tag }}
           chown: ${{ env.USER_UID }}:${{ env.USER_GID }}
-          types: ${{ matrix.disk-type }}
+          types: ${{ matrix.disk-type == 'portable' && 'raw' || matrix.disk-type }}
           # --rootfs is required unless the image declares a root filesystem.
           # CabinetOS declares one in /usr/lib/bootc/install/20-cabinetos.toml,
           # but passing it explicitly means disk builds also work against an
           # image built before that file existed.
           additional-args: --use-librepo=True --rootfs=btrfs
+
+      # THE INSTALLER'S LOOK. The builder has no setting for the boot menu or
+      # the installer's own files (#284), so its ISO is repacked here: the
+      # boot menu, and a product image the installer lays over itself with
+      # CabinetOS's colours, logo and title, and Network & Host Name hidden.
+      # Nothing the builder made is rebuilt.
+      # docs/decisions/2026-11-02-installer-iso-repacked.md says why. The ISO
+      # is replaced where it lies, so the upload and the publish below take
+      # the repacked one.
+      - name: Brand the installer ISO
+        if: matrix.disk-type == 'anaconda-iso'
+        env:
+          OUT: ${{ steps.build.outputs.output-directory }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xorriso mtools squashfs-tools gettext grub-common >/dev/null
+          iso=$(find "${OUT}" -name '*.iso' -type f | head -n1)
+          [[ -n "${iso}" ]] || { echo "no ISO in ${OUT}"; exit 1; }
+          df -h "${RUNNER_TEMP}" "$(dirname "${iso}")"
+          ci/brand-installer-iso.sh "${iso}" "${RUNNER_TEMP}/branded.iso"
+          mv "${RUNNER_TEMP}/branded.iso" "${iso}"
+
+      # THE PORTABLE FILE, from the builder's raw disk, then booted before anybody
+      # can have it. ci/make-portable-image.sh says what changes and why;
+      # docs/decisions/2026-11-03-portable-disk-image.md why it is this format and
+      # size. Only the file and its SHA-256 go on to the upload below.
+      - name: Make the portable image
+        if: matrix.disk-type == 'portable'
+        env:
+          OUT: ${{ steps.build.outputs.output-directory }}
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq btrfs-progs xz-utils attr sbsigntool qemu-system-x86 qemu-utils ovmf >/dev/null
+          raw=$(find "${OUT}" -name '*.raw' -type f | head -n1)
+          [[ -n "${raw}" ]] || { echo "no raw disk in ${OUT}"; exit 1; }
+          sudo --preserve-env=GITHUB_STEP_SUMMARY ci/make-portable-image.sh "${raw}" "${OUT}/cabinetos-portable.img.xz"
+          rm -f "${raw}"
+
+      - name: Boot the portable image
+        if: matrix.disk-type == 'portable'
+        env:
+          OUT: ${{ steps.build.outputs.output-directory }}
+        run: ci/check-portable-boots.sh "${OUT}/cabinetos-portable.img.xz" "${RUNNER_TEMP}/boot-check"
+
+      # Apart from the image, so the picture and the journal can be read without
+      # a 6 GB download, and kept when the check fails.
+      - name: Keep the boot check's picture and journal
+        if: always() && matrix.disk-type == 'portable'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: cabinetos-portable-boot-check
+          path: |
+            ${{ runner.temp }}/boot-check/first-run.png
+            ${{ runner.temp }}/boot-check/serial.log
+            ${{ runner.temp }}/boot-check/secure-boot-first-run.png
+            ${{ runner.temp }}/boot-check/secure-boot-serial.log
+          if-no-files-found: warn
+          retention-days: 90
+          overwrite: true
 
       - name: Upload disk image
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
@@ -128,37 +199,57 @@ jobs:
 
       # THE DOWNLOAD (#308). One file people can get without an account:
       # GitHub takes at most 2 GB per release file and the ISO is about
-      # 6.7 GB, so it lives in Cloudflare R2, which charges nothing for
+      # 7 GB, so it lives in Cloudflare R2, which charges nothing for
       # downloads (MMagTech, 2026-10-10). ONE NAME, REPLACED EACH RELEASE:
-      # the link never changes, and the bucket only ever holds one ISO,
-      # inside R2's free storage. Its SHA-256 beside it, for the release
-      # page. The keys are repository secrets, MMagTech's; nothing here
-      # prints them.
+      # the link never changes, and the bucket only ever holds one ISO and
+      # one portable file (docs/decisions/2026-11-05-portable-download.md).
+      # Its SHA-256 beside it, for the release page. The keys are repository
+      # secrets, MMagTech's; nothing here prints them.
       - name: Publish the ISO
         if: inputs.publish && matrix.disk-type == 'anaconda-iso'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: auto
-          # Newer AWS CLIs add checksums R2 does not take; only when required.
-          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
-          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
-          ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           OUT: ${{ steps.build.outputs.output-directory }}
         run: |
           set -euo pipefail
           iso=$(find "${OUT}" -name '*.iso' -type f | head -n1)
           [[ -n "${iso}" ]] || { echo "no ISO in ${OUT}"; exit 1; }
-          echo "ISO: ${iso} ($(du -h "${iso}" | cut -f1))"
-          (cd "$(dirname "${iso}")" && sha256sum "$(basename "${iso}")" | sed 's/ .*$/  cabinetos.iso/') > cabinetos.iso.sha256
-          cat cabinetos.iso.sha256
-          aws s3 cp "${iso}" s3://cabinetos/cabinetos.iso --endpoint-url "${ENDPOINT}" \
-            --content-type application/x-iso9660-image --no-progress
-          aws s3 cp cabinetos.iso.sha256 s3://cabinetos/cabinetos.iso.sha256 --endpoint-url "${ENDPOINT}" \
-            --content-type text/plain --no-progress
-          # Read back what is there, so a green run means the download is
-          # the file just built.
-          aws s3api head-object --bucket cabinetos --key cabinetos.iso --endpoint-url "${ENDPOINT}" \
-            --query ContentLength --output text > remote-size
-          [[ "$(cat remote-size)" == "$(stat -c %s "${iso}")" ]] || { echo "size on R2 differs"; exit 1; }
-          echo "Published cabinetos.iso, $(cat remote-size) bytes, and its SHA-256"
+          ci/publish-to-r2.sh "${iso}" cabinetos.iso application/x-iso9660-image
+
+  # THE PORTABLE DOWNLOAD, from a finished run, not a new build, so what goes up
+  # is byte for byte the file that passed its boot check and was tried on a real
+  # PC. Only a successful run has this artifact to take, and its checksum is
+  # checked after the download.
+  publish-portable:
+    name: Publish the portable file
+    if: inputs.portable_run != ''
+    runs-on: ubuntu-24.04
+
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: Fetch the file from that run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ inputs.portable_run }}
+        run: |
+          set -euo pipefail
+          [[ "${RUN}" =~ ^[0-9]+$ ]] || { echo "not a run number: ${RUN}"; exit 1; }
+          state=$(gh run view "${RUN}" --repo "${GITHUB_REPOSITORY}" --json workflowName,conclusion --jq '.workflowName + ", " + .conclusion')
+          [[ "${state}" == "Build disk images, success" ]] || { echo "run ${RUN} is ${state}"; exit 1; }
+          gh run download "${RUN}" --repo "${GITHUB_REPOSITORY}" --name cabinetos-portable --dir "${RUNNER_TEMP}/portable"
+          (cd "${RUNNER_TEMP}/portable" && sha256sum --check cabinetos-portable.img.xz.sha256)
+
+      - name: Publish it
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: ci/publish-to-r2.sh "${RUNNER_TEMP}/portable/cabinetos-portable.img.xz" cabinetos-portable.img.xz application/x-xz

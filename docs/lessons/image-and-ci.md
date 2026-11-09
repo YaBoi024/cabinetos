@@ -32,7 +32,7 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
   fallback visible rather than catastrophic, but the tmpfiles rule is the fix.
 
 - **`ldd` prints "not found" and exits 0.** `build_files/install-frontend.sh`
-  reads its output, not its status, for the frontend and all 22 cores.
+  reads its output, not its status, for the frontend and all 23 cores.
   **Run the control** — the same script into a bare `fedora:44` names all six
   libraries the frontend needs, plus `libGL` for melonDS and **`libX11` and
   `libXext` for PPSSPP**, which nothing had written down anywhere.
@@ -111,7 +111,7 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
   invalid `concurrency` expression is a workflow that does not parse.
 
 - **A workflow that build.yml CALLS must not also trigger itself where
-  build.yml runs**, or one change queues the same 22 core builds
+  build.yml runs**, or one change queues the same 23 core builds
   twice. That is not merely wasteful: the runner concurrency cap means the
   duplicate starves the image build of the runners it is waiting for, and it
   doubled the wall clock of the change that introduced it. Cancelling one by
@@ -187,7 +187,7 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
 
 - **A core build failing is not always the core.** `Curl error (28)` is the
   network. Re-run before reading anything into a single red core. This matters
-  more now: 22 core builds gate every image build.
+  more now: 23 core builds gate every image build.
 
 - **GitHub serves some repositories at 55 KB/s over git and 9.8 MB/s over
   HTTPS.** `build-core.sh` clones `--filter=blob:none` — but **NOT for
@@ -283,9 +283,48 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
   QEMU in podman on the A9 (`/dev/kvm` is open to all), an empty NVMe disk,
   no network unless `--net`, and a picture of the screen after each step.
   `repack` puts this checkout's `disk_config/iso.toml` into an existing ISO
-  (kickstart as `/osbuild.ks`, the module list as `images/updates.img`) for a
-  try in minutes; the ISO that ships is always CI's. Open question 5, *Built
-  2026-10-07*, has what the installer does now and why.
+  (kickstart as `/osbuild.ks`, the module list as `images/updates.img`) and
+  then its look, with `ci/brand-installer-iso.sh` as CI does, for a try in
+  minutes; the ISO that ships is always CI's. Open question 5, *Built
+  2026-10-07*, has what the installer does and why; its look is
+  decisions/2026-11-02-installer-iso-repacked.md, and the setup it no longer
+  does decisions/2026-11-03-first-time-setup-in-the-os.md.
+
+- **The ISO builder points a new console at the tag the ISO was built
+  from, unsigned.** Its `osbuild-base.ks` (read off the 2026.11.02.4 ISO)
+  ends in a `%post` of its own, `bootc switch --mutate-in-place --transport
+  registry ghcr.io/mmagtech/cabinetos:<tag>`, before anything of ours runs.
+  So a new console's source is "ours, unsigned" whatever the ISO, and
+  keeping its tag would pin a console installed from a version-built ISO to
+  that version for good: `cabinetos-update-source` sends every new console
+  to `latest`, as the installer's own step did.
+
+- **On these images `systemd-sysusers` runs at the first start of every
+  deployment, not only the first boot.** `/usr` is dated 1970 on ostree, so
+  `ConditionNeedsUpdate=/etc` could never hold again, but ostree leaves
+  `/etc/.updated` out of each new deployment: on the A9 sysusers ran on the
+  first boot after each update of 2026-11-02 and was skipped on the next. A
+  unit gated on that condition is therefore not "once per machine"; it must
+  tell a new console from an updated one itself (one deployment, nothing
+  beside it), and it must run before `systemd-update-done.service`, so with
+  `DefaultDependencies=no`, as ldconfig.service does.
+
+- **`bootc switch --mutate-in-place` cannot write on a running console.**
+  It is meant for an installer's `%post`; it skips the mount namespace
+  bootc's other commands enter (bootc 1.17.1's `cli.rs`), and `/sysroot` is
+  read-only once booted (`[sysroot] readonly = true`). Remount it read-write
+  in a namespace of its own (`unshare --mount --propagation slave`), as
+  bootc itself does; that is how `cabinetos-update-source` wrote the VM's
+  `.origin` on 2026-11-03, in about a second. It rewrites the newest
+  deployment's `.origin`, so it is safe only with one.
+
+- **A new console restarts itself once, seconds into its first start.**
+  `bazzite-hardware-setup.service` adds kernel arguments (Bluetooth's among
+  them), which makes a second deployment of the same image with the booted
+  one's `.origin` copied, and reboots into it. Seen in the VM on
+  2026-11-03: two boots before first run, two deployments on the drive. So
+  "one deployment" means "new" only before that service runs; anything that
+  tells a new console by it must be ordered before it.
 
 - **After an install the VM boots the ISO again**, because QEMU's
   `bootindex` overrides the boot order the installer wrote. Real firmware
@@ -299,6 +338,42 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
 - **Switching an Anaconda module off does not always hide its screen.** The
   Network module was off and the installer said so, and Network & Host Name
   was still drawn. Users really did go. Check the screen, not the config.
+  The screen goes with `hidden_spokes = NetworkSpoke` in a conf.d file in
+  the product image (`disk_config/installer.conf`).
+
+- **THE UEFI BOOT MENU IS NOT IN THE ISO'S FILE TREE.** UEFI boots a FAT
+  image appended after the ISO9660 tree (GPT partition 2), and
+  `xorriso -boot_image any replay` copies that partition from the old ISO,
+  so a new `/EFI/BOOT/grub.cfg` in the tree changes nothing. The FAT image
+  is edited with mtools and given back with `-append_partition 2`;
+  `ci/brand-installer-iso.sh` reads the partition back to prove it.
+
+- **GRUB'S SCRIPT HAS NO `&&`.** `if [ a ] && b; then` is a syntax error,
+  the block is skipped (or half run) and the menu still appears, so it
+  looked as if it worked. `grub2-script-check` (Ubuntu: `grub-script-check`)
+  catches it; the branding script runs it.
+
+- **Fedora's signed EFI GRUB has no `background_image`**, only themes
+  (gfxmenu), and a theme always opens a terminal box of at least 80 by 24
+  characters over the picture when an entry starts, which the kernel then
+  keeps on screen until something prints. `fbcon=nodefer` clears it. Under
+  UEFI, GRUB's graphical screen keeps the firmware's mode (efi_gop.c, "Keep
+  current mode if possible"), so a theme does not change the installer's
+  resolution.
+
+- **`quiet` is not quiet in the installer.** systemd turns its status lines
+  on once a step is slow (finding the stick is), Plymouth has only its text
+  themes and repeats them, and dracut's warnings come through journald. The
+  installer's line has `loglevel=0 systemd.show_status=error
+  systemd.journald.max_level_console=crit rd.plymouth=0 plymouth.enable=0`.
+
+- **A LINE WRITTEN TO THE CONSOLE EARLY IN THE INITRD STOPS MOVING.** The
+  console's setup runs a second time when the kernel's console moves to the
+  graphics driver, which cuts off a console opened before it and puts the
+  normal font back. `disk_config/installer-wait.sh` opens the console again
+  for every frame. And a unit wanted by `sysinit.target` runs in the initrd
+  only: after the switch to the installer's root that target is already
+  reached, so the second copy is wanted by `anaconda.target`.
 
 - **Keys typed into the VM go to whatever has focus.** An `n` in a shell
   command typed before the console switch landed answered the erase question
@@ -364,6 +439,101 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
   image on the A9, its last line named a variable that no longer existed and
   the image build would have failed at the very end. Five minutes, against a
   wasted image build.
+
+## Running from a USB drive (learned 2026-11-03, the portable install)
+
+- **The builder's disks boot with `console=tty0 console=ttyS0`**, so
+  `/dev/console` is the serial port: systemd's messages, and anything that asks
+  on the console, go there, and the screen sits on the last kernel line as if
+  frozen. `tools/installer-vm.sh` writes the serial port to `serial.log` in
+  the VM's folder; read that first on a qcow2. An ISO install has no serial
+  console, and neither has the portable file, which takes it out
+  (`ci/make-portable-image.sh`).
+- **A QCOW2'S SIZE SAYS NOTHING OF WHAT A DRIVE NEEDS.** The builder's qcow2
+  artifact was 6.6 GB and the plan said a portable would write about 7 GB; the
+  qcow2 is compressed. The same image as a raw disk is 28.9 GB, twice the
+  image's size whatever the settings ask, holding about 10 GB. Measure the raw
+  file.
+- **SHIM ON A DRIVE'S FALLBACK PATH WRITES TO THE PC'S FIRMWARE.** With
+  `EFI/BOOT/fbx64.efi` there, the VM's firmware gained `\EFI\fedora\shimx64.efi`
+  on its first boot. `strings -el vars.fd` shows it. Without that file and with
+  grub copied beside shim, the firmware gained no entry and the VM booted the
+  same, from a drive with no other change.
+- **"NOTHING WRITTEN TO THE FIRMWARE" IS NOT WHAT THAT CHECK SHOWS.** Searching
+  `vars.fd` for `shim` and `fedora` finds boot entries. Shim also stores
+  `SbatLevel` on every start, as it does from any Linux USB drive. Compare the
+  whole list of names before saying what a start left behind.
+- **WITH SECURE BOOT ON, A BAZZITE KERNEL STOPS AT GRUB, NOT AT SHIM.** Microsoft's
+  signature passes shim and Fedora's passes grub, then `bad shim signature`, and
+  grub falls back to its menu: MokManager does not come by itself, as it does
+  where shim refuses grub. Grub's `fallback` in `custom.cfg` brings it. The
+  screen counts down ten seconds, and missing it lands on grub's menu, which
+  has the entry.
+- **MOKMANAGER'S FILE PICKER OPENS AT THE TOP OF THE PARTITION**, in directory
+  order, not sorted. A key at the top sits below `EFI/` and nothing else; in
+  `EFI/BOOT` it is among boot files, where it lands depends on what was deleted
+  first, and a tester has two more folders to find.
+- **A `journalctl --follow` started before the journal moves to the drive stops
+  at the move.** The first boot check's log ended at
+  `systemd-journal-flush.service` on both starts and looked like a hang, while
+  the console went on to first run. Order the unit after that service.
+- **A RAW FILE LEFT FOR QEMU TO GUESS CANNOT BE WRITTEN IN ITS FIRST SECTOR.**
+  That is where a partition table grows. Say `format=raw`, as
+  `tools/installer-vm.sh portable` does for a `.img`.
+- **A GPT CUT SHORT IS NOT READ AGAIN, BY SFDISK.** Its last usable sector is
+  then past the end. Dump the table, truncate the file and write the dump back,
+  without `device:` and `last-lba:`: every id stays, and nothing warns.
+  `sgdisk -e` also copes, with warnings and a gap for alignment.
+- **GitHub's Ubuntu runner has `/dev/kvm`**, group `kvm`, so `chmod 666` it
+  first (measured 2026-11-03): a portable's first start took about 4 minutes
+  there, and the next start 45 seconds to first run.
+- **A FAST DRIVE HIDES ALL OF THIS. BOOT THE REAL STICK.** A VM on the A9's NVMe reached first
+  run in 2 minutes while the same file on a SanDisk 3.2 stick had not after 23: services hit
+  their limits, `rpm-ostree` gave up, logind came up at 22 minutes. That stick writes 58 MB/s
+  in a row and about one scattered 4K synced write per 1.5 s. A VM on the A9 can boot the
+  stick itself (`-drive file=/dev/sda,cache=none`): that is the test.
+- **A JOB THAT TIMES OUT ON A FIRST START MAY NEVER RUN AGAIN.** `cabinetos-update-source` has
+  `ConditionNeedsUpdate=/etc`, and `systemd-update-done` marks that done regardless.
+- **THE LOG IS NOT WHAT MADE IT SLOW.** Storing it in memory saved 5 s of 283 on that stick.
+- **A PORTABLE'S SLOWEST STEP WAS ONE BOOT SETTING.** Bazzite's hardware setup adds
+  `bluetooth.disable_ertm=1` with `rpm-ostree kargs`: a whole deployment and a
+  restart for one word. With the word already on the boot line it says "No karg
+  changes needed" and takes under a second: 54 s to first run in the VM, no restart.
+- **A VM CANNOT SHOW A RESTART LANDING IN WINDOWS.** `bootindex` keeps USB first. A
+  real PC started from its one-time boot menu follows its own order at the next start.
+- **A new console's first start is slow in the VM and nothing is wrong:**
+  Bazzite's hardware setup took 3.5 minutes from a USB-attached disk image
+  (it adds kernel arguments, then restarts), and the Flatpak setup downloads
+  the emulators meanwhile; the session starts only after the hardware setup.
+  A hard power-off in that time loses the journal's unsynced tail: press the
+  power button (`system_powerdown`) and wait.
+- **The kernel writes the hardware clock in local time only when the first
+  time zone it is told at a start is not UTC** (`persistent_clock_is_local`,
+  set once per start). The journal says which: "RTC configured in
+  localtime, applying delta of 0 minutes to system time" on a start with no
+  zone. So a start without a zone must not let chrony's `rtcsync` write the
+  clock, and the zone chosen later cannot change that until the next start.
+- **`hwclock --hctosys` waits for the clock's once-a-second interrupt** and
+  fails after ten seconds ("select() to /dev/rtc0 to wait for clock tick
+  timed out") where it never comes: QEMU's clock, and some boards.
+  `/sys/class/rtc/rtc0/since_epoch` reads the clock's face with no wait.
+- **systemd's first-boot wizard is on in the base, and the image has no
+  language, keyboard or zone file**, so a first boot would stop at a text
+  prompt asking for all three. A disk image's first start is not a first
+  boot to systemd: its `/etc/machine-id` is empty, not "uninitialized", so
+  the wizard was skipped (the journal says "unmet condition check
+  ConditionFirstBoot=yes"). A disk build that writes "uninitialized" would
+  bring the prompt.
+- **An ISO install keeps the PC's clock in local time, written by the
+  installer**: its `/etc/adjtime` says LOCAL with the install's own time on
+  it (the image's copy is dated 1970), as the A9's does from 2026-09-19. The
+  kickstart has no timezone line. The installer's own Time & Date screen
+  still read the clock as UTC (04:26 at 09:26 Eastern, in the VM with a
+  local-time clock); the installed console's first start was right.
+- **A disk image written to a bigger drive keeps its GPT's backup at the
+  image's end.** sfdisk says so ("GPT PMBR size mismatch", "The backup GPT
+  table is not on the end of the device") and moves it as it writes, so one
+  `sfdisk -N` grows the last partition to the drive's real end.
 
 ## The release download (learned 2026-10-10, the first release)
 

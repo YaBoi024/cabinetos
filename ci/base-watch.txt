@@ -1,5 +1,6 @@
 # Packages CabinetOS actually cares about in the Bazzite base, in AREAS, and
-# what to check on the A9 when an area changes.
+# what to check on the Deck when an area changes. (Fork: the original names
+# the maintainer's own console here; see FORK-CHANGES.md.)
 #
 # Used by ci/check-base-update.sh (through ci/base-report.py) to decide whether
 # a Bazzite update is RELEVANT (a human should look at it before merging) or
@@ -22,11 +23,12 @@
 #                     replaced Fedora's in 44.20260929, and the old list called
 #                     that "WirePlumber removed" and never showed the new one.
 #   log: <check> :: <command>
-#                     a check the A9's log answers, once it runs the testing
+#                     a check the Deck's log answers, once it runs the testing
 #                     image. tools/base-checks.sh runs the command there in
 #                     bash as `cabinet`, no sudo; exit 0 is a pass, and what
 #                     it prints is shown on a fail.
-#   tv: <check>       a check that needs MMagTech's eyes or hands.
+#   tv: <check>       a check that needs a person's eyes or hands, on the Deck's
+#                     screen or on a TV when docked.
 #   changelog: <part> :: <regex>
 #                     which kernel changelog lines (kernel.org's, and the OGC
 #                     kernel's own patches) are about a part the console uses.
@@ -64,7 +66,7 @@
 # Its checks are the short broad ones: a kernel touches nearly everything,
 # so boot, picture, sound, network, a Bluetooth pad and one heavy game.
 area: Kernel and startup
-log: The A9 booted the image's own kernel :: [ "$(uname -r)" = "$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' kernel-core)" ]
+log: The Deck booted the image's own kernel :: [ "$(uname -r)" = "$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' kernel-core)" ]
 log: No service failed to start :: out=$(systemctl --failed --no-legend --plain); [ -z "$out" ] || { echo "$out"; exit 1; }
 log: No kernel error this boot that the boot before did not have :: e() { journalctl -b "$1" -k -p err -o cat | sed -E 's/[0-9]+/N/g' | sort -u; }; new=$(comm -13 <(e -1) <(e 0)); [ -z "$new" ] || { echo "$new"; exit 1; }
 log: The console came up on the GPU, not software drawing :: journalctl -b -t cabinetos-session -o cat | grep -q 'gamescope (drm) is up'
@@ -144,6 +146,15 @@ systemd
 systemd-*
 grub2-*
 plymouth*
+# A portable install (a disk image on a USB drive) keeps the PC's hardware
+# clock in local time, as Windows does: chrony keeps that clock (`rtcsync`)
+# and starts only on a start that began with a time zone
+# (docs/decisions/2026-11-03-running-from-a-usb-drive.md). First run's Time
+# zone list is tzdata's zone.tab (frontend/src/timezone.cpp).
+log: Chrony keeps the hardware clock, and waits for a time zone :: out=$(grep -q '^rtcsync' /etc/chrony.conf || echo "no rtcsync in /etc/chrony.conf"; systemctl cat chronyd.service | grep -qx 'ConditionPathExists=/etc/localtime' || echo "chronyd.service lost its time zone condition"); [ -z "$out" ] || { echo "$out"; exit 1; }
+log: First run's Time zone list is there :: [ "$(grep -vc '^#' /usr/share/zoneinfo/zone.tab)" -gt 300 ] && [ -s /usr/share/zoneinfo/iso3166.tab ]
+chrony
+tzdata
 
 # --- System update ----------------------------------------------------------
 # bootc and ostree were under Kernel and startup until 2026-10-21. The
@@ -157,7 +168,7 @@ plymouth*
 # log check below runs as the update does. bootc answers only root, so its
 # own output is the TV check.
 area: System update
-log: The A9 booted the image's own kernel :: [ "$(uname -r)" = "$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' kernel-core)" ]
+log: The Deck booted the image's own kernel :: [ "$(uname -r)" = "$(rpm -q --qf '%{VERSION}-%{RELEASE}.%{ARCH}' kernel-core)" ]
 log: No service failed to start :: out=$(systemctl --failed --no-legend --plain); [ -z "$out" ] || { echo "$out"; exit 1; }
 log: The update check still finds every layer of the running image on the console :: r=$(rpm-ostree status --json | jq -r '.deployments[] | select(.booted) | (."container-image-reference" | sub(".*docker://"; "") | sub(":[^:/]*$"; "")) + "@" + ."container-image-reference-digest"'); m=$(skopeo inspect --raw "docker://$r") || { echo "skopeo could not read $r"; exit 1; }; if jq -e .manifests >/dev/null <<<"$m"; then m=$(skopeo inspect --raw "docker://${r%@*}@$(jq -r 'first(.manifests[] | select(.platform.architecture == "amd64") | .digest)' <<<"$m")") || exit 1; fi; n=$(ostree refs --repo=/sysroot/ostree/repo ostree/container/blob | jq -R -s --argjson m "$m" '(split("\n") | map(select(length > 0))) as $have | [$m.layers[] | select((.digest | sub(":"; "_3A_")) as $d | $have | index($d) | not)] | length'); [ "$n" = 0 ] || { echo "layers of $r the update would fetch again: ${n:-none counted}"; exit 1; }
 # Which image and channel it booted the console reads itself
@@ -167,6 +178,12 @@ log: The update check still finds every layer of the running image on the consol
 # checked here, when these move.
 log: The console still reads which image and channel it booted :: o=$(sed -n 's/.*ostree=\([^ ]*\).*/\1/p' /proc/cmdline); f="$(readlink -f "/sysroot$o").origin"; out=$(grep -qE '^container-image-reference=.+:[^:/]+$' "$f" 2>/dev/null || echo "no container-image-reference=<image>:<tag> in ${f}"; jq -er '.version | strings' /usr/share/ublue-os/image-info.json >/dev/null 2>&1 || echo "no version in /usr/share/ublue-os/image-info.json"); [ -z "$out" ] || { echo "$out"; exit 1; }
 tv: System update: press System update in Settings, System; it checks, then says Up to date
+# Where a new console takes its updates from is set at its first start
+# (system_files/usr/libexec/cabinetos-update-source): bootc status --json's
+# booted image, transport and signature and its other deployments, and
+# `bootc switch --mutate-in-place`, a flag bootc hides. A console that
+# updated must be left as it was; its last line says so.
+log: The first start of a new image left the console following what it followed :: l=$(journalctl -o cat -t cabinetos-update-source -n 1 2>/dev/null); case "$l" in *"nothing to do"|*"left as it is") ;; *) echo "${l:-cabinetos-update-source wrote nothing}"; exit 1 ;; esac
 bootc
 ostree
 skopeo
@@ -179,8 +196,8 @@ jq
 # rules.d/); the rules read polkit's subject and action fields. polkit
 # answers an ordinary user's question about another process only without
 # the unit's name, so the check reads the console's own starts this boot
-# (frontend/src/unit.cpp logs each); the A9 has Remote Play and File access
-# on, so it starts at least one.
+# (frontend/src/unit.cpp logs each); a console with Remote Play or File access
+# on starts at least one, so the check needs one of them on.
 area: What the console may do as root
 log: polkit let the console start its own services this boot :: l=$(journalctl -b -o cat -t cabinetos-session | grep -E '^\[unit\] (Start|Stop|Reload)Unit '); [ -n "$l" ] || { echo "the console started no service this boot (Remote Play or File access on would)"; exit 1; }; bad=$(grep -v ': taken$' <<<"$l"); [ -z "$bad" ] || { echo "$bad"; exit 1; }
 tv: System update: press System update in Settings, System; it checks, then says Up to date
@@ -415,10 +432,11 @@ systemd-libs
 # --- Games drives, added 2026-10-21 ----------------------------------------
 # The console mounts, claims and formats every drive itself through udisks
 # (frontend/src/drives.cpp, udisks.cpp): ext4, exFAT and NTFS, formatted as
-# ext4. Unwatched until this day. The A9 keeps its games on a drive the
-# console mounts at start.
+# ext4. Unwatched until this day. The maintainer's console keeps its games on a drive the
+# console mounts at start. (Fork: the maintainer's log check for his games
+# drive is dropped; a Deck keeps its games on the SD card or the internal
+# drive, and there is no one place every Deck mounts them.)
 area: Games drives
-log: The A9's games drive is mounted where the console looks :: findmnt -rn -o TARGET | grep -q '^/run/media/cabinet/' || { echo "nothing mounted under /run/media/cabinet"; lsblk -o NAME,FSTYPE,LABEL,MOUNTPOINTS; exit 1; }
 udisks2
 libudisks2
 libblockdev*
@@ -448,6 +466,10 @@ log: The sound devices are there :: wpctl status | sed -n '/^Audio/,/^Video/p' |
 # TV's output is gone. `is-enabled` says "disabled" for the image's link, so
 # this reads is-active.
 log: pipewire-pulse runs from login, so a backup output can catch the console's sound :: s=$(systemctl --user is-active pipewire-pulse.service); [ "$s" = active ] || { echo "pipewire-pulse.service is $s"; exit 1; }
+# The sound rule (#655, wireplumber/scripts/cabinetos-sound-output.lua). The
+# build checks the files it stands on (build_files/sound-output-rule.sh); this
+# reads that it loaded, started once it saw the TV, and has had no fault.
+log: The sound rule started and has had no fault :: j=$(journalctl --user -u wireplumber -b -o cat); grep -q 'the sound rule started' <<<"$j" || { echo "no line says the sound rule started (is the TV awake?)"; exit 1; }; if grep -F '[string "cabinetos-sound-output.lua"]' <<<"$j"; then exit 1; fi
 # The volume keys (volume.cpp) read `wpctl get-volume`'s "Volume: 0.50"
 # (" [MUTED]" after it when muted) and set it the same way. With the TV
 # asleep there is no output to ask, so this fails then: wake the TV first.

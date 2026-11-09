@@ -31,7 +31,7 @@ RUN dnf install -y --setopt=install_weak_deps=False \
 # console. See frontend/src/gpu.h, and docs/PROJECT.md open question 20.
 
 # libarchive is for ROMs, which arrive in whatever format their owner has —
-# zip, 7z, plain, or no extension at all. See frontend/src/archive.h.
+# zip, 7z, plain, or no extension at all. See frontend/src/romfile.h.
 #
 # libcurl and json-c are for the RomM client (Phase 4). Both are already present
 # in the OS image, so linking against them adds nothing to what ships — but

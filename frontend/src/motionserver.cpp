@@ -203,7 +203,7 @@ int bindPort() {
         const int v = std::atoi(p);
         if (v > 1023 && v < 65536) return v;
     }
-    return bindPort();
+    return kPort;   // was `return bindPort();`: it called itself and never came back
 }
 bool openSocket() {
     gSock = ::socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0);

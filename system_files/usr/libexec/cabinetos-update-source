@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+#
+# Where a new console takes its updates from: CabinetOS's releases,
+# ghcr.io/mmagtech/cabinetos:latest, signed with CabinetOS's key (#135;
+# build_files/require-signed-updates.sh). Run by
+# cabinetos-update-source.service at the first start of each deployment.
+#
+# WHY A NEW CONSOLE NEEDS IT. Whatever put the image on the drive left it
+# following something else. The installer ISO's own step (bootc-image-builder's
+# osbuild-base.ks) points it at the tag the ISO was built from, unsigned: a
+# version, `testing` or `latest`. A disk image may name the builder's own copy.
+# Until 2026-11-03 the installer's last step (disk_config/iso.toml) fixed that;
+# it is here so that every way onto a drive shares one copy
+# (docs/decisions/2026-11-03-first-time-setup-in-the-os.md).
+#
+# IT NEVER MOVES A CONSOLE OFF WHAT IT FOLLOWS. It acts only on a console with
+# one deployment, the one it was installed with: an update always leaves the
+# one before it beside the new one, so every console that updated into this
+# image is left alone, whatever it follows (the testing channel, a version it
+# was pinned to by hand, a build of somebody's own). And a console that
+# already follows a signed CabinetOS image is left alone even when new, so a
+# way onto a drive that sets its own signed channel keeps it. A new console
+# has a second deployment within seconds of its first start (Bazzite's
+# hardware setup adds kernel arguments and restarts), so the unit runs before
+# that; the second deployment copies the source this set.
+#
+# OFFLINE. `bootc switch --mutate-in-place` rewrites the booted deployment's
+# .origin and downloads nothing; the next update check pulls from the new
+# place. That path of bootc does not make /sysroot writable, and on a running
+# console it is read-only, so it runs in a mount namespace of its own with
+# /sysroot remounted read-write, as bootc's other commands do for themselves.
+
+set -euo pipefail
+
+# Lowercase, and the published package's name. The package must be public, or
+# a console cannot pull its updates from it.
+# FORK (handheld): our own image, not MMagTech's. Keep this line exactly as it is:
+# build_files/require-signed-updates.sh matches it character for character.
+readonly REPO=ghcr.io/yaboi024/cabinetos
+readonly TARGET="${REPO}:latest"
+
+say() { echo "cabinetos-update-source: $*"; }
+
+# The booted deployment's source, and how many other deployments there are,
+# as image|transport|signature|count. A signed source's signature is
+# "containerPolicy"; an unsigned one has none. "|" because a field can be
+# empty, and `read` would run empty fields together on spaces.
+read_source() {
+    local status
+    status=$(bootc status --json) || return 1
+    jq -r '[(.status.booted.image.image.image // ""),
+             (.status.booted.image.image.transport // ""),
+             (.status.booted.image.image.signature // "" | tostring),
+             ([.status.staged, .status.rollback] + (.status.otherDeployments // [])
+              | map(select(. != null)) | length | tostring)] | join("|")' <<<"${status}"
+}
+
+signed_ours() {   # image transport signature
+    [[ "$2" == registry && "$3" == containerPolicy ]] || return 1
+    case "$1" in
+        "${REPO}:"* | "${REPO}@"*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+IFS='|' read -r image transport signature others < <(read_source) ||
+    { say "bootc status failed; left as it is"; exit 1; }
+from="${transport:-none}:${image:-none}${signature:+ (${signature})}"
+
+if signed_ours "${image}" "${transport}" "${signature}"; then
+    say "follows ${image}, signed: nothing to do"
+    exit 0
+fi
+if (( others > 0 )); then
+    say "follows ${from} and has been updated before: left as it is"
+    exit 0
+fi
+
+say "new console, installed from ${from}: following ${TARGET}, signed"
+# shellcheck disable=SC2016 # $1 is the inner shell's, given after the script
+unshare --mount --propagation slave -- sh -ec \
+    'mount -o remount,rw /sysroot
+     exec bootc switch --mutate-in-place --enforce-container-sigpolicy --transport registry "$1"' \
+    _ "${TARGET}"
+
+# Checked, not assumed: read back what the console now follows.
+IFS='|' read -r image transport signature others < <(read_source) || true
+if [[ "${image}" == "${TARGET}" ]] && signed_ours "${image}" "${transport}" "${signature}"; then
+    say "now follows ${TARGET}, signed"
+else
+    say "ERROR: it follows ${transport:-none}:${image:-none} (${signature:-unsigned}), not ${TARGET} signed"
+    exit 1
+fi

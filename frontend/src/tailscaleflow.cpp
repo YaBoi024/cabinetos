@@ -128,8 +128,7 @@ void App::startTailscaleAtBoot() {
 void App::pollTailscale() {
     {
         const bool look = rpWant && (tsWant || tsLoggingOut) &&
-                          (here() == Screen::Settings || here() == Screen::TailscaleSignIn ||
-                           here() == Screen::Friend);
+                          (here() == Screen::Settings || here() == Screen::TailscaleSignIn);
         tailscale::watch(look);
         const tailscale::Status st = tailscale::last();
         if (look && st.state == "Running" && !tsSignedIn) {

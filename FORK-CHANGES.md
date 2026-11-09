@@ -9,8 +9,20 @@ Files marked `FORK (handheld)` in their comments are the fork's.
 - **Base image: bazzite-deck**, pinned by tag and digest, for the Deck's hardware support (speaker
   tuning, built-in controls, power controls, OLED panel correction). `Containerfile`
 - **Own image owner and signing key** (`ghcr.io/yaboi024/cabinetos`). Details in section 2.
-- **Shown as "CabinetOS Handheld"**, with a fork watermark on the boot screen.
-  `about.cpp`, `startscreen.cpp`, `build_files/assets/make-boot-watermark.py`
+- **Shown as "CabinetOS Handheld"**, with the cabinet and a handheld on the start screen and
+  the boot watermark, and the fork's own README, wiki and landing page text.
+  `about.cpp`, `startscreen.cpp`, `build_files/assets/make-boot-watermark.py`,
+  `build_files/assets/handheld_art.py` (the one list of shapes the start screen, the
+  watermark and `docs/assets/mark-handheld.svg` are made from)
+- **The installer says "CabinetOS Handheld" too**: the boot menu entry and its picture, the waiting
+  line, the installer's logo and title, and the drive question. The stick's volume label stays
+  `CabinetOS` because the boot menu and `ci/brand-installer-iso.sh` find the stick by it.
+  `disk_config/` (`grub.cfg`, `installer-wait.sh`, `iso.toml`, the three pictures),
+  `tools/make-installer-art.py` (draws the handheld from `handheld_art.py`),
+  `ci/brand-installer-iso.sh` (product name)
+- **A new console follows our image**, not MMagTech's: `REPO` in
+  `system_files/usr/libexec/cabinetos-update-source` is `ghcr.io/yaboi024/cabinetos`.
+  `build_files/require-signed-updates.sh` fails the build if it and its own `REPO` differ.
 - **Staying in sync with CabinetOS.** A daily check keeps one issue open while upstream has commits
   the fork has not merged: a trial merge's conflicting files, the changed files on the watch list,
   and the commits. `.github/workflows/watch-upstream.yml`, `.github/upstream-watch.txt`;
@@ -36,21 +48,6 @@ and friends join with Moonlight. It's been tested on N64, PSX and a few others.
   `cores/sunshine-patches/0002-keep-the-consoles-sound-on.patch` (needs an image build)
 - **Heavy games drop to Performance while a stream is open**, from the next game started.
   `quality.cpp`, `quality.h`
-- **Play with a friend** (Settings, Remote Play): the steps for a friend, a QR code to Moonlight, this
-  console's Wi-Fi and Tailscale addresses, and the PIN. `friendflow.cpp` (new)
-- **Join a friend** (Settings, Remote Play): this Deck as the guest. Type the friend's address; the
-  first time, four digits appear to type on the friend's Deck; then Moonlight runs full screen with
-  this Deck's controllers. Both stick clicks together leave. Needs Moonlight installed, which needs
-  its lines in `flatpaks.list` (run `tools/moonlight-pin.sh`). Untested on a Deck.
-  `joinflow.cpp`, `moonlight.h`, `moonlight.cpp` (new)
-- Wiring for both pages: `settingsflow.cpp`, `settingsids.h`, `app.h`, `nav.cpp`, `backdrop.cpp`,
-  `frame.cpp`, `main.cpp`, `remoteplayflow.cpp`, `tailscaleflow.cpp`
-- Note for upstream: Join a friend connects to an address the player types, which is the same kind
-  of place as the RomM server's address, but it is not on CONTRIBUTING.md's list of fixed places.
-
-## Security and reports
-- **The Play with a friend page shows "Connection: direct" or "relayed"** while a friend is
-  connected over Tailscale, and says a relay adds lag. `tailscale.h`, `tailscale.cpp`, `friendflow.cpp`
 
 ## Controls and screen
 - **A connected controller becomes player 1**, the Deck's controls player 2, so one-player systems
@@ -94,13 +91,12 @@ and friends join with Moonlight. It's been tested on N64, PSX and a few others.
 - **Silent on the first boot of a new image** (after an install or a `bootc switch`); sound is back
   after one reboot. Cause unknown (section 4.2).
 - First boot needs internet for about two minutes while Eden and xemu install.
-- Untested on a Deck (tested on mobile devices and Windows PCs): Join a friend, Play with a friend, the streaming quality drop, the
+- Untested on a Deck (tested on mobile devices and Windows PCs): the streaming quality drop, the
   Sunshine sound patch (needs an image build).
 
 ## To do
 - Test streaming: PS2 with the quality drop, a controller on the phone, a friend over Tailscale,
   two Moonlight guests at once, player order with a pad and a phone.
-- Test Join a friend on two Decks.
 - Back buttons and trackpads; Steam Deck LCD.
 
 DETAILS:

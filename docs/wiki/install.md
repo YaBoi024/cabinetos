@@ -1,6 +1,6 @@
 # Install
 
-CabinetOS replaces everything on the drive you install it to. It is a whole
+CabinetOS Handheld replaces everything on the drive you install it to. It is a whole
 operating system, not an app. Back up anything you want to keep first, such as
 your Steam games' saves.
 
@@ -33,8 +33,9 @@ The two should be identical:
 
 1. Plug the USB stick and the keyboard into the Deck (through the hub/dock). Switch
    the Deck off. Hold **Volume Down** and press **Power**, and keep holding
-   Volume Down until the boot menu appears. Choose your USB stick, then
-   **Install CabinetOS**.
+   Volume Down until the boot menu appears. Choose your USB stick. The stick
+   shows **Install CabinetOS Handheld** and starts by itself after a few
+   seconds (**Enter** starts it at once).
 2. The installer lists the internal drives (USB drives are never offered). With
    more than one, type the number of the one to use.
 3. It asks once: *This will erase this machine's drive (model). Continue?
@@ -44,16 +45,16 @@ The two should be identical:
 4. **Time & Date**: pick your time zone (it is what the console's dark hours
    follow), **Done**, then **Begin Installation**. Nothing else is asked, and no
    network is needed.
-5. The Deck restarts by itself into CabinetOS. Take the stick out.
+5. The Deck restarts by itself into CabinetOS Handheld. Take the stick out.
 6. On the first start the console installs Eden and xemu, which needs the
    internet for about two minutes. If there is no sound the first time, restart
    the Deck once.
 7. Go to Settings > System > System Update and update your system if necessary.
 
-## Already running CabinetOS? No stick needed
+## Already running CabinetOS or CabinetOS Handheld? No stick needed
 
 On a console that already runs CabinetOS (from the original project's main
-image), you can switch to this version without writing a USB stick. Open a
+image) or an earlier CabinetOS Handheld, you can switch to this version without writing a USB stick. Open a
 terminal and run:
 
 ```bash

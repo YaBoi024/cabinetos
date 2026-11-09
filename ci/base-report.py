@@ -10,8 +10,8 @@ the parts of the base-update pull request a person reads (MMagTech,
 
   * update notes, written so they also serve as the public notes for the
     update: one line per area that changed, in plain words;
-  * the checks for those areas only, split into what the A9's log answers
-    and what needs MMagTech at the TV, each listed once;
+  * the checks for those areas only, split into what the Deck's log answers
+    and what needs a person by hand, each listed once;
   * the kernel's fixes for the parts the console uses, from kernel.org's
     stable changelogs and the OGC kernel's own patches, filtered by the
     watch list's changelog: lines;
@@ -22,7 +22,7 @@ the parts of the base-update pull request a person reads (MMagTech,
                                       area<TAB>name, log<TAB>check<TAB>command,
                                       tv<TAB>check
   base-report.py expect OLD NEW       NAME VERSION-RELEASE of every watched
-                                      package the update brings, which the A9
+                                      package the update brings, which the Deck
                                       must then have (not those CabinetOS
                                       removes)
 
@@ -436,7 +436,7 @@ def kernel_report(old_full, new_full, parts, skips, series, token):
 
 # --- Checks -------------------------------------------------------------------
 
-ALWAYS = "The A9 runs this base: the changed packages have their new versions"
+ALWAYS = "The Deck runs this base: the changed packages have their new versions"
 
 
 def checks(changed):
@@ -511,14 +511,14 @@ def cmd_report(old_path, new_path, md_path, json_path, notes_path, versions):
 
     log, tv = checks(changed)
     md += ["### Checks for this update", "",
-           "Only for the areas above. Put the testing image on the A9, then "
+           "Only for the areas above. Put the testing image on the Deck, then "
            "`tools/base-checks.sh <this branch>` runs the log checks there.", ""]
     if changed:
-        md += ["**From the A9's log** (the assistant):", ""]
+        md += ["**From the Deck's log** (the assistant):", ""]
         md.append(f"- [ ] {ALWAYS}")
         for (check, _), names in log.items():
             md.append(f"- [ ] {check} ({', '.join(names)})")
-        md += ["", "**At the TV** (MMagTech):", ""]
+        md += ["", "**By hand** (on the Deck, and on a TV when docked):", ""]
         if tv:
             md += [f"- [ ] {check} ({', '.join(names)})" for check, names in tv.items()]
         else:

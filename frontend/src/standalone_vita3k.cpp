@@ -137,12 +137,12 @@ std::string vitaHeadless(const Emulator& e, const std::string& scratch, const st
     storage::makeDirs(scratch + "/Vita3K");
     storage::makeDirs(prefPath);
     writeFile(scratch + "/Vita3K/config.yml", configText(prefPath, quality::Level::Performance));
-    std::vector<std::string> args = {
-        "prlimit", "--core=0", "--",
+    std::vector<std::string> args = noNetworkInstall();
+    args.insert(args.end(), {
         "env",
         "XDG_CONFIG_HOME=" + scratch, "XDG_CACHE_HOME=" + scratch, "XDG_DATA_HOME=" + scratch,
         "SDL_VIDEO_DRIVER=dummy", "SDL_AUDIO_DRIVER=dummy", "SDL_CAMERA_DRIVER=dummy",
-    };
+    });
     for (const std::string& v : vitaEnv(e)) args.push_back(v);
     args.push_back(binaryOf(e));
     args.insert(args.end(), what.begin(), what.end());

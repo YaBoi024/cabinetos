@@ -87,6 +87,15 @@ namespace cab::vk {
 // process to "can this machine do Vulkan".
 bool available();
 
+// THE GPU THE SCREEN IS ON, as the GL context's device UUID in gpu.h's form,
+// or empty when this GL cannot say. Needs the context current: under
+// gamescope it is on the GPU its Xwayland draws with, the screen's. gpu.cpp
+// matches it against each Vulkan device (gpu::screenIs), and that match is
+// what makes the memory object route legal at all: an opaque fd is defined
+// only within one device (#659). From GL_EXT_memory_object, which the route
+// already needs.
+std::string screenDeviceUuid();
+
 // What the core handed over with SET_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE,
 // which arrives BEFORE the device is created and is how a core says which
 // device and which extensions it needs. Dolphin uses it; a core that does not

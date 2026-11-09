@@ -1,0 +1,24 @@
+// The time zone a new console is in, from first run's Time zone screen.
+// /usr/libexec/cabinetos-timezone; it sets one only on a console that has
+// none, or replaces the one it set at this same start.
+//
+// The zone is the instance name, escaped as systemd escapes it ("/" becomes
+// "-", and a "-" in a name "\x2d": America/Port-au-Prince is
+// cabinetos-timezone@America-Port\x2dau\x2dPrince.service), so the rule
+// allows those characters only, and the helper checks the zone against the
+// tz database's list again.
+//
+// `subject.local`, as in 60-cabinetos-network.rules: the console on its own
+// seat, not an SSH session.
+polkit.addRule(function(action, subject) {
+    if (action.id != "org.freedesktop.systemd1.manage-units" ||
+        subject.user != "cabinet" || !subject.local) {
+        return polkit.Result.NOT_HANDLED;
+    }
+    var unit = action.lookup("unit");
+    if (action.lookup("verb") == "start" && unit &&
+        /^cabinetos-timezone@([A-Za-z0-9_]|-|\\x2d){3,80}\.service$/.test(unit)) {
+        return polkit.Result.YES;
+    }
+    return polkit.Result.NOT_HANDLED;
+});

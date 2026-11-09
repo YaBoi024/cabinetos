@@ -1,6 +1,6 @@
 # Steam
 
-CabinetOS can hand the TV over to Steam's Big Picture for your PC games, and
+CabinetOS Handheld can hand the TV over to Steam's Big Picture for your PC games, and
 take it back when Steam closes.
 
 ![Steam's Big Picture on the console](../media/steam-bigpicture.webp)

@@ -36,6 +36,7 @@
 #include "selftests.h"
 #include "server.h"
 #include "storage.h"
+#include "timezone.h"
 #include "vectrexsheets.h"
 #include "volume.h"
 
@@ -340,6 +341,8 @@ static int firstRunProbe(romm::Client& client, const char* startAt, bool tryServ
     }
 
     std::printf("\nwhat it sees\n");
+    std::printf("  time zone           %s\n",
+                !f.zoneChosen ? "none" : tz::current().empty() ? "set" : tz::current().c_str());
     std::printf("  online              %s\n", f.online ? "yes" : "no");
     std::printf("  online over a cable %s\n", f.wiredOnline ? "yes" : "no");
     std::printf("  wi-fi radio         %s\n", f.wifiPresent ? "present" : "none");
@@ -360,6 +363,8 @@ static int firstRunProbe(romm::Client& client, const char* startAt, bool tryServ
         std::fprintf(stderr, "[first-run] no step called '%s'\n", startAt);
         return 1;
     }
+    // As setup.cpp starts: the time zone first on a console that has none.
+    if (!startAt && !f.zoneChosen) m.openAt("timezone");
 
     std::printf("\nwalking the chain\n\n");
     for (int guard = 0; guard < 16; ++guard) {
@@ -615,6 +620,7 @@ std::optional<int> earlyProbe(const EarlyProbeOptions& o) {
     const bool discTestMode = o.discTestMode;
     const bool filesTestMode = o.filesTestMode;
     const bool vectrexSheetsTestMode = o.vectrexSheetsTestMode;
+    const bool gpuChoiceTestMode = o.gpuChoiceTestMode;
     const int padsSeconds = o.padsSeconds;
     const bool firstRunRulesMode = o.firstRunRulesMode;
     const bool firstRunWriteMode = o.firstRunWriteMode;
@@ -642,6 +648,7 @@ std::optional<int> earlyProbe(const EarlyProbeOptions& o) {
     if (discTestMode) return disc::test();
     if (filesTestMode) return filesTest();
     if (vectrexSheetsTestMode) return vectrexsheets::test();
+    if (gpuChoiceTestMode) return cab::gpu::test();
     if (padsSeconds > 0) return players::report(padsSeconds);
     if (firstRunRulesMode) return firstRunRules();
     if (firstRunWriteMode) return firstRunWriteTest();

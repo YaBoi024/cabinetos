@@ -15,23 +15,23 @@ a new file, a moved job, a renamed part, or a change to who calls whom.
 
 | Folder or file | What is in it | Where it ends up |
 |---|---|---|
-| `frontend/` | The console's one program, in C++20: `src/` (341 files, one folder; the Makefile compiles these and rcheevos), `data/` (shaders, controller lists, and `vectrex-overlays.json`, which Vectrex game takes which screen sheet), `third_party/rcheevos/` (RetroAchievements, vendored), `covers/` (the stand-in library's covers), `tools/fake-nmcli/` (a stand-in network tool for trying first run) | `/usr/bin/cabinetos-frontend` |
+| `frontend/` | The console's one program, in C++20: `src/` (343 files, one folder; the Makefile compiles these and rcheevos), `data/` (shaders, controller lists, and `vectrex-overlays.json`, which Vectrex game takes which screen sheet), `third_party/rcheevos/` (RetroAchievements, vendored), `covers/` (the stand-in library's covers), `tools/fake-nmcli/` (a stand-in network tool for trying first run) | `/usr/bin/cabinetos-frontend` |
 | `frontend/ps2/` | The PlayStation 2 host around PCSX2, compiled by `cores/build-pcsx2.sh` into `cabinetos-ps2.so`, not by the frontend's Makefile (so a pull request to `main` never compiles it) | `/usr/lib/cabinetos/cores/` |
 | `wiibridge/` | `cabinetos-wii-bridge`, a stand-in for each real Wii Remote; GPL, its own program | `/usr/libexec/cabinetos-wii-bridge` |
 | `cores/` | How every emulator the image carries is built: `build-core.sh` (23 libretro cores, each pinned by commit in its `case` arm), `fetch-mame.sh` (the 24th, MAME 0.289, libretro's own build fetched and checked at its pins, with its plugins and catalogue), `build-pcsx2.sh`, `build-cemu.sh`, `build-sm2emu.sh` (sm2-emu, Sega Model 2's emulator, a program of its own), `build-supermodel.sh` (Supermodel, Sega Model 3's, a program of its own too, with SDL2_net beside it), `build-sunshine.sh` and their builder containers; `options/<core>.txt`, every option each core declares at its pin; `arcade-sets.sh`, each arcade emulator's catalogue from its own list at its pin (CI) | `/usr/lib/cabinetos/cores/` and the emulators' folders |
-| `build_files/` | The image build's scripts: `build.sh` and the scripts it calls (remove the desktop and the storefronts, set up the session, the branding), `install-*.sh` (one per piece the image carries; `install-mame.sh` puts MAME 0.289 beside the cores, in a layer of its own; `install-sm2emu.sh` puts sm2-emu in `/usr/lib/cabinetos/sm2emu` and its catalogue beside the cores, `install-supermodel.sh` Supermodel in `/usr/lib/cabinetos/supermodel` and its catalogue the same way), `require-*.sh` (checks that fail the build), `built-in-speaker.sh` (a speaker inside the case never takes the sound, #547), `sound-backup-output.sh` (pipewire-pulse starts at login, so a backup output catches the sound while the TV's is gone, #228) | run once, inside the image build |
-| `system_files/` | Files copied over the image as they are: the session script, systemd units, the root helpers in `usr/libexec/`, polkit rules, udev rules, the diagnostic report, which output plays the sound (`usr/share/wireplumber/`, a WirePlumber setting file), and a few files in `etc/` (the SSH settings, the update signing key) | `/usr` and `/etc` |
-| `ci/` | What the workflows run: collecting the build outputs (`stage-image-payload.sh`), the key each core's build is cached under (`core-cache-key.sh`, `build-core.yml`), version numbers, promoting the tested image, watching the Bazzite base, the checks every pull request runs (`checks.yml`: `check-romm-paths.sh`, `check-doc-paths.py`, `check-project-index.sh`, `check-long-files.sh`, `check-docs-list.sh`, `check-decisions.sh`, `check-licences.sh`), and the frontend's checks and reports (`build-frontend.yml`: `check-new-warnings.sh`, `run-self-tests.sh`, `list-arcade-changes.sh`, every arcade game whose emulator a catalogue change would move, `report-unused-code.sh`, which calls `warn-unused-touched.sh`) | GitHub Actions |
+| `build_files/` | The image build's scripts: `build.sh` and the scripts it calls (remove the desktop, the storefronts and the help pages, set up the session, the branding), `install-*.sh` (one per piece the image carries; `install-mame.sh` puts MAME 0.289 beside the cores, in a layer of its own; `install-sm2emu.sh` puts sm2-emu in `/usr/lib/cabinetos/sm2emu` and its catalogue beside the cores, `install-supermodel.sh` Supermodel in `/usr/lib/cabinetos/supermodel` and its catalogue the same way, `install-rpcs3.sh` RPCS3 in `/usr/lib/cabinetos/rpcs3` with `rpcs3-config-database.json` beside it as `config_database.dat`: the snapshot of the RPCS3 team's per-game settings, which `tools/fetch-rpcs3-config-database.py` refreshes when the pin moves, with the pin it was taken against in `rpcs3-config-database.pin`), `require-*.sh` (checks that fail the build), `sound-output-rule.sh` (the build fails if a WirePlumber update changes what the sound rule stands on, #655), `sound-backup-output.sh` (pipewire-pulse starts at login, so a backup output catches the sound while the TV's is gone, #228) | run once, inside the image build |
+| `system_files/` | Files copied over the image as they are: the session script, systemd units, the root helpers in `usr/libexec/`, polkit rules, udev rules, the diagnostic report, which output plays the sound (`usr/share/wireplumber/`, a WirePlumber script and its setting file), and a few files in `etc/` (the SSH settings, the update signing key, `adjtime`: the PC's clock in local time where no installer set it) | `/usr` and `/etc` |
+| `ci/` | What the workflows run: collecting the build outputs (`stage-image-payload.sh`), the installer ISO repacked in CabinetOS's look after bootc-image-builder makes it (`brand-installer-iso.sh`, `build-disk.yml`; `tools/installer-vm.sh repack` runs it for test ISOs), the file a tester writes to a USB drive, made from the builder's raw disk and then booted in a VM (`make-portable-image.sh`, `check-portable-boots.sh`, `build-disk.yml`), the downloads put on Cloudflare R2 (`publish-to-r2.sh`, `build-disk.yml`), the key each core's build is cached under (`core-cache-key.sh`, `build-core.yml`), version numbers, promoting the tested image, watching the Bazzite base, the checks every pull request runs (`checks.yml`: `check-romm-paths.sh`, `check-doc-paths.py`, `check-project-index.sh`, `check-long-files.sh`, `check-docs-list.sh`, `check-decisions.sh`, `check-licences.sh`, `check-rpcs3-snapshot.sh`, `check-code-and-docs-agree.py`, which holds what a pull request touches to the comments naming what is there, each header's functions being defined and no private address, and reads the whole tree for the skill of the same name), and the frontend's checks and reports (`build-frontend.yml`: `check-new-warnings.sh`, `run-self-tests.sh`, `list-arcade-changes.sh`, every arcade game whose emulator a catalogue change would move, `report-unused-code.sh`, which calls `warn-unused-touched.sh`) | GitHub Actions |
 | `.github/` | The workflows, the issue form for players, and the pull request template | GitHub |
 | `tools/` | Test and maintenance tools, run by hand; they take their machines from the environment (CONTRIBUTING.md, "Running and testing"). One also runs in the image build: `fetch-vectrex-overlays.py`, which `build.yml` runs to fetch the Vectrex screen sheets (#224) into the payload | nowhere |
-| `disk_config/` | The installer and test-disk layouts | the installer ISO |
+| `disk_config/` | The installer, test-disk and portable-disk layouts (`iso.toml`, `disk.toml`, `portable.toml`), and the installer's look, which `ci/brand-installer-iso.sh` puts on the ISO: its boot menu (`grub.cfg`, with `grub-theme.txt` and `grub-background.png` under UEFI), Anaconda's settings, stylesheet and logo (`installer.conf`, `installer.css`, `installer-logo.png` and its `@2x`), and its title without Fedora's version (`installer-en.po`), and the line with moving dots while it loads (`installer-wait.sh`, `installer-wait.service`). The pictures are drawn by `tools/make-installer-art.py` | the installer ISO |
 | `licences/` | The full licence texts the image ships, and `SOURCES`, where each comes from | `/usr/share/licenses/` |
 | `docs/` | The decisions (`decisions/`, one small file each) and the old record they replace (`PROJECT.md`, frozen on 2026-10-23), the lessons, the website (`index.html`, `wiki/`, and `assets/` with its styles and the wiki's search, `search.js`; served by GitHub Pages), and `history/`: docs that describe the project as it was, each saying what replaced it | only `docs/LICENCES.md` |
 | `Containerfile` | The image: the Bazzite base pinned by digest, then the build scripts in several layers | |
 | `Justfile`, `cabinetos.env` | The build recipes CI calls, and their parameters | |
 | `base-manifest.txt` | The base image's package list, for the monthly base-update check | |
 | `AGENTS.md`, `CLAUDE.md` | What an AI coding tool reads before it changes anything: `AGENTS.md` for any tool, `CLAUDE.md` for Claude Code, which holds the seven rules for every change that both point to | nowhere |
-| `.claude/skills/` | One folder per skill, named for the job it does, each a `SKILL.md` of plain Markdown that any AI tool can read as instructions; the first is `check-emulator-update` | nowhere |
+| `.claude/skills/` | One folder per skill, named for the job it does, each a `SKILL.md` of plain Markdown that any AI tool can read as instructions; the first is `check-emulator-update`, and `check-code-and-docs-agree` is the full read-only audit of the code against the docs, for before a release or with the monthly base update | nowhere |
 
 ### frontend/src
 
@@ -60,11 +60,11 @@ is in the file named for its feature, and
 | Saves and states | `savetable.cpp` (what each core writes, where, and its two tags on RomM: `emulatorTag` for states, `saveTag` for saves; which systems have states and rewind, `snapshotsAllowed` and `rewindAllowed`), `saves.cpp` (sending and restoring all three kinds of save: `syncSave`, `syncDirSave`, `syncFileSaves`), `dirsave.cpp` and `filesave.cpp` (their helpers), `states.cpp`, `statefile.cpp` (a state file's layout: the core's bytes alone, or RetroArch's RASTATE blocks with the achievement progress), `savemirror.cpp`, `uploader.cpp` (the queue), `pending.cpp` (the markers), `offline_sync.cpp`, `playtime.cpp`, `favorites.cpp`; the requests themselves are in `romm_playdata.cpp` |
 | Storage | `storage.h` (where everything lives), `storage_internal.h`, `locations.cpp`, `cache.cpp`, `drives.cpp`, `drives_fs.cpp`, `udisks.cpp`, `users.cpp`, `accounts.cpp`, `accountremove.cpp`, `fileio.cpp` (every file the console replaces goes through its `writeBytes`: a temporary, fsync, a rename), `prefs.cpp`, `gonegames.cpp` (a game RomM no longer has leaves the drive at a start with the server there, with its record, covers, saves, states and screenshots, #625) |
 | Controllers | `players.cpp`, `fightstick.cpp` (the table of known fight sticks, and an arcade game's buttons laid out on one), `controls.cpp` (Controls: an arcade game's buttons moved per game, kind of controller and person, kept in `users/<id> - <name>/controls/`; `play.cpp`'s readGameInput reads each pad through it, `launch.cpp`'s startPlaying reads the game's file, and for sm2-emu and Supermodel `standalone_play.cpp`'s startStandalone reads it before `standalone_sm2emu.cpp` and `standalone_supermodel.cpp` write each player's buttons from it into the program's settings), `controlsflow.cpp` (its panel over the pause menu, and the press it listens for, which `controllers.cpp` hands it before anything else sees it), `controllers.cpp`, `bluetooth.cpp`, `btagent.h`, `battery.cpp`, `batteryrow.cpp`, `shortcuts.cpp`, `wiiremote.cpp` (starts the Wii bridge), `wiipair.cpp`, `wiipanel.cpp`, `wiimii.cpp`, `wii.cpp`, `wiiu.cpp` |
-| The machine | `net.cpp`, `wifi.cpp`, `power.cpp`, `power_menu.cpp`, `powerprofile.cpp`, `volume.cpp`, `sound.cpp`, `gpu.cpp`, `cpus.cpp`, `idle.cpp`, `proc.cpp` (running a program with no shell), `unit.cpp` (asking systemd for a root job), `update.cpp` (System update, the console's side), `files.cpp` (File access, the console's side), `server.cpp` and `serveraddress.cpp` (the RomM server this console belongs to) |
+| The machine | `net.cpp`, `wifi.cpp`, `power.cpp`, `power_menu.cpp`, `powerprofile.cpp`, `volume.cpp`, `sound.cpp`, `gpu.cpp`, `cpus.cpp`, `idle.cpp`, `proc.cpp` (running a program with no shell), `unit.cpp` (asking systemd for a root job), `timezone.cpp` (the time zone first run asks on a console with none: its regions and cities from the tz database, and setting one through `cabinetos-timezone@.service`), `update.cpp` (System update, the console's side), `files.cpp` (File access, the console's side), `server.cpp` and `serveraddress.cpp` (the RomM server this console belongs to) |
 | RetroAchievements | `achievements.cpp` (the sign-in and rcheevos' client; its console table names every system), `achievements_ui.cpp`, `ra_list.cpp`, `ra_net.cpp`, `ra_state.h` |
-| Settings features | `settingsflow.cpp` (the rows and their dispatch), `settingsids.h`, `about.cpp`, `credits.h`, `access.cpp` (File access and Developer access), `wikiqrview.cpp` and `wikiqr.h` (the Wiki's and What's new's QR codes, made by `tools/make-wiki-qr.py`; How to and the link screen draw them), and one `*flow.cpp` per feature: `accountsflow.cpp`, `downloadsflow.cpp`, `drivesflow.cpp`, `pinflow.cpp`, `serveraddressflow.cpp`, `remoteplayflow.cpp`, `friendflow.cpp` (Play with a friend: the steps for a guest to join a stream), `joinflow.cpp` (Join a friend: this console as a stream's guest, through Moonlight, run as an emulator of its own is: overlay window, virtual pads) and `moonlight.cpp` (Moonlight's command lines and the hosts paired with), `tailscaleflow.cpp`, `steamflow.cpp`, `updateflow.cpp`, `reportflow.cpp`; `choiceflow.cpp` asks a question over any screen |
+| Settings features | `settingsflow.cpp` (the rows and their dispatch), `settingsids.h`, `about.cpp`, `credits.h`, `access.cpp` (File access and Developer access), `wikiqrview.cpp` and `wikiqr.h` (the Wiki's and What's new's QR codes, made by `tools/make-wiki-qr.py`; How to and the link screen draw them), and one `*flow.cpp` per feature: `accountsflow.cpp`, `downloadsflow.cpp`, `drivesflow.cpp`, `pinflow.cpp`, `serveraddressflow.cpp`, `remoteplayflow.cpp`, `tailscaleflow.cpp`, `steamflow.cpp`, `updateflow.cpp`, `reportflow.cpp`; `choiceflow.cpp` asks a question over any screen |
 | Remote Play, Steam, the report | `remoteplay.cpp`, `sunshinelog.cpp`, `tailscale.cpp`, `steam.cpp`, `report.cpp`, `samenames.cpp` |
-| Test instruments | `probes.cpp` (runs the probes and calls most self-tests; `--same-names-test`, `--arcade-tile-test`, `--fightstick-test`, `--arcade-settings-test`, `--screen-view-test`, `--controls-test`, `--idle-test`, `--gone-games-test` and `--romm-race-test` run from `cli.cpp`), `selftests.cpp`, `coretests.cpp`, `testhooks.cpp`, `discrig.cpp`, `optcheck.cpp` (the option-table check CI runs). Most self-tests live in their feature's own file (`players::test` in `players.cpp`, and so on). They ship in the program and run only from a flag |
+| Test instruments | `probes.cpp` (runs the probes and calls most self-tests; `--same-names-test`, `--arcade-tile-test`, `--fightstick-test`, `--arcade-settings-test`, `--arcade-match-test`, `--arcade-changes`, `--screen-view-test`, `--controls-test`, `--netblock-test`, `--idle-test`, `--gone-games-test` and `--romm-race-test` run from `cli.cpp`), `selftests.cpp`, `coretests.cpp`, `testhooks.cpp`, `discrig.cpp`, `optcheck.cpp` (the option-table check CI runs). Most self-tests live in their feature's own file (`players::test` in `players.cpp`, and so on). They ship in the program and run only from a flag |
 
 ### Where it starts
 
@@ -119,9 +119,12 @@ is in the file named for its feature, and
   console's own requests alone; a library is an emulator's because
   `Core::load` or `ps2::load` loaded it. An emulator run as a program is
   started with no network by the three `proc::spawn` calls that start one
-  (`standalone.cpp`, `standalone_xemu.cpp`): bwrap for the image's, `flatpak
-  run --unshare=network` for the Flatpaks. A new core or emulator program is
-  covered by going through those, with nothing of its own.
+  (`standalone.cpp`, `standalone_xemu.cpp`): bwrap for the image's
+  (`noNetwork`), `flatpak run --unshare=network` for the Flatpaks. A PS3 or
+  Vita install, the one time an emulator runs to do anything but play, goes
+  under the same bwrap (`noNetworkInstall`; `rpcs3Headless`, `vitaHeadless`).
+  A new core or emulator program is covered by going through those, with
+  nothing of its own.
 - **Storage** (`storage.h`) decides where everything lives. Eviction only ever
   walks `cache/`; kept games (`roms/`) and save data are never evicted. The
   one other removal is a game RomM no longer has, kept or played, at a start
@@ -141,7 +144,7 @@ is in the file named for its feature, and
   Exceptions today: the `--first-run-writes` and `--playtime-test` self-tests
   remove their scratch folders with `std::system`; the Wii bridge is started
   with `fork` and `execl` (`wiiremote.cpp`); and the frontend restarts itself
-  with `execv("/proc/self/exe")` (`startup.cpp`).
+  with `execv("/proc/self/exe")` (`startup.cpp`, `serverwait.cpp`).
 - **The image** (`Containerfile`, `build_files/`) puts what it installs in
   `/usr`, which every update replaces, and a few settings files in `/etc`
   (`system_files/etc/`, and the signing policy written by
@@ -160,9 +163,9 @@ is in the file named for its feature, and
 
 1. `parseCommandLine` (`cli.cpp`). A flag that exits ends the parse there.
 2. `resolveCoresAndServer` (`cli.cpp`): where the cores are (`--core-dir`,
-   else `cores/build` when it exists in the working folder, else
-   `/usr/lib/cabinetos/cores`), and the server's address: `--romm`, else
-   `CABINETOS_ROMM`, else `/etc/cabinetos/session.env`, else the console's
+   else `cores/build` or `../cores/build` when it exists from the working
+   folder, else `/usr/lib/cabinetos/cores`), and the server's address:
+   `--romm`, else `CABINETOS_ROMM`, else `/etc/cabinetos/session.env`, else the console's
    `config/server.json` (`serveraddress.cpp`).
 3. `earlyProbe` (`probes.cpp`): the tests and probes that need no storage
    and no window run and exit here.
@@ -170,7 +173,9 @@ is in the file named for its feature, and
    that need it.
 5. `startDisplay`: the window and the GL context.
 6. `runFirstRun`: first run, if the console is not set up (`firstrun.h` for
-   its rules, `setup.cpp` for its screens).
+   its rules, `setup.cpp` for its screens). On a console with no time zone
+   (one running from a USB drive) it opens at the time zone, before the
+   network.
 7. `startStartupScreen`, then `connectToServer`: the console waits for its
    server; when there is a game on the drive to play, it goes offline after
    15 seconds and tries the server in the background, otherwise it keeps
@@ -204,7 +209,8 @@ is in the file named for its feature, and
    worker.
 2. The worker (`launch_routes.cpp`) fetches the platform's firmware from RomM
    first, then takes one of four routes, in this order: a game on several
-   discs, a game installed before it runs (PS3), a folder of files, one file.
+   discs, a game installed before it runs (PS3, Vita), a folder of files, one
+   file.
    The bytes go straight to disk: under `cache/` for a game pulled to play,
    under `roms/` for a game kept, on the console's own storage or a drive.
    An archive the core does not open itself is unpacked beside it
@@ -217,7 +223,11 @@ is in the file named for its feature, and
    and the bytes a restore may pick (`fetchLaunchSaves`; `saves.cpp`,
    `fetchSaves`), and the Mii Channel's for a Wii game, then marks the job
    Ready.
-3. Each frame, `pumpLaunch` (`launch.cpp`) reads the job. A failed job is
+3. Each frame, `pumpLaunch` (`launch.cpp`) reads the job. A stop (Stop on
+   the page's filling row, `pressStopDownload` in `downloadsflow.cpp`;
+   Escape on a keyboard, `input.cpp`; Eject of the drive it is going to,
+   #404) sets the job's cancel, which the worker answers at every step
+   (#472); the job ends Failed, and a cancel says nothing. A failed job is
    undone (the keep record comes out; the bytes stay, to be evicted). A
    Download that was not a Play stops when the game is on disk. A game the
    person walked away from finishes quietly and does not start. A launch
@@ -303,8 +313,58 @@ power cut).
 4. Download starts `cabinetos-update-download.service`, which stages the new
    image; the next restart or power off applies it.
 
+Where a console takes its updates from is set once, at the first start of a
+new console, however the image reached its drive: the installer ISO, or a
+disk image (`docs/decisions/2026-11-03-first-time-setup-in-the-os.md`).
+`cabinetos-update-source.service` runs `/usr/libexec/cabinetos-update-source`
+at the first start of each deployment, alongside systemd-sysusers, which
+makes the account (`system_files/usr/lib/sysusers.d/cabinetos.conf`; its
+home is `tmpfiles.d/cabinetos.conf`'s). On a console with one deployment
+that does not follow a signed CabinetOS image yet, it points it at
+`ghcr.io/mmagtech/cabinetos:latest`, signed, offline; every console that
+updated into the image it leaves as it is.
+
 How a change gets into that image is in CONTRIBUTING.md, "How a change
 reaches a console".
+
+### Running from a USB drive
+
+A portable install is the disk image written to a USB drive and booted on
+somebody's PC (`docs/decisions/2026-11-03-running-from-a-usb-drive.md`).
+`build-disk.yml`'s `portable` type makes that file: bootc-image-builder makes
+a raw disk with no account and no size (`disk_config/portable.toml`),
+`ci/make-portable-image.sh` shrinks it, gives it an ISO install's boot line,
+does beforehand or delays what a first start would otherwise write
+(`docs/decisions/2026-11-04-portable-first-start.md`),
+takes out the boot file that would add an entry to the PC's boot list, adds
+the key screen a PC with Secure Boot on needs
+(`docs/decisions/2026-11-04-portable-secure-boot.md`) and compresses it, and
+`ci/check-portable-boots.sh` boots the result in a VM, with Secure Boot on and
+with it off, and fails the run unless both reach first run
+(`docs/decisions/2026-11-03-portable-disk-image.md`).
+What tells a portable apart at run time is one test, `cabinetos-system-disk portable`: the drive
+the system is on can be unplugged (the console's own test,
+`storage::isExternalDevice`). Then, at each start:
+
+1. udev runs `/usr/libexec/cabinetos-system-disk` on every drive
+   (`90-cabinetos-system-disk.rules`). The console's own drive was hidden from
+   udisks already (#223); on a portable every drive of the PC that cannot be
+   unplugged is too. The console mounts, lists and formats only what udisks
+   does not ignore (`drives.cpp`, `consider`), Steam's Storage page leaves it
+   out, and Steam is given libraries only on drives the console mounted
+   (`cabinetos-steam-libraries`).
+2. `cabinetos-grow-root.service`, early, grows the system's partition and
+   filesystem into free space directly after it (`cabinetos-grow-root`); after
+   the first start it finds none.
+3. On a start with no time zone, chrony does not start
+   (`chronyd.service.d/50-cabinetos.conf`). First run opens at the time zone;
+   the city chosen starts `cabinetos-timezone@<zone>.service`
+   (`68-cabinetos-timezone.rules`), which sets the zone and reads the system
+   clock again from the PC's clock, which stays in local time
+   (`system_files/etc/adjtime`), and leaves that clock alone.
+
+An install from the ISO is on the PC's own drive and has the installer's
+zone and clock setting, so none of this happens there.
 
 ## 4. Where to look for the most common changes
 
@@ -318,11 +378,12 @@ reaches a console".
 | A new libretro core | `cores/build-core.sh` (a `case` arm, and any patches in an `if [ "$CORE" = <core> ]` block of its own; its name there is the core's name everywhere, and the file is that name without a trailing `_libretro`, plus `_libretro.so`; nothing else in that file changes, or CI rebuilds every core: `ci/core-cache-key.sh`), `build-core.yml`'s list, the two counts of 23 (`ci/stage-image-payload.sh`'s `EXPECTED` and `build_files/install-frontend.sh`), `cores/options/<core>.txt` (made from what `tools/core-options.c` prints for the built core; `cores/check-options.sh` runs it), `catalog.cpp` (the platform's row; the table is positional, read its struct first), `savetable.cpp` (its two tags), `coreoptions.cpp`, `achievements.cpp`'s console table for a new system, `docs/wiki/systems.md`, and the licences (CONTRIBUTING.md, "Duties") |
 | Moving a core's pin | its `COMMIT` in `cores/build-core.sh`; in the same commit `cores/options/<core>.txt`, and the same commit in `licences/SOURCES` (then `tools/fetch-licences.py`) and `docs/LICENCES.md` |
 | An emulator run as a program | `standalone.h`, its `standalone_<name>.cpp`, its `build_files/install-*.sh` or `system_files/usr/share/cabinetos/flatpaks.list`, its row in `catalog.cpp` |
+| The RPCS3 team's settings for a PS3 game | `build_files/rpcs3-config-database.json`, the snapshot of RPCS3's per-game settings database, refreshed by `tools/fetch-rpcs3-config-database.py` only when RPCS3's pin moves (CONTRIBUTING.md, "Duties"), with the pin it was taken against in `build_files/rpcs3-config-database.pin`, which `ci/check-rpcs3-snapshot.sh` and the image build hold to the pinned one; `build_files/install-rpcs3.sh` puts it beside RPCS3, and `standalone_rpcs3.cpp` (`prepareRpcs3`) copies it into RPCS3's config folder before every start; `docs/decisions/2026-11-06-rpcs3-settings-database-snapshot.md` |
 | What an emulator may reach on the network | `netblock.cpp` (inside the program), `standalone.cpp` and `standalone_xemu.cpp` (programs: bwrap, `flatpak run --unshare=network`); `docs/decisions/2026-10-26-emulators-get-no-network.md` |
 | A RomM request or field | the client (`romm.h`, `romm_*.cpp`, `romm_types.h`); RomM's documentation and behaviour decide; the map of every request is #398's Part 5, section 48 (the audit's comments on #398 each start "Audit, Part N", and sections are numbered across the parts) |
 | Saves and states | `savetable.cpp` (what and where), `saves.cpp` (sending and restoring), `states.cpp`, `statefile.cpp` (what a state file holds), `uploader.cpp` (the queue), `pending.cpp` (the markers), `romm_playdata.cpp` (the requests), `standalone_play.cpp` (emulators run as programs) |
 | Something in the image (a package, a unit, a rule) | `build_files/`, `system_files/`; an image build, so it is proven on `testing` |
-| Which output plays the sound (the TV, headphones, a built-in speaker, a backup while the TV's is gone) | `system_files/usr/share/wireplumber/wireplumber.conf.d/60-cabinetos-sound-output.conf` (the rule, and why each part exists), `build_files/built-in-speaker.sh` (a built-in speaker counts as not there: one PipeWire file edited at build, and the build fails if PipeWire changes it) and `build_files/sound-backup-output.sh` (pipewire-pulse started at login, so PipeWire's Dummy Output catches the sound while the screen sleeps or the TV is off; the build fails if PipeWire moves either); docs/PROJECT.md, decision 46; `docs/decisions/2026-10-26-sound-backup-output.md` |
+| Which output plays the sound (the TV, headphones, a speaker or jack that cannot sense a plug, a backup while the TV's is gone) | `system_files/usr/share/wireplumber/scripts/cabinetos-sound-output.lua` (the rule, and why each step exists), `system_files/usr/share/wireplumber/wireplumber.conf.d/60-cabinetos-sound-output.conf` (what else the rule needs, and how it loads), `build_files/sound-output-rule.sh` (the build fails if a WirePlumber update changes what the rule stands on) and `build_files/sound-backup-output.sh` (pipewire-pulse started at login, so PipeWire's Dummy Output catches the sound while the screen sleeps or the TV is off; the build fails if PipeWire moves either); `docs/decisions/2026-11-04-one-sound-rule.md`; `docs/decisions/2026-10-26-sound-backup-output.md` |
 | Something the console must do as root | a script in `system_files/usr/libexec/`, its unit, a polkit rule naming the unit, `unit::start` from the frontend, and a status file |
 | A command-line flag or a self-test | `cli.cpp` (the flag), `probes.cpp` (where a probe or test is called), the feature's own file for its test (`players.cpp`'s `players::test`), `selftests.cpp`, `testhooks.cpp`. There is no test framework: a test is a flag that exits with 0 when it passes |
 
@@ -347,6 +408,15 @@ Each with where it is recorded.
 - **The tested image is what ships**; a merge promotes it instead of building
   again (docs/SETTINGS.md, System, "THE TESTED IMAGE IS WHAT SHIPS").
 - **Updates are signed, and the console checks** (`build_files/require-signed-updates.sh`).
+- **First-time setup is the image's, not the installer's**: the account and
+  the update source, so the ISO and a disk image share one copy
+  (`docs/decisions/2026-11-03-first-time-setup-in-the-os.md`).
+- **A portable install leaves the PC alone**: its drives hidden through
+  udisks, its clock in local time, the time zone asked on first run
+  (`docs/decisions/2026-11-03-running-from-a-usb-drive.md`), and no boot entry
+  written into its firmware (`docs/decisions/2026-11-03-portable-disk-image.md`).
+  The one thing that can stay is the key a tester enrols on a PC with Secure
+  Boot on (`docs/decisions/2026-11-04-portable-secure-boot.md`).
 - **No emulator settings page; three picture levels** (docs/SETTINGS.md, "The
   screen"; `quality.h`).
 - **Settings, as built** (docs/PROJECT.md, open question 31; docs/SETTINGS.md
@@ -364,8 +434,10 @@ Each with where it is recorded.
   cache's key (`covercache.cpp`). They should move into the client.
   `ci/check-romm-paths.sh` lists them and fails a pull request that adds
   another.
-- **CI runs one self-test** (`--check-option-tables`); the others are run by
-  hand. No Python is tested, and neither are `tools/` and `disk_config/`.
+- **CI runs the option tables and the 20 self-tests in
+  `ci/run-self-tests.sh`;** the tests it lists as needing a screen, a core, a
+  game or a server are run by hand. No Python is tested, and neither are
+  `tools/` and `disk_config/`.
   A pull request to `main` never builds the cores, `frontend/ps2`, Cemu,
   sm2-emu, Supermodel, Sunshine or the image, so a fault there first shows at the maintainer's
   testing push, including a core's options list that no longer matches
@@ -378,10 +450,6 @@ Each with where it is recorded.
   `tools/check-applied.sh` (the builder image) and the disc rig
   (`tools/disc-rig/README.md`). Their machines come from the environment
   (CONTRIBUTING.md, "Running and testing").
-- **Some of the maintainer's own details are still in the code:** the empty server
-  address field on first run shows his server's address as its example
-  (`setup.cpp`), and comments carry his controllers' Bluetooth addresses
-  (`bluetooth.cpp`, `bluetooth.h`, `players.cpp`, `players.h`).
 - **A fork's image carries the project's key and image name until the fork
   edits them:** they are written into tracked files (CONTRIBUTING.md,
   "Generate a signing key", lists them).
@@ -407,51 +475,22 @@ Each with where it is recorded.
   member order (app.h), `Uploader::Job`'s field order (uploader.h), and the
   rows of catalog.cpp's table.
 - **Building leaves files in the tree:** the Makefile writes `.o` and `.d`
-  files beside the sources, and the `.d` files are not ignored by git.
+  files beside the sources, not in `build/`; git ignores them
+  (`frontend/.gitignore`).
 - **The faults the audit recorded** are on #398, Parts 3 to 5, and become
   pull requests or issues next.
 
 ## 7. Where the docs and the code disagree
 
-The audit (#398, Part 5 sections 44 and 45) found the docs and the code
-apart in many places. The docs were brought into line in the docs tidy
-(#427, "Docs tidy: every doc true to the code, or marked as history
-(#398)", 2026-10-17): frontend/README.md cut down to the build; the
-2026-09-20 snapshot, the three history files and the old frontend README in
-`docs/history/`; the stale lines fixed where they stand, and in
-docs/PROJECT.md noted under the stale line with a date, since its rule then
-was to record a reversal rather than edit history; an index at the top of
-PROJECT.md giving where each question ended. What is left is in code
-comments, which the faults step fixes. Until then, trust the code:
+None is known. The audit (#398, Part 5 sections 44 and 45) found the two
+apart in many places. The docs tidy (#427, "Docs tidy: every doc true to the
+code, or marked as history (#398)", 2026-10-17) put the docs right, and moved
+what describes the project as it was to `docs/history/`. The code comments
+it left were put right by 2026-11-03.
 
-- **Code comments:** 59 point at the wrong place, most saying "in main.cpp"
-  for code the restructure moved (app.h's own header among them). Several
-  scripts say twenty-one cores (`Containerfile`, `.gitignore`,
-  `cores/build-pcsx2.sh`, which also says it applies no patches and applies
-  one); `build_files/build.sh` and `build_files/require-cec.sh` call HDMI-CEC
-  a hard requirement, though it was shelved on 2026-09-24; several workflow
-  headers say pull requests to `main` build the image, which they do not.
-  Others: `frontend/Containerfile` cites an `archive.h` that `frontend/src/`
-  does not have; `selftests.cpp` says `--first-run-rules` runs in CI (it does
-  not); `samplelibrary.h` says main.cpp is its only user (startup.cpp is);
-  `cores/check-options.sh` names catalog.cpp for what is now
-  `coreoptions.cpp`; `cores/build-core.sh` says core pins follow Cabinet's
-  manifest and "are not to be updated here", which predates both Cabinet
-  ceasing to be a constraint (2026-10-11) and the stability rule for moving
-  pins (`docs/decisions/2026-10-23-when-an-emulator-pin-moves.md`; first set
-  2026-10-14), which is the rule now.
-- **More code comments the docs tidy found:** Developer access placed in
-  "Settings, System" (`system_files/etc/ssh/sshd_config.d/30-cabinetos.conf`,
-  `cabinetos-developer.service`, `enable-ssh.sh`, `app.h`; it is the last row
-  of About); `frontend/Makefile` points to README.md for the loop, which is
-  CONTRIBUTING.md, "Running and testing"; `frontend/ps2/CabinetPS2Host.cpp`
-  and `.h` cite docs/PCSX2-HOST-SURFACE.md, now in `docs/history/` (a stub
-  keeps the old path); `storage.h`'s layout comment, which
-  frontend/README.md's tree corrects; Flycast said to have no shared tag
-  (`gamesession.h`, `cores/build-core.sh`; `savetable.cpp` gives it one);
-  `savetable.cpp`'s own claim that only cores built as Cabinet builds them
-  are listed; "twenty-one cores" in the workflows too (`build.yml`,
-  `build-core.yml`, `build-pcsx2.yml`, `build-frontend.yml`).
+`docs/PROJECT.md` is frozen, so an old line there can still differ from the
+code; its index gives where each question ended. A disagreement found from
+now on is fixed in the same pull request, or listed here until it is.
 
 ## 8. What leans on other projects
 
@@ -500,8 +539,7 @@ The area named is the one in `ci/base-watch.txt` whose checks a change asks for.
 | The pause menu over a PS2 game or a game run as a program | The `STEAM_OVERLAY`, `STEAM_INPUT_FOCUS` and `GAMESCOPE_NO_FOCUS` properties, gamescope placing a window when it maps (`overlaywin.cpp`), a transparent window, 30 clear frames before it shows (`standalone_play.cpp`) | `tv:` (The picture on the TV): the pause menu over a PS2 game; `tools/gamescope-overlay-test.sh` by hand |
 | Smooth frames | gamescope keeping one picture waiting, so every emulator is given vsync (`standalone_*.cpp`, `frontend/ps2/CabinetPS2Host.cpp`); the refresh SDL reports under it (`pace.cpp`); a new emulator window taking the screen by itself; gamescope ending with its program, so the console restarts itself in place (`startup.cpp`) | `tv:` One heavy game. Frame times are measured by hand |
 | PS2's own window, and closing an emulator politely | SDL choosing X11 under gamescope and `GAMESCOPE_WAYLAND_DISPLAY` (`ps2window.cpp`); Xwayland listing each emulator's window under the root with `_NET_WM_PID` and `_NET_WM_NAME`, and `WM_DELETE_WINDOW` (`xtitles.cpp`) | Not checked: PS2 falls back to copying frames, and a close to SIGTERM, without a word |
-| Which output plays the sound | WirePlumber's documented settings (`system_files/usr/share/wireplumber/wireplumber.conf.d/60-cabinetos-sound-output.conf`); PipeWire making the TV's output again at start, which `volume.cpp` waits for | `log:` and `tv:` (Sound) |
-| A built-in speaker never taking the TV's sound (#550, "Sound: a built-in speaker never takes the sound from the TV") | PipeWire's `/usr/share/alsa-card-profile/mixer/paths/analog-output-speaker.conf`, edited at image build: its `[Jack Speaker Phantom]` and `[Jack Speaker Front Phantom]` sections say "no" where they said "unknown", so the speaker's output counts as unplugged; and PipeWire's rule that a plugged jack's "no" outweighs everything else (`calc_port_state`, read at 1.6.9) | The image build stops if the file is gone or either section does not read as at PipeWire 1.6.9 (`build_files/built-in-speaker.sh`). Not checked: that the rule still works, which needs a machine with a built-in speaker; the A9 has none |
+| Which output plays the sound | Three steps between WirePlumber's own (`system_files/usr/share/wireplumber/scripts/cabinetos-sound-output.lua`): the list its default output is picked from, where a program's sound goes with no default, and which profile a card takes; its settings (`system_files/usr/share/wireplumber/wireplumber.conf.d/60-cabinetos-sound-output.conf`); PipeWire making the TV's output again at start, which `volume.cpp` waits for | The image build stops if a file those steps stand on changes (`build_files/sound-output-rule.sh`); `log:` and `tv:` (Sound) |
 | The console's sound coming back after the screen sleeps or the TV is off (#228, "Sound can die until a restart") | pipewire-pulse's unit, `/usr/lib/systemd/user/pipewire-pulse.service`, started at login by a link the image build makes beside it in `default.target.wants`; and `/usr/share/pipewire/pipewire-pulse.conf` loading `module-always-sink` by default (its `pulse.cmd` line with the condition `pulse.cmd.always-sink = !false`), which makes Dummy Output whenever no other output exists, so SDL moves the console's sound off the TV's dead output | The image build stops if the unit or the file is gone, if that line is no longer in `pulse.cmd` as at PipeWire 1.6.9, or if anything sets the property or changes `pulse.cmd` (`build_files/sound-backup-output.sh`); `log:` (Sound): pipewire-pulse runs. Not checked: the sound moving to Dummy Output and back, which needs the screen put to sleep and woken |
 | The volume keys | `wpctl get-volume`'s "Volume: 0.50" and `set-volume` (`volume.cpp`); every key device readable through systemd's seat rules, after `system_files/usr/lib/udev/rules.d/71-cabinetos-key-devices.rules` | `log:` (Sound; the TV must be awake) and `log:` (Kernel and startup) |
 | Sound controllers kept awake | tuned's post-loaded profile, read only from `/etc`, and its audio plugin (`system_files/usr/lib/tuned/profiles/cabinetos-audio/tuned.conf`) | `log:` (Power) |
@@ -509,6 +547,7 @@ The area named is the one in `ci/base-watch.txt` whose checks a change asks for.
 | The Steam Deck's charge limit (fork) | `max_battery_charge_level` on the `steamdeck_hwmon` hwmon device, written by `/usr/libexec/cabinetos-charge-limit` through `68-cabinetos-charge.rules` (`chargelimit.cpp`) | `log:` (Power) |
 | Sleep when idle on battery (fork) | A `Mains` entry under `/sys/class/power_supply` with `online` (`idlesleep.cpp`), logind's Suspend (`power.h`) | `log:` (Power) |
 | Picture quality's Auto | amdgpu's `pp_dpm_sclk`, cpufreq's and the topology's files (`gpu.cpp`, `cpus.cpp`) | `log:` (Kernel and startup) |
+| The GPU games draw on, with two (#659) | Mesa giving one GPU the same UUID in GL (`GL_DEVICE_UUID_EXT`, GL_EXT_memory_object) and in Vulkan (`VkPhysicalDeviceIDProperties`), which is how the screen's GPU is matched (`vkbridge.cpp`, `gpu.cpp`); the loader listing devices in one order for every process, which is how Xenia is told its device by number (`standalone_xenia.cpp`) | `--gpu-choice-test` in CI, for the rule; `log:` (Kernel and startup): the `[gpu]` line names the GPU and why. Not checked: a PC with two GPUs, which the reference console is not; seen as the `[gpu]` line saying the screen's GPU is not among the Vulkan devices |
 | Controller drivers loaded at boot | The kernel's module names, and its list of pads that wait for their own driver (`system_files/usr/lib/modules-load.d/cabinetos-controllers.conf`) | `log:` No service failed to start (Kernel and startup); `series:` Controllers lists the list's changes, for when the file can go |
 | A real Wii Remote kept for the bridge | 92-viia.rules (`ublue-os-udev-rules`) opening every hidraw node before ours closes the Remote's; `/dev/uhid`'s grant; `HID_NAME` in a node's uevent; SDL's Wii driver switched off by its hint (`startup.cpp`) | `log:` and `tv:` (Controllers) |
 | A Remote with Nintendo's own id counting once (#549, "A Nintendo Wii Remote counts once, not as a pad and a Remote") | The kernel's Wii Remote driver, hid-wiimote, taking exactly Nintendo's two ids over Bluetooth (057E:0306 and 0330, kept for it in hid-quirks.c), and udev's `ID_INPUT_JOYSTICK` and `LIBINPUT_IGNORE_DEVICE` on its devices, which `system_files/usr/lib/udev/rules.d/72-cabinetos-wii-remote.rules` sets to hide them | `log:` (Kernel and startup): the driver takes exactly those two ids; `series:` Controllers lists its changes on a new kernel series. Not checked: a Remote with Nintendo's id itself, which the A9 does not have (its Remotes are TechKens) |
@@ -519,7 +558,12 @@ The area named is the one in `ci/base-watch.txt` whose checks a change asks for.
 | Remote Play away from home | `tailscale status --json`'s fields and state words, `tailscale up` refusing unless every setting is named (`tailscale.cpp`, `tailscaleflow.cpp`), `tailscale set`'s flags (`system_files/usr/lib/systemd/system/tailscaled.service.d/50-cabinetos.conf`) | `log:` and `tv:` (Remote Play away from home). Not checked: `up`'s rule |
 | Every root job | Our polkit rules, reading polkit's subject and action fields (`system_files/usr/share/polkit-1/rules.d/`) | `log:` and `tv:` (What the console may do as root) |
 | System update | `bootc status --json`, the text of `bootc upgrade --check` and its progress lines, skopeo and jq, ostree's names for the layers it holds (`cabinetos-update`); `/proc/cmdline`'s `ostree=`, the deployment's `.origin`, `/usr/share/ublue-os/image-info.json`, which no package owns (`update.cpp`) | `log:` and `tv:` (System update) |
+| A new console's account and update source | systemd-sysusers and `cabinetos-update-source.service`'s `ConditionNeedsUpdate=/etc` holding at the first start of each deployment because ostree leaves `/etc/.updated` out of every new one; `bootc switch --mutate-in-place`, a flag bootc hides, rewriting the newest deployment's `.origin` and needing `/sysroot`, read-only on a running console, remounted read-write in a mount namespace of its own; the installer's own `%post` (bootc-image-builder's `osbuild-base.ks`) pointing a new console at the ISO's tag, unsigned; `bazzite-hardware-setup.service` making a second deployment, with the first one's `.origin`, on a new console's first start, after this step (`cabinetos-update-source`) | `log:` (System update): a console that updated was left as it was. Not checked: a new console's first start, which shows only by installing an ISO in the VM (`tools/installer-vm.sh`) |
 | Games drives | udisks's object paths (the console works out its own disk's, `udisks.cpp`), its properties, Format's `take-ownership` and `mkfs-args`, "busy" in its errors, mounts under `/run/media/<user>` (`drives.cpp`) | `log:` (Games drives): the A9's drive is mounted. Not checked: Format, Eject, the path naming |
+| A portable install hiding the PC's own drives | udev's `UDISKS_IGNORE` becoming udisks's `HintIgnore`, and Steam's Storage page leaving out a drive with it; `lsblk`'s `PKNAME`, `--inverse` and `TYPE`, and sysfs's `removable` (`cabinetos-system-disk`) | Not checked: seen only on a portable with a second drive (`tools/installer-vm.sh portable`) |
+| A portable install filling its drive | sfdisk growing the last partition to the drive's end and moving the GPT's backup there as it writes, `partx --update` resizing a partition in use, the filesystems' online resize (`cabinetos-grow-root`) | The image build asserts the tools. Not checked: seen as a portable's drive staying at the image's size, said by `cabinetos-grow-root` in the journal. `ci/check-portable-boots.sh` fails the disk build if it did not grow |
+| The portable disk image | bootc-image-builder's raw layout (BIOS boot, vfat EFI, ext4 `/boot`, btrfs root last) and its boot line's `console=tty0 console=ttyS0`; shim on a drive's fallback path running `EFI/BOOT/fb*.efi` when it is there and otherwise `grub*.efi` beside it; Fedora's grub finding its `grub.cfg` in `EFI/fedora` when started from `EFI/BOOT`; bootupd's `grub.cfg` reading `custom.cfg`, grub's `fallback` when the kernel is refused, and shim's `EFI/fedora/mmx64.efi`; the kernel being signed with `/etc/pki/akmods/certs/akmods-ublue.der`; Bazzite's hardware setup adding only `bluetooth.disable_ertm=1` on a normal PC, and skipping its slow job and restart when that is already on the boot line; `bootc switch` writing an `ostree-image-signed:` line in the deployment's `.origin`; the emulators' two units enabled in `/etc`, and `flatpak-add-fedora-repos.service` being what adds Flathub; btrfs shrinking while mounted; sfdisk rewriting a table from its own dump, ids kept (`ci/make-portable-image.sh`). systemd reading a unit from QEMU's SMBIOS table (`ci/check-portable-boots.sh`). bootupd rewrites the boot files it tracks when a new shim or grub arrives, so a later shim brings the fallback back on a drive already written | The script stops the disk build when the layout, the boot line or the boot files change, or the key no longer verifies the kernel; the boot check fails the build if the file does not reach first run with Secure Boot on and off, or the firmware gained an entry. Not checked: real firmware, BitLocker and a real stick, which are a person's test |
+| The PC's clock on a portable install, and first run's time zone | The kernel writing the hardware clock in local time only when the first time zone it is told at a start is not UTC; chrony's `rtcsync` and its unit's name (`chronyd.service.d/50-cabinetos.conf`); the kernel's `/sys/class/rtc/rtc0/since_epoch` giving the clock's face as if it were UTC, and `timedatectl set-timezone` writing the hardware clock at once, which `cabinetos-timezone` avoids; systemd's first-boot wizard (`systemd-firstboot.service`, on in the base) skipping a disk image's first start because its `/etc/machine-id` is empty, not "uninitialized": the image has no language, keyboard or zone file, so it would otherwise ask for all three on the text console; tzdata's `zone.tab` and `iso3166.tab` (`timezone.cpp`) | The image build asserts the files and tools, no zone in the image and LOCAL in `/etc/adjtime`; `log:` (Kernel and startup): chrony's `rtcsync` and condition, the zone list. Not checked: the wizard, seen as a disk image's first start stopping at a text prompt, and the kernel's rule, seen as Windows showing a time hours off after a portable's first session |
 | Game manuals | pdfinfo's "Page N size" and "rot" lines and pdftoppm's PPM (`manual.cpp`) | `log:` (Game manuals) |
 | The type ramp | The font files' names (`startup.cpp`) | `log:` and `tv:` (Libraries the console's screens use) |
 | Covers in every format | SDL3_image loading its codecs when first needed (`imagecodec.cpp`) | The image build asserts their sonames (`build_files/require-frontend-libs.sh`); `tv:` Home's covers |
@@ -560,7 +604,7 @@ The area named is the one in `ci/base-watch.txt` whose checks a change asks for.
 | Every emulator run as a program | A Flatpak's process name, found in `/proc` (`eden`, `xemu`; one in the image, sm2-emu and Supermodel among them, is bwrap's one child, whatever it calls itself); exit status 0 read as the player quitting; its log's wording; its window title (Eden's and Xenia's change only while a game runs, `xtitles.cpp` reads them through Xwayland); its honouring of `XDG_*` folders (`standalone.cpp`) | Not checked: a missed match leaves the player on the emulator's own box until the pause menu |
 | The virtual pads given to emulators | SDL's GUID layout and button numbering, as each emulator's own SDL computes them (`vpad.cpp`) | Not checked: buttons scrambled with no error |
 | Switch (Eden, Flathub pin) | Its flags `-f -g`, portable `user/` folder, `qt-config.ini` keys and their `\default` siblings, `Controls` strings, `profiles.dat` layout and the save folder named from it, keys and firmware folders, log phrases and loader error numbers, window title (`standalone_eden.cpp`, `standalone.cpp`, `quality.cpp`) | `tools/check-applied.sh` reads the picture keys from Eden's log. The rest is not checked: a renamed key is a box over the game, a changed `profiles.dat` stops Switch saves travelling with no error |
-| PS3 (RPCS3, our pin) | Its flags, the log lines that say an install worked, `config.yml`, `CurrentSettings.ini`, `Default.yml` (evdev names) and `vfs.yml` keys, the installed layout, `.rap` in `exdata` (`standalone_rpcs3.cpp`) | `build_files/install-rpcs3.sh` asserts it starts and is the pinned build; `tools/check-applied.sh` reads the `Video:` lines. The rest is not checked |
+| PS3 (RPCS3, our pin) | Its flags, the log lines that say an install worked, `config.yml`, `CurrentSettings.ini`, `Default.yml` (evdev names) and `vfs.yml` keys, the installed layout, `.rap` in `exdata` (`standalone_rpcs3.cpp`); its per-game settings database as a file, `GuiConfigs/config_database.dat`, the JSON its `read_json` requires of it, and its log lines `Finished reading config database from file` and `Applying database config` (`standalone_rpcs3.cpp`, `build_files/rpcs3-config-database.json`) | `build_files/install-rpcs3.sh` asserts it starts and is the pinned build, that the snapshot is the JSON RPCS3 reads, and that the program's text still holds the file's name and both log lines; `tools/check-applied.sh` reads the `Video:` lines and that the database was read. The rest is not checked |
 | Original Xbox (xemu, Flathub pin) | Its flags, `xemu.toml` keys, QMP's `memsave` and the XBE header to see the running title, its menu's buttons, and its blank drive's qcow2 and FATX layout (`standalone_xemu.cpp`, `xboxhdd.cpp`) | `tools/check-applied.sh` reads `renderer` and `surface_scale`; the drive's headers are checked as it is read; the drive file is pinned by checksum (`build_files/install-xemu-drive.sh`). The rest is not checked |
 | Xbox 360 (Xenia Edge, our pin) | About 27 `--` settings (an unknown one makes it print its help and quit, `tools/check-applied.sh`'s header), the `x> ` log prefix, its title, the profile's `Account` file and its encryption (`standalone_xenia.cpp`, `x360profile.cpp`) | `tools/check-applied.sh` sees that a log was written. The rest is not checked |
 | Wii U (Cemu, our pin) | `-g -f`, log phrases and its "Error" box, `settings.xml` and controller profile keys, the save folder, the GPU's UUID (`standalone_cemu.cpp`); the `.wua` archive layout (`wiiu.cpp`) | `tools/check-applied.sh` reads `api`, `VSync` and `AsyncCompile`. The rest is not checked |

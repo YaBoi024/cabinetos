@@ -74,6 +74,8 @@ for expected in \
     /usr/lib/systemd/system/cabinetos-flatpak-setup.timer \
     /usr/share/cabinetos/flatpaks.list \
     /usr/libexec/cabinetos-update \
+    /usr/libexec/cabinetos-update-source \
+    /usr/lib/systemd/system/cabinetos-update-source.service \
     /usr/lib/systemd/system/cabinetos-update-check.service \
     /usr/lib/systemd/system/cabinetos-update-download.service \
     /usr/share/polkit-1/rules.d/61-cabinetos-update.rules \
@@ -96,6 +98,12 @@ for expected in \
     /usr/share/polkit-1/rules.d/67-cabinetos-pads.rules \
     /usr/libexec/os-session-select \
     /usr/libexec/cabinetos-system-disk \
+    /usr/libexec/cabinetos-grow-root \
+    /usr/lib/systemd/system/cabinetos-grow-root.service \
+    /usr/libexec/cabinetos-timezone \
+    /usr/lib/systemd/system/cabinetos-timezone@.service \
+    /usr/share/polkit-1/rules.d/68-cabinetos-timezone.rules \
+    /usr/lib/systemd/system/chronyd.service.d/50-cabinetos.conf \
     /usr/libexec/cabinetos-steam-download \
     /usr/libexec/cabinetos-steam-libraries \
     /usr/libexec/cabinetos-report \
@@ -116,6 +124,9 @@ do
         exit 1
     fi
 done
+# A portable install fills its drive (cabinetos-grow-root); the one unit here
+# that is on at every start of every console, and does nothing off a USB drive.
+systemctl enable cabinetos-grow-root.service
 
 # ---------------------------------------------------------------------------
 # The licences, INSIDE the image.
@@ -354,12 +365,13 @@ for needed in /usr/lib64/libvulkan.so.1 /usr/lib64/libvulkan_radeon.so; do
 done
 
 # ---------------------------------------------------------------------------
-# A built-in speaker counts as not there (#547).
+# The sound rule still fits WirePlumber (#655).
 # ---------------------------------------------------------------------------
 #
-# Edits one PipeWire file so a speaker inside the case never takes the sound
-# from the TV, and fails the build if a PipeWire update changed that file.
-/ctx/built-in-speaker.sh
+# Fails the build, saying what to redo, if a WirePlumber update changed a step
+# the sound rule stands on: the rule failing would not stop the sound, only
+# send it to the wrong output on some PCs.
+/ctx/sound-output-rule.sh
 
 # ---------------------------------------------------------------------------
 # A backup sound output while the TV's is gone (#228).
@@ -622,6 +634,40 @@ for needed in python3 findmnt install; do
         failed=1
     fi
 done
+# A PORTABLE INSTALL, a disk image on a USB drive
+# (docs/decisions/2026-11-03-running-from-a-usb-drive.md): it fills its drive
+# at its first start, it hides the PC's own drives, and it keeps the PC's
+# hardware clock in local time, asking the time zone on first run's first
+# screen. An image with a zone of its own would never ask. The zone's helper
+# reads the PC's clock from the kernel's rtc0.
+for needed in sfdisk partx btrfs xfs_growfs resize2fs unshare lsblk realpath; do
+    if ! command -v "${needed}" >/dev/null 2>&1; then
+        log "  MISSING: ${needed}, which a portable install runs (cabinetos-grow-root, cabinetos-system-disk, cabinetos-timezone)"
+        failed=1
+    fi
+done
+[[ "$(systemctl is-enabled cabinetos-grow-root.service 2>/dev/null)" == enabled ]] || {
+    log "  MISSING: cabinetos-grow-root.service is not enabled; a portable would never fill its drive"
+    failed=1
+}
+for needed in /usr/share/zoneinfo/zone.tab /usr/share/zoneinfo/iso3166.tab /usr/lib/systemd/system/chronyd.service; do
+    if [[ ! -s "${needed}" ]]; then
+        log "  MISSING: ${needed}, which first run's Time zone screen and the PC's clock rely on"
+        failed=1
+    fi
+done
+if [[ -e /etc/localtime || -L /etc/localtime ]]; then
+    log "  WRONG: the image has a time zone ($(readlink /etc/localtime)); a portable would never ask for one"
+    failed=1
+fi
+if [[ "$(sed -n 3p /etc/adjtime 2>/dev/null)" != LOCAL ]]; then
+    log "  WRONG: /etc/adjtime does not say LOCAL; a portable would set a Windows PC's clock to UTC"
+    failed=1
+fi
+grep -q 'cabinetos-timezone@' /usr/share/polkit-1/rules.d/68-cabinetos-timezone.rules || {
+    log "  MISSING: 68-cabinetos-timezone.rules no longer names cabinetos-timezone@"
+    failed=1
+}
 # THE DIAGNOSTIC REPORT (#195) runs these. It survives any one being gone
 # (it says so in the report), but a report without the log or the hardware
 # list cannot find a fault, so a strip pass that removed one fails here.

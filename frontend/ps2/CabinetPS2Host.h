@@ -10,8 +10,8 @@
 // WHAT IT OWES PCSX2 IS MEASURED, NOT GUESSED: 55 `Host::` functions, three
 // `InputManager::ConvertHostKeyboard*` and the `g_host_hotkeys` table. The
 // count comes from linking with `-Wl,-z,defs` and reading what the linker
-// refuses. docs/PCSX2-HOST-SURFACE.md has the whole list and where it came
-// from, and `cores/build-pcsx2.sh` re-derives it on demand.
+// refuses. docs/history/PCSX2-HOST-SURFACE.md has the whole list and where it
+// came from, and `cores/build-pcsx2.sh` re-derives it on demand.
 //
 // THREADING, AND IT IS THE SAME SHAPE CABINET FOUND ON THE MAC: Run() blocks
 // for the entire life of the game and must be given a thread of its own. PCSX2
@@ -120,8 +120,8 @@ namespace CabinetPS2
 
 	/// The finished picture, as the GS produced it.
 	///
-	/// **THIS IS THE SAME SHAPE EIGHTEEN OF THE TWENTY-ONE LIBRETRO CORES
-	/// ALREADY HAND THE FRONTEND** — a buffer of pixels, a width and a height —
+	/// **THIS IS THE SAME SHAPE MOST LIBRETRO CORES ALREADY HAND THE
+	/// FRONTEND** — a buffer of pixels, a width and a height —
 	/// which is why PS2 needs no new picture path in the UI at all. PCSX2
 	/// renders surfacelessly on its own thread and the finished frame is read
 	/// back here; the frontend uploads it exactly as it uploads a Mega Drive's.
@@ -129,9 +129,9 @@ namespace CabinetPS2
 	/// The alternative was sharing PCSX2's Vulkan image with the frontend
 	/// directly, which is faster and needs upstream to enable two external
 	/// memory extensions it does not. That is a real option and it is written
-	/// up in docs/PCSX2-HOST-SURFACE.md; it is not the first thing to build,
-	/// because this one costs nothing to try and the cost of the readback is a
-	/// measurement rather than a guess.
+	/// up in docs/history/PCSX2-HOST-SURFACE.md; it is not the first thing to
+	/// build, because this one costs nothing to try and the cost of the
+	/// readback is a measurement rather than a guess.
 	struct Frame
 	{
 		std::vector<uint32_t> pixels; // RGBA, `width * height` of them.
@@ -171,8 +171,8 @@ namespace CabinetPS2
 	/// A controller, in **exactly** the shape the frontend already produces.
 	///
 	/// This mirrors `PadState` in frontend/src/core.h field for field, and
-	/// deliberately so: the frontend fills one of those in for all twenty-one
-	/// libretro cores, and PlayStation 2 taking a different shape would mean
+	/// deliberately so: the frontend fills one of those in for every
+	/// libretro core, and PlayStation 2 taking a different shape would mean
 	/// two input paths to keep in step. This layer does the translation to
 	/// PCSX2's DualShock 2 numbering, which is one table in one file.
 	///

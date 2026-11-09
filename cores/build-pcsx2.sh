@@ -20,8 +20,9 @@
 #   upstream's own target in pcsx2/CMakeLists.txt; the application is a
 #   SEPARATE target, pcsx2-qt, behind `if(ENABLE_QT_UI)` in the top-level
 #   CMakeLists. Turning that option off is supported upstream and leaves the
-#   emulator as a static library. ZERO patches. Compare tools/patch-pcsx2-mac.py
-#   in Cabinet, which is 546 lines of them.
+#   emulator as a static library. Building that takes no patch. Compare
+#   tools/patch-pcsx2-mac.py in Cabinet, which is 546 lines of them. The one
+#   patch here is for the sound, not the build (below).
 #
 # Usage:
 #   cores/build-pcsx2.sh              build the library and run the probe
@@ -89,12 +90,10 @@ if [ "$PROBE_ONLY" -eq 0 ]; then
     fi
     echo "pcsx2 @ $COMMIT ($TAG)"
 
-    # ONE PATCH, AND THE HEADLINE ABOVE IS CORRECTED ACCORDINGLY: upstream
-    # builds as a library with NO patches, which is what that claim was about
-    # and is still true. This one is not needed to build PCSX2. It is needed to
-    # stop PCSX2 making its own sound.
+    # ONE PATCH. It is not needed to build PCSX2. It is needed to stop PCSX2
+    # making its own sound.
     #
-    # THE CONSOLE OWNS AUDIO. All twenty-one libretro cores hand their samples
+    # THE CONSOLE OWNS AUDIO. Every libretro core hands its samples
     # to the frontend, which owns one device, one volume and one latency, and
     # lets the in-game overlay duck it. PCSX2 would otherwise open a second
     # device of its own through cubeb or SDL, which is none of those things and

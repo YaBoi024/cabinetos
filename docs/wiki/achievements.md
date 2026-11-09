@@ -1,6 +1,6 @@
 # Achievements
 
-CabinetOS earns [RetroAchievements](https://retroachievements.org) in the
+CabinetOS Handheld earns [RetroAchievements](https://retroachievements.org) in the
 built-in emulators: every system from the Atari 2600 to the Dreamcast, PS1,
 PSP, DS, GameCube, Wii and PS2. In arcade games, only where FinalBurn Neo
 plays the game, since RetroAchievements' arcade sets are written for it. Not

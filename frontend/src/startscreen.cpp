@@ -33,7 +33,8 @@ using ui::Color;
 // The numbers are the icon's own, in its 1024 space, sampled from
 // AppIconMac.appiconset because that PNG was then the only definition of
 // the Afterburner variant. `s` scales that space; `ox`/`oy` place it.
-static void drawCabinet(ui::Renderer& r, float ox, float oy, float s, float a) {
+static void drawCabinet(ui::Renderer& r, float ox, float oy, float s, float a,
+                        bool handhelds = false) {
     auto R = [&](float x, float y, float w, float h, float rad, Color c) {
         c.a *= a;
         r.draw(ui::Rect{ox + x * s, oy + y * s, w * s, h * s, rad * s, c});
@@ -136,6 +137,24 @@ static void drawCabinet(ui::Renderer& r, float ox, float oy, float s, float a) {
     R(668, 646, 48, 20, 10, Color::rgb(0xFFF0E2));
 
     R(303, 795, 419, 55, 14, panel);
+
+    // FORK (handheld): one plain handheld in front of the cabinet, in its own
+    // space and centred on it. Left out of the Wiki tile (drawCabinetIcon),
+    // which stays the original cabinet. The numbers come from
+    // build_files/assets/handheld_art.py.
+    if (handhelds) {
+        R(355, 627, 314, 148, 60.6, Color::rgb(0xF2EEE8));
+        R(362, 634, 300, 134, 53.6, Color::rgb(0x3A3444));
+        ramp(434, 650.1, 156, 88.4, 9, screenTex);
+        R(390.5, 674.2, 12.1, 40.2, 3, Color::rgb(0x9A93A6));
+        R(376.4, 687.6, 40.2, 12.1, 3, Color::rgb(0x9A93A6));
+        dot(627.5, 675.5, 7.4, Color::rgb(0xFFC457));
+        dot(608.7, 694.3, 7.4, Color::rgb(0xEC405C));
+        dot(646.3, 694.3, 7.4, Color::rgb(0xEC405C));
+        dot(627.5, 713.1, 7.4, Color::rgb(0xFFC457));
+        dot(491, 754.6, 4.7, Color::rgb(0x9A93A6));
+        dot(533, 754.6, 4.7, Color::rgb(0x9A93A6));
+    }
 }
 
 void drawCabinetIcon(ui::Renderer& r, float x, float y, float h, float a) {
@@ -188,7 +207,8 @@ void drawStartup(ui::Renderer& r, ui::TextRenderer& t, const char* detail, float
     const float s = ww / kIconW;
     const float cabTop = 150.0f;
     const float oy = cabTop - kIconTop * s;
-    drawCabinet(r, (ui::kCanvasWidth - ww) * 0.5f - 248.0f * s, oy, s, alpha);
+    drawCabinet(r, (ui::kCanvasWidth - ww) * 0.5f - 248.0f * s, oy, s, alpha,
+                /*handhelds=*/true);
 
     float y = oy + kIconBottom * s + 56.0f;
     t.draw(r, kWordmark, (ui::kCanvasWidth - ww) * 0.5f,

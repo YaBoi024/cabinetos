@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/assets/mark.svg" alt="" width="72"></p>
+<p align="center"><img src="docs/assets/mark-handheld.svg" alt="CabinetOS Handheld logo" width="96"></p>
 
 <h1 align="center">CabinetOS Handheld</h1>
 
@@ -46,21 +46,25 @@ adapted for handhelds (tested on Steam Deck OLEDs for now).
 
 ## Install
 
-Installer here: https://pub-e4881344a12f4bdfa25b269cea81a741.r2.dev/cabinetos.iso
+**[Download the installer](https://pub-e4881344a12f4bdfa25b269cea81a741.r2.dev/cabinetos.iso)**,
+write it to a USB stick and boot the handheld from it. It asks which drive to
+erase, then installs by itself. The steps are in
+[`docs/wiki/install.md`](docs/wiki/install.md).
 
-Or 
-1. Install [CabinetOS](https://github.com/MMagTech/cabinetos) by MMagTech on
-   the handheld. This erases the drive.
-2. SSH into the handheld:
+Already running [CabinetOS](https://github.com/MMagTech/cabinetos) on the
+handheld? You can switch to this image without a stick:
+
+1. SSH into the handheld and run:
 
    ```bash
    sudo bootc switch ghcr.io/yaboi024/cabinetos:latest
    ```
 
-3. Restart the handheld. It now runs CabinetOS Handheld and updates from this
+2. Restart the handheld. It now runs CabinetOS Handheld and updates from this
    repository's image.
 
-The full steps are in [`docs/wiki/install.md`](docs/wiki/install.md).
+**Try it without installing:** [run it from a USB drive](docs/wiki/portable.md).
+Your PC's own drives stay as they are.
 
 ## Thanks
 

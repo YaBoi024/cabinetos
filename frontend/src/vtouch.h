@@ -36,7 +36,6 @@ constexpr int kFingers = 2;
 // caller says so.
 bool open();
 void close();
-bool isOpen();
 
 // Finger `f` (0 or 1) on the screen at (x, y), or moved there while it is.
 void touch(int f, float x, float y);

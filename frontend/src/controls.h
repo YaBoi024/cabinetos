@@ -43,9 +43,9 @@
 // IN A PROGRAM OF ITS OWN, FROM THE NEXT START. sm2-emu and Supermodel read
 // where each button is only from the settings the console writes before
 // they start (standalone_sm2emu.cpp, standalone_supermodel.cpp, through
-// standalone.cpp's gameButtons), so a change is kept at once and played from
-// the game's next start, as the Picture row's is (agreed with MMagTech
-// 2026-10-30, #617).
+// App::startStandalone in standalone_play.cpp), so a change is kept at once
+// and played from the game's next start, as the Picture row's is (agreed with
+// MMagTech 2026-10-30, #617).
 //
 // KEPT AS ONE FILE PER GAME, users/<id> - <name>/controls/<romId> -
 // <title>.json (storage::controlsDir), for a person to read over File

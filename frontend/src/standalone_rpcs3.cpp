@@ -47,6 +47,20 @@ namespace {
 // Where an install is built before it is moved into place.
 constexpr const char* kStaging = ".install";
 
+// THE RPCS3 TEAM'S OWN SETTINGS FOR EACH GAME, the snapshot the image carries
+// beside the program (build_files/install-rpcs3.sh puts it there). RPCS3
+// keeps a per-game settings database that only its own window downloads,
+// into GuiConfigs/config_database.dat, and lays the game's entry over
+// config.yml at every boot, `--no-gui` included (rpcs3qt/config_database.cpp;
+// Emu/System.cpp, "Applying database config"). The console starts RPCS3
+// without its window and fetches nothing from rpcs3.net, so until the
+// snapshot no PS3 game got its entry: Lollipop Chainsaw's is Write Color
+// Buffers (found 2026-11-06). prepareRpcs3 copies it in, so a game gets what
+// a plain RPCS3 install gives it. An entry the pinned build cannot read RPCS3
+// drops by itself, whole, when it reads the file; a game with no entry boots
+// as before. docs/decisions/2026-11-06-rpcs3-settings-database-snapshot.md.
+constexpr const char* kImageDatabase = "/usr/lib/cabinetos/rpcs3/config_database.dat";
+
 std::string rpcs3Config(const Emulator& e) { return home(e) + "/rpcs3"; }
 std::string rpcs3Flash(const Emulator& e) { return rpcs3Config(e) + "/dev_flash"; }
 std::string firmwareNote(const Emulator& e) { return rpcs3Flash(e) + "/.cabinetos-firmware"; }
@@ -78,15 +92,16 @@ std::string newestPup(const std::string& biosDir) {
 // IT EXITS 134 AFTER A SUCCESSFUL INSTALL: an abort in a static destructor,
 // after it has logged "Successfully installed" (lessons, the PS3 notes;
 // measured again 2026-09-28 on the pinned build). So the log line decides,
-// never the exit code. `prlimit --core=0` because every one of those aborts
-// would otherwise leave a core file of a process with gigabytes mapped.
+// never the exit code. `prlimit --core=0` (in noNetworkInstall) because every
+// one of those aborts would otherwise leave a core file of a process with
+// gigabytes mapped.
 std::string rpcs3Headless(const Emulator& e, const std::string& configHome,
                           const std::vector<std::string>& what, const std::atomic<bool>& cancel) {
-    std::vector<std::string> args = {
-        "prlimit", "--core=0", "--",
+    std::vector<std::string> args = noNetworkInstall();
+    args.insert(args.end(), {
         "env", "XDG_CONFIG_HOME=" + configHome, "XDG_CACHE_HOME=" + configHome,
         binaryOf(e), "--headless",
-    };
+    });
     args.insert(args.end(), what.begin(), what.end());
     // Half an hour: 20 GB went in at 161 MB/s on the VM's slow disk; a USB
     // hard drive could be a fifth of that.
@@ -342,10 +357,18 @@ bool prepareRpcs3(const Emulator& e, const std::string& entryPath, const std::st
     // (Emu/system_config.h); a "VSync: true" line is ignored. Full is FIFO;
     // Adaptive asks for mailbox first (VK/vkutils/swapchain.cpp).
     const std::string video = "Video:\n  VSync Mode: Full\n" + quality::rpcs3(level);
+    // The RPCS3 team's entry for this game comes from the image's snapshot
+    // (kImageDatabase), copied here only when it differs. A copy left by an
+    // image that carried one goes when this image does not, so RPCS3 never
+    // reads a snapshot older than the image.
+    const std::string database = config + "/GuiConfigs/config_database.dat";
+    const bool imageHasDatabase = isFile(kImageDatabase);
+    if (!imageHasDatabase) ::unlink(database.c_str());
     if (!writeFile(config + "/vfs.yml", vfs) || !writeFile(config + "/config.yml",
                    std::string(kRpcs3Settings) + video) ||
         !writeFile(gui, gui_text) ||
-        !writeFile(config + "/input_configs/global/Default.yml", rpcs3Controls(players))) {
+        !writeFile(config + "/input_configs/global/Default.yml", rpcs3Controls(players)) ||
+        (imageHasDatabase && !placeFile(kImageDatabase, database))) {
         *err = "could not write RPCS3's settings in " + config;
         return false;
     }
