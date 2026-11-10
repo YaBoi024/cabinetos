@@ -22,7 +22,8 @@ contacted.
 Whoever runs the server makes a code on its admin page and picks whose friend it is for, then sends you its
 address and the code.
 
-1. Settings, **Streaming**, **LinkUp** on (the PIN, if one is set).
+1. Settings, **Streaming**, **LinkUp** on (with a PIN set, everyone but the
+   owner is asked for it).
 2. Press **Server**, then **Add a server**. Type the address, then the code.
 3. LinkUp joins the top bar. Whoever was signed in when you typed the code becomes the friend.
 

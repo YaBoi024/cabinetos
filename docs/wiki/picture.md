@@ -100,16 +100,18 @@ Each person has their own colour, and the console changes when they sign in.
 - **Standard**: the normal look.
 - **Dark**: darker menus for the evening. The games are not changed.
 - **Scheduled**: Dark during the **Dark hours** you choose (8 PM to 7 AM to
-  start with), by the time zone picked at install.
+  start with), by the time zone picked at install (at first run, on a console
+  that runs from a USB drive).
 
 ## Screen off
 
-**Turn off screen after**: 10, 15 or 30 minutes. In the menus the screen dims
-after 5 minutes and turns off at the time chosen; the first press after that
-only wakes it, and after the screen was off, buttons do nothing for 3 seconds
-while the TV brings the picture back. A game being played dims after 20
-minutes and never turns the screen off. The picture also moves by a pixel or
-two every few minutes, to be kind to OLED TVs.
+**Turn off screen after**: 10, 15 or 30 minutes, 15 to start with. In the
+menus, and in a game that is paused, the screen dims after 5 minutes and turns
+off at the time chosen; the first press after that only wakes it, and after the
+screen was off, buttons do nothing for 3 seconds while the TV brings the
+picture back. A game being played dims after 20 minutes and never turns the
+screen off. The picture also moves by a pixel or two every few minutes, to be
+kind to OLED TVs.
 
 ## Sound
 

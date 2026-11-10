@@ -14,4 +14,4 @@ later if the server is away). There is no gallery on the console itself: look
 at them in RomM, or copy them off with [File access](file-access.md).
 
 The shortcut works in the built-in emulators. In the separate ones (Switch,
-PS3, Xbox, Xbox 360, Wii U, PS Vita), use the pause menu.
+PS3, Xbox, Xbox 360, Wii U, PS Vita, Model 2 and Model 3), use the pause menu.

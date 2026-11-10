@@ -17,6 +17,9 @@
   they are.
 - A game's manual is kept beside it, in its system's `Manuals` folder, and is
   cleared, kept or removed with the game.
+- A game you delete in RomM leaves the drive at the next start with the server
+  there, played or downloaded, and its saves, states and screenshots on the
+  console go with it. See [A game you delete in RomM](romm.md#a-game-you-delete-in-romm).
 
 Saves, states, screenshots, BIOS and settings always stay on the console's own
 drive.
