@@ -60,8 +60,27 @@ void textFieldClosed();
 // The machine's keyboard does the typing, so the program draws no key grid of
 // its own for a full-size field: the panel is the title, the field and a Done
 // key, placed high on the screen so the machine's keyboard does not cover it.
-// A field docked under search results (Config::dockedBottom) keeps its keys
-// for now. On the console this is false and the keyboard is what it always was.
+// A field docked under search results (Config::dockedBottom) is the same: the
+// field and a Done key, sitting where the machine's keyboard leaves room, and
+// the results use the room above it. On the console this is false and the
+// keyboard is what it always was.
 bool ownsKeyboard();
+
+// --- The screen's shape ----------------------------------------------------------
+
+// The picture is drawn on a canvas 1080 high and 1920 wide, fitted into the
+// screen. On a screen wider than that (a phone is about 2.2 to 1) the console
+// letterboxes it. When this is true the canvas is made as wide as the screen
+// (up to 2.4 to 1) so the screens use all of it. A screen taller than 16:9
+// still gets bars, as before.
+bool fillsWideScreens();
+
+// --- The library ----------------------------------------------------------------
+
+// A system whose emulator is not in the program yet still shows its games,
+// greyed with the reason, in grids and in Search, as a game that needs a Wii
+// Remote does. The console never shows them: its emulators ship in the image
+// and a missing one is a fault. A phone is given its emulators one at a time.
+bool showsGamesWithoutACore();
 
 }  // namespace platform

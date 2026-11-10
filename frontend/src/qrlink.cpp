@@ -99,7 +99,7 @@ void QrLinkScreen::draw(Ctx& c) {
     constexpr float kProseWidth = 760.0f;
     constexpr float kPanelX = 1020.0f;
     constexpr float kPanelY = 168.0f;
-    constexpr float kPanelW = ui::kCanvasWidth - kPanelX - kInset;
+    constexpr float kPanelW = ui::kCanvasDesignWidth - kPanelX - kInset;
     constexpr float kPanelH = 660.0f;
 
     // --- the left column: what is happening and why --------------------------

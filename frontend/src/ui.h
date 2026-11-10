@@ -20,7 +20,14 @@
 namespace ui {
 
 // Design-space canvas. Every number in the design system is in these units.
-constexpr float kCanvasWidth = 1920.0f;
+//
+// FORK (handheld): THE WIDTH IS WHAT THE SCREEN NEEDS, NOT ALWAYS 1920. The
+// design width is the least it is; Renderer::beginFrame widens it for a screen
+// wider than 16:9 when platform::fillsWideScreens() says so, and every screen
+// that lays itself out from kCanvasWidth then uses the whole width. Unchanged
+// (1920) on the console. Read and written on the frame thread.
+constexpr float kCanvasDesignWidth = 1920.0f;
+extern float kCanvasWidth;
 constexpr float kCanvasHeight = 1080.0f;
 
 // The ten-foot safe area. Not a number invented here: it is the reference

@@ -2,6 +2,7 @@
 #include "arcadematch.h"
 #include "catalog_internal.h"
 #include "ncch.h"
+#include "platform.h"
 #include "players.h"
 
 #include "standalone.h"
@@ -396,7 +397,10 @@ const char* shortReason(Support s) {
 }
 
 bool shownGreyed(Support s) {
-    return s == Support::NeedsController || s == Support::UnsupportedGame;
+    // FORK (handheld): a system whose core is not here yet, on a machine that
+    // is given its emulators one at a time (platform.h).
+    return s == Support::NeedsController || s == Support::UnsupportedGame ||
+           (s == Support::NotInstalled && platform::showsGamesWithoutACore());
 }
 
 const char* shortReason(const Coverage& c) {

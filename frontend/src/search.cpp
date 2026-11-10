@@ -11,6 +11,7 @@
 
 #include "cache.h"
 #include "catalog.h"
+#include "platform.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
 
@@ -32,7 +33,8 @@ void App::showSearchAnswer(const SearchAnswer& a, bool ok, const std::string& er
         // Same rule as Home's shelf and a collection's grid: a result this
         // console cannot start must not be offered. The heading's "12 of
         // 52" is what accounts for the difference.
-        if (!catalog::playable(g)) continue;
+        // FORK (handheld): a greyed game is listed, as in a grid (platform.h).
+        if (!catalog::playable(g) && !catalog::shownGreyed(catalog::coverageFor(g).support)) continue;
         idx.push_back(appendGame(lib, g));
     }
     std::fprintf(stderr, "[search] %s: %zu of %d\n", a.query.c_str(), idx.size(), a.total);

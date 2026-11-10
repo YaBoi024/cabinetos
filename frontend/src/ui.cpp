@@ -1,10 +1,13 @@
 #include "ui.h"
+#include "platform.h"
 
 #include <cstdio>
 #include <cstring>
 #include <vector>
 
 namespace ui {
+
+float kCanvasWidth = kCanvasDesignWidth;
 namespace {
 
 // The eight shader sources (shaders.inc, included here and nowhere else).
@@ -353,6 +356,15 @@ void Renderer::beginFrame(int drawableWidth, int drawableHeight) {
     // Letterbox rather than stretch. A 16:9 panel is the normal case and this is
     // a no-op there; anything else keeps the design's proportions and puts the
     // slack in bars, which is what a console does.
+    //
+    // FORK (handheld): a screen wider than 16:9 widens the canvas to fit (see
+    // kCanvasWidth in ui.h), to at most 2.4 to 1; anything else is as before.
+    kCanvasWidth = kCanvasDesignWidth;
+    if (platform::fillsWideScreens() && drawableWidth > 0 && drawableHeight > 0) {
+        constexpr float kWidest = 2.4f;
+        const float aspect = static_cast<float>(drawableWidth) / static_cast<float>(drawableHeight);
+        kCanvasWidth = std::max(kCanvasDesignWidth, kCanvasHeight * std::min(aspect, kWidest));
+    }
     float scale = std::min(static_cast<float>(drawableWidth) / kCanvasWidth,
                            static_cast<float>(drawableHeight) / kCanvasHeight);
     scale_ = scale;

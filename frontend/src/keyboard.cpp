@@ -131,7 +131,7 @@ void Keyboard::buildLayouts() {
         // FORK (handheld): THE MACHINE TYPES, so the grid is one row: the
         // field's shortcuts, show or hide for a password, and Done. Typing,
         // delete and Return reach the field as a physical keyboard's do.
-        if (platform::ownsKeyboard() && !config_.dockedBottom) {
+        if (platform::ownsKeyboard()) {
             std::vector<Key> only;
             float used = 0;
             for (const auto& sc : config_.shortcuts) {
@@ -547,10 +547,13 @@ void Keyboard::draw(Renderer& r, TextRenderer& text, float scale) {
     //
     // FORK (handheld): WITH THE MACHINE'S KEYBOARD a full-size panel sits in
     // the top third, because that keyboard covers the lower half of the screen.
-    const float restY = config_.dockedBottom
-                            ? kCanvasHeight - panelH - kSafeInset * 0.5f
-                            : (platform::ownsKeyboard() ? kCanvasHeight * 0.10f
-                                                        : (kCanvasHeight - panelH) * 0.5f);
+    // A docked panel's bottom edge is at the middle of the screen then, with the
+    // results above it, for the same reason.
+    const float restY = platform::ownsKeyboard()
+                            ? (config_.dockedBottom ? kCanvasHeight * 0.5f - panelH - kSafeInset * 0.25f
+                                                    : kCanvasHeight * 0.10f)
+                            : (config_.dockedBottom ? kCanvasHeight - panelH - kSafeInset * 0.5f
+                                                    : (kCanvasHeight - panelH) * 0.5f);
     // Where the results stop is where the panel's top edge IS this frame,
     // slide included: Search's covers grow and shrink with the slide instead
     // of jumping to their resting size while the panel is still moving

@@ -12,6 +12,7 @@
 #include "cache.h"
 #include "catalog.h"
 #include "favorites.h"
+#include "platform.h"
 #include "storage.h"
 #include "wii.h"
 
@@ -340,7 +341,10 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
         tile.slug = group.front().slug;
         tile.title = catalog::displayName(p);
         tile.namesFolder = arcadematch::isArcadeSlug(p.slug);
-        tile.enterable = (cov.support == catalog::Support::Playable);
+        // FORK (handheld): and a system with no core yet opens on its greyed games.
+        tile.enterable = (cov.support == catalog::Support::Playable) ||
+                         (cov.support == catalog::Support::NotInstalled &&
+                          platform::showsGamesWithoutACore());
 
         if (!tile.enterable) {
             skippedGames += romCount;
