@@ -45,6 +45,12 @@ Files marked `FORK (handheld)` in their comments are the fork's.
   `startup.cpp`, `keyboard.cpp`, `ui.cpp` (`kCanvasWidth` is now a value the renderer sets each
   frame, 1920 unless the machine asks to fill a wider screen: `ui.h`), `catalog.cpp`, `library.cpp`,
   `search.cpp`.
+- **A failed server probe says why.** Entering a RomM address that does not answer used to say "nothing
+  answered at <address>" and drop the reason (the probe passed no error string down). It now adds what
+  curl says (a certificate that is not trusted, a name that does not resolve, a refused port, with curl's
+  own detail) to that sentence and to the log (`[romm] <address>: ...`). No behaviour changes; the
+  Deck's wording is longer only when the probe fails. `romm.h` (`probe` has an optional `why`),
+  `romm_pairing.cpp` (`probe`, `setAddress`), `romm_http.cpp` (`getAt`).
 - **`tools/deck-loop.sh`**: edit on the Mac, build and run on the Deck, no GitHub round trip.
 
 ## System fixes

@@ -205,6 +205,10 @@ bool Client::getAt(const Where& at, const std::string& path, std::string* body,
         hdrs = curl_slist_append(hdrs, ("Authorization: Bearer " + at.token).c_str());
 
     body->clear();
+    // The words curl keeps for a failure (a certificate's fault, the step that
+    // failed), which its code alone does not carry. Read only on a failure.
+    char detail[CURL_ERROR_SIZE] = {0};
+    curl_easy_setopt(c, CURLOPT_ERRORBUFFER, detail);
     curl_easy_setopt(c, CURLOPT_URL, url.c_str());
     curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, sink);
     curl_easy_setopt(c, CURLOPT_WRITEDATA, body);
@@ -219,7 +223,13 @@ bool Client::getAt(const Where& at, const std::string& path, std::string* body,
     if (hdrs) curl_slist_free_all(hdrs);
     curl_easy_cleanup(c);
 
-    if (rc != CURLE_OK) { if (err) *err = curl_easy_strerror(rc); return false; }
+    if (rc != CURLE_OK) {
+        if (err) {
+            *err = curl_easy_strerror(rc);
+            if (detail[0] != '\0' && *err != detail) *err += std::string(": ") + detail;
+        }
+        return false;
+    }
     if (statusOut) *statusOut = status;
     if (status == 401 || status == 403) {
         if (err) *err = "not authorised: the token is missing, expired or lacks the scope";
