@@ -22,8 +22,11 @@ after his TV checks. Before it the same day: #671, "On-screen keyboard: a
 held direction repeats, Shift locks, and the field has a cursor"
 (2026.11.09.4), and #666, "LinkUp: the console's side, step 3 of #654"
 (2026.11.09.3); LinkUp is on the wiki, in the README and in the changelog
-(#673, #674). Open: #528 waits on RomM and
-#644 is the controller list. #590, "A
+(#673, #674), and every wiki page and the README were read against the
+code on 2026-11-09, the lines found wrong fixed in #679, "Wiki: fix the
+lines the docs review found wrong, stale or missing", and #680, "Controls
+guide: LinkUp in the top bar, the keyboard's Shift lock, the date". Open:
+#528 waits on RomM and #644 is the controller list. #590, "A
 Wii Remote turned on after a Wii game starts is ignored by the game",
 waits in Later; fix it only in the console's own code, never by patching
 Dolphin (MMagTech, 2026-10-25). What the A9 runs now is not written here:
@@ -53,14 +56,7 @@ RomM: keep test launches under a minute, or have his go.
    head, merges on his word; two server tidy-ups with no issue,
    `.dockerignore` lets `docs/` into the build stage and the relay's block
    list lacks 3fff::/20.
-2. **A README and wiki review, his ask of 2026-11-09.** Read-only first: every
-   wiki page as a player and against the code on main (the
-   `check-code-and-docs-agree` skill), and the README. Report page by page:
-   lines no longer true, what a player would search for and not find (the
-   LinkUp sidebar line and this file were two misses found on 2026-11-09),
-   pages that should merge or split. No edits until he has read the report;
-   then small docs-only pull requests per page group, merged on his ask.
-3. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
+2. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
    Kirby: Planet Robobot saved into Mario Kart 7's folder. Read on RomM on
    2026-10-25: Mario Kart 7's save (uploaded 2026-10-22) still carries
    Kirby's save data and its extra data, four files. He wants them gone
@@ -68,7 +64,7 @@ RomM: keep test launches under a minute, or have his go.
    folder, so deleting them on the A9 alone does not last: Mario Kart 7's
    save on RomM has to be replaced. Restate exactly what goes and wait for
    his yes before anything is deleted.
-4. **Words from him, one at a time, no work:** #181, "Updates and DLC as
+3. **Words from him, one at a time, no work:** #181, "Updates and DLC as
    separate files in RomM (Switch, PS3, Xbox 360)", and #215, "Proposal, not
    decided: opt-in "Help improve CabinetOS" report sharing" (he is unsure of
    both); and which of the 36 faults the PROJECT.md scan found with no issue
