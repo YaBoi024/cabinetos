@@ -33,8 +33,9 @@ Files marked `FORK (handheld)` in their comments are the fork's.
   three NotoSans files) and `CABINETOS_FONT_CJK` (the fallback face). Unset, the console's paths are
   used as before. `startup.cpp`
 - **`platform.h`: a short list of questions the program asks the machine under it**, for the Android
-  app. Nine calls: does the machine own the network screens, skip the controller step, open a link,
-  open its network settings, and use its own keyboard only while a text field is open. The console's
+  app. Ten calls: does the machine own the network screens, skip the controller step, open a link,
+  open its network settings, and use its own keyboard (only while a text field is open, with the
+  program's key grid replaced by the field and a Done key). The console's
   answers are in `platform_linux.cpp` and are all "no" or nothing, so the Deck behaves exactly as
   before; the Android build leaves that file out and supplies its own. What changes on a phone: first
   run's network step shows the phone's state and a button to its Wi-Fi settings instead of a list, the

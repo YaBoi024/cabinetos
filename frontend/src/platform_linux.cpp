@@ -18,5 +18,6 @@ bool openNetworkSettings() { return false; }
 bool textInputOnDemand() { return false; }
 void textFieldOpened() {}
 void textFieldClosed() {}
+bool ownsKeyboard() { return false; }
 
 }  // namespace platform

@@ -57,4 +57,11 @@ bool textInputOnDemand();
 void textFieldOpened();
 void textFieldClosed();
 
+// The machine's keyboard does the typing, so the program draws no key grid of
+// its own for a full-size field: the panel is the title, the field and a Done
+// key, placed high on the screen so the machine's keyboard does not cover it.
+// A field docked under search results (Config::dockedBottom) keeps its keys
+// for now. On the console this is false and the keyboard is what it always was.
+bool ownsKeyboard();
+
 }  // namespace platform
