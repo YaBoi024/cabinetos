@@ -32,6 +32,15 @@ Files marked `FORK (handheld)` in their comments are the fork's.
   `cabinetos-android`), which has no `/usr/share/fonts`: `CABINETOS_FONT_DIR` (the folder with the
   three NotoSans files) and `CABINETOS_FONT_CJK` (the fallback face). Unset, the console's paths are
   used as before. `startup.cpp`
+- **`platform.h`: a short list of questions the program asks the machine under it**, for the Android
+  app. Nine calls: does the machine own the network screens, skip the controller step, open a link,
+  open its network settings, and use its own keyboard only while a text field is open. The console's
+  answers are in `platform_linux.cpp` and are all "no" or nothing, so the Deck behaves exactly as
+  before; the Android build leaves that file out and supplies its own. What changes on a phone: first
+  run's network step shows the phone's state and a button to its Wi-Fi settings instead of a list, the
+  sign-in step has a button that opens the approval page in the phone's browser, and the controller
+  step is skipped. `platform.h`, `platform_linux.cpp`; calls in `firstrun.cpp`, `setup.cpp`,
+  `startup.cpp`, `keyboard.cpp`.
 - **`tools/deck-loop.sh`**: edit on the Mac, build and run on the Deck, no GitHub round trip.
 
 ## System fixes

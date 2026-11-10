@@ -22,6 +22,7 @@
 #include "job.h"
 #include "keyboard.h"
 #include "net.h"
+#include "platform.h"
 #include "players.h"
 #include "qr.h"
 #include "romm.h"
@@ -91,7 +92,11 @@ struct Row {
 // What pressing a footer button means. Named rather than positional, because
 // which buttons exist changes per step and a screen that reasons about "the
 // third button" breaks the first time one is hidden.
-enum class Act { None, Continue, Skip, Back, Rescan, Edit, Restart, Finish, ShowAll };
+// FORK (handheld): OpenLink and OpenSettings hand something to the machine's own
+// browser and network settings (platform.h); they are only ever offered where the
+// machine can do it.
+enum class Act { None, Continue, Skip, Back, Rescan, Edit, Restart, Finish, ShowAll,
+                 OpenLink, OpenSettings };
 
 struct Button {
     Act act = Act::None;
@@ -482,6 +487,16 @@ void Flow::rebuild() {
         }
 
         case firstrun::Step::Network: {
+            // FORK (handheld): a machine that has its own network screens
+            // (platform.h) lists no networks: it says whether it is online, and
+            // the footer's button opens its settings.
+            if (platform::ownsNetwork()) {
+                Row r;
+                r.title = facts_.online ? "Connected" : "No internet connection";
+                r.enabled = false;
+                rows_.push_back(std::move(r));
+                break;
+            }
             // NO RADIO: there is no list to draw, so the panel shows the link
             // instead — or says there is not one.
             if (!facts_.wifiPresent) {
@@ -652,13 +667,20 @@ void Flow::rebuild() {
         case firstrun::Step::TimeZone:
             break;
         case firstrun::Step::Network:
-            if (facts_.wifiPresent)
+            if (platform::ownsNetwork())
+                buttons_.push_back({Act::OpenSettings, "Open network settings",
+                                    platform::canOpenNetworkSettings(), {}});
+            else if (facts_.wifiPresent)
                 buttons_.push_back({Act::Rescan, "Scan again", !scanJob_.busy(), {}});
             break;
         case firstrun::Step::Server:
             buttons_.push_back({Act::Edit, "Change the address", !serverJob_.busy(), {}});
             break;
         case firstrun::Step::Pair:
+            // FORK (handheld): on a machine with its own browser the person is
+            // already holding the device that approves, so the page opens there.
+            if (platform::canOpenUrl() && pairingLive_ && !facts_.havePairedToken)
+                buttons_.push_back({Act::OpenLink, "Open the sign-in page", true, {}});
             buttons_.push_back({Act::Restart, "Start again", !pairBeginJob_.busy(), {}});
             break;
         case firstrun::Step::Controller:
@@ -1019,6 +1041,13 @@ void Flow::pumpJobs() {
             machine_.step() == firstrun::Step::Network) {
             notice_ = st.ethernetUp ? "Connected over Ethernet." : "Connected.";
             noticeIsError_ = false;
+            // FORK (handheld): the person left for the machine's network
+            // settings and has come back online; there is nothing more to do
+            // here, so go on rather than make them find Continue.
+            if (platform::ownsNetwork() && machine_.advance()) {
+                observe();
+                enterStep();
+            }
         }
         // A LINK THAT CHANGES MAKES THE LIST WRONG, not just the sentence. Both
         // "this is the one you are on" and "this one needs no password" are
@@ -1510,6 +1539,8 @@ void Flow::activateStep() {
                 break;
             }
             case Act::Restart: startPairing(); rebuild(); break;
+            case Act::OpenLink: platform::openUrl(pairing_.verificationUrl); break;
+            case Act::OpenSettings: platform::openNetworkSettings(); break;
             case Act::ShowAll: showAllDevices_ = true; rebuild(); break;
             case Act::Finish: running_ = false; outcome_ = Outcome::Completed; break;
             case Act::None: break;
@@ -1794,7 +1825,9 @@ Outcome Flow::run() {
     // this the physical keyboard cannot type a single character into any field
     // here — SDL_EVENT_TEXT_INPUT simply never arrives — which would break the
     // one requirement the whole flow exists to meet.
-    if (d_.window) SDL_StartTextInput(d_.window);
+    // FORK (handheld): a machine with its own keyboard starts text input when a
+    // field opens (platform.h).
+    if (d_.window && !platform::textInputOnDemand()) SDL_StartTextInput(d_.window);
 
     observe();
     if (o_.startStep && !machine_.openAt(o_.startStep))

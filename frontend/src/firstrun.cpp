@@ -15,6 +15,7 @@
 #include "accounts.h"
 #include "fileio.h"
 #include "storage.h"
+#include "platform.h"
 #include "timezone.h"
 #include "firstrun_internal.h"
 
@@ -314,16 +315,24 @@ std::string Machine::because() const {
     return {};
 }
 
+// FORK (handheld): the step after `s`. A machine that pairs its own controllers
+// (platform.h) has no step for pad one, so it goes from the pairing to Done.
+static Step following(Step s) {
+    Step n = static_cast<Step>(static_cast<int>(s) + 1);
+    if (n == Step::Controller && platform::skipsControllerStep()) n = Step::Done;
+    return n;
+}
+
 bool Machine::advance() {
     if (step_ == Step::Done) return false;
     if (gate() != Gate::Ready) return false;
-    step_ = static_cast<Step>(static_cast<int>(step_) + 1);
+    step_ = following(step_);
     return true;
 }
 
 bool Machine::skip() {
     if (gate() != Gate::Skippable) return false;
-    step_ = static_cast<Step>(static_cast<int>(step_) + 1);
+    step_ = following(step_);
     return true;
 }
 

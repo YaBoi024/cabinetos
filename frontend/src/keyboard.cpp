@@ -6,6 +6,7 @@
 #include <cstdio>
 
 #include "design.h"
+#include "platform.h"
 #include "sound.h"
 #include "text.h"
 #include "ui.h"
@@ -88,6 +89,7 @@ void Keyboard::open(const Config& config) {
     col_ = 0;
     letGoOfHeld();
     open_ = true;
+    platform::textFieldOpened();   // FORK (handheld): the machine's own keyboard, if it has one
     ghost_ = false;
     buildLayouts();
 }
@@ -470,12 +472,14 @@ KeyboardResult Keyboard::commit() {
     }
     restoreHeld();
     open_ = false;
+    platform::textFieldClosed();
     return KeyboardResult::Committed;
 }
 
 KeyboardResult Keyboard::cancel() {
     busy_ = false;
     open_ = false;
+    platform::textFieldClosed();
     return KeyboardResult::Cancelled;
 }
 

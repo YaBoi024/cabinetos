@@ -8,6 +8,7 @@
 // Home's focus, the uploader before the power-cut recovery; the comments
 // in place say why each one is where it is.
 
+#include "platform.h"
 #include "app.h"
 
 #include <dirent.h>
@@ -389,7 +390,9 @@ std::optional<int> App::startStartupScreen() {
     // therefore never once fired. Without this a physical keyboard cannot type
     // a character into the on-screen keyboard — which is not a small gap, it is
     // the input the whole first-run design is built on being guaranteed.
-    SDL_StartTextInput(window);
+    // FORK (handheld): a machine with its own keyboard (platform.h) starts text
+    // input when a field opens, not here, or its keyboard would cover Home.
+    if (!platform::textInputOnDemand()) SDL_StartTextInput(window);
     idleWatch.setTimeScale(idleScale);
     idleWatch.setEnabled(!idleOff);
     dimLayer.smooth = true;
