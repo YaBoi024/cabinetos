@@ -12,6 +12,8 @@
 
 #include <curl/curl.h>
 
+#include "tlsca.h"
+
 #include <unistd.h>
 
 #include <algorithm>
@@ -198,6 +200,7 @@ bool Client::getAt(const Where& at, const std::string& path, std::string* body,
                    long* statusOut) const {
     if (statusOut) *statusOut = 0;
     CURL* c = curl_easy_init();
+    if (c) tlsca::apply(c);
     if (!c) { if (err) *err = "curl init failed"; return false; }
     const std::string url = at.base + path;
     curl_slist* hdrs = nullptr;
@@ -250,6 +253,7 @@ bool Client::postJson(const std::string& path, const std::string& json,
 bool Client::sendJson(const char* method, const std::string& path, const std::string& json,
                       std::string* body, long* status, std::string* err) const {
     CURL* c = curl_easy_init();
+    if (c) tlsca::apply(c);
     if (!c) { if (err) *err = "curl init failed"; return false; }
     const Where at = where();
     const std::string url = at.base + path;
@@ -315,6 +319,7 @@ bool Client::postMultipart(const std::string& path, const char* partName,
                            std::string* err, const std::string& shotName,
                            const std::vector<uint8_t>& shot) const {
     CURL* c = curl_easy_init();
+    if (c) tlsca::apply(c);
     if (!c) { if (err) *err = "curl init failed"; return false; }
 
     const std::string boundary = "CabinetOSBoundary7f3a91c4";
@@ -390,6 +395,7 @@ int reportProgress(void* user, curl_off_t dlTotal, curl_off_t dlNow, curl_off_t,
 bool Client::fetchToFile(const std::string& path, const std::string& destPath,
                          const ProgressFn& onProgress, std::string* err) const {
     CURL* c = curl_easy_init();
+    if (c) tlsca::apply(c);
     if (!c) { if (err) *err = "curl init failed"; return false; }
 
     // Written to a neighbouring .part and renamed only on success, so an
@@ -461,6 +467,7 @@ bool Client::fetchToFile(const std::string& path, const std::string& destPath,
 std::vector<uint8_t> Client::fetchBytes(const std::string& path) const {
     std::vector<uint8_t> data;
     CURL* c = curl_easy_init();
+    if (c) tlsca::apply(c);
     if (!c) return data;
     // The path comes from the server and may carry anything; see encodeUrl.
     // A whole address is taken only when it is on the RomM server, and a
@@ -534,6 +541,7 @@ std::vector<uint8_t> Client::fetchRange(const Game& g, uint64_t offset, size_t b
     // `Sonic & Sega All-Stars Racing` must not become a query.
     const std::string name = encodeSegment(g.fsName);
     CURL* c = curl_easy_init();
+    if (c) tlsca::apply(c);
     if (!c) return data;
     const Where at = where();
     const std::string url = at.base + "/api/roms/" + std::to_string(g.id) + "/content/" + name;

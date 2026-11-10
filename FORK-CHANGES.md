@@ -54,6 +54,11 @@ Files marked `FORK (handheld)` in their comments are the fork's.
 - **Two self-tests remove their scratch folder without a shell**, for the iPhone app (private
   repository `cabinetos-ios`), which cannot start one: `std::filesystem::remove_all` in place of
   `system("rm -rf ...")`. Same result on the Deck. `playtime.cpp`, `selftests.cpp`.
+- **The certificate authorities can be named by a variable**, for the Android app, whose curl cannot read
+  the folder a phone keeps them in: `CABINETOS_CA_BUNDLE` (a file of PEM certificates). Every checked
+  connection (RomM, RetroAchievements) passes its new curl handle through `tlsca::apply`, which sets
+  `CURLOPT_CAINFO` from it. Unset, which it is on the console, nothing changes. `tlsca.h`;
+  one call after each `curl_easy_init` in `romm_http.cpp` (6), `romm_playdata.cpp`, `ra_net.cpp`.
 - **`tools/deck-loop.sh`**: edit on the Mac, build and run on the Deck, no GitHub round trip.
 
 ## System fixes

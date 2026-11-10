@@ -8,6 +8,8 @@
 
 #include <curl/curl.h>
 
+#include "tlsca.h"
+
 #include "rc_api_request.h"
 
 #include <algorithm>
@@ -63,6 +65,7 @@ int request(const std::string& url, const char* post, const char* contentType,
     static const bool offline = std::getenv("CABINETOS_RA_OFFLINE") != nullptr;
     if (offline) return RC_API_SERVER_RESPONSE_RETRYABLE_CLIENT_ERROR;
     CURL* c = curl_easy_init();
+    if (c) tlsca::apply(c);
     if (!c) return RC_API_SERVER_RESPONSE_RETRYABLE_CLIENT_ERROR;
     const std::string ua = userAgent();
     curl_slist* headers = nullptr;
