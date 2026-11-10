@@ -52,6 +52,14 @@ It never changes or deletes your games, platforms, firmware or users.
 - Saves made in RomM's web player or in other apps are not read, and the
   console leaves them alone on the server.
 
+## A game you delete in RomM
+
+The console removes it too. At the next start with your server there, a game
+that is gone from RomM leaves the console's drive, whether you played it or
+only downloaded it, and the room comes back. Its saves, states and screenshots
+on the console go with it: RomM deletes its own copies along with the game, so
+they could never be sent anywhere.
+
 ## When the server is away
 
 The console keeps working with what is on its drive. See
@@ -62,7 +70,7 @@ The console keeps working with what is on its drive. See
 Settings, Network, **RomM server** (behind the PIN if one is set):
 
 - **Change address**: for when the same server moves. Pointing at a different
-  server warns first: *Removes every game and account from this console.*
+  server is refused: *A different server. Sign out first.*
 - **Sign out**: removes every game and account from the console and goes back
   to [first run](first-run.md). Saves still waiting to upload are lost, and the
   console says so before you confirm.

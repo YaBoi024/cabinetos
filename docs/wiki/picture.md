@@ -100,7 +100,8 @@ Each person has their own colour, and the console changes when they sign in.
 - **Standard**: the normal look.
 - **Dark**: darker menus for the evening. The games are not changed.
 - **Scheduled**: Dark during the **Dark hours** you choose (8 PM to 7 AM to
-  start with), by the time zone picked at install.
+  start with), by the time zone picked at install (at first run, on a console
+  that runs from a USB drive).
 
 ## Screen off
 

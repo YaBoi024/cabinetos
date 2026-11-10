@@ -139,27 +139,39 @@ Status status() {
 
 namespace {
 
-// Every SSID NetworkManager already holds a saved connection for.
+// A saved Wi-Fi profile: the UUID that names it and the SSID it joins.
+struct SavedWifi {
+    std::string uuid;
+    std::string ssid;
+};
+
+// Every saved Wi-Fi profile NetworkManager holds. False when they could not
+// be listed.
 //
-// Read from the connection's own `802-11-wireless.ssid` rather than from its
-// NAME. nmcli names a profile after the SSID by default, which makes the two
-// look interchangeable right up until somebody renames one — and then the
-// console offers to type a passphrase for a network it already knows.
-std::vector<std::string> savedSsids() {
-    std::vector<std::string> out;
-    const proc::Result r = proc::run({"nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"}, 10);
-    if (!r.ok()) return out;
+// EACH ONE BY ITS UUID, NEVER BY ITS NAME. A name need not be unique, and
+// NetworkManager holds two profiles of one name for one network without
+// complaint (#642): `connection show <NAME>` then prints both, one after the
+// other, and its output is no longer one SSID. A UUID is one profile.
+//
+// The SSID is the profile's own `802-11-wireless.ssid`, not its NAME. nmcli
+// names a profile after the SSID by default, which makes the two look
+// interchangeable right up until somebody renames one, and then the console
+// offers to type a password for a network it already knows.
+bool savedWifi(std::vector<SavedWifi>* out) {
+    out->clear();
+    const proc::Result r = proc::run({"nmcli", "-t", "-f", "UUID,TYPE", "connection", "show"}, 10);
+    if (!r.ok()) return false;
     for (const std::string& line : lines(r.out)) {
         if (line.empty()) continue;
         const std::vector<std::string> f = splitFields(line);
         if (fieldAt(f, 1) != "802-11-wireless") continue;
-        const proc::Result ssid = proc::run({"nmcli", "-t", "-f", "802-11-wireless.ssid",
-                              "connection", "show", fieldAt(f, 0)}, 10);
-        if (!ssid.ok()) continue;
-        const std::vector<std::string> sf = splitFields(trimmed(ssid.out));
-        if (sf.size() >= 2 && !sf[1].empty()) out.push_back(sf[1]);
+        const proc::Result got = proc::run({"nmcli", "-t", "-f", "802-11-wireless.ssid",
+                                            "connection", "show", "uuid", fieldAt(f, 0)}, 10);
+        if (!got.ok()) continue;
+        const std::vector<std::string> sf = splitFields(trimmed(got.out));
+        if (sf.size() >= 2 && !sf[1].empty()) out->push_back({fieldAt(f, 0), sf[1]});
     }
-    return out;
+    return true;
 }
 
 bool listWifi(bool rescan, std::vector<Network>* out, std::string* err) {
@@ -196,7 +208,8 @@ bool listWifi(bool rescan, std::vector<Network>* out, std::string* err) {
         return false;
     }
 
-    const std::vector<std::string> saved = savedSsids();
+    std::vector<SavedWifi> saved;
+    savedWifi(&saved);
 
     for (const std::string& line : lines(r.out)) {
         if (line.empty()) continue;
@@ -214,7 +227,8 @@ bool listWifi(bool rescan, std::vector<Network>* out, std::string* err) {
         n.secured = !n.security.empty();
         n.enterprise = n.security.find("802.1X") != std::string::npos ||
                        n.security.find("EAP") != std::string::npos;
-        n.known = std::find(saved.begin(), saved.end(), n.ssid) != saved.end();
+        n.known = std::any_of(saved.begin(), saved.end(),
+                              [&](const SavedWifi& w) { return w.ssid == n.ssid; });
 
         // One row per network, not one per access point. A house with three
         // mesh nodes broadcasts the same SSID three times and nmcli lists all
@@ -526,28 +540,25 @@ bool forget(const std::string& ssid, std::string* err) {
     }
     // EVERY profile for the SSID, not the first. NetworkManager will hold two
     // for one network without complaint, and deleting one of them leaves the
-    // console rejoining with the other — which looks exactly like "forget did
-    // nothing".
-    const proc::Result r = proc::run({"nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"}, 10);
-    if (!r.ok()) {
+    // console rejoining with the other, which looks exactly like "forget did
+    // nothing". So it is done only when none is left.
+    std::vector<SavedWifi> saved;
+    if (!savedWifi(&saved)) {
         if (err) *err = "could not list saved networks";
         return false;
     }
-    bool deletedAny = false;
-    for (const std::string& line : lines(r.out)) {
-        if (line.empty()) continue;
-        const std::vector<std::string> f = splitFields(line);
-        if (fieldAt(f, 1) != "802-11-wireless") continue;
-        const std::string name = fieldAt(f, 0);
-        const proc::Result got = proc::run({"nmcli", "-t", "-f", "802-11-wireless.ssid",
-                             "connection", "show", name}, 10);
-        if (!got.ok()) continue;
-        const std::vector<std::string> sf = splitFields(trimmed(got.out));
-        if (sf.size() < 2 || sf[1] != ssid) continue;
-        if (proc::run({"nmcli", "connection", "delete", name}, 15).ok()) deletedAny = true;
+    bool found = false;
+    bool allGone = true;
+    for (const SavedWifi& w : saved) {
+        if (w.ssid != ssid) continue;
+        found = true;
+        const proc::Result r = proc::run({"nmcli", "connection", "delete", "uuid", w.uuid}, 15);
+        if (r.ok()) continue;
+        allGone = false;
+        sayWhy(r, err);
     }
-    if (!deletedAny && err) *err = "no saved network by that name";
-    return deletedAny;
+    if (!found && err) *err = "no saved network by that name";
+    return found && allGone;
 }
 
 bool setRadio(bool on, std::string* err) {

@@ -1,8 +1,8 @@
 # The library
 
-Four places along the top bar: **Home**, **Library**, **Search** and
-**Settings**, with the signed-in person on the right. **L1** and **R1** move
-between them from anywhere.
+The top bar has **Home**, **Library**, **Search**, [LinkUp](linkup.md) where it
+is on, and **Settings**, with the signed-in person on the right. **L1** and
+**R1** move between them from anywhere.
 
 ## Home
 

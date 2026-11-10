@@ -1649,6 +1649,7 @@ struct App {
     static int64_t prefNum(const char* key);
     static std::string updBytes(int64_t b);
     static std::string updOf(int64_t done, int64_t total);
+    static std::string updVersionSize(const std::string& version, int64_t size);
     std::string updChecked();
     bool updFoundNewer();
     screens::SettingsRow updateRow();
