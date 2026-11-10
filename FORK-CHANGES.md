@@ -28,6 +28,10 @@ Files marked `FORK (handheld)` in their comments are the fork's.
   and the commits. `.github/workflows/watch-upstream.yml`, `.github/upstream-watch.txt`;
   `base-update.yml` follows bazzite-deck monthly. A weekly Claude task on the Mac reviews both and
   says what is ready to merge; it never merges.
+- **The font files can be moved by two variables**, for the Android app (private repository
+  `cabinetos-android`), which has no `/usr/share/fonts`: `CABINETOS_FONT_DIR` (the folder with the
+  three NotoSans files) and `CABINETOS_FONT_CJK` (the fallback face). Unset, the console's paths are
+  used as before. `startup.cpp`
 - **`tools/deck-loop.sh`**: edit on the Mac, build and run on the Deck, no GitHub round trip.
 
 ## System fixes
