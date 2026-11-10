@@ -56,7 +56,27 @@ RomM: keep test launches under a minute, or have his go.
    head, merges on his word; two server tidy-ups with no issue,
    `.dockerignore` lets `docs/` into the build stage and the relay's block
    list lacks 3fff::/20.
-2. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
+2. **Gyro, beside item 1, which waits on his friend and holds up nothing
+   here but the last session; in this order, each a fresh session that
+   starts from its issue and builds nothing the issue does not say:** #670, "Tilt
+   for the Game Boy Advance and 3DS cores: answer libretro's sensor
+   interface" (Opus, one session; TV: WarioWare: Twisted!, Ocarina of Time
+   3D, Star Fox 64 3D); then #683, "Motion for PS3: a sensor device beside
+   each player's virtual pad" (Opus, one session; TV: LittleBigPlanet); then
+   #669, "Gyro for Switch, Wii U and Vita: a virtual pad that carries the
+   player's tilt", in two sessions: the fake pad proven with one Switch game
+   in Eden (Fable, decided 2026-11-09, the one session where a wrong turn
+   costs most; no TV sitting, the proof is the log), then the three emulators
+   (Opus; TV: Mario Kart 8 Deluxe, Captain Toad, Breath of the Wild's shrines,
+   Gravity Rush); last, the friend's tilt over LinkUp for Switch and PS3
+   (Opus, one session, two consoles; the friend needs a gyro pad of their
+   own). If it lands before item 1's sitting, that sitting tests both, as
+   two steps, the connection first; if not, the tilt gets its own short
+   test later. Settled 2026-11-09: Game Boy and Game
+   Boy Color stay on Gambatte and the two MBC7 cartridges stay out; no
+   greying for a few games; each issue carries its files and docs under
+   #398's rules. His DualSense is the gyro pad for every sitting.
+3. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
    Kirby: Planet Robobot saved into Mario Kart 7's folder. Read on RomM on
    2026-10-25: Mario Kart 7's save (uploaded 2026-10-22) still carries
    Kirby's save data and its extra data, four files. He wants them gone
@@ -64,7 +84,7 @@ RomM: keep test launches under a minute, or have his go.
    folder, so deleting them on the A9 alone does not last: Mario Kart 7's
    save on RomM has to be replaced. Restate exactly what goes and wait for
    his yes before anything is deleted.
-3. **Words from him, one at a time, no work:** #181, "Updates and DLC as
+4. **Words from him, one at a time, no work:** #181, "Updates and DLC as
    separate files in RomM (Switch, PS3, Xbox 360)", and #215, "Proposal, not
    decided: opt-in "Help improve CabinetOS" report sharing" (he is unsure of
    both); and which of the 36 faults the PROJECT.md scan found with no issue
