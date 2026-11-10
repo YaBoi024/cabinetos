@@ -22,8 +22,11 @@ after his TV checks. Before it the same day: #671, "On-screen keyboard: a
 held direction repeats, Shift locks, and the field has a cursor"
 (2026.11.09.4), and #666, "LinkUp: the console's side, step 3 of #654"
 (2026.11.09.3); LinkUp is on the wiki, in the README and in the changelog
-(#673, #674). Open: #528 waits on RomM and
-#644 is the controller list. #590, "A
+(#673, #674), and every wiki page and the README were read against the
+code on 2026-11-09, the lines found wrong fixed in #679, "Wiki: fix the
+lines the docs review found wrong, stale or missing", and #680, "Controls
+guide: LinkUp in the top bar, the keyboard's Shift lock, the date". Open:
+#528 waits on RomM and #644 is the controller list. #590, "A
 Wii Remote turned on after a Wii game starts is ignored by the game",
 waits in Later; fix it only in the console's own code, never by patching
 Dolphin (MMagTech, 2026-10-25). What the A9 runs now is not written here:
@@ -53,13 +56,26 @@ RomM: keep test launches under a minute, or have his go.
    head, merges on his word; two server tidy-ups with no issue,
    `.dockerignore` lets `docs/` into the build stage and the relay's block
    list lacks 3fff::/20.
-2. **A README and wiki review, his ask of 2026-11-09.** Read-only first: every
-   wiki page as a player and against the code on main (the
-   `check-code-and-docs-agree` skill), and the README. Report page by page:
-   lines no longer true, what a player would search for and not find (the
-   LinkUp sidebar line and this file were two misses found on 2026-11-09),
-   pages that should merge or split. No edits until he has read the report;
-   then small docs-only pull requests per page group, merged on his ask.
+2. **Gyro, beside item 1, which waits on his friend and holds up nothing
+   here but the last session; in this order, each a fresh session that
+   starts from its issue and builds nothing the issue does not say:** #670, "Tilt
+   for the Game Boy Advance and 3DS cores: answer libretro's sensor
+   interface" (Opus, one session; TV: WarioWare: Twisted!, Ocarina of Time
+   3D, Star Fox 64 3D); then #683, "Motion for PS3: a sensor device beside
+   each player's virtual pad" (Opus, one session; TV: LittleBigPlanet); then
+   #669, "Gyro for Switch, Wii U and Vita: a virtual pad that carries the
+   player's tilt", in two sessions: the fake pad proven with one Switch game
+   in Eden (Fable, decided 2026-11-09, the one session where a wrong turn
+   costs most; no TV sitting, the proof is the log), then the three emulators
+   (Opus; TV: Mario Kart 8 Deluxe, Captain Toad, Breath of the Wild's shrines,
+   Gravity Rush); last, the friend's tilt over LinkUp for Switch and PS3
+   (Opus, one session, two consoles; the friend needs a gyro pad of their
+   own). If it lands before item 1's sitting, that sitting tests both, as
+   two steps, the connection first; if not, the tilt gets its own short
+   test later. Settled 2026-11-09: Game Boy and Game
+   Boy Color stay on Gambatte and the two MBC7 cartridges stay out; no
+   greying for a few games; each issue carries its files and docs under
+   #398's rules. His DualSense is the gyro pad for every sitting.
 3. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
    Kirby: Planet Robobot saved into Mario Kart 7's folder. Read on RomM on
    2026-10-25: Mario Kart 7's save (uploaded 2026-10-22) still carries
