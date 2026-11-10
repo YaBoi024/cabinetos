@@ -56,8 +56,9 @@ RomM: keep test launches under a minute, or have his go.
    head, merges on his word; two server tidy-ups with no issue,
    `.dockerignore` lets `docs/` into the build stage and the relay's block
    list lacks 3fff::/20.
-2. **Gyro, after item 1, in this order, each a fresh session that starts
-   from its issue and builds nothing the issue does not say:** #670, "Tilt
+2. **Gyro, beside item 1, which waits on his friend and holds up nothing
+   here but the last session; in this order, each a fresh session that
+   starts from its issue and builds nothing the issue does not say:** #670, "Tilt
    for the Game Boy Advance and 3DS cores: answer libretro's sensor
    interface" (Opus, one session; TV: WarioWare: Twisted!, Ocarina of Time
    3D, Star Fox 64 3D); then #683, "Motion for PS3: a sensor device beside
@@ -68,7 +69,10 @@ RomM: keep test launches under a minute, or have his go.
    costs most; no TV sitting, the proof is the log), then the three emulators
    (Opus; TV: Mario Kart 8 Deluxe, Captain Toad, Breath of the Wild's shrines,
    Gravity Rush); last, the friend's tilt over LinkUp for Switch and PS3
-   (Opus, one session, two consoles). Settled 2026-11-09: Game Boy and Game
+   (Opus, one session, two consoles; the friend needs a gyro pad of their
+   own). If it lands before item 1's sitting, that sitting tests both, as
+   two steps, the connection first; if not, the tilt gets its own short
+   test later. Settled 2026-11-09: Game Boy and Game
    Boy Color stay on Gambatte and the two MBC7 cartridges stay out; no
    greying for a few games; each issue carries its files and docs under
    #398's rules. His DualSense is the gyro pad for every sitting.
