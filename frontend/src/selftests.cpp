@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <filesystem>
 #include <string>
 #include <thread>
 #include <vector>
@@ -206,9 +207,10 @@ int firstRunWriteTest() {
     }
 
     // Leave nothing behind. A test that litters is a test nobody runs twice.
-    std::string rm = "rm -rf ";
-    rm += root;
-    if (std::system(rm.c_str()) != 0)
+    // Removed in-process, not with a shell: an iPhone app cannot start one.
+    std::error_code gone;
+    std::filesystem::remove_all(root, gone);
+    if (gone)
         std::printf("\n  (could not remove %s)\n", root);
 
     std::printf("\nfirst-run writes: %d failure%s\n", failures,

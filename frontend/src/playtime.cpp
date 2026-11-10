@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
+#include <filesystem>
 #include <map>
 #include <mutex>
 
@@ -367,7 +368,9 @@ int test() {
         check(owed(u).empty(), "everything sent, nothing owed");
         check(known(u, 305, &k) == false, "a total RomM never gave is not invented");
     }
-    std::system((std::string("rm -rf ") + dir).c_str());
+    // Removed in-process, not with a shell: an iPhone app cannot start one.
+    std::error_code gone;
+    std::filesystem::remove_all(dir, gone);
     std::printf("%s\n", failures ? "FAILED" : "all passed");
     return failures;
 }

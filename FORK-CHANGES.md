@@ -51,6 +51,9 @@ Files marked `FORK (handheld)` in their comments are the fork's.
   own detail) to that sentence and to the log (`[romm] <address>: ...`). No behaviour changes; the
   Deck's wording is longer only when the probe fails. `romm.h` (`probe` has an optional `why`),
   `romm_pairing.cpp` (`probe`, `setAddress`), `romm_http.cpp` (`getAt`).
+- **Two self-tests remove their scratch folder without a shell**, for the iPhone app (private
+  repository `cabinetos-ios`), which cannot start one: `std::filesystem::remove_all` in place of
+  `system("rm -rf ...")`. Same result on the Deck. `playtime.cpp`, `selftests.cpp`.
 - **`tools/deck-loop.sh`**: edit on the Mac, build and run on the Deck, no GitHub round trip.
 
 ## System fixes
