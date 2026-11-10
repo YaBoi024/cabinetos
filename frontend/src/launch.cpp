@@ -19,6 +19,7 @@
 #include "filesave.h"
 #include "library.h"
 #include "mamehome.h"
+#include "platform.h"
 #include "ps2.h"
 #include "quality.h"
 #include "romm.h"
@@ -1110,6 +1111,7 @@ void App::startPlaying(cab::Core& core) {
     std::fprintf(stderr, "[launch] running %s\n",
                  core.isPs2() ? "PCSX2" : core.coreName().c_str());
     playing = true;
+    platform::gamePlaying(true);   // FORK (Android): its buttons and screen-on
     // An arcade game's buttons as this person moved them (controls.h).
     controls::beginGame(session.arcadeCore(), session.romId, session.title);
     // RetroAchievements, when this person signed in (achievements.h):

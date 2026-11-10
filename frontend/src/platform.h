@@ -83,4 +83,12 @@ bool fillsWideScreens();
 // and a missing one is a fault. A phone is given its emulators one at a time.
 bool showsGamesWithoutACore();
 
+// --- A game running -------------------------------------------------------------
+
+// Told when a game starts (true) and when it ends (false), on the thread that
+// runs the program. The console does nothing. A phone uses it to show its
+// on-screen buttons and keep the screen on while a game runs, and to put both
+// away afterwards. Not called for a game that never got as far as running.
+void gamePlaying(bool on);
+
 }  // namespace platform

@@ -14,6 +14,7 @@
 #include "core.h"
 #include "discs.h"
 #include "fightstick.h"
+#include "platform.h"
 #include "ps2.h"
 #include "saves.h"
 #include "savetable.h"
@@ -151,6 +152,7 @@ void App::finishExit() {
     rewindWorstMs = 0.0;
     detailStates.stale = true;   // Continue from may have changed
     playing = false;
+    platform::gamePlaying(false);   // FORK (Android): its buttons away, screen-on off
     overlayOpen = false;
     // THE MENU GOES WITH THE GAME, as it does for an emulator of its own
     // (finishStandalone): faded out, its scrim and panel went on fading
