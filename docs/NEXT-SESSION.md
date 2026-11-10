@@ -15,11 +15,14 @@ source of truth for anything on RomM's data.
 ## Where things stand
 
 **2026-11-09.** The newest release is 2026.10.10. The newest image promoted
-to consoles is 2026.11.09.4: #671, "On-screen keyboard: a held direction
-repeats, Shift locks, and the field has a cursor", merged on 2026-11-09 an
-hour after #666, "LinkUp: the console's side, step 3 of #654"
-(2026.11.09.3), merged after his TV checks; LinkUp is on the wiki, in the
-README and in the changelog (#673, #674). Open: #528 waits on RomM and
+to consoles is 2026.11.09.5: #678, "Wi-Fi: Forget removes a network saved
+twice (#642)", carrying #677, "System update row: "under 1 MB" instead of
+"0.0 MB", and no size when it is not known" (#672), merged on 2026-11-09
+after his TV checks. Before it the same day: #671, "On-screen keyboard: a
+held direction repeats, Shift locks, and the field has a cursor"
+(2026.11.09.4), and #666, "LinkUp: the console's side, step 3 of #654"
+(2026.11.09.3); LinkUp is on the wiki, in the README and in the changelog
+(#673, #674). Open: #528 waits on RomM and
 #644 is the controller list. #590, "A
 Wii Remote turned on after a Wii game starts is ignored by the game",
 waits in Later; fix it only in the console's own code, never by patching
@@ -42,15 +45,14 @@ RomM: keep test launches under a minute, or have his go.
 1. **LinkUp, step 6 of #654, "LinkUp: play a game with a friend on another
    CabinetOS console over the internet": across the internet.** Steps 1 to 5
    are done and recorded on the issue; the server is cabinet-linkup v0.1.1,
-   pinned in `ci/linkup-server.txt`. First his friend, on latest 2026.11.09.3,
+   pinned in `ci/linkup-server.txt`. First his friend, on latest 2026.11.09.5,
    against his own server, whose Relay tab test passed on 2026-11-09; then the
    two testers in other homes. The result goes on #654 (how each game
    connected, direct or relay, from the server's admin page); nothing is filed
    from it unless he asks. Beside it: cabinet-linkup#7, the server's README
-   head, merges on his word; #672, "Settings: the System update row says
-   "0.0 MB" for an update of a few hundred bytes", in Later; two server
-   tidy-ups with no issue, `.dockerignore` lets `docs/` into the build stage
-   and the relay's block list lacks 3fff::/20.
+   head, merges on his word; two server tidy-ups with no issue,
+   `.dockerignore` lets `docs/` into the build stage and the relay's block
+   list lacks 3fff::/20.
 2. **A README and wiki review, his ask of 2026-11-09.** Read-only first: every
    wiki page as a player and against the code on main (the
    `check-code-and-docs-agree` skill), and the README. Report page by page:
