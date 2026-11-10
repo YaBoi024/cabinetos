@@ -16,9 +16,11 @@ int64_t App::prefNum(const char* key) {
     return static_cast<int64_t>(std::strtoll(prefs::get(key, "0").c_str(), nullptr, 10));
 }
 
-// "0.9 MB", "1.4 GB": one decimal, because a frontend update is under a
-// megabyte and a base image is gigabytes, and both have to read.
+// "1.4 GB", "312.5 MB", "under 1 MB". One decimal, so a base image in
+// gigabytes and a small update in megabytes both read. Below a megabyte one
+// decimal prints 0.0, which reads as nothing at all, so it says "under 1 MB".
 std::string App::updBytes(int64_t b) {
+    if (b < 1000000) return "under 1 MB";
     char buf[32];
     const double mb = static_cast<double>(b) / 1e6;
     if (mb >= 1000.0) std::snprintf(buf, sizeof buf, "%.1f GB", mb / 1000.0);
@@ -26,14 +28,23 @@ std::string App::updBytes(int64_t b) {
     return std::string(buf);
 }
 
-// "0.4 of 0.9 MB": one unit, the total's.
+// "0.4 of 2.1 MB": one unit, the total's. A total under a megabyte is
+// "under 1 MB" alone, since both of its numbers would print 0.0.
 std::string App::updOf(int64_t done, int64_t total) {
+    if (total < 1000000) return updBytes(total);
     char buf[48];
     const bool gb = total >= 1000000000;
     const double d = static_cast<double>(done) / (gb ? 1e9 : 1e6);
     const double t = static_cast<double>(total) / (gb ? 1e9 : 1e6);
     std::snprintf(buf, sizeof buf, "%.1f of %.1f %s", d, t, gb ? "GB" : "MB");
     return std::string(buf);
+}
+
+// "2026.11.09.3 · 312.5 MB", or the version alone when the size is 0.
+// Root writes 0 when it could not work the size out, so 0 is not known to
+// be small, and no size is said rather than a wrong one.
+std::string App::updVersionSize(const std::string& version, int64_t size) {
+    return size > 0 ? version + " \xC2\xB7 " + updBytes(size) : version;
 }
 
 // "Checked today", by the calendar here, not by 24-hour periods.
@@ -75,13 +86,15 @@ screens::SettingsRow App::updateRow() {
             break;
         case update::State::Available:
             value = "Update available";
-            detail = upd.version + " \xC2\xB7 " + updBytes(upd.size);
+            detail = updVersionSize(upd.version, upd.size);
             break;
         case update::State::Downloading: {
             const int pct = upd.total > 0
                 ? static_cast<int>(std::min<int64_t>(100, upd.done * 100 / upd.total)) : 0;
             value = std::to_string(pct) + "%";
-            detail = updOf(upd.done, upd.total);
+            // A total of 0 is a size root could not work out: the
+            // percentage alone until bootc says how much it is fetching.
+            detail = upd.total > 0 ? updOf(upd.done, upd.total) : std::string();
             break;
         }
         case update::State::Installing: {
@@ -104,8 +117,8 @@ screens::SettingsRow App::updateRow() {
         case update::State::None:
             if (updFoundNewer()) {
                 value = "Update available";
-                detail = prefs::get("update_found", "") + " \xC2\xB7 " +
-                         updBytes(prefNum("update_size"));
+                detail = updVersionSize(prefs::get("update_found", ""),
+                                        prefNum("update_size"));
             } else if (prefNum("update_checked") > 0) {
                 value = "Up to date";
                 detail = updChecked();
@@ -145,7 +158,7 @@ void App::startUpdate(bool download, bool automatic) {
 // PIN. The same shape as "Update ready", so an update is: check,
 // Download, Restart now.
 void App::askUpdateDownload() {
-    const std::string detail = upd.version + " \xC2\xB7 " + updBytes(upd.size);
+    const std::string detail = updVersionSize(upd.version, upd.size);
     askChoice("Update available", detail, {"Download", "Later"}, 0, [&](int k) {
         if (k != 0) return;
         askPin("Enter the PIN", "To update",
