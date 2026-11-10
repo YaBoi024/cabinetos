@@ -699,15 +699,15 @@ void App::repeatHeld(float dt) {
     else keyboard.letGoOfHeld();
     // The held direction, repeating and speeding up. Driven from the frame
     // loop rather than from the event queue, because the pad sends nothing
-    // at all while a button is held down.
-    tickTouch(dt);   // FORK (handheld): a flick running on (touchinput.cpp) 
-    if (navHeld && inputOwner() == InputOwner::UI && !keyboard.isOpen()) {
-        heldFor += dt;
-        if (heldFor >= nextRepeat) {
-            navigate(heldNav);
-            const float t = std::clamp(heldFor / kRepeatRamp, 0.0f, 1.0f);
-            nextRepeat = heldFor + (kRepeatStart + (kRepeatFast - kRepeatStart) * t);
-        }
+    // at all while a button is held down. ON EVERY SCREEN, Search's results
+    // and the bar above them included while Search's keyboard is still up
+    // (#668): this skipped any open keyboard, which since inputOwner learned
+    // that Search's results can have the input left only that case, where a
+    // held Right moved one cover and stopped. The keyboard holds for itself
+    // above, while it has the input.
+    tickTouch(dt);   // FORK (handheld): a flick running on (touchinput.cpp)
+    if (navHold.held && inputOwner() == InputOwner::UI) {
+        if (navHold.due(dt)) navigate(heldNav);
     } else {
         navHold.stop();
     }

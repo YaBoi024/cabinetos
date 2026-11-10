@@ -388,6 +388,24 @@ void setStreaming(bool on) {
 
 bool streaming() { return gStreaming; }
 
+void pressed(SDL_JoystickID id) {   // FORK (handheld): the event filter's thread
+    std::lock_guard<std::mutex> lk(gPressLock);
+    gPressedAt[id] = SDL_GetTicks();
+}
+
+bool sharing() {
+    static const bool on = [] {
+        const char* e = std::getenv("CABINETOS_STREAM_SHARE");
+        const bool v = !(e && std::strcmp(e, "0") == 0);
+        std::fprintf(stderr, v ? "[players] sharing the game with a stream: the console's "
+                                 "pads stay, a device's pad is the next player\n"
+                               : "[players] a stream takes over: the console's pads are set "
+                                 "aside (CABINETOS_STREAM_SHARE=0)\n");
+        return v;
+    }();
+    return on;
+}
+
 void seatFriend(SDL_JoystickID id) {
     gFriend = id;
     if (!gOpen.count(id))
@@ -412,6 +430,7 @@ void unseatFriend() {
 
 bool setAside(SDL_JoystickID id) {
     if (id == gFriend.load()) return true;
+    if (sharing()) return false;   // FORK (handheld): a streamed pad plays, not set aside
     std::lock_guard<std::mutex> lk(gIsRemoteLock);
     auto it = gIsRemote.find(id);
     return it != gIsRemote.end() && it->second != gStreaming;

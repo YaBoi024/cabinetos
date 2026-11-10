@@ -322,7 +322,7 @@ void SettingsScreen::drawGlass(Ctx& c) {
                         c.text.ascent(ui::TextStyle::Title3, c.sc),
                     ui::TextStyle::Title3,
                     ui::Color::white(selected ? 1.0f : 0.60f), c.sc);
-        taps_.add(kCategorySpot + i, listX(), y, design::kSettingsListWidth, itemH,
+        taps_.add(kCategorySpot + i, design::settingsListX(), y, design::kSettingsListWidth, itemH,
                   design::kScrollClipTop);
         y += itemH + design::kSettingsListGap;
     }
