@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <functional>
 
 namespace {
 
@@ -24,6 +25,8 @@ bool hasElement(const char* name) {
 // The decoder for a codec on this console: the graphics chip's, and a program's for a console
 // with none, which only H.264 has on the image.
 std::string decoderFor(bool h265) {
+    // vtdec is Apple's (VideoToolbox); a console has no such element.
+    if (hasElement("vtdec")) return "vtdec";
     if (h265) return hasElement("vah265dec") ? "vah265dec" : "";
     if (hasElement("vah264dec")) return "vah264dec";
     if (hasElement("avdec_h264")) return "avdec_h264";
@@ -31,7 +34,11 @@ std::string decoderFor(bool h265) {
     return "";
 }
 
+std::function<void(GstElement*)> gVideoSinkHook;
+
 }  // namespace
+
+void StreamFriend::setVideoSinkHook(std::function<void(GstElement*)> hook) { gVideoSinkHook = std::move(hook); }
 
 bool StreamFriend::canDecodeH265() { return !decoderFor(true).empty(); }
 bool StreamFriend::canDecodeH264() { return !decoderFor(false).empty(); }
@@ -106,7 +113,7 @@ void StreamFriend::onPadAdded(GstElement*, GstPad* pad, gpointer self) {
         description = std::string(h265 ? "rtph265depay name=depay request-keyframe=true wait-for-keyframe=true ! h265parse ! "
                                        : "rtph264depay name=depay request-keyframe=true wait-for-keyframe=true ! h264parse ! ") +
                       decoder + " name=dec ! capssetter caps=video/x-raw,colorimetry=(string)bt601 ! "
-                                "queue max-size-buffers=1 max-size-bytes=0 max-size-time=0 leaky=downstream ! glimagesink sync=false";
+                                "queue max-size-buffers=1 max-size-bytes=0 max-size-time=0 leaky=downstream ! glimagesink name=vsink sync=false";
     } else {
         guint ssrc = 0;
         if (gst_structure_get_uint(s, "ssrc", &ssrc)) me->cushionSound(ssrc);
@@ -123,6 +130,12 @@ void StreamFriend::onPadAdded(GstElement*, GstPad* pad, gpointer self) {
         std::fprintf(stderr, "[linkup] friend: %s\n", error ? error->message : "");
         g_clear_error(&error);
         return;
+    }
+    if (video && gVideoSinkHook) {
+        if (GstElement* vsink = gst_bin_get_by_name(GST_BIN(bin), "vsink")) {
+            gVideoSinkHook(vsink);
+            gst_object_unref(vsink);
+        }
     }
     // Before the first piece can arrive, or appsink keeps what came first as delay for good.
     if (GstElement* sound = gst_bin_get_by_name(GST_BIN(bin), "sound")) {
