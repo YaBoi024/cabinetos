@@ -60,6 +60,7 @@ auto App::ovLabel(int i) -> const char* {
         case PwRestart: return "Restart";
         case PwPowerOff: return "Power off";
         case PwSteam: return "Switch to Steam";
+        case PwExitApp: return "Exit app";
     }
     return "";
 }

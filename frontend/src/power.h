@@ -32,7 +32,12 @@ bool takeButtons();
 // Whether this machine can suspend. Rest is only offered when it can.
 bool canRest();
 
-enum class Action { Rest, Restart, PowerOff };
+enum class Action { Rest, Restart, PowerOff, ExitApp };
+
+// A phone's app has no Restart or Power off of the machine to offer, only closing itself. The
+// console offers the first two and not the last.
+bool canRestartAndPowerOff();
+bool canExitApp();
 const char* name(Action a);
 
 // Asks logind, on a worker so the frame loop is not held. Says on stderr what

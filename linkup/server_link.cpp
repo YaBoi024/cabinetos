@@ -2,6 +2,8 @@
 
 #include "server_link.h"
 
+#include <atomic>
+
 #include <cstdio>
 #include <cstring>
 #include <functional>
@@ -70,6 +72,13 @@ std::vector<std::string> ServerLink::bases(const std::string& typed) {
     return {"https://" + host + path, "http://" + host + path};
 }
 
+namespace {
+std::atomic<bool> gAbort{false};
+int onProgress(void*, curl_off_t, curl_off_t, curl_off_t, curl_off_t) { return gAbort.load() ? 1 : 0; }
+}  // namespace
+
+void ServerLink::abortRequests(bool on) { gAbort = on; }
+
 ServerLink::Post ServerLink::post(const std::string& base, const std::vector<uint8_t>& body, long seconds) {
     Post out;
     CURL* curl = curl_easy_init();
@@ -85,6 +94,8 @@ ServerLink::Post ServerLink::post(const std::string& base, const std::vector<uin
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, keepAnswer);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &out.body);
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+    curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, onProgress);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, seconds < 10 ? seconds : 10L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, seconds);
     // What PROTOCOL.md asks of a reader.

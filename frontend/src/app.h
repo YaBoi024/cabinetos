@@ -1230,7 +1230,7 @@ struct App {
     // first — the one way out of a game, which uploads every kind of save — so
     // this is true for every emulator without any of them knowing.
     bool powerMenu = false;
-    enum PowerItem { PwResume, PwCancel, PwRest, PwRestart, PwPowerOff, PwSteam };
+    enum PowerItem { PwResume, PwCancel, PwRest, PwRestart, PwPowerOff, PwSteam, PwExitApp };
     std::vector<PowerItem> powerItems;
     bool restAvailable = false;
     // Rest waits for the uploads finishExit queued: a machine that sleeps

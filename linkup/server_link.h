@@ -67,6 +67,11 @@ public:
         long status = 0;
         std::vector<uint8_t> body;
     };
+    // Ends every request now in flight, and makes later ones fail at once, until it is turned off
+    // again. For a program that stops and starts again inside one process (the iPhone's): without
+    // it a stop waits out the long request, up to 40 seconds.
+    static void abortRequests(bool on);
+
     // One POST of sealed bytes to `<base>/linkup/v1`. Blocks for at most `seconds`.
     static Post post(const std::string& base, const std::vector<uint8_t>& body, long seconds);
 

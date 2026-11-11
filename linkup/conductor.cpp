@@ -119,7 +119,7 @@ std::string turnUri(const std::string& url, const std::string& user, const std::
 
 }  // namespace
 
-Conductor::Conductor(Keys& keys, LocalSocket& local) : keys_(keys), local_(local), link_(keys) {}
+Conductor::Conductor(Keys& keys, LocalSocket& local) : keys_(keys), local_(local), link_(keys) { ServerLink::abortRequests(false); }
 
 Conductor::~Conductor() { finish(); }
 
@@ -151,6 +151,7 @@ void Conductor::start() {
 
 void Conductor::shutDown() {
     stopping_ = true;
+    ServerLink::abortRequests(true);
     if (game_) {
         if (Rtc* r = rtc()) r->sendControl("bye");
         if (host_) host_->stop();
