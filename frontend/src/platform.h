@@ -89,6 +89,8 @@ bool showsGamesWithoutACore();
 // runs the program. The console does nothing. A phone uses it to show its
 // on-screen buttons and keep the screen on while a game runs, and to put both
 // away afterwards. Not called for a game that never got as far as running.
-void gamePlaying(bool on);
+// platformSlug is the system as RomM names it ("snes", "gba", "nds"), so a phone
+// can show the buttons that system had; it is empty when on is false.
+void gamePlaying(bool on, const char* platformSlug);
 
 }  // namespace platform

@@ -36,7 +36,7 @@ Files marked `FORK (handheld)` in their comments are the fork's.
   app. Thirteen calls: does the machine own the network screens, skip the controller step, open a link,
   open its network settings, use its own keyboard (only while a text field is open, with the
   program's key grid replaced by the field and a Done key, also under Search's results), fill a
-  screen wider than 16:9, show the games of a system whose emulator is not there yet, greyed, and be told when a game starts and ends (`gamePlaying`, so a phone can show its on-screen buttons and keep the screen on only while a game runs). The console's
+  screen wider than 16:9, show the games of a system whose emulator is not there yet, greyed, and be told when a game starts and ends and for which system (`gamePlaying`, so a phone can show the buttons that system had and keep the screen on only while a game runs). The console's
   answers are in `platform_linux.cpp` and are all "no" or nothing, so the Deck behaves exactly as
   before; the Android build leaves that file out and supplies its own. What changes on a phone: first
   run's network step shows the phone's state and a button to its Wi-Fi settings instead of a list, the
@@ -59,6 +59,11 @@ Files marked `FORK (handheld)` in their comments are the fork's.
   connection (RomM, RetroAchievements) passes its new curl handle through `tlsca::apply`, which sets
   `CURLOPT_CAINFO` from it. Unset, which it is on the console, nothing changes. `tlsca.h`;
   one call after each `curl_easy_init` in `romm_http.cpp` (6), `romm_playdata.cpp`, `ra_net.cpp`.
+- **A core can be linked into the program instead of opened from a file**, for the iPhone app (private
+  repository `cabinetos-ios`): iOS only runs code signed into the app, so its cores are static libraries
+  found by name. Built with `CABINETOS_STATIC_CORES`, `core.cpp`'s three calls (`dlopen`, `dlsym`,
+  `dlclose`) go to `cab::staticcores`, which the iPhone app defines; without it, which is every other
+  build, the lines are the ones that were there. `frontend/src/core.cpp`.
 - **`tools/deck-loop.sh`**: edit on the Mac, build and run on the Deck, no GitHub round trip.
 
 ## System fixes

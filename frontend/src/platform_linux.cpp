@@ -21,6 +21,6 @@ void textFieldClosed() {}
 bool ownsKeyboard() { return false; }
 bool fillsWideScreens() { return false; }
 bool showsGamesWithoutACore() { return false; }
-void gamePlaying(bool) {}
+void gamePlaying(bool, const char*) {}
 
 }  // namespace platform
