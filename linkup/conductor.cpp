@@ -121,7 +121,18 @@ std::string turnUri(const std::string& url, const std::string& user, const std::
 
 Conductor::Conductor(Keys& keys, LocalSocket& local) : keys_(keys), local_(local), link_(keys) {}
 
-Conductor::~Conductor() = default;
+Conductor::~Conductor() { finish(); }
+
+void Conductor::finish() {
+    stopping_ = true;
+    workCv_.notify_all();
+    if (tickSource_) {
+        g_source_remove(tickSource_);
+        tickSource_ = 0;
+    }
+    if (worker_.joinable()) worker_.join();
+    if (waiter_.joinable()) waiter_.join();
+}
 
 void Conductor::start() {
     paired_ = keys_.server().has_value();

@@ -40,6 +40,9 @@ public:
     void start();
     // SIGTERM: the friend is told, the capture stops the safe way. The process then ends.
     void shutDown();
+    // For a program that goes on after this one ends (the iPhone's): stops the tick and the two
+    // workers and waits for them, up to a request's 40 seconds. The console's program just exits.
+    void finish();
 
     void onMessage(const uint8_t* data, size_t len);
     void onClient(bool connected);
