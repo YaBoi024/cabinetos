@@ -22,6 +22,20 @@
 #include "rumble.h"
 #include "vkhost.h"
 
+// FORK (iPhone): an iOS app can only run code that is signed into itself, so
+// there the cores are linked into the app and found by name, not opened from
+// files. Built with CABINETOS_STATIC_CORES, the three calls below (open a core,
+// find one of its functions, let it go) are answered by the app (cab::staticcores,
+// in the iPhone repository, where the table of cores is); without it, which is
+// every build but the iPhone's, they are dlopen, dlsym and dlclose as before.
+#ifdef CABINETOS_STATIC_CORES
+namespace cab::staticcores {
+void* open(const std::string& path, std::string* why);
+void* symbol(void* handle, const char* name);
+void close(void* handle);
+}  // namespace cab::staticcores
+#endif
+
 namespace cab {
 namespace corestate {
 
@@ -202,6 +216,11 @@ Core& Core::shared() {
 }
 
 void* Core::symbol(const char* name) {
+#ifdef CABINETOS_STATIC_CORES
+    void* s = cab::staticcores::symbol(handle_, name);
+    if (!s) error_ = std::string("missing symbol ") + name;
+    return s;
+#else
     dlerror();  // clear, so the next read belongs to this lookup
     void* s = dlsym(handle_, name);
     if (!s) {
@@ -209,6 +228,7 @@ void* Core::symbol(const char* name) {
         error_ = std::string("missing symbol ") + name + (why ? std::string(": ") + why : "");
     }
     return s;
+#endif
 }
 
 namespace corestate {
@@ -327,6 +347,13 @@ bool Core::load(const std::string& soPath) {
     // retro_* symbols stay private to it, so many cores can be loaded over a
     // session without colliding, and none of Cabinet's prefix-and-merge
     // machinery is needed.
+#ifdef CABINETOS_STATIC_CORES
+    handle_ = cab::staticcores::open(soPath, &error_);
+    if (!handle_) {
+        if (error_.empty()) error_ = "no core of that name is linked into this app";
+        return false;
+    }
+#else
     handle_ = dlopen(soPath.c_str(), RTLD_NOW | RTLD_LOCAL);
     if (!handle_) {
         // Read dlerror() ONCE. It clears itself on read, so calling it twice
@@ -337,6 +364,7 @@ bool Core::load(const std::string& soPath) {
         error_ = why ? why : "dlopen failed and gave no reason";
         return false;
     }
+#endif
     // Before retro_init, so every thread the core starts carries the mark.
     netblock::addEmulator(handle_, soPath);
 
@@ -438,7 +466,11 @@ void Core::unload() {
     }
     if (g.deinit) g.deinit();
     forgetKeyboard();
+#ifdef CABINETOS_STATIC_CORES
+    cab::staticcores::close(handle_);
+#else
     dlclose(handle_);
+#endif
     netblock::dropUnloaded();
     handle_ = nullptr;
     g = {};
