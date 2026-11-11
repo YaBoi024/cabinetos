@@ -106,4 +106,18 @@ bool showsGamesWithoutACore();
 // can show the buttons that system had; it is empty when on is false.
 void gamePlaying(bool on, const char* platformSlug);
 
+// FORK (handheld): AN EMULATOR THAT IS ITS OWN ANDROID APP. The emulators of
+// standalone.h are programs this one starts; Android does not let an app start
+// another as a child, but it lets it ask the system to open a file in the app
+// that handles it. On a phone with Eden installed, a Switch game is therefore
+// handed to Eden, which draws its own screen, and the person comes back here
+// when they leave it. `core` is the catalog's name for the emulator ("eden").
+//
+// runsInAnotherApp is true only when the app is installed, so a phone without
+// it answers "not installed" as the console does. openInAnotherApp hands over
+// the game file at `path` and returns false when nothing was opened; then
+// nothing started. Both are false on the console.
+bool runsInAnotherApp(const char* core);
+bool openInAnotherApp(const char* core, const std::string& path);
+
 }  // namespace platform

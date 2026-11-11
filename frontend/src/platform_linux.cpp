@@ -26,5 +26,7 @@ void safeInsets(int, int, int* left, int* top, int* right, int* bottom) {
 }
 bool showsGamesWithoutACore() { return false; }
 void gamePlaying(bool, const char*) {}
+bool runsInAnotherApp(const char*) { return false; }
+bool openInAnotherApp(const char*, const std::string&) { return false; }
 
 }  // namespace platform

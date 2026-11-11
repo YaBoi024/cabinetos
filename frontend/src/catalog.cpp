@@ -238,6 +238,8 @@ Coverage answer(const Entry* e) {
     // permanent one on a console that has never reached the internet (open
     // question 21). RPCS3, Xenia and Cemu are in the image.
     if (const cab::standalone::Emulator* emu = cab::standalone::find(c.core)) {
+        // FORK (handheld): on a phone the emulator may be an app of its own (platform.h).
+        if (platform::runsInAnotherApp(c.core)) return c;
         if (!cab::standalone::installed(*emu)) {
             c.support = Support::NotInstalled;
             c.reason = "Its emulator is not installed on this console yet";
