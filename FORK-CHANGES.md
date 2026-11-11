@@ -33,17 +33,17 @@ Files marked `FORK (handheld)` in their comments are the fork's.
   three NotoSans files) and `CABINETOS_FONT_CJK` (the fallback face). Unset, the console's paths are
   used as before. `startup.cpp`
 - **`platform.h`: a short list of questions the program asks the machine under it**, for the Android
-  app. Thirteen calls: does the machine own the network screens, skip the controller step, open a link,
+  app. Fifteen calls: does the machine own the network screens, skip the controller step, open a link,
   open its network settings, use its own keyboard (only while a text field is open, with the
   program's key grid replaced by the field and a Done key, also under Search's results), fill a
-  screen wider than 16:9, show the games of a system whose emulator is not there yet, greyed, and be told when a game starts and ends and for which system (`gamePlaying`, so a phone can show the buttons that system had and keep the screen on only while a game runs). The console's
+  screen wider than 16:9 or narrower than it (down to 4 to 3, for the iPhone Duo), keep clear of the part of the window a phone covers (a camera cut-out, the home indicator), show the games of a system whose emulator is not there yet, greyed, and be told when a game starts and ends and for which system (`gamePlaying`, so a phone can show the buttons that system had and keep the screen on only while a game runs). The console's
   answers are in `platform_linux.cpp` and are all "no" or nothing, so the Deck behaves exactly as
   before; the Android build leaves that file out and supplies its own. What changes on a phone: first
   run's network step shows the phone's state and a button to its Wi-Fi settings instead of a list, the
   sign-in step has a button that opens the approval page in the phone's browser, and the controller
   step is skipped. `platform.h`, `platform_linux.cpp`; calls in `firstrun.cpp`, `setup.cpp`,
   `startup.cpp`, `keyboard.cpp`, `launch.cpp` (`startPlaying`), `play.cpp` (`finishExit`), `ui.cpp` (`kCanvasWidth` is now a value the renderer sets each
-  frame, 1920 unless the machine asks to fill a wider screen: `ui.h`), `catalog.cpp`, `library.cpp`,
+  frame, 1920 unless the machine asks to fill a wider or a narrower screen: `ui.h`; the picture is fitted inside the safe area, and `ui::gCanvasLeft`, `gCanvasTop` and `gCanvasScale` say where the canvas sits, which `touchinput.cpp` and `setup.cpp` use to turn a pointer into canvas points), `catalog.cpp`, `library.cpp`,
   `search.cpp`.
 - **A failed server probe says why.** Entering a RomM address that does not answer used to say "nothing
   answered at <address>" and drop the reason (the probe passed no error string down). It now adds what

@@ -30,6 +30,14 @@ constexpr float kCanvasDesignWidth = 1920.0f;
 extern float kCanvasWidth;
 constexpr float kCanvasHeight = 1080.0f;
 
+// FORK (iPhone): WHERE THE CANVAS SITS IN THE WINDOW, as the last frame drew it:
+// the canvas's top-left corner in window pixels (from the window's top-left) and
+// the scale from canvas points to window pixels. Every place that turns a
+// pointer into canvas points uses these, so a phone's safe area and a canvas
+// that is not centred cannot make two answers. Set by Renderer::beginFrame;
+// the scale is 0 until the first frame.
+extern float gCanvasLeft, gCanvasTop, gCanvasScale;
+
 // The ten-foot safe area. Not a number invented here: it is the reference
 // implementation's own `contentInset` for a television, and it exists because a
 // physical set crops the edges of the picture. docs/PROJECT.md records the

@@ -1394,11 +1394,12 @@ bool Flow::canvasPoint(float windowX, float windowY, float* cx, float* cy) const
     const float px = windowX * (static_cast<float>(dw) / static_cast<float>(lw));
     const float py = windowY * (static_cast<float>(dh) / static_cast<float>(lh));
 
-    const float sc = std::min(static_cast<float>(dw) / ui::kCanvasWidth,
-                              static_cast<float>(dh) / ui::kCanvasHeight);
+    // FORK (iPhone): where the last frame put the canvas (ui.h), which is the
+    // centred fit it always was except where a phone's safe area moves it.
+    const float sc = ui::gCanvasScale;
     if (sc <= 0.0f) return false;
-    *cx = (px - (dw - ui::kCanvasWidth * sc) * 0.5f) / sc;
-    *cy = (py - (dh - ui::kCanvasHeight * sc) * 0.5f) / sc;
+    *cx = (px - ui::gCanvasLeft) / sc;
+    *cy = (py - ui::gCanvasTop) / sc;
     return true;
 }
 

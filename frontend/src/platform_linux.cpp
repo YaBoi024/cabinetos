@@ -20,6 +20,10 @@ void textFieldOpened() {}
 void textFieldClosed() {}
 bool ownsKeyboard() { return false; }
 bool fillsWideScreens() { return false; }
+bool fillsNarrowScreens() { return false; }
+void safeInsets(int, int, int* left, int* top, int* right, int* bottom) {
+    *left = *top = *right = *bottom = 0;
+}
 bool showsGamesWithoutACore() { return false; }
 void gamePlaying(bool, const char*) {}
 

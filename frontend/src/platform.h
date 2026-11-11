@@ -75,6 +75,19 @@ bool ownsKeyboard();
 // still gets bars, as before.
 bool fillsWideScreens();
 
+// FORK (iPhone): the same for a screen NARROWER than 16:9 (an iPhone Duo's two
+// screens are about 1.4 to 1). When this is true the canvas is made as narrow as
+// the screen (down to 4 to 3) so the screens use all of it, instead of leaving
+// bars above and below. On the console this is false and nothing changes.
+bool fillsNarrowScreens();
+
+// FORK (iPhone): how much of the window's edge a phone covers: a camera
+// cut-out, a rounded corner, the home indicator. In window pixels, from each
+// edge. The picture is fitted inside what is left. windowW and windowH are the
+// size beginFrame was asked to draw; a platform answers all zeros when they are
+// not its window's (a capture drawn off screen). The console answers zeros.
+void safeInsets(int windowW, int windowH, int* left, int* top, int* right, int* bottom);
+
 // --- The library ----------------------------------------------------------------
 
 // A system whose emulator is not in the program yet still shows its games,
