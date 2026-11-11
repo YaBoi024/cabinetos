@@ -368,6 +368,27 @@ bool App::readGameInput(cab::Core& core) {
             st.rightX = SDL_GetGamepadAxis(gp, SDL_GAMEPAD_AXIS_RIGHTX) / 32767.0f;
             st.rightY = SDL_GetGamepadAxis(gp, SDL_GAMEPAD_AXIS_RIGHTY) / 32767.0f;
         }
+        // FORK (iOS): THE ON-SCREEN BUTTONS ARE PLAYER ONE'S SECOND HAND (players.h, onScreen). With
+        // no other pad they are player one's pad and the block above read them; with one, the game
+        // hears both. Only the buttons the phone draws: no triggers, no sticks.
+        if (p == 0) {
+            SDL_Gamepad* tp = players::onScreen();
+            if (tp && tp != players::gamepad(0)) {
+                auto down = [&](SDL_GamepadButton b) { return SDL_GetGamepadButton(tp, b); };
+                if (down(SDL_GAMEPAD_BUTTON_DPAD_UP)) st.buttons |= bit(cab::Up);
+                if (down(SDL_GAMEPAD_BUTTON_DPAD_DOWN)) st.buttons |= bit(cab::Down);
+                if (down(SDL_GAMEPAD_BUTTON_DPAD_LEFT)) st.buttons |= bit(cab::Left);
+                if (down(SDL_GAMEPAD_BUTTON_DPAD_RIGHT)) st.buttons |= bit(cab::Right);
+                if (down(SDL_GAMEPAD_BUTTON_SOUTH)) st.buttons |= bit(cab::B);
+                if (down(SDL_GAMEPAD_BUTTON_EAST)) st.buttons |= bit(cab::A);
+                if (down(SDL_GAMEPAD_BUTTON_WEST)) st.buttons |= bit(cab::Y);
+                if (down(SDL_GAMEPAD_BUTTON_NORTH)) st.buttons |= bit(cab::X);
+                if (down(SDL_GAMEPAD_BUTTON_START)) st.buttons |= bit(cab::Start);
+                if (down(SDL_GAMEPAD_BUTTON_BACK)) st.buttons |= bit(cab::Select);
+                if (down(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER)) st.buttons |= bit(cab::L);
+                if (down(SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER)) st.buttons |= bit(cab::R);
+            }
+        }
         // THE SHORTCUT BUTTON (shortcuts.h), only with the switch on.
         // While it is held the game hears nothing from this pad's
         // buttons, so neither it nor the second button of a shortcut

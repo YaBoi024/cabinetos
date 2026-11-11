@@ -113,6 +113,13 @@ std::map<SDL_JoystickID, SDL_Gamepad*> gOpen;
 std::map<SDL_JoystickID, std::string> gDir;   // its HID device, for its battery
 std::map<SDL_JoystickID, const fightstick::Stick*> gStick;   // the open fight sticks
 std::atomic<SDL_JoystickID> gFriend{0};   // LinkUp's, read by setAside on that thread too
+// FORK (iOS): the phone's on-screen buttons, made by the platform as a virtual gamepad called
+// "On-screen buttons". They take no seat: they are player one's extra hand (onScreen()).
+SDL_JoystickID gTouch = 0;
+bool isOnScreenPad(SDL_JoystickID id) {
+    const char* n = SDL_GetJoystickNameForID(id);
+    return SDL_IsJoystickVirtual(id) && n && std::strcmp(n, "On-screen buttons") == 0;
+}
 bool gHoldTwo = false;                    // a friend has left, and the game they left runs on
 
 // The seats a game hears now.
@@ -324,6 +331,12 @@ void added(SDL_JoystickID id) {
         return;
     }
     gOpen[id] = gp;
+    if (isOnScreenPad(id)) {   // FORK (iOS): not a player, see onScreen()
+        gTouch = id;
+        std::fprintf(stderr, "[players] pad %u is the on-screen buttons: they join player one\n",
+                     static_cast<unsigned>(id));
+        return;
+    }
     const bool remote = isRemote(gp);
     {
         std::lock_guard<std::mutex> lk(gIsRemoteLock);
@@ -351,6 +364,7 @@ void removed(SDL_JoystickID id) {
     if (it == gOpen.end()) return;
     SDL_CloseGamepad(it->second);
     gOpen.erase(it);
+    if (id == gTouch) gTouch = 0;
     gSeats.remove(id);
     gRemote.remove(id);
     {
@@ -436,9 +450,14 @@ bool setAside(SDL_JoystickID id) {
     return it != gIsRemote.end() && it->second != gStreaming;
 }
 
+SDL_Gamepad* onScreen() {
+    auto it = gOpen.find(gTouch);
+    return gTouch && it != gOpen.end() ? it->second : nullptr;
+}
+
 SDL_Gamepad* gamepad(int player) {
     const uint32_t id = active().idOf(player);
-    if (!id) return nullptr;
+    if (!id) return player == 0 ? onScreen() : nullptr;   // FORK (iOS): with no pad, the buttons are player one
     auto it = gOpen.find(id);
     return it == gOpen.end() ? nullptr : it->second;
 }
