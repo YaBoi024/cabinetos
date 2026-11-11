@@ -7,6 +7,7 @@
 
 #include "credits.h"
 #include "shortcuts.h"
+#include "steam.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
 
@@ -57,9 +58,12 @@ void App::openHowTo() {
                      line("Jump a letter", "L2 / R2"),
                      line("Power menu", "Start, on Home"),
                      line("Switch person", "Up to the top bar, A on your name")}});
-    cats.push_back({"Steam",
-                    {line("Open", "Power menu, Switch to Steam"),
-                     line("Come back", "Steam's Power menu, Switch to Desktop")}});
+    // FORK (handheld): only where Steam is here to switch to (the console); a phone has none.
+    if (steam::available()) {
+        cats.push_back({"Steam",
+                        {line("Open", "Power menu, Switch to Steam"),
+                         line("Come back", "Steam's Power menu, Switch to Desktop")}});
+    }
     cats.push_back({"Controllers",
                     {line("Pair a controller", "Settings, Controllers, Add a controller"),
                      line("Pair a Wii Remote", "The red sync button, under the battery cover")}});

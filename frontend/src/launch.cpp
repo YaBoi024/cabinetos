@@ -368,8 +368,21 @@ auto App::launchById(int romId) -> bool {
         // this console cannot play: beginLaunch refuses that before it
         // touches the job, so refuseLaunch would name the last game.
         const catalog::Coverage cov = catalog::coverageFor(*g);
-        if (cov.support == catalog::Support::Playable && cov.core) refuseLaunch(lerr);
-        else showWhyUnplayable(romId);
+        if (cov.support == catalog::Support::Playable && cov.core) {
+            refuseLaunch(lerr);
+        } else if (cov.support == catalog::Support::NotInstalled && cov.core &&
+                   !platform::emulatorInstallUrl(cov.core).empty()) {
+            // FORK (handheld): a phone is offered the emulator's download page, as the console is
+            // offered Steam: said first, opened only on a yes. The page is the emulator's own.
+            showWhyUnplayable(romId);
+            const std::string url = platform::emulatorInstallUrl(cov.core);
+            askChoice("Get the emulator", "This system plays in a separate app. Open its download page?",
+                      {"Open download page", "Not now"}, 0, [url](int pick) {
+                          if (pick == 0) platform::openUrl(url);
+                      });
+        } else {
+            showWhyUnplayable(romId);
+        }
         return false;
     }
     launchJob.startedOn = static_cast<int>(here());

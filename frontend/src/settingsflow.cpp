@@ -67,7 +67,9 @@ void App::buildSettings() {
     // somebody else is signed in, the owner switches in, which asks for it.
     {
         auto& rows = cats.back().rows;
-        const char* protects = "Protects accounts, network, storage, Steam and updates";
+        const char* protects = steam::available()
+            ? "Protects accounts, network, storage, Steam and updates"
+            : "Protects accounts, network, storage and updates";   // FORK (handheld): no Steam here
         const bool isOwner = accounts::activeId() == accounts::ownerId();
         const std::vector<accounts::Account> list = accounts::all();
         const accounts::Account* owner = accounts::find(list, accounts::ownerId());

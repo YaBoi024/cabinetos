@@ -120,4 +120,9 @@ void gamePlaying(bool on, const char* platformSlug);
 bool runsInAnotherApp(const char* core);
 bool openInAnotherApp(const char* core, const std::string& path);
 
+// FORK (handheld): WHERE TO GET AN EMULATOR THAT IS ITS OWN APP, when it is not installed: the
+// address of its official download page, or empty when this machine installs it some other way
+// (the console's first boot does, from Flathub). The game's page offers to open it.
+std::string emulatorInstallUrl(const char* core);
+
 }  // namespace platform
