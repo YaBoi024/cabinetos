@@ -328,6 +328,19 @@ CoreContext::~CoreContext() {
     // core's context, waited on by the graphics chip in the UI's: nothing on
     // the processor waits. Flushed first, so the wait is never on a fence
     // that was never sent.
+    // FORK (handheld): once, about ten seconds in, what the core drew as each side sees it,
+    // for the log: the centre pixel of its target in its own context and in the UI's.
+    static int runs = 0;
+    const bool look = gHWOwnES && ++runs == 600;
+    unsigned char inCore[4] = {0, 0, 0, 0}, inUi[4] = {0, 0, 0, 0};
+    GLint coreLeft = 0;
+    if (look) {
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &coreLeft);
+        glBindFramebuffer(GL_FRAMEBUFFER, gHWDesktopFBO);
+        glReadPixels(static_cast<GLint>(gHWTargetW / 2), static_cast<GLint>(gHWTargetH / 2), 1, 1, GL_RGBA,
+                     GL_UNSIGNED_BYTE, inCore);
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(coreLeft));
+    }
     GLsync drawn = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     glFlush();
     if (gHWOwnES) platform::coreGLContextUse(nullptr);
@@ -335,6 +348,27 @@ CoreContext::~CoreContext() {
     if (drawn) {
         glWaitSync(drawn, 0, GL_TIMEOUT_IGNORED);
         glDeleteSync(drawn);
+    }
+    if (gHWOwnES) {
+        // FORK (handheld): Apple's rule for a share group: a change made in one context to a
+        // texture is seen in another once that one binds it again.
+        GLint was = 0;
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &was);
+        glBindTexture(GL_TEXTURE_2D, gHWColor);
+        glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(was));
+        if (look) {
+            GLint uiWas = 0;
+            glGetIntegerv(GL_FRAMEBUFFER_BINDING, &uiWas);
+            glBindFramebuffer(GL_FRAMEBUFFER, gHWFBO);
+            glReadPixels(static_cast<GLint>(gHWTargetW / 2), static_cast<GLint>(gHWTargetH / 2), 1, 1, GL_RGBA,
+                         GL_UNSIGNED_BYTE, inUi);
+            glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(uiWas));
+            std::fprintf(stderr,
+                         "[core] own context check: the core left framebuffer %d bound (its target is %u); "
+                         "centre pixel %u,%u,%u,%u in its context, %u,%u,%u,%u in the UI's\n",
+                         coreLeft, gHWDesktopFBO, inCore[0], inCore[1], inCore[2], inCore[3], inUi[0], inUi[1],
+                         inUi[2], inUi[3]);
+        }
     }
 }
 
