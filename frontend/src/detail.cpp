@@ -15,6 +15,7 @@
 #include "catalog.h"
 #include "favorites.h"
 #include "manual.h"
+#include "platform.h"
 #include "saves.h"
 #include "storage.h"
 #include "timewords.h"
@@ -351,7 +352,11 @@ void App::openDetail(int cardIndex) {
         d.sizeBytes = g.sizeBytes;
         const catalog::Coverage cov = catalog::coverageFor(g);
         raReadable = !cov.core || ra::coreReadable(cov.core, cov.arcade);
-        d.playable = cov.support == catalog::Support::Playable;
+        // FORK (handheld): and an emulator that is an app of its own, not installed yet, still lets
+        // Play be pressed: the press offers its download page (launch.cpp) instead of a dead line.
+        d.playable = cov.support == catalog::Support::Playable ||
+                     (cov.support == catalog::Support::NotInstalled && cov.core &&
+                      !platform::emulatorInstallUrl(cov.core).empty());
         d.reason = cov.reason ? cov.reason : "Not playable on this console";
         detailManualPath = pdfManual(g.manualPath) ? g.manualPath : std::string();
         detailManualTitle = g.name.empty() ? g.fsName : g.name;

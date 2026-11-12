@@ -125,4 +125,9 @@ bool openInAnotherApp(const char* core, const std::string& path);
 // (the console's first boot does, from Flathub). The game's page offers to open it.
 std::string emulatorInstallUrl(const char* core);
 
+// FORK (handheld): A SETTINGS ROW THAT MEANS NOTHING ON THIS MACHINE, by its title on screen
+// ("Wii Remotes", "File access", "System update"...). True hides the row; a section left with no
+// rows goes too. The console answers false for every title.
+bool hidesSetting(const char* title);
+
 }  // namespace platform
