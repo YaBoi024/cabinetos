@@ -399,6 +399,8 @@ bool App::handleTouch(const SDL_Event& e) {
                         return true;
                     }
                 }
+                // FORK (handheld): the bar too, so a tap leaves Search as a swipe does.
+                if (tapBar(*this, x, y)) return true;
                 if (owner == InputOwner::Keyboard) return true;
             }
             if (owner == InputOwner::UI && tapNotice(x, y)) return true;

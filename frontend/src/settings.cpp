@@ -306,7 +306,7 @@ void SettingsScreen::drawGlass(Ctx& c) {
         const bool focused = selected && row_ < 0 && hasFocus_;
         const float ff = focused ? f : 0.0f;
         const float s = 1.0f + ff * (design::kRowFocusScale - 1.0f);
-        const float w0 = design::kSettingsListWidth;
+        const float w0 = design::settingsListWidth();
         const float w = w0 * s, h = itemH * s;
         const float x = design::settingsListX() - (w - w0) * 0.5f;
         const float iy = y - (h - itemH) * 0.5f;
@@ -317,12 +317,16 @@ void SettingsScreen::drawGlass(Ctx& c) {
         else if (selected && hasFocus_)
             c.r.draw(ui::Rect{x, iy, w, h, design::kRowRadius,
                               ui::Color::white(design::kSelectedTint * 0.6f)});
-        c.text.draw(c.r, cats_[i].name, design::kContentInset,
+        // FORK (handheld): a step smaller, and shortened if it must be, when the list is narrow.
+        const float nameRoom = design::settingsListWidth() - (design::kContentInset - design::settingsListX()) * 2.0f;
+        const ui::TextStyle catStyle =
+            c.text.measure(cats_[i].name, ui::TextStyle::Title3, c.sc) <= nameRoom ? ui::TextStyle::Title3 : ui::TextStyle::Callout;
+        c.text.draw(c.r, c.text.truncate(cats_[i].name, catStyle, c.sc, nameRoom), design::kContentInset,
                     iy + design::kSettingsListPadY * s +
                         c.text.ascent(ui::TextStyle::Title3, c.sc),
-                    ui::TextStyle::Title3,
+                    catStyle,
                     ui::Color::white(selected ? 1.0f : 0.60f), c.sc);
-        taps_.add(kCategorySpot + i, design::settingsListX(), y, design::kSettingsListWidth, itemH,
+        taps_.add(kCategorySpot + i, design::settingsListX(), y, design::settingsListWidth(), itemH,
                   design::kScrollClipTop);
         y += itemH + design::kSettingsListGap;
     }
