@@ -317,8 +317,17 @@ void closeDesktopContext() {
 
 CoreContext::CoreContext() : switched_(gHWDesktop && (gHWDesktopContext || gHWOwnES)) {
     if (!switched_) return;
-    if (gHWOwnES) platform::coreGLContextUse(gHWOwnES);
-    else SDL_GL_MakeCurrent(gHWWindow, gHWDesktopContext);
+    if (gHWOwnES) {
+        platform::coreGLContextUse(gHWOwnES);
+        // FORK (handheld): THE CORE NEVER SEES THE WINDOW'S FRAMEBUFFER. On iOS framebuffers are
+        // shared across the share group, and a bind of 0 in this program is SDL's window
+        // (the iPhone's gl3.h). With it left bound when GLideN64's context_reset ran, nothing the
+        // UI drew reached the screen (2026-11-12). So the core's context holds its target,
+        // or nothing; the parentheses call the real glBindFramebuffer, not that wrapper.
+        (glBindFramebuffer)(GL_FRAMEBUFFER, gHWDesktopFBO);
+    } else {
+        SDL_GL_MakeCurrent(gHWWindow, gHWDesktopContext);
+    }
 }
 
 CoreContext::~CoreContext() {
@@ -341,6 +350,7 @@ CoreContext::~CoreContext() {
                      GL_UNSIGNED_BYTE, inCore);
         glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(coreLeft));
     }
+    if (gHWOwnES) (glBindFramebuffer)(GL_FRAMEBUFFER, 0);   // and leaves holding nothing (above)
     GLsync drawn = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     glFlush();
     if (gHWOwnES) platform::coreGLContextUse(nullptr);
