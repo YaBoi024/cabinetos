@@ -175,13 +175,43 @@ void App::drawBar(bool gameUp, float sc, float dt) {
         // FOCUSED one is what you would open. Standing in the Library, the
         // bar says Library without pretending the cursor is up there.
         const int selected = barSlotHere();
-        const float barX = kContentInset;
-        const float barW = ui::kCanvasWidth - kContentInset * 2.0f;
-        const float barBaseline =
-            barTop + (barHeight - text.lineHeight(ui::TextStyle::Callout, sc)) * 0.5f +
-            text.ascent(ui::TextStyle::Callout, sc);
-        float bx = barX;
         const float linkupRoom = linkupBarRoomNow(dt);
+        // FORK (handheld): A PHONE HELD UPRIGHT IS NARROW. When the destinations and the account's
+        // disc do not fit at the console's sizes, the labels go a step smaller, the edges and the
+        // gaps close up (down to a pill's own padding), and the name gives way as before.
+        ui::TextStyle barStyle = ui::TextStyle::Callout;
+        float barX = kContentInset;
+        float gap = kBarItemGap;
+        {
+            const float discRoom = (barHeight - 30.0f) + 24.0f;
+            auto fits = [&](ui::TextStyle st, float inset, float g) {
+                float labels = 0.0f, items = 0.0f;
+                for (int i = 0; i < kBarCapsules; ++i) {
+                    const float k = i == BarLinkUp ? linkupRoom : 1.0f;
+                    labels += text.measure(kBarLabels[i], st, sc) * k;
+                    items += k;
+                }
+                return labels + g * std::max(0.0f, items - 1.0f) + 22.0f + discRoom <= ui::kCanvasWidth - inset * 2.0f;
+            };
+            if (!fits(barStyle, barX, gap)) {
+                barStyle = ui::TextStyle::Caption1;
+                barX = 28.0f;
+                float labels = 0.0f, items = 0.0f;
+                for (int i = 0; i < kBarCapsules; ++i) {
+                    const float k = i == BarLinkUp ? linkupRoom : 1.0f;
+                    labels += text.measure(kBarLabels[i], barStyle, sc) * k;
+                    items += k;
+                }
+                const float room = ui::kCanvasWidth - barX * 2.0f - labels - 22.0f - discRoom;
+                gap = std::clamp(items > 1.0f ? room / (items - 1.0f) : kBarItemGap, 28.0f, kBarItemGap);
+            }
+        }
+        const float pillPadX = std::min(22.0f, (gap - 6.0f) * 0.5f);
+        const float barW = ui::kCanvasWidth - barX * 2.0f;
+        const float barBaseline =
+            barTop + (barHeight - text.lineHeight(barStyle, sc)) * 0.5f +
+            text.ascent(barStyle, sc);
+        float bx = barX;
         for (int i = 0; i < kBarCapsules; ++i) {
             if (i == BarLinkUp && linkupRoom <= 0.0f) continue;
             const float fade = i == BarLinkUp ? linkupBarFade(linkupRoom) : 1.0f;
@@ -190,9 +220,9 @@ void App::drawBar(bool gameUp, float sc, float dt) {
             // Greyed in place while the console cannot reach its RomM server, so
             // the bar's items do not move when the server drops or comes back.
             const bool greyed = i == BarLinkUp && linkupOffline();
-            const float w = text.measure(kBarLabels[i], ui::TextStyle::Callout, sc);
+            const float w = text.measure(kBarLabels[i], barStyle, sc);
             // FORK (handheld): the item's touch target, half the gap each side so they meet.
-            barSpot[i] = {bx - kBarItemGap * 0.5f, bx + w + kBarItemGap * 0.5f};
+            barSpot[i] = {bx - gap * 0.5f, bx + w + gap * 0.5f};
             // SELECTED AND FOCUSED ARE BOTH A CAPSULE, at the design
             // system's two tints. A cyan underline under the selected one
             // was tried on 2026-09-21 and withdrawn the same minute —
@@ -221,7 +251,7 @@ void App::drawBar(bool gameUp, float sc, float dt) {
                 // pills would have met. The gap is what keeps them reading
                 // as separate destinations rather than one segmented
                 // control, so the spacing goes up with the padding.
-                constexpr float kBarPillPadX = 22.0f;
+                const float kBarPillPadX = pillPadX;
                 constexpr float kBarPillInsetY = 6.0f;
                 const float ph = barHeight - kBarPillInsetY * 2.0f;
                 renderer.draw(ui::Rect{bx - kBarPillPadX, barTop + kBarPillInsetY,
@@ -229,9 +259,9 @@ void App::drawBar(bool gameUp, float sc, float dt) {
                                        ui::Color::white((on ? kFocusedTint
                                                             : kSelectedTint) * fade)});
             }
-            text.draw(renderer, kBarLabels[i], bx, barBaseline, ui::TextStyle::Callout,
+            text.draw(renderer, kBarLabels[i], bx, barBaseline, barStyle,
                       ui::Color::white((greyed ? kSettingsUnbuiltAlpha : on || sel ? 1.0f : 0.65f) * fade), sc);
-            bx += (w + kBarItemGap) * (i == BarLinkUp ? linkupRoom : 1.0f);
+            bx += (w + gap) * (i == BarLinkUp ? linkupRoom : 1.0f);
         }
 
         const float rightEdge = barX + barW;
@@ -282,7 +312,7 @@ void App::drawBar(bool gameUp, float sc, float dt) {
         // that was judged not worth more.
         const bool ringUp = launchJob.busy() && launchJob.busyFor >= kProgressDelay;
         const bool offlineUp = linkupOffline();
-        const float barEnd = bx - kBarItemGap + 22.0f + 24.0f;
+        const float barEnd = bx - gap + pillPadX + 24.0f;
         const float leftOfName =
             (batterySlots.empty() ? 0.0f : kToName + rowW + 10.0f) +
             (offlineUp ? 12.0f + text.measure("Offline", ui::TextStyle::Caption1, sc) + 32.0f + 12.0f : 0.0f) +
