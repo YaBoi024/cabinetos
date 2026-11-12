@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <functional>
+#include <string>
 
 namespace {
 
@@ -22,11 +23,36 @@ bool hasElement(const char* name) {
     return true;
 }
 
+// Android's MediaCodec decoders are elements named amcviddec-<codec name>, and which exist depends on
+// the phone. The graphics chip's come first: the ones Google ships in software (c2.android.*,
+// OMX.google.*) are left out, as a console leaves out a program's decoder for H.265. Empty on a
+// console, which has no such element.
+std::string mediaCodecDecoder(bool h265) {
+    GList* all = gst_element_factory_list_get_elements(GST_ELEMENT_FACTORY_TYPE_DECODER | GST_ELEMENT_FACTORY_TYPE_MEDIA_VIDEO,
+                                                       GST_RANK_NONE);
+    GstCaps* wanted = gst_caps_new_empty_simple(h265 ? "video/x-h265" : "video/x-h264");
+    std::string found;
+    for (GList* l = all; l && found.empty(); l = l->next) {
+        auto* factory = GST_ELEMENT_FACTORY(l->data);
+        const std::string name = gst_plugin_feature_get_name(GST_PLUGIN_FEATURE(factory));
+        if (name.rfind("amcviddec-", 0) != 0) continue;
+        if (name.find("android") != std::string::npos || name.find("google") != std::string::npos) continue;
+        if (gst_element_factory_can_sink_any_caps(factory, wanted)) found = name;
+    }
+    gst_caps_unref(wanted);
+    gst_plugin_feature_list_free(all);
+    return found;
+}
+
 // The decoder for a codec on this console: the graphics chip's, and a program's for a console
 // with none, which only H.264 has on the image.
 std::string decoderFor(bool h265) {
     // vtdec is Apple's (VideoToolbox); a console has no such element.
     if (hasElement("vtdec")) return "vtdec";
+    {
+        const std::string phone = mediaCodecDecoder(h265);
+        if (!phone.empty()) return phone;
+    }
     if (h265) return hasElement("vah265dec") ? "vah265dec" : "";
     if (hasElement("vah264dec")) return "vah264dec";
     if (hasElement("avdec_h264")) return "avdec_h264";
