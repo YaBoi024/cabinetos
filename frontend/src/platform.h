@@ -130,4 +130,16 @@ std::string emulatorInstallUrl(const char* core);
 // rows goes too. The console answers false for every title.
 bool hidesSetting(const char* title);
 
+// FORK (handheld): A GLES CORE'S OWN CONTEXT. A core drawing with OpenGL ES shares the UI's context
+// on the console, and restoreGLState (core_hwrender.cpp) puts the UI's state back after each frame.
+// GLideN64 (Nintendo 64) keeps its own record of what it left bound and does not bind it again,
+// and on a phone's driver the next frame drew from nothing and crashed (iPhone and Android,
+// 2026-11-12). RetroArch gives such a core a context of its own, and so does a phone here:
+// make: a new OpenGL ES 3 context in the share group of the one current now, or null where the
+// machine does not offer it (the console). use: make that one current; with null, the one that was
+// current when it was made. free: done with it. Called on the thread that runs the game.
+void* coreGLContextMake();
+void coreGLContextUse(void* context);
+void coreGLContextFree(void* context);
+
 }  // namespace platform

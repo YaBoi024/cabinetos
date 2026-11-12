@@ -8,6 +8,7 @@
 
 #include "core.h"
 #include "core_state.h"
+#include "platform.h"
 
 #include <SDL3/SDL.h>
 
@@ -114,6 +115,10 @@ SDL_GLContext gHWDesktopContext = nullptr;
 SDL_GLContext gUIContext = nullptr;
 SDL_Window* gHWWindow = nullptr;
 GLuint gHWDesktopFBO = 0;
+// FORK (handheld): a GLES core's own context on a phone (platform.h, coreGLContextMake). While it
+// is set, gHWDesktop is true as well: everything that follows a core into a context of its own
+// (its framebuffer, no restoreGLState, the switch in CoreContext) is the same for both.
+void* gHWOwnES = nullptr;
 
 uintptr_t currentFramebuffer(void) { return gHWDesktop ? gHWDesktopFBO : gHWFBO; }
 
@@ -296,6 +301,11 @@ bool openDesktopContext(const retro_hw_render_callback& cb, std::string* what) {
 // After the core has unloaded and destroyHWTarget has run: the core's
 // framebuffer goes with its context.
 void closeDesktopContext() {
+    if (gHWOwnES) {
+        platform::coreGLContextUse(nullptr);
+        platform::coreGLContextFree(gHWOwnES);
+        gHWOwnES = nullptr;
+    }
     if (gHWDesktopContext) {
         SDL_GL_MakeCurrent(gHWWindow, gUIContext);
         SDL_GL_DestroyContext(gHWDesktopContext);
@@ -305,8 +315,10 @@ void closeDesktopContext() {
     gHWDesktop = false;
 }
 
-CoreContext::CoreContext() : switched_(gHWDesktop && gHWDesktopContext) {
-    if (switched_) SDL_GL_MakeCurrent(gHWWindow, gHWDesktopContext);
+CoreContext::CoreContext() : switched_(gHWDesktop && (gHWDesktopContext || gHWOwnES)) {
+    if (!switched_) return;
+    if (gHWOwnES) platform::coreGLContextUse(gHWOwnES);
+    else SDL_GL_MakeCurrent(gHWWindow, gHWDesktopContext);
 }
 
 CoreContext::~CoreContext() {
@@ -318,7 +330,8 @@ CoreContext::~CoreContext() {
     // that was never sent.
     GLsync drawn = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     glFlush();
-    SDL_GL_MakeCurrent(gHWWindow, gUIContext);
+    if (gHWOwnES) platform::coreGLContextUse(nullptr);
+    else SDL_GL_MakeCurrent(gHWWindow, gUIContext);
     if (drawn) {
         glWaitSync(drawn, 0, GL_TIMEOUT_IGNORED);
         glDeleteSync(drawn);
@@ -328,7 +341,7 @@ CoreContext::~CoreContext() {
 void destroyHWTarget() {
     // The core's framebuffer in its own context: deleted from the UI's, the
     // same number would delete one of the UI's.
-    if (gHWDesktopFBO && gHWDesktopContext) {
+    if (gHWDesktopFBO && (gHWDesktopContext || gHWOwnES)) {
         CoreContext in;
         glDeleteFramebuffers(1, &gHWDesktopFBO);
     }
@@ -519,6 +532,17 @@ std::optional<bool> environmentHWRender(unsigned cmd, void* data) {
                              what.c_str());
             }
             gHWVulkan = cb->context_type == RETRO_HW_CONTEXT_VULKAN;
+            // FORK (handheld): a GLES core on a phone draws in a context of its own (platform.h).
+            // Asked again, the one it has is kept, as for desktop GL above.
+            if (!gHWVulkan && !isDesktopGL(*cb) && !gHWDesktop) {
+                gUIContext = SDL_GL_GetCurrentContext();
+                gHWWindow = SDL_GL_GetCurrentWindow();
+                gHWOwnES = platform::coreGLContextMake();
+                if (gHWOwnES) {
+                    gHWDesktop = true;
+                    std::fprintf(stderr, "[core] the core's own context: OpenGL ES, in the UI's share group\n");
+                }
+            }
             gHWInterfaceLogged = 0;
             if (!gHWVulkan) {
                 // The core keeps this struct and calls through it, so the two
