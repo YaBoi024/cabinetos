@@ -1430,6 +1430,8 @@ struct App {
     BarSpot barSpot[BarCount];
     uint64_t barDrawnAt = 0;
     screens::TapSpots homeTaps;   // FORK (handheld): Home's covers, as last drawn
+    screens::TapSpots overlayTaps;   // FORK (handheld): the pause menu's rows, as last drawn
+    bool tapOverlay(float x, float y);   // FORK (handheld): a tap on one of them
     // Trigger edge state. See the axis handler.
     bool l2Held = false, r2Held = false;
     // A HELD TRIGGER KEEPS JUMPING (MMagTech, 2026-10-10: "holding them should

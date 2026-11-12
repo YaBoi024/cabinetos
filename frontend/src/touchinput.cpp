@@ -11,6 +11,7 @@
 //     game grid or Settings
 //     goes to that exact one (each screen says where its items are drawn,
 //     tapspots.h); a tap on empty space there does nothing;
+//   - a tap on a row of the pause menu, or of a question's panel, presses that row;
 //   - a tap on any other screen is A: it opens what has focus;
 //   - a drag moves focus the way the d-pad does, one step for each stretch of
 //     travel, in the direction the finger goes (drag down = Down);
@@ -109,7 +110,13 @@ bool canvasPoint(SDL_Window* w, float windowX, float windowY, float* cx, float* 
 
 // One step of focus, to whoever has the controls now: the same calls the pad's
 // d-pad makes in handleEvent (input.cpp).
+void stepFocusLoud(App& a, App::InputOwner owner, Nav n);
 void stepFocus(App& a, App::InputOwner owner, Nav n) {
+    sound::setTouchQuiet(true);
+    stepFocusLoud(a, owner, n);
+    sound::setTouchQuiet(false);
+}
+void stepFocusLoud(App& a, App::InputOwner owner, Nav n) {
     if (owner == App::InputOwner::Overlay && !a.choiceScreen.isOpen()) {
         if (n == Nav::Up) a.ovStep(-1);
         else if (n == Nav::Down) a.ovStep(+1);
@@ -177,6 +184,23 @@ bool tapScreen(App& a, App::InputOwner owner, float x, float y) {
     a.barFocused = false;
     a.apply(res);
     return true;
+}
+
+// A tap on a panel that asks something, or on the pause menu: the exact row under the finger is
+// pressed, and a tap on nothing does nothing. False when neither is up, or when a panel has no
+// rows to tap (a prompt that says to press A), so that tap stays A.
+bool tapPanel(App& a, App::InputOwner owner, float x, float y) {
+    if (a.pinScreen.isOpen()) return false;
+    if (a.choiceScreen.isOpen()) {
+        if (!a.choiceScreen.hasAnswers()) return false;
+        const int i = a.choiceScreen.tapAt(x, y);
+        if (i < 0) return true;
+        a.choiceScreen.focusOn(i);
+        a.navigate(Nav::Activate);
+        return true;
+    }
+    if (owner == App::InputOwner::Overlay) return a.tapOverlay(x, y);
+    return false;
 }
 
 // A tap on the top bar: the destination or the account chip under the finger,
@@ -371,6 +395,7 @@ bool App::handleTouch(const SDL_Event& e) {
                 }
                 if (owner == InputOwner::Keyboard) return true;
             }
+            if (tapPanel(*this, owner, x, y)) return true;
             if (tapBar(*this, x, y)) return true;
             if (tapScreen(*this, owner, x, y)) return true;
             activateFocus(*this, owner);

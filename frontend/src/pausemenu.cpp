@@ -366,6 +366,22 @@ void App::tickPauseMenu(float dt) {
 // the panel comes out milky and its own labels stop being readable,
 // which is exactly what happened the first time. Dimming the picture is
 // what a scrim is for; the glass should be blurring the dimmed thing.
+// FORK (handheld): a tap on a row of the pause menu or the Power menu. The row under the finger
+// gets focus and is pressed, as A presses it; a tap on the panel between rows or outside it
+// does nothing. True when the tap was this menu's.
+bool App::tapOverlay(float x, float y) {
+    const int i = overlayTaps.at(x, y);
+    if (i < 0 || i >= ovCount()) return true;
+    if (i != overlaySlot) {
+        overlaySlot = i;
+        overlayFocus.retarget(0.0f, 0.0f);
+        overlayFocus.elapsed = 0.0f;
+        overlayFocus.retarget(1.0f, kOverlayFocusDuration);
+    }
+    overlayActivate();
+    return true;
+}
+
 void App::drawPauseScrim() {
     if (overlayFade.value() > 0.001f) {
         renderer.draw(ui::Rect{0, 0, ui::kCanvasWidth, ui::kCanvasHeight, 0,
@@ -391,6 +407,7 @@ void App::drawPauseMenu(float sc) {
     const bool inGame = playing || standalonePaused;
     const bool level = inGame && choiceScreen.overPauseMenu();
     choiceScreen.setMenuFade(ovl);
+    overlayTaps.clear();   // FORK (handheld): only the rows drawn this frame can be tapped
     const float rowsA = ovl * (level ? choiceScreen.menuRows() : 1.0f);
     // NOT UNDER A QUESTION ASKED FROM IT (Change disc, #162): the panel
     // takes its place, and the menu's words showed through the glass.
@@ -465,6 +482,9 @@ void App::drawPauseMenu(float sc) {
                     ui::Color::black(kOverlayButtonFocusShadowAlpha * f * rowsA);
             }
             renderer.draw(btn);
+            if (rowsA > 0.5f && ovl > 0.5f)
+                overlayTaps.add(i, px + 32.0f, py + 32.0f + i * (kOverlayButtonHeight + kOverlayButtonGap),
+                                kOverlayPanelWidth - 64.0f, kOverlayButtonHeight);
 
             const char* label = ovLabel(i);
             // CHANGE DISC WITH ITS VALUE, written as a choice row is
