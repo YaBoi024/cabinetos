@@ -382,7 +382,9 @@ void Renderer::beginFrame(int drawableWidth, int drawableHeight) {
             kCanvasWidth = std::max(kCanvasDesignWidth, kCanvasHeight * std::min(aspect, kWidest));
         }
         if (platform::fillsNarrowScreens() && aspect < kCanvasDesignWidth / kCanvasHeight) {
-            constexpr float kNarrowest = 4.0f / 3.0f;
+            // FORK (iPhone): held upright, a phone is about 3 to 4 (the Duo's inner screen) or
+            // 0.6 (its outer one). The canvas goes that narrow, so the menus fill the screen.
+            constexpr float kNarrowest = 0.6f;
             kCanvasWidth = kCanvasHeight * std::max(aspect, kNarrowest);
         }
     }

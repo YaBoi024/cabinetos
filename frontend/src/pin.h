@@ -31,6 +31,7 @@
 #include <string>
 
 #include "screens.h"
+#include "tapspots.h"
 
 namespace screens {
 
@@ -82,8 +83,13 @@ public:
     // Draws the whole layer, background included. Call it last, over
     // everything, because it sits over everything.
     void draw(Ctx& c);
+    // FORK (handheld): a finger. The key drawn under (x, y) last frame, as row * 3 + column, or
+    // -1; and focus put on one, as the d-pad would put it.
+    int tapAt(float x, float y) const { return taps_.at(x, y); }
+    void focusOn(int key);
 
 private:
+    TapSpots taps_;
     Outcome add(char digit);
     Outcome deleteOne();
 

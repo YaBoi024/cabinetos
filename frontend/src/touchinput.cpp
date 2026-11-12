@@ -190,7 +190,13 @@ bool tapScreen(App& a, App::InputOwner owner, float x, float y) {
 // pressed, and a tap on nothing does nothing. False when neither is up, or when a panel has no
 // rows to tap (a prompt that says to press A), so that tap stays A.
 bool tapPanel(App& a, App::InputOwner owner, float x, float y) {
-    if (a.pinScreen.isOpen()) return false;
+    if (a.pinScreen.isOpen()) {
+        const int key = a.pinScreen.tapAt(x, y);
+        if (key < 0) return true;
+        a.pinScreen.focusOn(key);
+        a.navigate(Nav::Activate);
+        return true;
+    }
     if (a.choiceScreen.isOpen()) {
         if (!a.choiceScreen.hasAnswers()) return false;
         const int i = a.choiceScreen.tapAt(x, y);
