@@ -401,6 +401,7 @@ bool App::handleTouch(const SDL_Event& e) {
                 }
                 if (owner == InputOwner::Keyboard) return true;
             }
+            if (owner == InputOwner::UI && tapNotice(x, y)) return true;
             if (tapPanel(*this, owner, x, y)) return true;
             if (tapBar(*this, x, y)) return true;
             if (tapScreen(*this, owner, x, y)) return true;

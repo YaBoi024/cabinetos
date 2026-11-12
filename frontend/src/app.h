@@ -1027,6 +1027,8 @@ struct App {
     float owedClock = 0.0f;   // seconds since the last try at what is owed
     StateLoad stateLoad;
     MenuNotice menuNotice;
+    float noticeDrawn[4] = {0, 0, 0, 0};   // FORK (handheld): the pill as last drawn: x, y, w, h
+    bool tapNotice(float x, float y);      // FORK (handheld): a tap on an invite's pill
     // THE PADS WHOSE LOW-BATTERY NOTICE HAS BEEN SHOWN (#293), by the pad and
     // not its number: numbers change with a stream or a pad coming back, and a
     // pad warned before a stream must not be warned again after it. Cleared

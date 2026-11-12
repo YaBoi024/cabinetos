@@ -18,6 +18,26 @@ using namespace design;   // NOLINT: the design system's names (design.h, motion
 // After the top bar since 2026-09-26, so it sits over Settings'
 // Downloads panel; the bar and the pill never meet, one at the top
 // and one at the foot.
+// FORK (handheld): a tap on an invite's pill opens LinkUp and asks Join or Decline, as picking
+// the friend there would. True when the tap was on that pill.
+bool App::tapNotice(float x, float y) {
+    if (menuNotice.inviteFrom.empty() || menuNotice.alpha() < 0.3f || playing) return false;
+    const float* r = noticeDrawn;
+    if (x < r[0] - 12.0f || x > r[0] + r[2] + 12.0f || y < r[1] - 12.0f || y > r[1] + r[3] + 12.0f) return false;
+    const std::string who = menuNotice.inviteFrom;
+    menuNotice.inviteFrom.clear();
+    menuNotice.life = std::min(menuNotice.life, 0.5f);
+    menuNotice.holdUntilPress = false;
+    for (const linkup::Friend& f : linkUp.friends) {
+        if (f.name == who && f.status == linkup::Status::InvitedYou) {
+            if (here() != Screen::LinkUp) goToDestination(BarLinkUp);
+            linkupAnswerInvite(f);
+            return true;
+        }
+    }
+    return true;   // the invite has already ended: the pill goes, nothing else
+}
+
 void App::drawNotice(float sc) {
     const float na = menuNotice.alpha();
     const float keepAlpha = renderer.contentAlpha();
@@ -40,6 +60,7 @@ void App::drawNotice(float sc) {
         pill.shadowOffsetY = 10.0f;
         pill.shadowColor = ui::Color::black(0.45f * na);
         renderer.draw(pill);
+        noticeDrawn[0] = x; noticeDrawn[1] = y; noticeDrawn[2] = w; noticeDrawn[3] = kPillH;
 
         // The dot says which kind of answer it is before the words do.
         ui::Color dot = ui::Color::white(0.70f);
