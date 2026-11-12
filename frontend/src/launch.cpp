@@ -209,9 +209,14 @@ bool beginLaunch(LaunchJob& job, romm::Client& client, const romm::Game& game,
     // starts the program once it is on the disk. docs/PROJECT.md, open
     // question 32.
     const cab::standalone::Emulator* emu = cab::standalone::find(cov.core);
+    // FORK (handheld): a core's system that the phone plays in another app (Dolphin): no core is
+    // loaded here, the file is fetched and unpacked to what that app reads.
+    const bool otherApp = !emu && platform::runsInAnotherApp(cov.core);
     std::string validExts;
     bool blockExtract = false;
-    if (emu) {
+    if (otherApp) {
+        validExts = "iso|gcm|rvz|ciso|gcz|wbfs|wia|dol|elf";
+    } else if (emu) {
         // The emulator opens the file as it came, and a Switch NSP is not an
         // archive the console would open, so nothing is unpacked. NOT
         // `blockExtract`: that also stops a one-file game collapsing into one
@@ -677,6 +682,19 @@ bool App::takeFinishedJob() {
             cab::standalone::find(launchJob.coreName)) {
         forgetLaunchAsks();
         startStandalone(*emu);
+        return false;
+    }
+    // FORK (handheld): a core's system that the phone plays in another app (Dolphin). Same
+    // hand-over as an emulator that is another app (standalone_play.cpp): the file goes to that
+    // app, which keeps its own saves, and this program waits underneath.
+    if (platform::runsInAnotherApp(launchJob.coreName.c_str())) {
+        forgetLaunchAsks();
+        if (!platform::openInAnotherApp(launchJob.coreName.c_str(), launchJob.romPath)) {
+            refuseLaunch("Couldn't start this game");
+            return false;
+        }
+        cache::touch(launchJob.entryPath);
+        curtain.retarget(0.0f, kCurtainUp);
         return false;
     }
     return true;
