@@ -125,6 +125,12 @@ bool openInAnotherApp(const char* core, const std::string& path);
 // (the console's first boot does, from Flathub). The game's page offers to open it.
 std::string emulatorInstallUrl(const char* core);
 
+// FORK (handheld): THE FILE TYPES THE OTHER APP READS, for a core's system the phone plays in another
+// app (runsInAnotherApp true for a core that is not one of standalone.h's). A downloaded archive is
+// unpacked to one of these; one of these is handed over as it is. "a|b|c", lowercase, no dots.
+// Empty on the console, which never asks.
+std::string otherAppExtensions(const char* core);
+
 // FORK (handheld): A SETTINGS ROW THAT MEANS NOTHING ON THIS MACHINE, by its title on screen
 // ("Wii Remotes", "File access", "System update"...). True hides the row; a section left with no
 // rows goes too. The console answers false for every title.

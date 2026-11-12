@@ -29,6 +29,7 @@ void gamePlaying(bool, const char*) {}
 bool runsInAnotherApp(const char*) { return false; }
 bool openInAnotherApp(const char*, const std::string&) { return false; }
 std::string emulatorInstallUrl(const char*) { return std::string(); }
+std::string otherAppExtensions(const char*) { return std::string(); }
 bool hidesSetting(const char*) { return false; }
 void* coreGLContextMake() { return nullptr; }
 void coreGLContextUse(void*) {}

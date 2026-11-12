@@ -215,7 +215,7 @@ bool beginLaunch(LaunchJob& job, romm::Client& client, const romm::Game& game,
     std::string validExts;
     bool blockExtract = false;
     if (otherApp) {
-        validExts = "iso|gcm|rvz|ciso|gcz|wbfs|wia|dol|elf";
+        validExts = platform::otherAppExtensions(cov.core);
     } else if (emu) {
         // The emulator opens the file as it came, and a Switch NSP is not an
         // archive the console would open, so nothing is unpacked. NOT
