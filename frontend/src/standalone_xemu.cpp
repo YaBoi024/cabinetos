@@ -247,7 +247,7 @@ bool trimRedump(const std::string& entryPath, const std::string& name,
     }
     std::string note = readFile(entryPath + "/" + kInstalledNote);
     note += std::to_string(static_cast<long long>(st.st_size)) + " " + name + "\n";
-    writeFile(entryPath + "/" + kInstalledNote, note);
+    writeInstalledNote(entryPath + "/" + kInstalledNote, note);
     std::fprintf(stderr, "[xbox] %s was a full disc dump; kept its game partition\n",
                  name.c_str());
     return true;

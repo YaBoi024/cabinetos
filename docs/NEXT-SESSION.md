@@ -14,20 +14,12 @@ source of truth for anything on RomM's data.
 
 ## Where things stand
 
-**2026-11-11.** The newest release is 2026.10.10. The newest image promoted
-to consoles is 2026.11.11.3: #697, "LinkUp: the friend's controller tilts
-Switch and PS3 games, and the idle pause works again (#669)", merged on
-2026-11-11 after his checks between the A9 and the mini PC (Mario Kart 8
-Deluxe with both players tilting, LittleBigPlanet, a LinkUp game paused after
-10 minutes with nothing pressed). It closed #669. Before it, 2026.11.11.2:
-#696, "Gyro for Switch, Wii U and Vita: a stand-in DualSense carries the
-player's tilt (#669)"; 2026.11.11: #695, "LinkUp: the friend's console
-draws its own letterbox glow (#692)"; on 2026-11-10, 2026.11.10.3 (#689,
-PS3 motion, #683), 2026.11.10.2 (#691, the Flathub pins) and 2026.11.10
-(#685, Game Boy Advance and 3DS tilt, #670). Open:
-#528 waits on RomM; #712, "The controller list is updated when a player
-reports a pad, not monthly", carries #644's list and rides the next testing
-image, with #709 if that one is still open. #590, "A
+**2026-11-14.** The newest release is 2026.10.10. The newest image promoted
+to consoles is 2026.11.14.2: #709, "A power cut right after a download no
+longer leaves a damaged game (#559)", merged on 2026-11-14; it closed #559.
+docs/wiki/changelog.md lists every image before it. Open: #528 waits on
+RomM; #712, "The controller list is updated when a player reports a pad, not
+monthly", carries #644's list and needs a testing image of its own. #590, "A
 Wii Remote turned on after a Wii game starts is ignored by the game",
 waits in Later; fix it only in the console's own code, never by patching
 Dolphin (MMagTech, 2026-10-25). What the A9 runs now is not written here:
@@ -78,10 +70,8 @@ RomM: keep test launches under a minute, or have his go.
   azahar-emu/azahar#2694),
   eden-emulator/Issue-Reports#739 (a Switch controller connected mid-game),
   #203 closed until libretro/dolphin#508 moves.
-- **Filed, not scheduled:** #559, "A power cut right after a download or an
-  unpack can leave a damaged game that the console keeps (exFAT and NTFS
-  drives)", and #675, "Arcade: a Naomi or Atomiswave game with a plain
-  joystick moves only on the d-pad", the fix agreed in principle on
+- **Filed, not scheduled:** #675, "Arcade: a Naomi or Atomiswave game with
+  a plain joystick moves only on the d-pad", the fix agreed in principle on
   2026-10-28 and written on the issue.
 - **With the next real core change:** the comments #490, "Code comments
   that say what the code no longer does, and machine details left in

@@ -39,6 +39,8 @@ int64_t nowMs();
 bool isDir(const std::string& p);
 std::string readFile(const std::string& path);
 bool writeFile(const std::string& path, const std::string& data);
+bool writeDoneNote(const std::string& path, const std::string& note);
+bool writeInstalledNote(const std::string& path, const std::string& note);
 bool placeFile(const std::string& from, const std::string& to);
 struct IniSet {
     const char* section;

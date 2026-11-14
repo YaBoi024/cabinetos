@@ -145,7 +145,7 @@ bool installPs3Firmware(const Emulator& e, const std::atomic<bool>& cancel,
         *message = "Couldn't install the PlayStation 3 firmware";
         return false;
     }
-    writeFile(note, stamp);
+    writeDoneNote(note, stamp);
     std::fprintf(stderr, "[standalone] PS3 firmware installed from %s\n", pup.c_str());
     return true;
 }
@@ -230,7 +230,7 @@ bool installPackages(const Emulator& e, const std::string& entryPath,
         return false;
     }
     // Only now: a PKG is deleted once the game it became is in place.
-    writeFile(entryPath + "/" + kInstalledNote, note);
+    writeInstalledNote(entryPath + "/" + kInstalledNote, note);
     for (const auto& pkg : pkgs) ::unlink((entryPath + "/" + pkg.second).c_str());
     return true;
 }

@@ -154,7 +154,7 @@ bool installFirmware(const std::string& homeDir, const std::string& zip) {
                      placed == 0 ? "no .nca files in it" : "could not unpack it");
         return false;
     }
-    writeFile(note, stamp);
+    writeDoneNote(note, stamp);
     std::fprintf(stderr, "[standalone] firmware installed from %s (%d files)\n", zip.c_str(),
                  placed);
     return true;
