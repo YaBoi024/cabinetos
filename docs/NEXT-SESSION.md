@@ -19,7 +19,10 @@ to consoles is 2026.11.14.2: #709, "A power cut right after a download no
 longer leaves a damaged game (#559)", merged on 2026-11-14; it closed #559.
 docs/wiki/changelog.md lists every image before it. Open: #528 waits on
 RomM; #712, "The controller list is updated when a player reports a pad, not
-monthly", carries #644's list and needs a testing image of its own. #590, "A
+monthly", carries #644's list and is on testing image 2026.11.14.3, waiting
+for his install and the start-up check (a menu click heard, a game with
+sound, a pad moving); the A9's journal read `[players] 489 controller
+mappings` on 2026.11.14.2 and should read 492, then merge on his word. #590, "A
 Wii Remote turned on after a Wii game starts is ignored by the game",
 waits in Later; fix it only in the console's own code, never by patching
 Dolphin (MMagTech, 2026-10-25). What the A9 runs now is not written here:
