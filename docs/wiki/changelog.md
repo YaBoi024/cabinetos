@@ -4,7 +4,7 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## Next
+## 2026.11.14.3 {#v2026-11-14-3}
 
 - **Improved:** three more controllers are in the console's controller list:
   a PDP Xbox One controller, the Razer Wolverine V2 Xbox and the Unico MVS
