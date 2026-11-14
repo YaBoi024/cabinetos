@@ -26,6 +26,7 @@
 #include "romm.h"
 #include "server.h"
 #include "storage.h"
+#include "unsettled.h"
 
 // Does completing setup actually STICK?
 //
@@ -455,9 +456,11 @@ int firstRunRules() {
 // promises in fileio.h, and the callers with rules of their own on top:
 // pending markers, prefs::set, the cover cache's sweeps and a game's archive
 // unpacked (romfile::prepareFile), and not unpacked again while what came out
-// of it is untouched (romfile::alreadyUnpacked, #530). A full disk is a
-// file size limit here (RLIMIT_FSIZE, with SIGXFSZ ignored so the write
-// fails rather than the process). A power cut cannot be made headless; the fsync is read, not run.
+// of it is untouched (romfile::alreadyUnpacked, #530), and the list of what a
+// drive may not have yet (unsettled.h, #559), across boots played by their
+// ids. A full disk is a file size limit here (RLIMIT_FSIZE, with SIGXFSZ
+// ignored so the write fails rather than the process). A power cut cannot be
+// made headless; the fsync is read, not run.
 int filesTest() {
     int failures = 0;
     auto check = [&](bool ok, const char* what) {
@@ -657,6 +660,41 @@ int filesTest() {
     ::usleep(20 * 1000);
     cab::writeBytes(zip, cab::readBytes(zip));
     check(!skips(), "a new download of the archive unpacks again, the same bytes or not");
+
+    // 8. What a drive may not have yet (unsettled.h, #559). A list of this
+    // boot is kept; one from an earlier boot deletes what it names, so the
+    // game comes down again; a settle drops the list once the drive has it.
+    const std::string un = std::string(root) + "/unsettled-game";
+    const std::string unA = un + "/a.bin", unB = un + "/b.bin", unCut = un + "/b.b";
+    const std::string unList = storage::configDir() + "/unsettled/77";
+    cab::writeBytes(unA, std::string("a\n"));
+    cab::writeBytes(unB, std::string("b\n"));
+    check(!unsettled::note({unA}), "nothing is listed with no launch begun");
+    unsettled::begin(77, "boot-1");
+    check(unsettled::note({unA}) && unsettled::note({unA, unB}) && exists(unList),
+          "a launch lists the files it marks, on the console's own drive");
+    unsettled::begin(77, "boot-1");
+    check(exists(unA) && exists(unB), "a second start in the same boot keeps them");
+    unsettled::begin(77, "boot-2");
+    check(!exists(unA) && !exists(unB) && !exists(unList),
+          "a start in a later boot deletes them, and the list");
+    cab::writeBytes(unA, std::string("a\n"));
+    check(unsettled::note({unA}), "and lists what it writes again");
+    unsettled::settle();
+    bool dropped = false;
+    for (int i = 0; i < 500 && !dropped; ++i) {
+        dropped = !exists(unList);
+        if (!dropped) ::usleep(10 * 1000);
+    }
+    check(dropped && exists(unA), "once the drive has them the list goes, and the files stay");
+    unsettled::begin(77, "boot-3");
+    check(exists(unA), "so a later boot keeps them");
+    unsettled::settle();
+    cab::writeBytes(unCut, std::string("x"));
+    cab::writeBytes(unList, "boot-4\n" + unA + "\n" + unB.substr(0, unB.size() - 2));
+    unsettled::begin(77, "boot-5");
+    check(!exists(unA) && exists(unCut), "a last line a power cut left unfinished names nothing");
+    unsettled::settle();
 
     storage::removeEntry(root);
     std::printf("\nfiles: %d failure%s\n", failures, failures == 1 ? "" : "s");

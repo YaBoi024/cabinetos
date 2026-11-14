@@ -76,10 +76,8 @@ RomM: keep test launches under a minute, or have his go.
   azahar-emu/azahar#2694),
   eden-emulator/Issue-Reports#739 (a Switch controller connected mid-game),
   #203 closed until libretro/dolphin#508 moves.
-- **Filed, not scheduled:** #559, "A power cut right after a download or an
-  unpack can leave a damaged game that the console keeps (exFAT and NTFS
-  drives)", and #675, "Arcade: a Naomi or Atomiswave game with a plain
-  joystick moves only on the d-pad", the fix agreed in principle on
+- **Filed, not scheduled:** #675, "Arcade: a Naomi or Atomiswave game with
+  a plain joystick moves only on the d-pad", the fix agreed in principle on
   2026-10-28 and written on the issue.
 - **With the next real core change:** the comments #490, "Code comments
   that say what the code no longer does, and machine details left in

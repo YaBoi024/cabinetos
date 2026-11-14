@@ -206,7 +206,7 @@ bool installVitaFirmware(const Emulator& e, const std::atomic<bool>& cancel,
         if (!done) somethingFailed = true;
     }
     if (!hasSystemSoftware(e) || !hasFonts(e)) return missing(somethingFailed);
-    writeFile(firmwareNote(e), stamp);
+    writeDoneNote(firmwareNote(e), stamp);
     return true;
 }
 
@@ -247,7 +247,7 @@ bool installArchives(const Emulator& e, const std::string& entryPath,
                      static_cast<long long>(bytes));
     }
     // Only now: an archive is deleted once the game it became is in place.
-    writeFile(entryPath + "/" + kInstalledNote, note);
+    writeInstalledNote(entryPath + "/" + kInstalledNote, note);
     for (const auto& a : archives) ::unlink((entryPath + "/" + a.second).c_str());
     return true;
 }

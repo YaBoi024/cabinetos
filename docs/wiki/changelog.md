@@ -4,6 +4,16 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.11.14.2 {#v2026-11-14-2}
+
+- **Fixed:** if the power went off in the few minutes after a game finished
+  downloading, unpacking or installing, that game could fail to start every
+  time until you removed its download, most often on a USB drive formatted
+  on another computer. The console now notices at the game's next start and
+  downloads, unpacks or installs it again. Games start as quickly as
+  before.
+  ([#559](https://github.com/MMagTech/cabinetos/issues/559))
+
 ## 2026.11.13.3 {#v2026-11-13-3}
 
 - **Fixed:** in LinkUp, when your friend's console went away during a game
