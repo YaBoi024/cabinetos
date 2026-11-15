@@ -188,4 +188,54 @@ bool logout(std::string* why) {
     return r.ok();
 }
 
+Saved ownSwitchStep(Saved s) {
+    if (!s.ownSwitch && !s.remotePlay) s.on = false;
+    s.ownSwitch = true;
+    return s;
+}
+
+bool runs(Saved s) { return s.on && (s.remotePlay || s.ownSwitch); }
+
+int test() {
+    int failures = 0;
+    auto check = [&](bool ok, const std::string& what) {
+        std::printf("  %s  %s\n", ok ? "ok  " : "FAIL", what.c_str());
+        if (!ok) ++failures;
+    };
+    auto said = [](Saved s) {
+        return std::string("Tailscale ") + (s.on ? "on" : "off") + ", Remote Play " +
+               (s.remotePlay ? "on" : "off") + (s.ownSwitch ? ", step done" : ", step not done");
+    };
+    // EVERY COMBINATION of the three keys.
+    for (int bits = 0; bits < 8; ++bits) {
+        const Saved s{(bits & 1) != 0, (bits & 2) != 0, (bits & 4) != 0};
+        const Saved after = ownSwitchStep(s);
+        const std::string at = said(s) + ": ";
+        check(after.ownSwitch, at + "the step is saved as done");
+        check(after.remotePlay == s.remotePlay, at + "Remote Play is left as it was");
+        check(!after.on || s.on, at + "the step never turns Tailscale on");
+        const Saved again = ownSwitchStep(after);
+        check(again.on == after.on && again.remotePlay == after.remotePlay && again.ownSwitch,
+              at + "a second start changes nothing");
+        // THE FIRST BOOT AFTER THE UPDATE: the boot script decides before the
+        // app is up, on what was saved before the step, and the app decides
+        // after it. They agree, so tailscaled never starts for a moment only
+        // to be stopped, and is never missing when it stays on.
+        check(runs(s) == runs(after), at + "the boot script and the app agree on that boot");
+        // From then on the switch alone decides.
+        check(runs(after) == after.on, at + "after the step, the switch alone decides");
+        // Before the step, as the image before the update had it.
+        if (!s.ownSwitch)
+            check(runs(s) == (s.on && s.remotePlay), at + "before the step, both as before");
+    }
+    // The cases the rule is for, by name.
+    check(!ownSwitchStep({true, false, false}).on,
+          "saved on but shown Off (Remote Play off): off after the update");
+    check(ownSwitchStep({true, true, false}).on, "Tailscale and Remote Play on: stays on");
+    check(runs({true, false, true}), "after the update, Tailscale on with Remote Play off runs");
+    check(!runs({false, true, true}), "after the update, Remote Play on alone starts no Tailscale");
+    std::printf("%d failures\n", failures);
+    return failures ? 1 : 0;
+}
+
 }  // namespace tailscale

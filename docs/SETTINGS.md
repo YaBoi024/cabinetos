@@ -275,6 +275,55 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
   first run nor Settings can: both join only a network in the list, and a
   network with no name is left out of it (`net::join` with `hidden` false in
   `setup.cpp` and `wifi.cpp`; `net.cpp`).
+- **Tailscale**, the row after Wi-Fi: how the console is reached away from
+  home, for Remote Play and for a RomM server at its Tailscale address
+  (MMagTech, 2026-10-08; in Network on its own switch since 2026-11-15,
+  `docs/decisions/2026-11-15-tailscale-own-switch.md`). **Built.** Off by
+  default. It runs whenever it is on, whatever Remote Play is: turning
+  Remote Play on or off leaves it alone, and so does a LinkUp session.
+  **Greyed while a device streams**, since the stream may come in over it.
+  Its states:
+  - **Off**: pressing it asks for the PIN when one is set, then **Sign in
+    to Tailscale**, the Add an account screen's shape: "Use the Tailscale
+    account your phone is signed in to.", the link in cyan, its QR code on
+    the right. Approved on a phone, the screen goes back to Settings by
+    itself; B leaves it, and Tailscale is off again.
+  - **Connected**: the console's Tailscale address on the right
+    (`100.x.y.z`, the one to give Moonlight), and under it the console's
+    name and when its sign-in ends, from the moment it is signed in
+    ("cabinetos · Sign-in ends 6 Apr 2027"): somebody turns Tailscale on
+    once and rarely comes back, so that is when to see the date. No date
+    when the owner turned expiry off in Tailscale. Pressing it:
+    **Disconnect** (the PIN), **Log out** (asked again, then the PIN), and
+    **Sign in again** in the last 14 days, which starts the 180 days again
+    and keeps the name and address. Disconnect asks because Tailscale may be
+    how the console reaches its RomM server.
+  - **Disconnected**: signed in, not running. **Connect** (the PIN) and
+    **Log out**.
+  - **Sign in again**, with "Sign-in ended 6 Apr 2027" under it once the
+    date has passed, or "Signed out" when it was removed some other way
+    (Tailscale's own page). Pressing it: the PIN, then the QR code. Tailscale
+    knows the console again: same name, same address.
+  - **Waiting for approval**, when the owner's Tailscale approves new
+    devices by hand; **Logging out…**, **Turning on…**, **Couldn't start**.
+  - **The update that gave it its own switch** saves Tailscale off, once, at
+    its first start, on a console that had it on with Remote Play off (its
+    row read Off then), so an update never turns on what a player saw as
+    off. The sign-in stays: Connect brings it back. `cabinetos-saved-services`
+    starts it at boot by the same rule, and never before that step is done
+    unless Remote Play is on too.
+  - **RomM through Tailscale** is the RomM server row's Change address, to
+    the server's Tailscale address: the same server, so nothing is lost.
+    There is one address, never a second "away" one.
+- **Tailscale, set by the image and never shown**
+  (`tailscaled.service.d/50-cabinetos.conf`): the console's user drives it,
+  it takes no DNS and no routes from the owner's Tailscale (so a tailnet
+  that overrides DNS changes nothing here, and a RomM at a Tailscale address
+  is given by its `100.x.y.z` address, not a MagicDNS name), it is no exit
+  node, and it sends Tailscale no logs (`TS_NO_LOGS_NO_SUPPORT`). The
+  firewall lets devices on Tailscale reach Sunshine's ports and nothing else
+  (zone `cabinetos-tailscale`); the console's own connections out, to RomM,
+  are not limited by it. NetworkManager leaves its interface alone.
 - **Addresses are automatic only.** A fixed address is set on the router.
   **Dropped: manual IP**, unless people ask, then it is one "Advanced" page.
 - **RomM server** is one row showing the address. Pressing it (PIN if set)
@@ -409,9 +458,10 @@ a player and an owner use it.
 
 Sunshine on the console, Moonlight on a phone, tablet or computer to play
 from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
-2026-10-08; **merged (#292)**.
+2026-10-08; **merged (#292)**. Tailscale has been its own switch, in
+Network, since 2026-11-15.
 
-- **Three rows.**
+- **Two rows.**
   - **Remote Play**: On or Off, "Moonlight app" under it, and "Moonlight app ·
     CabinetOS" when on: the app to get, and the name it lists the console
     under.
@@ -423,37 +473,12 @@ from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
     or nobody is paired. One row however many there are; it opens a list.
     Pressing a device offers **Rename** and **Remove** (Remove behind the
     PIN when set).
-  - **Tailscale**, for playing away from home (MMagTech, 2026-10-08). Off
-    by default, greyed while Remote Play is off, and never running then:
-    turning Remote Play off stops it, turning it on brings it back when
-    it was on. Its states:
-    - **Off**: pressing it asks for the PIN when one is set, then **Sign in
-      to Tailscale**, the Add an account screen's shape: "Use the Tailscale
-      account your phone is signed in to.", the link in cyan, its QR code on
-      the right. Approved on a phone, the screen goes back to Settings by
-      itself; B leaves it, and Tailscale is off again.
-    - **Connected**: the address to give Moonlight on the right (the
-      console's Tailscale address, `100.x.y.z`), and under it the console's
-      name and when its sign-in ends, from the moment it is signed in
-      ("cabinetos · Sign-in ends 6 Apr 2027"): somebody turns Remote Play
-      on once and rarely comes back, so that is when to see the date. No
-      date when the owner turned expiry off in Tailscale. Pressing it:
-      **Disconnect**, **Log out** (asked again, then the PIN), and **Sign in
-      again** in the last 14 days, which starts the 180 days again and keeps
-      the name and address.
-    - **Disconnected**: signed in, not running. **Connect** (the PIN) and
-      **Log out**.
-    - **Sign in again**, with "Sign-in ended 6 Apr 2027" under it once the
-      date has passed, or "Signed out" when it was removed some other way
-      (Tailscale's own page). Pressing it: the PIN, then the QR code. Tailscale
-      knows the console again: same name, same address.
-    - **Waiting for approval**, when the owner's Tailscale approves new
-      devices by hand; **Logging out…**, **Turning on…**, **Couldn't start**.
-  - **While a device is streaming, the whole section is greyed**, and
-    Remote Play's line reads **"In use"**. The device's controller drives the
-    console, and one press on that switch cut the stream it was playing on
-    (MMagTech, from his iPhone, 2026-10-08); Remove could do the same. A
-    panel open from the section closes when a stream starts. The console's
+  - **While a device is streaming, the whole section is greyed**, and so is
+    Tailscale's row in Network, and Remote Play's line reads **"In use"**.
+    The device's controller drives the console, and one press on that switch
+    cut the stream it was playing on (MMagTech, from his iPhone, 2026-10-08);
+    Remove, or Tailscale's Disconnect, could do the same. A panel open from
+    either closes when a stream starts. The console's
     own controllers are set aside during a stream, so nobody loses anything.
   - **Into Steam the same (#296).** A stream started in Steam, or Steam
     opened during one, shows Steam's games on the device, and the TV's
@@ -499,12 +524,6 @@ from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
 - **Wii Remote games during a stream**: greyed, "Needs a Wii Remote" (the
   paired Remote is by the TV, the person streaming is not); one already
   running stays paused, its menu without Resume, until the stream ends.
-- **Tailscale, set by the image and never shown**
-  (`tailscaled.service.d/50-cabinetos.conf`): the console's user drives it,
-  it takes no DNS and no routes from the owner's Tailscale, it is no exit
-  node, and it sends Tailscale no logs (`TS_NO_LOGS_NO_SUPPORT`). The
-  firewall lets it reach Sunshine's ports and nothing else (zone
-  `cabinetos-tailscale`), and NetworkManager leaves its interface alone.
 - **An iPhone on mobile data needs an exit node** in the Tailscale app (any:
   the owner's own, or one Tailscale offers) until Moonlight for iPhone is
   updated. On an IPv6-only network iOS sends Moonlight's stream around a VPN
@@ -514,7 +533,7 @@ from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
   Android, computers and Apple TV are not affected. VoidLink, an open-source
   iPhone fork of Moonlight, has the fix.
 - **Somebody with their own way home** (WireGuard, a Tailscale subnet router)
-  leaves the row off and loses nothing; a device already paired plays the
+  leaves Tailscale off and loses nothing; a device already paired plays the
   same through either.
 - **The TV during a stream** shows the same picture; switching it off by
   hand does not stop play. No "Remote Play in progress" screen (whatever the

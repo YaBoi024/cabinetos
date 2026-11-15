@@ -550,12 +550,12 @@ python3-firewall
 kmod-wl
 broadcom-wl
 
-# --- Remote Play away from home ---------------------------------------------
-# Tailscale runs only while Remote Play and its Tailscale switch are both on
-# (system_files/usr/libexec/cabinetos-saved-services). Not watched until
+# --- Tailscale: Remote Play and RomM away from home -------------------------
+# Tailscale runs whenever its own switch is on, by the rule in
+# system_files/usr/libexec/cabinetos-saved-services (runs). Not watched until
 # 44.20261012.1, which moved it.
-area: Remote Play away from home
-log: Tailscale runs when Remote Play away from home is on :: s=/var/lib/cabinetos/config/settings.json; if [ "$(jq -r '.remote_play // "off"' "$s")" = on ] && [ "$(jq -r '.tailscale // "off"' "$s")" = on ]; then systemctl is-active -q tailscaled && tailscale status >/dev/null; fi
+area: Tailscale, for Remote Play and RomM away from home
+log: Tailscale runs when its switch is on :: s=/var/lib/cabinetos/config/settings.json; if [ "$(jq -r '.tailscale // "off"' "$s")" = on ] && { [ "$(jq -r '.remote_play // "off"' "$s")" = on ] || [ "$(jq -r '.tailscale_own_switch // "no"' "$s")" = yes ]; }; then systemctl is-active -q tailscaled && tailscale status >/dev/null; fi
 # Settings reads `tailscale status --json` (tailscale.cpp), whose format
 # Tailscale says may change: BackendState in the words the console knows,
 # and, once signed in, Self.HostName and Self.TailscaleIPs.

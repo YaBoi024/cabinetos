@@ -128,6 +128,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [keyboard-shift-by-presses](2026-11-08-keyboard-shift-by-presses.md): Shift is off, one capital, then capitals locked, a press each with no timing; the key reads abc, Abc or ABC underlined.
 - [no-ui-for-the-few](2026-10-13-no-ui-for-the-few.md): an option only a few players would use never goes on Home, a grid or a game's page.
 - [stop-a-download-from-its-row](2026-11-06-stop-a-download-from-its-row.md): A on the row that is filling asks "Stop downloading?", Continue focused; no other button stops a download.
+- [tailscale-own-switch](2026-11-15-tailscale-own-switch.md): Tailscale is its own switch in Network, apart from Remote Play, and runs whenever it is on; the update turns off a Tailscale whose row read Off.
 
 ### The image and updates
 

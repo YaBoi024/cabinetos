@@ -462,7 +462,7 @@ void App::linkupSessionOpens(LinkupSide side) {
     linkupPlay.clearPlace();
     // ONE AT A TIME WITH REMOTE PLAY: Sunshine stops for the length of a session and comes back by
     // itself, with the switch unchanged, and nobody else's device can get into the game. Not
-    // App::setRemotePlay, which saves the switch as off and takes Tailscale with it.
+    // App::setRemotePlay, which saves the switch as off. Tailscale is left alone: it is its own switch.
     if (rpWant) {
         remoteplay::watch(false);
         std::string why;

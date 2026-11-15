@@ -1,5 +1,6 @@
-// Tailscale, for Remote Play away from home: the row, signing in and out,
-// and its answers (#286) (#398, restructure batch e).
+// Tailscale, for Remote Play away from home and a RomM server reached through
+// it: the row in Network, signing in and out, and its answers (#286) (#398,
+// restructure batch e).
 
 #include "app.h"
 
@@ -15,7 +16,7 @@ bool App::tsEndsSoon(const tailscale::Status& st) {
     return st.expires != 0 && st.expires - std::time(nullptr) < kTsWarnDays * 86400;
 }
 
-screens::SettingsRow App::tailscaleRow(bool streaming, bool inUse) {
+screens::SettingsRow App::tailscaleRow(bool inUse) {
     using K = screens::SettingsRow::Kind;
     const tailscale::Status st = tailscale::last();
     tsSeen = tailscale::generation();
@@ -29,9 +30,7 @@ screens::SettingsRow App::tailscaleRow(bool streaming, bool inUse) {
         std::strftime(day, sizeof day, "%d %b %Y", &tm);
         return std::string(day[0] == '0' ? day + 1 : day);
     };
-    if (!streaming) {
-        value = "Off";
-    } else if (tsLoggingOut) {
+    if (tsLoggingOut) {
         value = "Logging out\xE2\x80\xA6";
     } else if (!tsWant) {
         // Signed in but not running: Connect brings it back, no sign-in.
@@ -42,7 +41,7 @@ screens::SettingsRow App::tailscaleRow(bool streaming, bool inUse) {
         detail = st.name;
         value = st.address;
         // THE SIGN-IN ENDS (180 days by default), and the date is shown
-        // from the moment it is signed in: somebody turns Remote Play on
+        // from the moment it is signed in: somebody turns Tailscale on
         // once and rarely comes back, so that is when to see it, and set
         // a reminder (MMagTech, 2026-10-08). None when the owner turned
         // expiry off in Tailscale.
@@ -64,8 +63,10 @@ screens::SettingsRow App::tailscaleRow(bool streaming, bool inUse) {
     } else {
         value = "Turning on\xE2\x80\xA6";
     }
-    return screens::SettingsRow{streaming && !inUse ? K::Action : K::Disabled, SetTailscale,
-                                "Tailscale", detail, value};
+    // GREYED WHILE A DEVICE STREAMS: the stream may be coming in over
+    // Tailscale, and Disconnect would cut it (settingsflow.cpp, Streaming).
+    return screens::SettingsRow{inUse ? K::Disabled : K::Action, SetTailscale, "Tailscale",
+                                detail, value};
 }
 
 // TAILSCALE ON OR OFF: the unit, and the choice remembered. Off keeps the
@@ -114,9 +115,25 @@ void App::tsLogout() {
 }
 
 void App::startTailscaleAtBoot() {
-    tsWant = prefs::get("tailscale", "off") == "on";
+    // THE ONE STEP AFTER THE UPDATE THAT GAVE TAILSCALE ITS OWN SWITCH
+    // (tailscale.h, ownSwitchStep): saved on while Remote Play was off read
+    // Off, so it is saved off. cabinetos-saved-services has already decided
+    // this boot by the same rule, before the step.
+    tailscale::Saved saved{prefs::get("tailscale", "off") == "on",
+                           prefs::get("remote_play", "off") == "on",
+                           prefs::get("tailscale_own_switch", "no") == "yes"};
+    if (!saved.ownSwitch) {
+        const tailscale::Saved after = tailscale::ownSwitchStep(saved);
+        if (after.on != saved.on) {
+            prefs::set("tailscale", "off");
+            std::fprintf(stderr, "[tailscale] off: it was on with Remote Play off, so it read Off\n");
+        }
+        prefs::set("tailscale_own_switch", "yes");
+        saved = after;
+    }
+    tsWant = saved.on;
     tsSignedIn = prefs::get("tailscale_signed_in", "no") == "yes";
-    if (rpWant && tsWant && unit::state(kTsUnit) != "active") {
+    if (tailscale::runs(saved) && unit::state(kTsUnit) != "active") {
         std::string why;
         if (!unit::start(kTsUnit, &why))
             std::fprintf(stderr, "[tailscale] could not turn on at start: %s\n", why.c_str());
@@ -127,7 +144,7 @@ void App::startTailscaleAtBoot() {
 // the row in Settings or the sign-in screen.
 void App::pollTailscale() {
     {
-        const bool look = rpWant && (tsWant || tsLoggingOut) &&
+        const bool look = (tsWant || tsLoggingOut) &&
                           (here() == Screen::Settings || here() == Screen::TailscaleSignIn);
         tailscale::watch(look);
         const tailscale::Status st = tailscale::last();
@@ -186,7 +203,7 @@ void App::pollTailscale() {
 
 void App::pressTailscale() {
     // Off: the PIN (when set), then sign in. On: Disconnect
-    // and Log out (the PIN), and Sign in again in the last
+    // and Log out (each the PIN), and Sign in again in the last
     // two weeks. Disconnected: Connect and Log out.
     const tailscale::Status st = tailscale::last();
     auto confirmLogout = [&]() {
@@ -224,7 +241,11 @@ void App::pressTailscale() {
                 return;
             }
             if (soon) --c;
-            if (c == 0) setTailscale(false);
+            // DISCONNECT ASKS TOO: Tailscale may be how this console reaches
+            // its RomM server, so turning it off is no smaller than Log out.
+            if (c == 0)
+                askPin("Enter the PIN", "To turn off Tailscale",
+                       [&]() { setTailscale(false); });
             else if (c == 1) confirmLogout();
         });
         sound::play(sound::Cue::Activate);

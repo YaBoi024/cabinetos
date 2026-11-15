@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
 # Starts, once at boot, the ways in that are switched on in Settings (#268):
-# File access (port 22), Developer access (port 2222), and Tailscale when
-# Remote Play is on. Run only by cabinetos-saved-services.service.
+# File access (port 22), Developer access (port 2222), and Tailscale. Run only
+# by cabinetos-saved-services.service.
 #
 # WHY NOT THE APP. The app starts these from settings.json when it comes up,
 # and the first version of #268 held the app back until a display answered.
@@ -14,8 +14,16 @@
 # from Settings as before; starting one that is already running does nothing.
 #
 # The keys are the app's (frontend/src/prefs.cpp, prefs::get): "on" means on,
-# anything else or no file means off, as the app reads them. Tailscale runs
-# only while Remote Play is on too, as the app has it.
+# anything else or no file means off, as the app reads them.
+#
+# TAILSCALE HAS ITS OWN SWITCH (docs/decisions/2026-11-15-tailscale-own-switch.md),
+# and runs() is the app's rule (frontend/src/tailscale.h, runs). Before that
+# update it ran only with Remote Play on too, so a console may have Tailscale
+# saved on while its row read Off. The app's first start after the update
+# saves such a console's Tailscale off and then saves tailscale_own_switch.
+# This script runs before the app and never writes settings.json, so until
+# that key is there it keeps the old rule, Remote Play on too: on that first
+# boot it starts exactly what the app then keeps on, and nothing runs unasked.
 #
 # NOT REMOTE PLAY (2026-10-13). Started from here, Sunshine came up before the
 # console's session had the screen ("Couldn't open /dev/dri/card1: Permission
@@ -36,6 +44,12 @@ on() {
     [[ "$(jq -r --arg k "$1" '.[$k] // "off"' "${SETTINGS}" 2>/dev/null)" == "on" ]]
 }
 
+runs() {
+    on tailscale || return 1
+    on remote_play && return 0
+    [[ "$(jq -r '.tailscale_own_switch // "no"' "${SETTINGS}" 2>/dev/null)" == "yes" ]]
+}
+
 start() {
     # --no-block: nothing here waits on a unit's start.
     if systemctl start --no-block "$1"; then
@@ -47,7 +61,5 @@ start() {
 
 on file_access && start cabinetos-files.service "File access"
 on developer_access && start cabinetos-developer.service "Developer access"
-if on remote_play && on tailscale; then
-    start tailscaled.service "Tailscale"
-fi
+runs && start tailscaled.service "Tailscale"
 exit 0
