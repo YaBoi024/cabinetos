@@ -1,6 +1,6 @@
 # Wi-Fi and network
 
-![Network in Settings](../media/settings-network.webp)
+![Network in Settings, with Tailscale signed in](../media/settings-network.webp)
 
 Settings, **Network** shows how the console is connected, its address, your
 RomM server, Wi-Fi and Tailscale.
