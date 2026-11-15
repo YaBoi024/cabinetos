@@ -146,7 +146,9 @@ Bazzite"). The same day, `pad-db-update.yml` refreshes the controller list
 (`frontend/data/gamecontrollerdb.txt`) and `terra-fallback-update.yml` keeps
 the stored spare of Steam's session (`build_files/terra-fallback/`) current,
 so all three ride one update. Once the base update has merged, the
-downloads are cut again from it (`build-disk.yml`, below).
+downloads are cut again from it (`build-disk.yml`, below). The base update
+covers only what comes from Bazzite, so the same day, run the skill
+`check-security-fixes` over the pins of our own.
 
 None of the three merges anything.
 
