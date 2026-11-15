@@ -367,8 +367,7 @@ struct App {
     bool vectrexSheetsTestMode = false;
     // --gpu-choice-test: which GPU the games draw on, with two (#659).
     bool gpuChoiceTestMode = false;
-    // --tailscale-switch-test: Tailscale's own switch and its one step after
-    // the update (tailscale.h).
+    // --tailscale-switch-test: Tailscale's own switch (tailscale.h).
     bool tailscaleSwitchTestMode = false;
     // Opens the overlay and takes Exit to Home, so the whole leave-a-game path
     // can be proved on a machine with nothing attached.
@@ -1926,10 +1925,9 @@ struct App {
     std::vector<screens::DownloadItem> downloadItems();
 
     // THE TAILSCALE ROW (#286), in Network after Wi-Fi, greyed while a device
-    // streams (`inUse`). Its value is the console's Tailscale address, the
-    // one to give Moonlight; its second line is the console's name there and
-    // when its sign-in ends. MMagTech, 2026-10-08. "Sign in again" is offered
-    // for the last two weeks only.
+    // streams. Its value is the console's Tailscale address, the one to give
+    // Moonlight; its second line, the console's name there and when its sign-in
+    // ends (MMagTech, 2026-10-08). "Sign in again": the last two weeks only.
     static constexpr int64_t kTsWarnDays = 14;
     bool tsEndsSoon(const tailscale::Status& st);
     screens::SettingsRow tailscaleRow(bool inUse);
@@ -1953,8 +1951,7 @@ struct App {
     void askDeviceName(const std::string& id, const std::string& current, bool justPaired);
     // THE PAIRED DEVICES: a list, however long, each one pressed for Remove
     // (the PIN when set). One row on the page, so a household with many
-    // devices does not push the rows under it off the page (MMagTech,
-    // 2026-10-07).
+    // devices does not push the rows below off it (MMagTech, 2026-10-07).
     std::vector<remoteplay::Device> rpRowsShown;
 
     // THE PANEL: File access's, with the port. Same password, same New
