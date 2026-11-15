@@ -43,13 +43,11 @@ RomM: keep test launches under a minute, or have his go.
    MMagTech's n8n and Discord; its findings are on #716; the wiki page is
    `docs/wiki/game-events.md`) are done. Added during the run, his call:
    every game message says `linkup_game` (`none`, `hosting`, `joined`) and
-   never names the other person. **Left from step 2:** one achievement
-   unlocked on the A9 by him (its address is still set; n8n's executions
-   show the message), then add it to the page's "What was tested" and to
-   #716. **Step 3:** his TV check on `testing`, which already holds this
-   build: the row, the keyboard, the panel, every line the field can show
-   (while "Checking…" shows, the keyboard's focus goes back to its first
-   key), then merge on his go. The Discord webhooks in his n8n are
+   never names the other person; two achievements unlocked on the A9
+   reached Discord. **Step 3:** his TV check on `testing`, which already
+   holds this build: the row, the keyboard, the panel, every line the field
+   can show (while "Checking…" shows, the keyboard's focus goes back to its
+   first key), then merge on his go. The Discord webhooks in his n8n are
    throwaways he replaces.
 2. **LinkUp: two server tidy-ups, no issue.** The internet test, step 6 of
    #654, passed twice: his console and his friend's, two servers linking up

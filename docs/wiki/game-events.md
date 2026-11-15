@@ -337,6 +337,7 @@ decides everything else, the console only says what happened.
 On 2026-11-15, with n8n 2.47.7 and Discord, on the reference console (a GEEKOM
 A9 Max) and a second console as a LinkUp friend: setting the address; a game
 started, paused, resumed and left; two accounts going to two channels; an
-account taken off the list going nowhere; Sleep during a game, and the test
-message again on waking; a LinkUp game from both sides, with the friend's
-Game events on and off. Other apps were not tested.
+account taken off the list going nowhere; two achievements unlocked in one
+game, each its own message; Sleep during a game, and the test message again
+on waking; a LinkUp game from both sides, with the friend's Game events on
+and off. Other apps were not tested.
