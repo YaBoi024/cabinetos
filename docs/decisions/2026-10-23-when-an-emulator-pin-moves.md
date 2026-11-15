@@ -32,7 +32,8 @@
   makes it one we do not make.
 - **Numbers:** docs/PROJECT.md, "Constraints and principles", 8;
   #713 (A skill that checks our own pins for known security holes), whose
-  first run found published holes in two cores that (E) did not count.
+  first run found published holes in two cores that (E) did not count; #714
+  (Pin rule: a security hole any outside data can reach is a reason to move).
 - **Replaces:** the wording of principle 8, which becomes a one-line pointer
   to this file in PROJECT.md; and this file's own (E) of 2026-10-23, which
   counted only a security fix in something facing the network.
