@@ -38,7 +38,8 @@ RomM: keep test launches under a minute, or have his go.
 1. **Game events, #716, "Game events: tell an app at home what is happening
    in a game".** The issue is the whole plan, settled on 2026-11-15; nothing
    in it is decided again. Step 1, the build (the code, `--game-events-test`
-   in CI, the docs), is its pull request, open and not merged. **Step 2, a
+   in CI, the docs), is PR #717, "Game events: tell an app at home what is
+   happening in a game (#716)", open and not merged. **Step 2, a
    fresh session from the issue:** the real run against MMagTech's own n8n
    (its address is in his local notes; its sign-in and webhooks are his,
    never typed by a session), forwarding to his Discord with the
