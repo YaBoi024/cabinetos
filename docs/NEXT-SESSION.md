@@ -37,19 +37,20 @@ RomM: keep test launches under a minute, or have his go.
 
 1. **Game events, #716, "Game events: tell an app at home what is happening
    in a game".** The issue is the whole plan, settled on 2026-11-15; nothing
-   in it is decided again. Step 1, the build (the code, `--game-events-test`
-   in CI, the docs), is PR #717, "Game events: tell an app at home what is
-   happening in a game (#716)", open and not merged. **Step 2, a
-   fresh session from the issue:** the real run against MMagTech's own n8n
-   (its address is in his local notes; its sign-in and webhooks are his,
-   never typed by a session), forwarding to his Discord with the
-   per-person step, then a game on a second account, that account taken out
-   of the step, and a LinkUp game with the test VM as the friend on a second
-   webhook path; then the wiki page, written only once the run proves it.
-   He provides two Discord webhooks pasted into n8n, a second console
-   account, one achievement unlocked and one look at the channel. **Step 3:**
-   his TV check on `testing` (the row, the keyboard, the panel, every line
-   the field can show), then merge on his go.
+   in it is decided again. PR #717, "Game events: tell an app at home what is
+   happening in a game (#716)", carries it, open and not merged. Steps 1 (the
+   build) and 2 (the real run, 2026-11-15, on testing image 2026.11.15.2 with
+   MMagTech's n8n and Discord; its findings are on #716; the wiki page is
+   `docs/wiki/game-events.md`) are done. Added during the run, his call:
+   every game message says `linkup_game` (`none`, `hosting`, `joined`) and
+   never names the other person. **Left from step 2:** one achievement
+   unlocked on the A9 by him (its address is still set; n8n's executions
+   show the message), then add it to the page's "What was tested" and to
+   #716. **Step 3:** his TV check on `testing`, which already holds this
+   build: the row, the keyboard, the panel, every line the field can show
+   (while "Checking…" shows, the keyboard's focus goes back to its first
+   key), then merge on his go. The Discord webhooks in his n8n are
+   throwaways he replaces.
 2. **LinkUp: two server tidy-ups, no issue.** The internet test, step 6 of
    #654, passed twice: his console and his friend's, two servers linking up
    and playing a game (his word, 2026-11-10). Left: `.dockerignore` lets
