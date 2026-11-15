@@ -195,19 +195,21 @@ int test() {
     }
 
     std::printf("Home addresses\n");
-    for (const char* ip : {"127.0.0.1", "127.255.255.254", "10.0.0.1", "10.255.255.255", "172.16.0.1",
-                           "172.31.255.255", "192.168.0.1", "192.168.255.255", "100.64.0.1",
+    // Each range's first and last address, and the documented examples
+    // (ci/check-code-and-docs-agree.py, ADDRESSES).
+    for (const char* ip : {"127.0.0.1", "127.255.255.254", "10.0.0.0", "10.255.255.255", "172.16.0.0",
+                           "172.31.255.255", "192.168.0.0", "192.168.255.255", "100.64.0.1",
                            "100.127.255.255", "::1", "fc00::1", "fd7a:115c:a1e0::1", "fe80::1",
-                           "febf::1", "::ffff:192.168.1.10"})
+                           "febf::1", "::ffff:192.168.0.20"})
         check(homeText(ip), std::string(ip) + " is home");
     for (const char* ip : {"8.8.8.8", "1.1.1.1", "172.15.255.255", "172.32.0.1", "192.169.0.1",
                            "100.63.255.255", "100.128.0.1", "11.0.0.1", "169.254.1.1", "0.0.0.0",
                            "2001:db8::1", "fec0::1", "fe00::1", "::", "::2", "::ffff:8.8.8.8",
                            "2606:4700::1111"})
         check(!homeText(ip), std::string(ip) + " is not home");
-    check(!allHome({addr("192.168.1.2"), addr("8.8.8.8")}),
+    check(!allHome({addr("192.168.0.20"), addr("8.8.8.8")}),
           "a name that gives one public address among private ones is not home");
-    check(allHome({addr("192.168.1.2"), addr("fd00::1")}), "a name that gives only home addresses is");
+    check(allHome({addr("192.168.0.20"), addr("fd00::1")}), "a name that gives only home addresses is");
     check(!allHome({}), "a name that gives nothing is not home");
     {
         const auto t0 = Clock::now();
@@ -215,7 +217,7 @@ int test() {
         const Tried b = tryAddress("http://[2001:db8::1]:9/hook");
         check(a.answer == Answer::NotHome && b.answer == Answer::NotHome && msSince(t0) < 500,
               "a public address is refused before anything connects: " + why(a));
-        check(tryAddress("ftp://192.168.1.2/hook").answer == Answer::CantConnect, "only http and https");
+        check(tryAddress("ftp://192.168.0.20/hook").answer == Answer::CantConnect, "only http and https");
     }
 
     Receiver rx;
