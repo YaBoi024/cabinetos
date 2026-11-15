@@ -4,6 +4,19 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.11.15 {#v2026-11-15}
+
+- **New:** reach your RomM server away from home through Tailscale. Sign the
+  console in to Tailscale in Settings, **Network**, then change the RomM
+  server's address to RomM's Tailscale address. Your games and saves stay.
+  ([How](network.md#reaching-romm-away-from-home))
+- **Changed:** Tailscale moved from Streaming to Settings, **Network**, with
+  its own switch: turning Remote Play off no longer turns Tailscale off. If
+  you had Tailscale on while Remote Play was off, it stays off after this
+  update, as it showed; your sign-in is kept, so **Connect** brings it back.
+  **Disconnect** now asks for the PIN when one is set.
+  ([Tailscale](network.md#tailscale))
+
 ## 2026.11.14.3 {#v2026-11-14-3}
 
 - **Improved:** three more controllers are in the console's controller list:

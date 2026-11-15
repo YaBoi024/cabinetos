@@ -69,6 +69,7 @@ TESTS=(
     --vectrex-sheets-test
     --gone-games-test
     --gpu-choice-test
+    --tailscale-switch-test
     --dualsense-test
 )
 

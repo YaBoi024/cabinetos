@@ -3241,8 +3241,8 @@ not, and the A9 has no CEC to wake one.
   which the first build of the wait held back until a display answered, so
   that build left a console with no TV unreachable over SSH (measured,
   2026-10-10) and was undone. `cabinetos-saved-services.service`, a oneshot
-  at boot, reads `settings.json` and starts whichever are on (Tailscale only
-  with Remote Play, as the app has it). The app still starts and stops them
+  at boot, reads `settings.json` and starts whichever are on (Tailscale:
+  docs/decisions/2026-11-15-tailscale-own-switch.md). The app still starts and stops them
   from Settings; starting one already running does nothing.
   **Remote Play was started here too, and that was wrong** (2026-10-13, on
   the testing images 2026.10.13.3 and .4): at boot Sunshine ran before the
@@ -17501,8 +17501,7 @@ self-hosted server is not open source); Moonlight's own internet streaming
 the row off: MMagTech's own iPhone streamed over 5G through his Tailscale
 subnet router with nothing on the console.
 
-*Under Streaming, never alone:* it runs only while Streaming and Tailscale
-are both on, so "off means nothing runs" holds for both. *Locked down by the
+*Under Streaming, never alone:* moved to docs/decisions/2026-11-15-tailscale-own-switch.md (2026-11-15), which replaces it. *Locked down by the
 image,* not by Settings: operator `cabinet`, no DNS and no routes from the
 network, no exit node, no logs to Tailscale (`TS_NO_LOGS_NO_SUPPORT`; their
 support cannot look into a problem). *The firewall:* without a zone of its

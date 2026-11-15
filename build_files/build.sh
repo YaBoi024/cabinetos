@@ -335,7 +335,7 @@ log "base image has $(wc -l < /usr/share/cabinetos/packages-before-strip.txt) pa
 # cannot complete first run at all (open question 15b's one hard gate), and one
 # that cannot pair a controller finishes setup owning a games console nobody can
 # play from a sofa.
-# tailscale and tailscaled: Remote Play away from home (#286) runs the
+# tailscale and tailscaled: Tailscale's switch in Network (#286) runs the
 # command and starts the daemon. Bazzite's, like the three above.
 # wpctl: the volume keys (#351, volume.cpp). WirePlumber's, in the base.
 # pdfinfo and pdftoppm: a game's manual (#364, manual.cpp) is measured and its

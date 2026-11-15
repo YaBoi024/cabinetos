@@ -367,6 +367,8 @@ struct App {
     bool vectrexSheetsTestMode = false;
     // --gpu-choice-test: which GPU the games draw on, with two (#659).
     bool gpuChoiceTestMode = false;
+    // --tailscale-switch-test: Tailscale's own switch (tailscale.h).
+    bool tailscaleSwitchTestMode = false;
     // Opens the overlay and takes Exit to Home, so the whole leave-a-game path
     // can be proved on a machine with nothing attached.
     bool overlayExitDemo = false;
@@ -1699,11 +1701,11 @@ struct App {
     // Digits handed over: the name given to Sunshine, when, and the devices
     // paired before, so the new one is the one not among them.
     struct { std::string name; int64_t at = 0; std::set<std::string> before; } rpPairing;
-    // TAILSCALE, for Remote Play away from home (tailscale.h says why it is
-    // the one way in from outside). tailscaled.service runs only while
-    // Streaming AND Tailscale are on; turning Streaming off stops it too, and
-    // turning Streaming on starts it again when Tailscale was on. Signed in
-    // or not is remembered as well, so a console turned off can still say
+    // TAILSCALE, for Remote Play away from home and a RomM server at its
+    // Tailscale address (tailscale.h says why it is the one way in from
+    // outside). Its own switch, in Network: tailscaled.service runs whenever
+    // Tailscale is on, whatever Remote Play is. Signed in or not is
+    // remembered as well, so a console turned off can still say
     // "Disconnected" (signed in, not running) rather than "Off" (never).
     static constexpr const char* kTsUnit = "tailscaled.service";
     bool tsWant = false;
@@ -1922,13 +1924,13 @@ struct App {
     void downloadsOutcome(screens::DownloadsPanel::Outcome o);
     std::vector<screens::DownloadItem> downloadItems();
 
-    // THE TAILSCALE ROW (#286), under Streaming and greyed while it is off.
-    // Its value is the address to give Moonlight; its second line is the
-    // console's name there and when its sign-in ends. MMagTech, 2026-10-08.
-    // "Sign in again" is offered for the last two weeks only.
+    // THE TAILSCALE ROW (#286), in Network after Wi-Fi, greyed while a device
+    // streams. Its value is the console's Tailscale address, the one to give
+    // Moonlight; its second line, the console's name there and when its sign-in
+    // ends (MMagTech, 2026-10-08). "Sign in again": the last two weeks only.
     static constexpr int64_t kTsWarnDays = 14;
     bool tsEndsSoon(const tailscale::Status& st);
-    screens::SettingsRow tailscaleRow(bool streaming, bool inUse);
+    screens::SettingsRow tailscaleRow(bool inUse);
     void buildSettings();
     void startUpdate(bool download, bool automatic);
     void askUpdateDownload();
@@ -1949,7 +1951,7 @@ struct App {
     void askDeviceName(const std::string& id, const std::string& current, bool justPaired);
     // THE PAIRED DEVICES: a list, however long, each one pressed for Remove
     // (the PIN when set). One row on the page, so a household with many
-    // devices does not push Tailscale off it (MMagTech, 2026-10-07).
+    // devices does not push the rows below off it (MMagTech, 2026-10-07).
     std::vector<remoteplay::Device> rpRowsShown;
 
     // THE PANEL: File access's, with the port. Same password, same New

@@ -69,8 +69,9 @@ The console keeps working with what is on its drive. See
 
 Settings, Network, **RomM server** (behind the PIN if one is set):
 
-- **Change address**: for when the same server moves. Pointing at a different
-  server is refused: *A different server. Sign out first.*
+- **Change address**: for when the same server moves, or to reach it
+  [through Tailscale](network.md#reaching-romm-away-from-home). Pointing at a
+  different server is refused: *A different server. Sign out first.*
 - **Sign out**: removes every game and account from the console and goes back
   to [first run](first-run.md). Saves still waiting to upload are lost, and the
   console says so before you confirm.

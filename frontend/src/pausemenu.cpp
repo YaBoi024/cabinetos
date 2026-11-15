@@ -312,9 +312,10 @@ void App::remotePlayHandover() {
     // focused, so for the first seconds the stream's presses do nothing
     // in a menu.
     if (on) idleWatch.woke(clockSeconds());
-    // Remote Play's section greys out for the stream, and back after. A
-    // panel already open from it (Paired devices, Tailscale's menu)
-    // closes, so nothing in it can be pressed from the stream either.
+    // Remote Play's section, and Tailscale's row in Network, grey out for
+    // the stream, and back after. A panel already open from either (Paired
+    // devices, Tailscale's menu) closes, so nothing in it can be pressed
+    // from the stream either.
     if (here() == Screen::Settings) {
         if (on && choiceScreen.isOpen()) choiceScreen.close();
         buildSettings();
