@@ -273,8 +273,8 @@ version and the emulator. Nothing is sent for anybody who has not signed in.
 licence) is carried as data, not linked: `gamecontrollerdb.txt` in
 `/usr/share/cabinetos/`, unmodified. Pinned in this repository
 (`frontend/data/`, installed with the frontend so an update ships one file) and
-refreshed by a monthly pull request (`.github/workflows/pad-db-update.yml`),
-which names the upstream commit; first pinned at `c6d6e7ecca57`
+updated when a player reports a pad, by a pull request
+(`.github/workflows/pad-db-update.yml`) that names the upstream commit; first pinned at `c6d6e7ecca57`
 (2026-09-24). It is the community's list of controllers SDL does not know by
 itself (issue #66).
 

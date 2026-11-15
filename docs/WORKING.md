@@ -142,13 +142,20 @@ is what only the maintainer runs.
 opens a pull request listing what moved. A player's fault that a newer
 Bazzite fixes, or a security hole, is taken by hand in between
 (`gh workflow run base-update.yml`; docs/PROJECT.md, "Staying current with
-Bazzite"). The same day, `pad-db-update.yml` refreshes the controller list
-(`frontend/data/gamecontrollerdb.txt`) and `terra-fallback-update.yml` keeps
-the stored spare of Steam's session (`build_files/terra-fallback/`) current,
-so all three ride one update. Once the base update has merged, the
-downloads are cut again from it (`build-disk.yml`, below).
+Bazzite"). The same day, `terra-fallback-update.yml` keeps the stored
+spare of Steam's session (`build_files/terra-fallback/`) current, so both
+ride one update. Once the base update has merged, the downloads are cut
+again from it (`build-disk.yml`, below).
 
-None of the three merges anything.
+Neither merges anything.
+
+**When a player reports a pad the console does not know or maps wrong,**
+`gh workflow run pad-db-update.yml` updates the controller list
+(`frontend/data/gamecontrollerdb.txt`) to the community's newest and opens
+a pull request naming the pads it adds, changes and removes. It runs on no
+schedule (docs/decisions/2026-11-14-controller-list-on-report.md). If the
+reported pad is not among them, the community's list does not have it
+either.
 
 **Also on the 1st, `flatpak-pins.yml`** checks that every Flathub pin (Eden,
 xemu, their runtimes and Flathub's Mesa) can still be downloaded. It opens

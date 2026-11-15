@@ -14,18 +14,13 @@ source of truth for anything on RomM's data.
 
 ## Where things stand
 
-**2026-11-11.** The newest release is 2026.10.10. The newest image promoted
-to consoles is 2026.11.11.3: #697, "LinkUp: the friend's controller tilts
-Switch and PS3 games, and the idle pause works again (#669)", merged on
-2026-11-11 after his checks between the A9 and the mini PC (Mario Kart 8
-Deluxe with both players tilting, LittleBigPlanet, a LinkUp game paused after
-10 minutes with nothing pressed). It closed #669. Before it, 2026.11.11.2:
-#696, "Gyro for Switch, Wii U and Vita: a stand-in DualSense carries the
-player's tilt (#669)"; 2026.11.11: #695, "LinkUp: the friend's console
-draws its own letterbox glow (#692)"; on 2026-11-10, 2026.11.10.3 (#689,
-PS3 motion, #683), 2026.11.10.2 (#691, the Flathub pins) and 2026.11.10
-(#685, Game Boy Advance and 3DS tilt, #670). Open:
-#528 waits on RomM and #644 is the controller list. #590, "A
+**2026-11-14.** The newest release is 2026.10.10. The newest image promoted
+to consoles is 2026.11.14.3: #712, "The controller list is updated when a
+player reports a pad, not monthly", merged on 2026-11-14 after the A9 read
+492 controller mappings on it (489 before). Before it, 2026.11.14.2: #709,
+"A power cut right after a download no longer leaves a damaged game
+(#559)", which closed #559. docs/wiki/changelog.md lists every image
+before them. Open: #528 waits on RomM. #590, "A
 Wii Remote turned on after a Wii game starts is ignored by the game",
 waits in Later; fix it only in the console's own code, never by patching
 Dolphin (MMagTech, 2026-10-25). What the A9 runs now is not written here:

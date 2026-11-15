@@ -161,10 +161,12 @@ is in the file named for its feature, and
   `require-signed-updates.sh`). Nothing goes in `/var`, which an update never
   touches (lessons rule 9). The `require-*.sh` scripts fail the build rather
   than ship an image that cannot work.
-- **CI** builds, stages and promotes. The scheduled jobs (the base check,
-  the controller list and Steam's spare, all monthly on the 1st) open pull
-  requests and never merge them; the Flathub pins' check, the same day,
-  opens nothing and fails while a pin is near the end of what Flathub keeps.
+- **CI** builds, stages and promotes. The scheduled jobs (the base check
+  and Steam's spare, both monthly on the 1st) open pull requests and never
+  merge them; the Flathub pins' check, the same day, opens nothing and fails
+  while a pin is near the end of what Flathub keeps. The controller list's
+  update runs only by hand, for a pad a player reported, and also only opens
+  a pull request.
 
 ## 3. The main flows, step by step
 
