@@ -316,8 +316,8 @@ int test() {
             whole = whole && field(g.body, "format") == "1" && field(g.body, "person") == "Sam" &&
                     field(g.body, "game") == contra.title && field(g.body, "system") == "Super Nintendo" &&
                     field(g.body, "rom_id") == "1234" && field(g.body, "linkup") == "unused" &&
-                    field(g.body, "time").size() == 25;
-        check(whole, "each with format, time, person, game, system, rom_id and linkup");
+                    field(g.body, "linkup_game") == "none" && field(g.body, "time").size() == 25;
+        check(whole, "each with format, time, person, game, system, rom_id, linkup and linkup_game");
         if (got.size() == 6) {
             check(field(got[0].body, "cover_type") == "image/png" && field(got[0].body, "cover") == base64(png),
                   "started carries the cover the console keeps, as base64");
@@ -343,9 +343,27 @@ int test() {
         bool lean = got.size() == 2;
         for (const Receiver::Got& g : got)
             lean = lean && field(g.body, "person") == "Alex" && field(g.body, "game") == contra.title &&
-                   !hasField(g.body, "rom_id") && !hasField(g.body, "system") && !hasField(g.body, "cover");
-        check(lean, "under the friend's name, without rom_id, system and cover");
+                   field(g.body, "linkup_game") == "joined" && !hasField(g.body, "rom_id") &&
+                   !hasField(g.body, "system") && !hasField(g.body, "cover");
+        check(lean, "under the friend's name, joined, without rom_id, system and cover");
         check(waitFor(1, 300).empty(), "nothing more");
+    }
+
+    std::printf("A console hosting a LinkUp game\n");
+    {
+        Game hosted = contra;
+        hosted.linkupHost = true;
+        started(hosted, who);
+        paused(true, who);
+        ended(60000, who);
+        const std::vector<Receiver::Got> got = waitFor(3, 3000);
+        check(events(got) == "game_started game_paused game_ended", "every message, as alone: " + events(got));
+        bool host = got.size() == 3;
+        for (const Receiver::Got& g : got)
+            host = host && field(g.body, "linkup_game") == "hosting" && field(g.body, "person") == "Sam" &&
+                   field(g.body, "rom_id") == "1234" && field(g.body, "system") == "Super Nintendo";
+        check(host, "each says hosting, with the game's system and rom_id");
+        if (!got.empty()) check(field(got[0].body, "cover_type") == "image/png", "started carries the cover");
     }
 
     std::printf("The knock on each network\n");

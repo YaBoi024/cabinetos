@@ -13,8 +13,9 @@
 // gameevents.cpp's own (job.h is one worker for one result, and ra_net.cpp's
 // ordered worker is RetroAchievements'). Every game message carries
 // `format` 1, `time` (local, with its offset), `person`, `game`, `system`,
-// `rom_id` and `linkup`. Fields can be added, never renamed or removed; a
-// break means `format` 2.
+// `rom_id`, `linkup` and `linkup_game` (`none`, or `hosting` or `joined` for
+// a LinkUp game, never who with). Fields can be added, never renamed or
+// removed; a break means `format` 2.
 //
 // HOME ADDRESSES ONLY, CHECKED EVERY TIME IT SENDS (gameevents_wire.cpp). The
 // name is looked up and every address it gives must be private, local or
@@ -32,8 +33,10 @@
 //
 // EACH CONSOLE FOLLOWS ONLY ITS OWN SETUP. A LinkUp friend's console sends
 // its own `game_started` and `game_ended` to its own address under its own
-// name, without `rom_id`, `system` and `cover` (linkupsession.cpp). Nothing
-// here ever crosses LinkUp.
+// name, without `rom_id`, `system` and `cover` (linkupsession.cpp). Each
+// says it is a LinkUp game and which side it is on, and neither names the
+// other person: who a friend is stays theirs. Nothing here ever crosses
+// LinkUp.
 
 #pragma once
 
@@ -94,7 +97,8 @@ struct Game {
     // The cover cache's keys (covercache.h), large first: the first one the
     // console keeps is sent. Read on the sender's thread.
     std::vector<std::string> covers;
-    bool friendSide = false;
+    bool friendSide = false;   // this console joined a LinkUp friend's game
+    bool linkupHost = false;   // this console hosts a LinkUp game
 };
 
 // An address is saved, so the sender runs. Every call below does nothing

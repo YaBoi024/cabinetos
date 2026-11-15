@@ -267,6 +267,9 @@ void putGame(const char* event, const Who& w, bool withCover,
         if (withCover) m.covers = gGame.game.covers;
     }
     addText(o, "linkup", w.linkup);
+    addText(o, "linkup_game", gGame.game.friendSide   ? "joined"
+                              : gGame.game.linkupHost ? "hosting"
+                                                      : "none");
     if (extra) extra(o);
     put(std::move(m));
 }

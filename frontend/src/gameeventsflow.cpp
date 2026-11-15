@@ -121,6 +121,9 @@ void App::gameEventStarted() {
     gameevents::Game g;
     g.title = session.title;
     g.romId = session.romId;
+    // A game started while this console hosts a LinkUp session is the one
+    // both play (linkupStartGame).
+    g.linkupHost = linkupSide == LinkupSide::Host;
     for (const romm::Game& lib : games) {
         if (lib.id != session.romId) continue;
         g.system = catalog::systemName(lib);
