@@ -146,10 +146,11 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 
 - [installer-iso-repacked](2026-11-02-installer-iso-repacked.md): the installer ISO is repacked after the builder, for CabinetOS's boot menu and look, with nothing the builder made rebuilt.
 - [portable-download](2026-11-05-portable-download.md): the portable's download is the file from a finished run, which was tried, not a new build; it sits beside the ISO on R2 for about 4 cents a month.
-- [scheduled-checks-monthly](2026-11-10-scheduled-checks-monthly.md): the controller list and Steam's spare are checked on the 1st of each month with the Bazzite base, not every Monday.
+- [scheduled-checks-monthly](2026-11-10-scheduled-checks-monthly.md): Steam's spare is checked on the 1st of each month with the Bazzite base, not every Monday.
 - [flathub-pins-held-and-watched](2026-11-10-flathub-pins-held-and-watched.md): every console ends with exactly the Flathub builds pinned, Flathub's Mesa included, and a monthly check fails while a pin is near the end of what Flathub keeps.
 - [when-the-downloads-are-cut](2026-11-12-when-the-downloads-are-cut.md): the ISO and the portable are cut again together after each month's base update, and at once for a fix to the installer, first run or privacy, each published by hand from the run that was checked.
 - [a-release-page-per-download](2026-11-13-a-release-page-per-download.md): each cut of the downloads gets a GitHub release page for the version the ISO installs, tagged at its image's commit, linking the SHA-256 rather than typing it.
+- [controller-list-on-report](2026-11-14-controller-list-on-report.md): the controller list is updated to the community's newest by hand, when a player reports a pad the console does not know, not on a schedule.
 
 ### How we work
 

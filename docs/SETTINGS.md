@@ -191,9 +191,10 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
     its first press closes the window if it is open).
 - **No Button mapping screen** (#66, decided with MMagTech 2026-09-26). An
   unrecognised pad is handled by the console, not the person: the image
-  carries the community's controller list (SDL_GameControllerDB, 491 more
-  controllers than SDL knows alone), refreshed by a monthly pull request, and
-  a pad reported missing is added to it. **No remapping in Settings**: every
+  carries the community's controller list (SDL_GameControllerDB, hundreds
+  of controllers SDL does not know alone), and when a player reports a pad
+  missing, the list is updated to the community's newest
+  (docs/decisions/2026-11-14-controller-list-on-report.md). **No remapping in Settings**: every
   system plays with RetroArch's default layout by button position, arcade
   games on a fight stick the console knows with a fixed fight-stick layout,
   and an arcade game's own buttons are moved from its pause menu's Controls,

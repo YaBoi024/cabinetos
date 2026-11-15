@@ -1,8 +1,8 @@
 # Every Flathub pin can still be downloaded, with room to spare
 # (ci/check-flatpak-pins.sh; docs/decisions/2026-11-10-flathub-pins-held-and-watched.md).
 #
-# Monthly, on the 1st with the base, controller list and Steam checks, and on
-# a pull request that changes the pins. Unlike those three it opens nothing:
+# Monthly, on the 1st with the base and Steam checks, and on a pull request
+# that changes the pins. Unlike those two it opens nothing:
 # moving a pin means trying the newer build on the A9 first, so a pin near the
 # end of what Flathub keeps fails this run, and the summary says which.
 
@@ -10,7 +10,7 @@ name: Check Flathub pins
 
 on:
   schedule:
-    # The 1st at 10:30 UTC, after the base, controller list and Steam checks.
+    # The 1st at 10:30 UTC, after the base and Steam checks.
     - cron: '30 10 1 * *'
   pull_request:
     paths:

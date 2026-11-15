@@ -1,23 +1,20 @@
-# Keep the controller list current: open a pull request when it changes.
+# Update the controller list to the community's newest: open a pull request.
 #
 # The image carries SDL_GameControllerDB (frontend/data/gamecontrollerdb.txt,
 # installed to /usr/share/cabinetos/), the community's list of controllers SDL does not know
 # by itself. It is how CabinetOS handles an unrecognised pad instead of a
-# button-mapping screen (issue #66), so a list that never moves is a list that
-# slowly stops covering new pads.
+# button-mapping screen (issue #66).
 #
-# Monthly, on the 1st with the base update, so both ride the same System
-# update: new pads appear slowly, and a week's freshness bought nothing a
-# player sees (docs/decisions/2026-11-10-scheduled-checks-monthly.md). It
-# never merges anything; a merge ships the new list to every console through
-# System update.
+# BY HAND ONLY, when a player reports a pad the console does not know or maps
+# wrong (`gh workflow run pad-db-update.yml`;
+# docs/decisions/2026-11-14-controller-list-on-report.md). The pull request
+# names the pads added, changed and removed, counting only the lines SDL reads
+# on a console. It never merges anything; a merge ships the new list to every
+# console through System update.
 
-name: Check controller list update
+name: Update the controller list
 
 on:
-  schedule:
-    # The 1st at 09:30 UTC, half an hour after the base check.
-    - cron: '30 9 1 * *'
   workflow_dispatch:
 
 permissions:
@@ -46,15 +43,44 @@ jobs:
           FILE=frontend/data/gamecontrollerdb.txt
           SHA=$(gh api repos/mdqinc/SDL_GameControllerDB/commits/master --jq .sha)
           curl -fsSL "https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/${SHA}/gamecontrollerdb.txt" -o /tmp/gamecontrollerdb.txt
+          # Only lines ending "platform:Linux," count: SDL skips a line whose
+          # platform has no comma after it.
           # A list that shrank to nothing, or is not a list, is never shipped.
-          LINUX=$(grep -c 'platform:Linux' /tmp/gamecontrollerdb.txt || true)
+          LINUX=$(grep -c 'platform:Linux,' /tmp/gamecontrollerdb.txt || true)
           if [ "${LINUX}" -lt 300 ]; then
             echo "Only ${LINUX} Linux entries in the new list; not using it." >> "${GITHUB_STEP_SUMMARY}"
             exit 1
           fi
           if cmp -s /tmp/gamecontrollerdb.txt "${FILE}"; then
             echo "changed=false" >> "${GITHUB_OUTPUT}"
+            echo "The console's list is already SDL_GameControllerDB's newest, \`${SHA}\`." >> "${GITHUB_STEP_SUMMARY}"
           else
+            # The pads a player could notice, by name, before the list is
+            # replaced. A line whose buttons are the same in another order,
+            # or only renamed, is not a change.
+            python3 - "${FILE}" /tmp/gamecontrollerdb.txt > /tmp/pads.md <<'PY'
+          import sys
+
+          def pads(path):
+              found = {}
+              with open(path, encoding="utf-8") as f:
+                  for line in f:
+                      if line.startswith("#") or "platform:Linux," not in line:
+                          continue
+                      fields = [x for x in line.strip().split(",") if x]
+                      found[fields[0]] = (fields[1], frozenset(fields[2:]))
+              return found
+
+          old, new = pads(sys.argv[1]), pads(sys.argv[2])
+          rows = (
+              ("Added", new, new.keys() - old.keys()),
+              ("Buttons changed", new, {g for g in new.keys() & old.keys() if new[g][1] != old[g][1]}),
+              ("Removed", old, old.keys() - new.keys()),
+          )
+          for title, table, guids in rows:
+              names = sorted({table[g][0] for g in guids}, key=str.lower)
+              print(f"- **{title}:** " + (", ".join(names) if names else "none"))
+          PY
             cp /tmp/gamecontrollerdb.txt "${FILE}"
             echo "changed=true" >> "${GITHUB_OUTPUT}"
             echo "sha=${SHA}" >> "${GITHUB_OUTPUT}"
@@ -73,9 +99,11 @@ jobs:
           set -euo pipefail
           BRANCH="pad-db/${SHORT}"
           cat > /tmp/pr-body.md <<EOF
-          **What it does:** updates the list of controllers the console recognises to SDL_GameControllerDB at \`${SHA}\` (${LINUX} Linux entries).
+          **What it does:** updates the list of controllers the console recognises to SDL_GameControllerDB at \`${SHA}\` (${LINUX} Linux entries SDL reads).
 
-          **Why:** it is how a pad SDL does not know gets its buttons right, instead of a mapping screen (#66). Merging ships it to every console with the next System update.
+          $(cat /tmp/pads.md)
+
+          **Why:** a player reported a pad the console does not know or maps wrong; this list is how such a pad gets its buttons right, instead of a mapping screen (#66, docs/decisions/2026-11-14-controller-list-on-report.md). Name the report's issue here. Merging ships it to every console with the next System update.
           EOF
           # Already pushed: as base-update.yml, left alone with a pull
           # request, opened now without one.

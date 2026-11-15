@@ -10,10 +10,11 @@ controllers**, over Bluetooth or USB, and the **8BitDo Arcade Stick** (see
 tested around.
 
 Other pads in the [SDL controller list](https://github.com/mdqinc/SDL_GameControllerDB)
-usually work too, with no setup; the list holds over two thousand pads and
-arrives with each update. The original Steam Controller is expected to work; the
+usually work too, with no setup; the console knows hundreds of pads from
+it. The original Steam Controller is expected to work; the
 2026 Steam Controller needs a system update that has not arrived yet. If a pad
-misbehaves, [report it](troubleshooting.md). Buttons are matched by
+is not recognised or misbehaves, [report it](troubleshooting.md): the
+newest list may already have it. Buttons are matched by
 position, so the bottom face button is always **A** (Cross on PlayStation, B
 on Nintendo). There is no button-mapping screen, except in arcade games:
 their pause menu's [Controls](pause-menu.md#controls) moves the game's
