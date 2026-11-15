@@ -30,7 +30,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 
 ### Emulators and cores
 
-- [when-an-emulator-pin-moves](2026-10-23-when-an-emulator-pin-moves.md): a pin moves only for a major feature, a bug or slowness we have seen, more games playing, a patch fixed upstream, or a move we do not choose.
+- [when-an-emulator-pin-moves](2026-10-23-when-an-emulator-pin-moves.md): a pin moves only for a major feature, a bug or slowness we have seen, more games playing, a patch fixed upstream, or a move we do not choose, a security fix for any hole outside data can reach among them.
 - [3ds-games-get-no-network](2026-10-20-3ds-games-get-no-network.md): a 3DS game never reaches a server named in the game; by a patch to Azahar until 2026-10-26, by the block for every emulator since.
 - [emulators-get-no-network](2026-10-26-emulators-get-no-network.md): one block keeps every emulator off the network, inside the console's program by who asked and outside it by starting each with no network.
 - [arcade-emulator-from-the-zip](2026-10-28-arcade-emulator-from-the-zip.md): an arcade game's emulator comes from its zip's name and files, in a fixed order, never from its folder.

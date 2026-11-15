@@ -14,7 +14,8 @@ Yes is a proposal, and the maintainer decides.
 `check-emulator-update` answers a different question: would an update fix
 something players see. The rule a Yes is weighed against is
 `docs/decisions/2026-10-23-when-an-emulator-pin-moves.md`, reason (E): "a
-security fix in something facing the network".
+security fix for a hole that outside data can reach (a request over the
+network, or a game file, save or state)".
 
 With one pin named, check that one. With none, check them all.
 
@@ -156,11 +157,12 @@ For each pin, one of:
 - **Yes:** our version is affected, outside data reaches the flaw, and a newer
   version fixes it.
 
-A Yes for a pin facing the network meets reason (E), and the proposal is to
-move the pin; its target and its cost are `check-emulator-update`, step 7. A
-Yes for an emulator or core does not meet (E) as it is written, which names
-only what faces the network. Report it as found, and say that widening (E) to
-it is MMagTech's call. Never read (E) more widely than it is written.
+A Yes meets reason (E), for an emulator or core as much as for a pin facing
+the network, and the proposal is to move the pin to the smallest step that
+carries the fix, not the newest build. Its cost is `check-emulator-update`,
+steps 6 and 7: where the fix exists only in a large jump, the move still goes
+through the full check, with saves and states tried first. Security is a
+reason to move, never a reason to rush.
 
 ## The report
 
@@ -174,7 +176,8 @@ other pin:
 - the first fixed version;
 - what outside data reaches the flaw, and where it lands (inside the console's
   program, or an emulator on its own with no network);
-- No, Look closer or Yes, and for a Yes, whether it falls under (E).
+- No, Look closer or Yes, and for a Yes, the smallest step that carries the
+  fix and how far it is from our pin.
 
 Say it in plain words, so it can be pasted on an issue as it is, and give it to
 whoever asked.
