@@ -278,7 +278,7 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
 - **Tailscale**, the row after Wi-Fi: how the console is reached away from
   home, for Remote Play and for a RomM server at its Tailscale address
   (MMagTech, 2026-10-08; in Network on its own switch since 2026-11-15,
-  `docs/decisions/2026-11-15-tailscale-own-switch.md`). **Built.** Off by
+  `docs/decisions/2026-11-15-tailscale-own-switch.md`). **Built, #715.** Off by
   default. It runs whenever it is on, whatever Remote Play is: turning
   Remote Play on or off leaves it alone, and so does a LinkUp session.
   **Greyed while a device streams**, since the stream may come in over it.
