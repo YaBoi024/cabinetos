@@ -447,6 +447,9 @@ void App::buildSettings() {
     // to bring the tile back. Somebody who never hid it never sees it.
     if (steam::available() && steam::hidden())
         sys.push_back({K::Action, SetSteamShow, "Steam", "", "Hidden"});
+    // GAME EVENTS (#716): one row, the address its switch; its host when
+    // on (gameeventsflow.cpp).
+    sys.push_back(gameEventsRow());
     // THE DIAGNOSTIC REPORT (#195): one row, the screen it opens says the
     // rest. No PIN: it changes nothing, and nothing private is in it.
     sys.push_back({K::Action, SetReport, "Diagnostic report", "", ""});
@@ -583,6 +586,8 @@ void App::applySetting(const screens::Result& res) {
         pressUpdate();
     } else if (res.value == SetServer) {
         pressServer();
+    } else if (res.value == SetGameEvents) {
+        pressGameEvents();
     } else if (res.value == SetRemoveAccount) {
         pressRemoveAccount();
     } else if (res.value == SetPinSet) {

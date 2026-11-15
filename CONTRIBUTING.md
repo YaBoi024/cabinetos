@@ -254,6 +254,7 @@ with 0 when it passes, and CI runs every one ("What CI checks"):
 | `--vectrex-sheets-test` | which Vectrex game takes which screen sheet: RomM's md5 first, then the longest name token, and the sheets that never shipped drawing nothing, against `frontend/data/vectrex-overlays.json` |
 | `--gpu-choice-test` | which GPU the games draw on (#659, `gpu.h`), on made-up devices: with one GPU that one; with two, the one the screen is on, in either order and whether or not it is the discrete card; the screen's GPU not known or not among them, a discrete card first and then the first listed; no device, none |
 | `--tailscale-switch-test` | Tailscale's own switch (#286, `tailscale.h`), on every combination of Tailscale, Remote Play and the update's step saved: the step turns off only a Tailscale saved on with Remote Play off, never turns one on, leaves Remote Play alone and changes nothing a second time; the boot script's rule and the app's agree on the first boot after the update, and after the step the switch alone decides |
+| `--game-events-test` | Game events (#716, `gameevents.h`), with a receiver on loopback inside the test and no other network: every message with every field, and a LinkUp friend's without `rom_id`, `system` and `cover`; the home-address rule on a table of addresses, a name that gives one public address among private ones refused, and a public address refused before anything connects; the knock first on each network, nothing else sent on a network that did not answer it, and nothing with no network; a redirect not followed; a slow receiver given up on at five seconds without holding the caller; and with no address, no sender and nothing sent |
 | `--dualsense-test` | the stand-in DualSense (#669, `vdualsense.h`), made for real through `/dev/uhid` beside two test pads, one with sensors and one with none: the kernel's driver made its gamepad, motion and touchpad devices with one uniq; the console refuses to seat it and the player count stays; SDL, standing in for the emulators' (Eden, Cemu, Vita3K), takes it as a game controller with the GUIDs Eden's lines and Cemu's profile carry, pairs its motion device (the udev rule) and reads a written tilt back in SDL's units, and a press and a stick where the layout puts them, by its own mapping and by the console's line; a pad without sensors gets a stand-in on which SDL finds none; rumble comes back; closing takes every device away. On a machine with no `/dev/uhid`, which CI's builder is, it says so and passes |
 | `--check-option-tables cores/options` | that every option the console sets (`coreoptions.cpp`, `quality.cpp`, `sysopts.cpp`, the Wii's rumble in `wii.cpp` and the Vectrex sheets' fit in `vectrexsheets.cpp`, with every answer that depends on the machine or a setting) exists in the core it is set on, and that every libretro core in `catalog.cpp`'s table has its list in `cores/options/` (CI runs it as a step of its own) |
 
@@ -272,7 +273,7 @@ pad has gone, and the sensors off and the devices gone when the pads close.
 Never run it while a PS3 game runs on the same console: RPCS3 finds the
 devices by name.
 
-**Every flag is in `frontend/src/cli.cpp`**, 128 of them plus
+**Every flag is in `frontend/src/cli.cpp`**, 129 of them plus
 `--check-option-tables` in `main.cpp`; there is no `--help`.
 `frontend/README.md` holds the build recipe and the storage tree. What it
 said about running and the flags in September 2026 is history, in
@@ -697,11 +698,14 @@ here, not reworded; follow the link for the full text.
 - **The console connects only to fixed places the code chooses:** the
   player's RomM server, GitHub for updates, and RetroAchievements, Flathub,
   Tailscale or Steam when the player uses them. Never to an address found in
-  the data, such as a cover's web address. LinkUp is the one curated
-  exception. While a player has it on, it connects to the LinkUp server they
-  paired with and the addresses that server hands it: a friend's console, a
-  relay and STUN helpers. While it is off, its program does not run and the
-  firewall blocks it.
+  the data, such as a cover's web address. LinkUp and Game events are the
+  two curated exceptions. While a player has LinkUp on, it connects to the
+  LinkUp server they paired with and the addresses that server hands it: a
+  friend's console, a relay and STUN helpers. While it is off, its program
+  does not run and the firewall blocks it. While the owner has Game events
+  on, the console sends what is happening in a game to the one address they
+  typed, and only while that address is on their own network, checked every
+  time it sends. While it is off, no part of it runs and nothing is sent.
 - **A feature a person does not use is completely off:** off to start with,
   and off means its program is not running, nothing listens and nothing is
   contacted.

@@ -382,6 +382,23 @@ def collect_secrets(root):
     s.add(linkup.get("address"), "linkup server", numbered=False)
     s.add(linkup.get("name"), "linkup server name", numbered=False)
 
+    # Game events (#716): the address of the owner's app, as typed, its host,
+    # and its path, which can be all that stands between that app and anybody
+    # else on the home network. settings.json is printed whole, and the
+    # frontend logs each setting it saves.
+    settings = read_json(os.path.join(root, "config", "settings.json")) or {}
+    events = str(settings.get("game_events_address") or "").strip()
+    if events:
+        bare = re.sub(r"^[a-z]+://", "", events).rstrip("/")
+        hostport, _, path = bare.partition("/")
+        s.add(events, "game events address", numbered=False)
+        s.add(bare, "game events address", numbered=False)
+        s.add(hostport, "game events app", numbered=False)
+        s.add(hostport.rsplit(":", 1)[0] if hostport.count(":") == 1 else hostport,
+              "game events app", numbered=False)
+        if path:
+            s.add("/" + path, "game events path", numbered=False)
+
     # File access and Developer access: the console user's login password
     # (system_files/usr/libexec/cabinetos-files). Nothing logs it, but sshd's
     # failures are kept, and one typed as a user name would be in them.

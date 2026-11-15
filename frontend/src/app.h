@@ -55,6 +55,7 @@
 #include "downloads.h"
 #include "drives.h"
 #include "files.h"
+#include "gameevents.h"
 #include "grid.h"
 #include "idle.h"
 #include "image.h"
@@ -1913,6 +1914,18 @@ struct App {
     // The address the keyboard is waiting on, while it says "Checking…".
     std::string serverKeyboardFor;
     void askNetwork();
+    // ---- Game events (#716), gameeventsflow.cpp ----------------------------
+    //
+    // Done's test message, off the frame thread: up to five seconds. The
+    // keyboard says "Checking…" meanwhile, 700 ms at least, the server row's
+    // shape. Joined as the App goes (job.h).
+    cab::Job<gameevents::Tried> geCheck;
+    std::string geCheckFor;       // the address being tried
+    Uint64 geCheckAt = 0;         // SDL_GetTicks when it started
+    // The address the keyboard is waiting on, while it says "Checking…".
+    std::string geKeyboardFor;
+    void askGameEventsAddress(const std::string& typed, const std::string& why);
+    void startGameEventsCheck(const std::string& address);
     // ---- Downloads (downloads.h), #68 --------------------------------------
     //
     // Every downloaded game, for Settings' Downloads panel, named as the
@@ -2328,6 +2341,18 @@ struct App {
     // serveraddressflow.cpp
     void takeServerCheck();
     void pressServer();
+    // gameeventsflow.cpp
+    screens::SettingsRow gameEventsRow();
+    void pressGameEvents();
+    void takeGameEventsCheck();
+    void startGameEventsAtBoot();
+    gameevents::Who gameEventsWho();
+    void gameEventStarted();
+    void gameEventEnded(int64_t playedMs);
+    void followGameEventsPause();
+    void gameEventUnlocked(const ra::Popup& p);
+    void gameEventFriendStarted();
+    void gameEventFriendEnded();
     // curtain.cpp
     void startCurtain();
     void drawCurtain(float sc);

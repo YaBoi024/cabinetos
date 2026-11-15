@@ -44,6 +44,9 @@ void App::runFrameLoop() {
         followDrives();
         followStopAsk();
         waitForUploadsToPowerDown();
+        // GAME EVENTS (#716): the pause menu over a game, said on a change.
+        // Here, before the emulator's watch, which ends the frame early.
+        followGameEventsPause();
 
         // THE SCREENSHOT gamescope is writing, whenever there is one.
         pumpStandaloneShot();
@@ -189,6 +192,7 @@ void App::runFrameLoop() {
             pumpPadWindow();
             takeWifiJoin();
             takeServerCheck();
+            takeGameEventsCheck();
             tickSearch(dt, ctx);
 
             showDetailProgress();

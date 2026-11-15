@@ -954,6 +954,23 @@ Network, since 2026-11-15.
 
 - **Developer access**: moved to About, below (it is About's last row).
 
+- **Game events** (#716; `docs/decisions/2026-11-15-game-events.md`): the
+  console tells one app in the owner's home (n8n, Home Assistant, Node-RED)
+  what is happening in a game, and that app does the rest. One row, above
+  Diagnostic report; the address is the switch, console-wide
+  (`game_events_address` in `config/settings.json`), off for every console to
+  start. **Off:** pressing it (PIN if set) opens the keyboard with `http://`
+  already in it. Done sends the test message ("Checking…" in the field, 700 ms
+  at least). If the app answers, the address is saved and the row shows its
+  host ("n8n.local"); if not, the field says why and keeps what was typed:
+  "Not on your home network", "Can't connect", "It answered with an error
+  (404)" or "Its certificate isn't trusted. Use http:// at home." **On:**
+  pressing it (PIN if set) opens a panel titled with the address: Change
+  address, Stop sending, Cancel. Stop sending wipes the address. The RomM
+  server row's shape, and nothing else anywhere on the console. The messages
+  and the rules they keep (home addresses only, a knock on every network,
+  nothing kept for later) are `frontend/src/gameevents.h`. **Built, #716.**
+
 - **Diagnostic report** (#195, built 2026-10-10; docs/PROJECT.md,
   open question 41). One row, no PIN. Pressing it opens a screen, "Creating…"
   for a few seconds, then the QR code (a download link to the report, home

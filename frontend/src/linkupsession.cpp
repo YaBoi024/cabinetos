@@ -472,8 +472,12 @@ void App::linkupSessionOpens(LinkupSide side) {
 }
 
 void App::linkupSessionClosed() {
-    // The friend's player 1 sent its tilt; nothing reads it now.
-    if (linkupSide == LinkupSide::Friend) linkuppad::senseHere(false);
+    // The friend's player 1 sent its tilt; nothing reads it now. A game on
+    // ends with the session, for Game events.
+    if (linkupSide == LinkupSide::Friend) {
+        linkuppad::senseHere(false);
+        gameEventFriendEnded();
+    }
     linkupSide = LinkupSide::None;
     linkupStreamUp = false;
     linkupStartPending = false;
@@ -991,11 +995,13 @@ void App::linkupFromPeer(const std::string& word, json_object* message) {
     } else if (word == "starting" && linkupSide == LinkupSide::Friend) {
         const std::string game = textOf(message, "game");
         if (!game.empty()) linkupGame = game;
+        gameEventFriendStarted();
         linkupPlay.clearPlace();
         linkupPlay.open(Shows::Waiting, linkup::waitingFor(who), linkupGame, /*friendSide=*/true);
     } else if (word == "place" && linkupSide == LinkupSide::Friend) {
         linkupTookPlace(message);
     } else if (word == "quit" && linkupSide == LinkupSide::Friend) {
+        gameEventFriendEnded();
         linkupPlay.clearPlace();
         linkupPlay.open(Shows::Waiting, linkup::waitingFor(who), "", /*friendSide=*/true);
     } else if (word == "ended" && linkupSide == LinkupSide::Friend) {

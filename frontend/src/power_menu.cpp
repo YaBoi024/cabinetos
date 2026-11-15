@@ -208,7 +208,7 @@ void App::pollPower() {
 void App::waitForUploadsToPowerDown() {
     if (releasePending) {
         const double waited = (SDL_GetTicksNS() - releaseWaitStart) / 1e9;
-        if (uploader.pending() == 0 || waited > 25.0) {
+        if ((uploader.pending() == 0 && gameevents::pending() == 0) || waited > 25.0) {
             if (uploader.pending() > 0)
                 std::fprintf(stderr, "[shutdown] going down with %d upload(s) still owed\n",
                              uploader.pending());
@@ -218,7 +218,7 @@ void App::waitForUploadsToPowerDown() {
     }
     if (restPending) {
         const double waited = (SDL_GetTicksNS() - restWaitStart) / 1e9;
-        if (uploader.pending() == 0 || waited > 20.0) {
+        if ((uploader.pending() == 0 && gameevents::pending() == 0) || waited > 20.0) {
             if (uploader.pending() > 0)
                 std::fprintf(stderr, "[power] resting with %d upload(s) still owed\n",
                              uploader.pending());

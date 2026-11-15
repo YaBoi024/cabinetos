@@ -4,6 +4,15 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## Next
+
+- **New:** Game events. The console can tell an app in your home, such as
+  n8n or Home Assistant, when a game starts, pauses, ends, or unlocks an
+  achievement, so the app can dim the lights or post to your Discord. Set it
+  in Settings, **System**, **Game events**. It is off until you type an
+  address, and it only ever sends to that address while it is on your own
+  network. ([#716](https://github.com/MMagTech/cabinetos/issues/716))
+
 ## 2026.11.15 {#v2026-11-15}
 
 - **New:** reach your RomM server away from home through Tailscale. Sign the

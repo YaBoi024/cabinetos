@@ -327,6 +327,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             return ui::keyboardTest();
         } else if (SDL_strcmp(argv[i], "--gone-games-test") == 0) {
             return gone::test();
+        } else if (SDL_strcmp(argv[i], "--game-events-test") == 0) {
+            return gameevents::test();
         } else if (SDL_strcmp(argv[i], "--battery-test") == 0) {
             batteryTestMode = true;
         } else if (SDL_strcmp(argv[i], "--volume-test") == 0) {
