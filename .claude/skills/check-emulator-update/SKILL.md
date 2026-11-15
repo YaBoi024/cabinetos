@@ -18,6 +18,7 @@ list.
 From the repository and GitHub only, with no web reading. The pins:
 
     grep -nE '^\s*(REPO|COMMIT)=' cores/build-*.sh
+    grep -nE '^MAME_COMMIT=' cores/fetch-mame.sh
     grep -nE '^readonly [A-Z0-9_]+_(VERSION|RELEASE|URL)=' build_files/install-*.sh
     grep -vE '^\s*(#|$)' system_files/usr/share/cabinetos/flatpaks.list
 
@@ -36,8 +37,10 @@ unasked.
 
 1. **Find the pin and when it was set.** A core: `REPO` and `COMMIT` in its
    `case` arm in `cores/build-core.sh`. Others: the other `cores/build-*.sh`
-   (PCSX2, Cemu, sm2-emu, Supermodel, Sunshine), `build_files/install-*.sh`
-   and `system_files/usr/share/cabinetos/flatpaks.list`. Date it with
+   (PCSX2, Cemu, sm2-emu, Supermodel, Sunshine), MAME's `MAME_COMMIT` in
+   `cores/fetch-mame.sh` (a libretro/mame commit, built once and downloaded),
+   `build_files/install-*.sh` and
+   `system_files/usr/share/cabinetos/flatpaks.list`. Date it with
    `git log -S<value>` on that file. A downloaded build names its upstream
    commit in its version or on its release page. A Flathub pin's version comes
    from `flatpak remote-info --system --log flathub <app>` on the reference

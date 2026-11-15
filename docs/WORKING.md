@@ -145,7 +145,9 @@ Bazzite fixes, or a security hole, is taken by hand in between
 Bazzite"). The same day, `terra-fallback-update.yml` keeps the stored
 spare of Steam's session (`build_files/terra-fallback/`) current, so both
 ride one update. Once the base update has merged, the downloads are cut
-again from it (`build-disk.yml`, below).
+again from it (`build-disk.yml`, below). The base update covers only what
+comes from Bazzite, so the same day, run the skill `check-security-fixes`
+over the pins of our own.
 
 Neither merges anything.
 
