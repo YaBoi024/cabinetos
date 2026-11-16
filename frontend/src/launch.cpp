@@ -27,6 +27,8 @@
 #include "standalone.h"
 #include "storage.h"
 #include "sysopts.h"
+#include "unsettled.h"
+#include "update.h"
 #include "vectrexsheets.h"
 #include "wii.h"
 #include "wiimii.h"
@@ -304,11 +306,17 @@ bool beginLaunch(LaunchJob& job, romm::Client& client, const romm::Game& game,
     const int64_t expectedSize = game.sizeBytes;
     const bool multiFile = game.multiFile;
     const std::string entryPath = job.entryPath;
+    // THE LIST OF WHAT THE DRIVE MAY NOT HAVE YET (unsettled.h, #559) is
+    // begun before the worker writes anything, which first deletes what a
+    // power cut may have left damaged from an earlier boot, and handed to a
+    // thread of its own when the worker ends, however it ends.
     job.worker = std::thread([&job, &client, id, platformId, slug, fsSlug, fsName, emu,
                               entryPath, location, validExts, blockExtract, expectedSize,
                               multiFile, user]() {
+        unsettled::begin(id, update::bootId());
         launchWorker(job, client, id, platformId, slug, fsSlug, fsName, emu, entryPath,
                      location, validExts, blockExtract, expectedSize, multiFile, user);
+        unsettled::settle();
     });
     return true;
 }
@@ -349,7 +357,8 @@ auto App::launchById(int romId) -> bool {
             return true;
         }
         // SAID, NOT SILENT (#184): a press that did nothing looked like a
-        // broken button. One download at a time until there is a queue.
+        // broken button. One download or one game at a time, and no queue
+        // (docs/decisions/2026-11-09-one-download-or-one-game-at-a-time.md).
         menuNotice.say(launchJob.title + " is still downloading", Tone::Info);
         // THE SAME GAME, ALREADY JOINED, is a press that counts (#484), so
         // the state a second Play from a state picked goes with the launch.
@@ -1154,6 +1163,7 @@ void App::startPlaying(cab::Core& core) {
     if (session.romId > 0) {
         playClock.begin(session.romId, playtime::wallMs());
         playCheckpointClock = 0.0f;
+        gameEventStarted();
     }
 }
 

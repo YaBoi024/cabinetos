@@ -121,9 +121,10 @@ bool sharing();
 // game starting makes the last-pressed of the Deck and one other pad player one.
 void pressed(SDL_JoystickID id);
 
-// LINKUP'S FRIEND (#654): the pad a friend's presses arrive as. It is player two (Seats::setFriend),
-// and a set-aside pad to everything else, so no menu or screen ever hears it. Taken out, a game keeps
-// its two players until it ends: an unplugged controller stops some games, and an idle one stops none.
+// LINKUP'S FRIEND (#654): the pad a friend's presses and tilt arrive as (linkup_pad.h). It is player
+// two (Seats::setFriend), and a set-aside pad to everything else, so no menu or screen ever hears it.
+// Taken out, a game keeps its two players until it ends: an unplugged controller stops some games, and
+// an idle one stops none.
 void seatFriend(SDL_JoystickID id);
 void unseatFriend();
 

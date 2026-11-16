@@ -18,6 +18,7 @@ list.
 From the repository and GitHub only, with no web reading. The pins:
 
     grep -nE '^\s*(REPO|COMMIT)=' cores/build-*.sh
+    grep -nE '^MAME_COMMIT=' cores/fetch-mame.sh
     grep -nE '^readonly [A-Z0-9_]+_(VERSION|RELEASE|URL)=' build_files/install-*.sh
     grep -vE '^\s*(#|$)' system_files/usr/share/cabinetos/flatpaks.list
 
@@ -26,18 +27,34 @@ For each one: the date it was set (step 1), the commits upstream since
 upstream's newest release and its date, the open issues that name it (step 3),
 and whether a report behind one of its patches has closed (step 4).
 
+**A count of commits can hide a big jump.** Many cores carry a copy of another
+project inside them (a git subrepo, with a `.gitrepo` file in the copy's
+folder, or a submodule), and one commit can replace that copy wholesale. For
+each such copy, read which upstream commit it is at our pin and at upstream's
+head (`gh api "repos/<owner>/<repo>/contents/<copy>/.gitrepo?ref=<sha>" --jq
+.content | base64 -d`, its `commit` line; a submodule's is the tree entry),
+date both, and compare them. Also read the titles of the commits since the pin
+(the command in step 5, A) for a re-sync of a copy (`subrepo clone`,
+`subrepo pull`, "sync with upstream") or a version bump. Found 2026-11-14:
+Mupen64Plus-Next's pin was 11 commits behind, and one of them, on 2026-09-18,
+moved its bundled core from a version of 2025-02 to one of 2026-09 (89
+commits, 111 files) and made it 3.0, with no release or tag.
+
 Suggest a full check only where the list shows a possible reason: an open issue
-(B), a closed report behind a patch (D), a runtime at end of life (E), or a
-release or progress report since the pin that could hold A or C. Never because
-a pin is old or far behind. Each full check reads upstream's pages, so run none
+(B), a closed report behind a patch (D), a runtime at end of life or a hole
+`check-security-fixes` reported (E), or a release, progress report, re-synced
+copy or version bump since the pin that could hold A or C. Never because a pin
+is old or far behind. Each full check reads upstream's pages, so run none
 unasked.
 
 ## The full check, for one
 
 1. **Find the pin and when it was set.** A core: `REPO` and `COMMIT` in its
    `case` arm in `cores/build-core.sh`. Others: the other `cores/build-*.sh`
-   (PCSX2, Cemu, sm2-emu, Supermodel, Sunshine), `build_files/install-*.sh`
-   and `system_files/usr/share/cabinetos/flatpaks.list`. Date it with
+   (PCSX2, Cemu, sm2-emu, Supermodel, Sunshine), MAME's `MAME_COMMIT` in
+   `cores/fetch-mame.sh` (a libretro/mame commit, built once and downloaded),
+   `build_files/install-*.sh` and
+   `system_files/usr/share/cabinetos/flatpaks.list`. Date it with
    `git log -S<value>` on that file. A downloaded build names its upstream
    commit in its version or on its release page. A Flathub pin's version comes
    from `flatpak remote-info --system --log flathub <app>` on the reference
@@ -76,8 +93,13 @@ unasked.
      change. If the list shows only each game's current status, with no
      history to compare, or there is no public list, C is not met; say which.
      Never cross-reference anyone's library.
-6. **E:** a runtime reaching end of life, a security fix in something facing
-   the network, or a fix needed for hardware we support.
+6. **E:** a runtime reaching end of life, a security fix for a hole that
+   outside data can reach (a request over the network, or a game file, save or
+   state; `check-security-fixes` finds these), or a fix needed for hardware we
+   support. For a security fix, the target in step 7 is the smallest step that
+   carries it, not a quiet stretch past it; where the fix exists only in a
+   large jump, the move still needs everything step 7 names, with saves and
+   states tried first. Security is a reason to move, never a reason to rush.
 7. **Cost:** this emulator's row in "Moved by a pin of ours": what we lean on
    and what is checked when the pin moves. Choose the target build after a quiet
    stretch of upstream history, not the newest commit. Search upstream's open

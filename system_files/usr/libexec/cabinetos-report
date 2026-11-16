@@ -440,6 +440,23 @@ def collect_secrets(root):
     s.add(linkup.get("address"), "linkup server", numbered=False)
     s.add(linkup.get("name"), "linkup server name", numbered=False)
 
+    # Game events (#716): the address of the owner's app, as typed, its host,
+    # and its path, which can be all that stands between that app and anybody
+    # else on the home network. settings.json is printed whole, and the
+    # frontend logs each setting it saves.
+    settings = read_json(os.path.join(root, "config", "settings.json")) or {}
+    events = str(settings.get("game_events_address") or "").strip()
+    if events:
+        bare = re.sub(r"^[a-z]+://", "", events).rstrip("/")
+        hostport, _, path = bare.partition("/")
+        s.add(events, "game events address", numbered=False)
+        s.add(bare, "game events address", numbered=False)
+        s.add(hostport, "game events app", numbered=False)
+        s.add(hostport.rsplit(":", 1)[0] if hostport.count(":") == 1 else hostport,
+              "game events app", numbered=False)
+        if path:
+            s.add("/" + path, "game events path", numbered=False)
+
     # File access and Developer access: the console user's login password
     # (system_files/usr/libexec/cabinetos-files). Nothing logs it, but sshd's
     # failures are kept, and one typed as a user name would be in them.
@@ -1280,13 +1297,15 @@ def section_updates():
     # EDEN AND XEMU COME FROM FLATHUB, not the image: each at the commit
     # /usr/share/cabinetos/flatpaks.list pins, which cabinetos-flatpak-setup
     # puts in place, and a console that could not reach Flathub may not have.
-    out += "\n--- Emulators from Flathub, and their runtimes\n"
+    # A ref listed on two branches (the graphics driver) is named with each.
+    out += "\n--- Emulators from Flathub, their runtimes and graphics driver\n"
     rows = []
-    for line in (read("/usr/share/cabinetos/flatpaks.list") or "").splitlines():
-        parts = line.split()
-        if len(parts) != 4 or parts[0] not in ("app", "runtime"):
-            continue
+    lines = [l.split() for l in (read("/usr/share/cabinetos/flatpaks.list") or "").splitlines()]
+    lines = [p for p in lines if len(p) == 4 and p[0] in ("app", "runtime")]
+    names = [p[1] for p in lines]
+    for parts in lines:
         ref, branch, pinned = parts[1], parts[2], parts[3]
+        label = ref if names.count(ref) == 1 else "%s//%s" % (ref, branch)
         info = run(["flatpak", "info", "--system", "%s//%s" % (ref, branch)], timeout=10)
         version = re.search(r"^\s*Version:\s*(\S+)", info, re.M)
         have = re.search(r"^\s*Commit:\s*([0-9a-f]+)", info, re.M)
@@ -1297,7 +1316,7 @@ def section_updates():
             state = "%s, the pinned commit" % version
         else:
             state = "%s, NOT the pinned commit (%s, pinned %s)" % (version, have.group(1)[:12], pinned[:12])
-        rows.append((ref, state))
+        rows.append((label, state))
     out += kv(rows) if rows else "(none listed)\n"
     return out
 

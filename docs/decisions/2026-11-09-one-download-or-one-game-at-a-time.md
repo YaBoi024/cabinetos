@@ -1,0 +1,7 @@
+# One download or one game at a time
+
+- **Decided:** The console does one thing at a time: a download or a game. While a game downloads, Play or Download on any other game says "<game> is still downloading", a game already on the console included. A download never runs behind a game and never pauses for one. Stop on the download's own row is the way to get the console back.
+- **Date:** 2026-11-09
+- **Why:** The pain was a wrong press on a big game locking the console for the length of its download, and Stop on the row (2026-11-06) ended that. What is left is a person who wants the download kept and a game now. The only build that gives them that is a download running behind the game, which CabinetOS does not do: it runs on all kinds of PCs, the game being played gets the whole machine, and the frontend's one job would have to become two. A download that pauses while a game plays and carries on after was considered and dropped: the download still waits for the game, so the person waits as long as before. A queue of downloads was never wanted; the console is for finding a game and playing it.
+- **Numbers:** #600, "While a game downloads, no other game can start"; #184, "Only one game can download at a time: a second Play or Download is ignored silently, and cannot be queued"; PR #663, "A download can be stopped from its row".
+- **Replaces:** the pause planned on #600 on 2026-10-29.

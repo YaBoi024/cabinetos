@@ -1,11 +1,13 @@
 // LinkUp's rows in Settings (#654): the switch and Server, whose panel holds Add a
-// server or Change server, Run your own and Leave, with the PIN where the plan asks
-// for it. Turning LinkUp on, adding or changing a server and Leave ask for it;
-// playing never does.
+// server or Change server, Run your own and Leave, and Enter a code first on a console
+// taken off its server (#690), with the PIN where the plan asks for it. Turning LinkUp
+// on, adding or changing a server, entering a code and Leave ask for it; playing never
+// does.
 
 #include "app.h"
 
 #include <string>
+#include <vector>
 
 #include <json-c/json.h>
 
@@ -123,6 +125,8 @@ void App::tickLinkUp(float dt) {
             if (linkupGallery) {
                 linkUp.paired = true;
                 linkUp.server = linkupPairingAddress;
+                linkUp.instead.clear();
+                refreshLinkUpScreen();
                 buildSettings();
                 menuNotice.text.clear();
             } else {
@@ -175,7 +179,9 @@ void App::pressRunYourOwn() {
     sound::play(sound::Cue::Activate);
 }
 
-// One row for the server, saying which, and the rest in a panel, as Wi-Fi's are.
+// One row for the server, saying which, and the rest in a panel, as Wi-Fi's are. On a
+// console taken off its server, typing a code for it again is what the person came for,
+// so it comes first: Change server with the same address would keep the console off.
 void App::pressLinkUpServer() {
     sound::play(sound::Cue::Activate);
     if (!linkUp.paired) {
@@ -185,11 +191,25 @@ void App::pressLinkUpServer() {
         });
         return;
     }
-    linkupPanel(linkUp.server, "", {"Change server", "Run your own", "Leave"}, 0, [&](int c) {
-        if (c == 0) linkupAskPin("To change the server", [&]() { linkupRetypeAddress(); });
-        if (c == 1) pressRunYourOwn();
-        if (c == 2) pressLinkUpLeave();
+    const bool removed = linkUp.instead == linkup::kConsoleRemoved;
+    std::vector<std::string> rows = {"Change server", "Run your own", "Leave"};
+    if (removed) rows.insert(rows.begin(), "Enter a code");
+    linkupPanel(linkUp.server, "", rows, 0, [&, removed](int c) {
+        const int row = removed ? c - 1 : c;
+        if (row == -1) linkupEnterCode();
+        if (row == 0) linkupAskPin("To change the server", [&]() { linkupRetypeAddress(); });
+        if (row == 1) pressRunYourOwn();
+        if (row == 2) pressLinkUpLeave();
     });
+}
+
+// The owner changed this person's code or removed them, and the server took the console
+// off (#690). It comes back with a code typed again, the person's own or a new invite, on
+// Add a server's Code screen with the same address: the same pairing as Add a server, and
+// the PIN as for it, since a code is what lets someone onto the server. From the LinkUp
+// tab's line and from the Server panel.
+void App::linkupEnterCode() {
+    linkupAskPin("To enter a code", [&]() { linkupAskCode(linkUp.server, ""); });
 }
 
 void App::pressLinkUpLeave() {

@@ -76,6 +76,18 @@ inline const std::string kRepositoryUrl = "https://github.com/MMagTech/cabinet-l
 // How long the person hosting has to pick the next game before the session ends.
 constexpr float kNextGameSeconds = 5.0f * 60.0f;
 
+// THE IDLE RULE, over a running game: 10 minutes with no press from either player pause both with
+// Still playing?, and 15 more end the session. The end counts from the last press whatever is on the
+// screen, so a game left stopped under a menu, or a press that only woke the screen and left the
+// question up, still ends: once the question is up there is nothing more to pause, and a press
+// since it came starts the 25 minutes again.
+constexpr float kIdlePauseSeconds = 10 * 60.0f;
+constexpr float kIdleEndSeconds = 15 * 60.0f;
+enum class IdleStep { None, Pause, PressedSince, End };
+// `idleFor`: seconds since either player's last press. `paused`: this rule paused the game and no
+// press has come since. `stoppedAlready`: a menu or a question is over the game.
+IdleStep idleStep(float idleFor, bool paused, bool stoppedAlready);
+
 std::string invitedYou(const std::string& who);
 std::string declined(const std::string& who);
 std::string noAnswer(const std::string& who);

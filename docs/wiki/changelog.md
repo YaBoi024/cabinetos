@@ -4,6 +4,156 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## Next
+
+- **New:** Game events. The console can tell an app in your home, such as
+  n8n or Home Assistant, when a game starts, pauses, ends, or unlocks an
+  achievement, so the app can dim the lights or post to your Discord. Set it
+  in Settings, **System**, **Game events**. It is off until you type an
+  address, and it only ever sends to that address while it is on your own
+  network. [Game events](game-events.md) has every message and ready-made n8n
+  workflows to start from: Discord, Telegram, and Philips Hue lights that take
+  their colours from the game's cover.
+  ([#716](https://github.com/MMagTech/cabinetos/issues/716))
+
+## 2026.11.15 {#v2026-11-15}
+
+- **New:** reach your RomM server away from home through Tailscale. Sign the
+  console in to Tailscale in Settings, **Network**, then change the RomM
+  server's address to RomM's Tailscale address. Your games and saves stay.
+  ([How](network.md#reaching-romm-away-from-home))
+- **Changed:** Tailscale moved from Streaming to Settings, **Network**, with
+  its own switch: turning Remote Play off no longer turns Tailscale off. If
+  you had Tailscale on while Remote Play was off, it stays off after this
+  update, as it showed; your sign-in is kept, so **Connect** brings it back.
+  **Disconnect** now asks for the PIN when one is set.
+  ([Tailscale](network.md#tailscale))
+
+## 2026.11.14.3 {#v2026-11-14-3}
+
+- **Improved:** three more controllers are in the console's controller list:
+  a PDP Xbox One controller, the Razer Wolverine V2 Xbox and the Unico MVS
+  Mini Pad. ([Which controllers work](controllers.md#which-controllers-work))
+
+## 2026.11.14.2 {#v2026-11-14-2}
+
+- **Fixed:** if the power went off in the few minutes after a game finished
+  downloading, unpacking or installing, that game could fail to start every
+  time until you removed its download, most often on a USB drive formatted
+  on another computer. The console now notices at the game's next start and
+  downloads, unpacks or installs it again. Games start as quickly as
+  before.
+  ([#559](https://github.com/MMagTech/cabinetos/issues/559))
+
+## 2026.11.13.3 {#v2026-11-13-3}
+
+- **Fixed:** in LinkUp, when your friend's console went away during a game
+  without ending the session (a power cut, a crash, its network gone), your
+  console said *Reconnecting to Alex* without end, and every 15 seconds said
+  *Alex is back* for a moment. It now waits a minute, then says *Alex left*,
+  and your game carries on. ([LinkUp](linkup.md#while-you-play))
+- **Fixed:** in LinkUp, when you joined a friend's game and the connection
+  dropped and came back, your console showed the game's picture standing
+  still instead of *Waiting for Alex*, until Alex pressed **A** to resume. It
+  now says *Waiting for Alex* until the game is back.
+  ([LinkUp](linkup.md#while-you-play))
+
+## 2026.11.13.2 {#v2026-11-13-2}
+
+- **New:** in LinkUp, **Status** follows you onto every console you sign in
+  on as the same account: choose Offline on one and the others turn Offline
+  too, and choosing Online on any brings them all back. If you chose Offline
+  before this update, choose it once more. This needs the newest version of
+  the LinkUp server; with an older one, Status stays each console's own. ([#690](https://github.com/MMagTech/cabinetos/issues/690),
+  [LinkUp](linkup.md#play))
+- **New:** a console taken off its LinkUp server, after the owner changed your
+  code or removed you, comes back with the code alone: press **A** on
+  *Removed from the LinkUp server*, or Settings, **Streaming**, **Server**,
+  **Enter a code**, and type it. Until now that took leaving the server and
+  adding it again. ([LinkUp](linkup.md#if-it-wont-connect))
+- **Fixed:** in LinkUp, *Removed from the LinkUp server* faded out and back
+  in every 25 seconds while it waited for a code. It now stays still until
+  the code is typed, and the console stays on the server afterwards.
+  ([LinkUp](linkup.md#if-it-wont-connect))
+
+## 2026.11.12.3 {#v2026-11-12-3}
+
+- **Fixed:** in LinkUp, when the game was paused for both of you and either
+  of you pressed **A** to resume, the console hosting the game showed its own
+  pause menu (Resume, Save State, Load State) for a moment before the game
+  came back. The LinkUp message now fades straight back to the game.
+  ([LinkUp](linkup.md#while-you-play))
+
+## 2026.11.12 {#v2026-11-12}
+
+- **Fixed:** in LinkUp, if someone woke the TV during *Still playing?* without
+  pressing **A**, or the game was left paused under a menu, the session never
+  ended by itself. It now ends 25 minutes after the last press, whatever is on
+  the screen. ([LinkUp](linkup.md#while-you-play))
+
+## 2026.11.11.3 {#v2026-11-11-3}
+
+- **New:** in LinkUp, your friend's controller tilts and turns in Switch and
+  PlayStation 3 games made for it, as it would on their own console: steering,
+  aiming or balancing where a game asks. Both consoles need this update. In
+  Wii U and PS Vita games only player 1's controller tilts, and that is yours.
+  ([#669](https://github.com/MMagTech/cabinetos/issues/669),
+  [Motion](controllers.md#motion))
+- **Fixed:** in LinkUp, a game never paused by itself when neither of you
+  pressed anything, and the session never ended. It now pauses after 10
+  minutes with no press and ends 15 minutes later, as it was meant to.
+  ([LinkUp](linkup.md#while-you-play))
+
+## 2026.11.11.2 {#v2026-11-11-2}
+
+- **New:** tilting and turning the controller in Switch, Wii U and PS Vita
+  games made for it, with a controller that has motion sensors (PS4, PS5 and
+  Switch controllers). Tilt or turn it where a game asks you to move the
+  controller, such as aiming, steering or looking around. In Switch games
+  each player's own controller moves their part of the game; in Wii U games
+  player 1's controller is the GamePad; in PS Vita games player 1's
+  controller is the Vita. A controller without motion sensors plays them as
+  before.
+  ([#669](https://github.com/MMagTech/cabinetos/issues/669),
+  [Motion](controllers.md#motion))
+
+## 2026.11.11 {#v2026-11-11}
+
+- **Fixed:** in LinkUp, the soft glow in the bars beside the game reached
+  your friend's TV in blocky steps. Their console now draws the glow itself,
+  as smooth as on yours.
+  ([#692](https://github.com/MMagTech/cabinetos/issues/692))
+
+## 2026.11.10.3 {#v2026-11-10-3}
+
+- **New:** tilting and turning the controller in PlayStation 3 games made for
+  it, with a controller that has motion sensors (PS4, PS5 and Switch
+  controllers). Every player's own controller moves their part of the game:
+  tilt or turn it where a game asks you to move the controller, such as
+  steering, balancing or aiming. A controller without motion sensors plays
+  them as before.
+  ([#683](https://github.com/MMagTech/cabinetos/issues/683),
+  [Motion](controllers.md#motion))
+
+## 2026.11.10.2 {#v2026-11-10-2}
+
+- **Changed:** Switch and original Xbox games run on exactly the same
+  graphics driver and libraries on every console, the ones they are tested
+  with. If your console had a different build of the driver, each of these
+  games builds its shaders again the first time you play it after this
+  update, so its first minutes may stutter.
+
+## 2026.11.10 {#v2026-11-10}
+
+- **New:** tilting and turning in the Game Boy Advance and 3DS games made for
+  it, with a controller that has motion sensors (PS4, PS5 and Switch
+  controllers). Player 1's controller is the one these games read: tilt or
+  turn it as the game asks. Game Boy Advance cartridges with a tilt or gyro
+  sensor turn with it, and 3DS games use it wherever a 3DS was moved, such as
+  aiming. A controller without motion sensors plays them as before.
+  ([#670](https://github.com/MMagTech/cabinetos/issues/670),
+  [Motion](controllers.md#motion))
+
 ## 2026.11.09.5 {#v2026-11-09-5}
 
 - **Fixed:** in Settings, **Wi-Fi**, a network the console had saved twice

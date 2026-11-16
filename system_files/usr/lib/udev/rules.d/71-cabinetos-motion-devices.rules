@@ -1,0 +1,29 @@
+# The PS3's motion (#683): each player's motion device, which the console
+# makes beside the player's virtual controller (frontend/src/vpad.cpp) for
+# RPCS3 to read as its "Buddy Device". A uinput device with the
+# accelerometer property, under the virtual controllers' identity (pid.codes
+# 1209, product cab0), which nothing else on the console has.
+#
+# RPCS3 runs as the seat's user, and an accelerometer is the input group's
+# alone by default, so this gives the seat's user access, as systemd does for
+# pads. After 60-input-id.rules, which marks it ID_INPUT_ACCELEROMETER, and
+# 70-uaccess.rules; before 71-seat.rules and 73-seat-late.rules, which turn
+# the tag into the grant.
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT_ACCELEROMETER}=="1", \
+  ATTRS{id/vendor}=="1209", ATTRS{id/product}=="cab0", TAG+="uaccess"
+
+# The stand-in DualSense (#669, frontend/src/vdualsense.cpp): a /dev/uhid
+# device with Sony's id, which the kernel's PlayStation driver turns into a
+# gamepad, a "Motion Sensors" device and a touchpad. The gamepad is a joystick
+# to udev and gets the seat's access by systemd's own rule; the motion device
+# is an accelerometer and would stay the input group's, so the emulator's SDL
+# (Eden, Cemu, Vita3K), running as the seat's user, could not open it and
+# would pair nothing. The console's own name picks it out, since Sony's id is
+# a real pad's too, and its address says it carries a pad's tilt: a stand-in
+# for a pad without sensors wears ca:b1:4e:70:51:0N and its motion device
+# stays the input group's, so the emulator finds no sensors on it, as on the
+# player's own pad.
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT_ACCELEROMETER}=="1", \
+  ATTRS{id/vendor}=="054c", ATTRS{id/product}=="0df2", \
+  ATTRS{name}=="CabinetOS player ? Motion Sensors", \
+  ATTRS{uniq}=="ca:b1:4e:70:50:0?", TAG+="uaccess"

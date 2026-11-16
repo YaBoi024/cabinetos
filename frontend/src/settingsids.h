@@ -12,7 +12,7 @@ enum SettingId { SetAddAccount = 1, SetInterfaceSounds, SetPinSet, SetPinChange,
                  SetWiiRemotes, SetSteam, SetSteamShow, SetRetroAchievements,
                  SetAchievementSound, SetDeveloper, SetVersion, SetRemotePlay,
                  SetPairedDevices, SetTailscale, SetReport, SetHowTo, SetPads,
-                 SetWhatsNew, SetLinkUp, SetLinkUpServer,
+                 SetWhatsNew, SetLinkUp, SetLinkUpServer, SetGameEvents,
                  SetSleepAfter, SetChargeLimit, SetDimAfter };   // FORK (handheld)
 // One Eject row per USB drive: this plus the drive's index in
 // storage::locations() when the rows were built.

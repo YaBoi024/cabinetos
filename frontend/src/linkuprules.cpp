@@ -157,6 +157,13 @@ bool codeComplete(const std::string& tidied) {
     return tidied.size() == kCodeLength + (kCodeLength / kCodeGroup - 1);
 }
 
+IdleStep idleStep(float idleFor, bool paused, bool stoppedAlready) {
+    if (idleFor >= kIdlePauseSeconds + kIdleEndSeconds) return IdleStep::End;
+    if (paused) return idleFor < kIdlePauseSeconds ? IdleStep::PressedSince : IdleStep::None;
+    if (idleFor >= kIdlePauseSeconds && !stoppedAlready) return IdleStep::Pause;
+    return IdleStep::None;
+}
+
 int test() {
     int failed = 0;
     auto check = [&](bool ok, const char* what) {
@@ -233,6 +240,17 @@ int test() {
     }
     std::vector<Friend> nobody;
     check(groups(nobody).empty(), "nobody means no headings");
+
+    const float pause = kIdlePauseSeconds, end = kIdlePauseSeconds + kIdleEndSeconds;
+    check(idleStep(pause - 1, false, false) == IdleStep::None, "under 10 minutes with no press, nothing");
+    check(idleStep(pause, false, false) == IdleStep::Pause, "at 10 minutes the game pauses with the question");
+    check(idleStep(pause, false, true) == IdleStep::None, "a game already stopped under a menu gets no question over it");
+    check(idleStep(pause + 60, true, true) == IdleStep::None, "paused and untouched, it waits");
+    check(idleStep(end, true, true) == IdleStep::End, "15 minutes after the pause the session ends");
+    check(idleStep(5, true, true) == IdleStep::PressedSince, "a press after the pause is somebody there");
+    check(idleStep(pause, false, true) == IdleStep::None && idleStep(end, false, true) == IdleStep::End,
+          "a press that only woke the screen, the question still up: 25 minutes after it the session ends");
+    check(idleStep(end - 1, false, true) == IdleStep::None, "and not a second sooner");
 
     std::fprintf(stderr, "[linkup-test] %s\n", failed == 0 ? "ok" : "FAILED");
     return failed == 0 ? 0 : 1;

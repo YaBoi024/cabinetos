@@ -1,0 +1,191 @@
+{
+  "name": "CabinetOS Game events",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "games",
+        "options": {}
+      },
+      "id": "f0207f5f-7683-4d1c-8bc8-1ecbf1b42ebe",
+      "name": "From the console",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "9c5bc21b-7e04-4858-b26c-a49ac18ef4e0"
+    },
+    {
+      "parameters": {
+        "jsCode": "// CabinetOS Game events: each person's games go to their own Discord channel.\n// One line per person: the name exactly as the console shows it, then that\n// person's Discord webhook (in Discord: Edit Channel, Integrations, Webhooks).\n// Anyone not listed goes nowhere, and so does the console's test message.\nconst PEOPLE = {\n  \"First person\": \"https://discord.com/api/webhooks/PASTE-THEIR-WEBHOOK\",\n  \"Second person\": \"https://discord.com/api/webhooks/PASTE-THEIR-WEBHOOK\",\n};\n// The messages to send. Delete the ones you do not want: with only\n// \"game_started\" left, only game starts are posted.\nconst SEND = [\"game_started\", \"game_paused\", \"game_resumed\", \"game_ended\", \"achievement_unlocked\", \"set_completed\"];\n\nconst CYAN = 0x58E8F6, PURPLE = 0xA07CF0, GOLD = 0xF2C14E;\nconst COVER = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };\n\nfunction minutes(n) {\n  if (!n) return 'less than a minute';\n  return n === 1 ? '1 minute' : `${n} minutes`;\n}\n\nconst out = [];\nfor (const item of $input.all()) {\n  const m = item.json.body ?? {};\n  const url = PEOPLE[m.person];\n  if (!url || !SEND.includes(m.event)) continue;\n  const linkup = m.linkup_game === 'hosting' || m.linkup_game === 'joined';\n  const over = linkup ? ' over LinkUp' : '';\n  const who = `**${m.person}**`, game = `**${m.game}**`;\n  const points = m.points === 1 ? '1 point' : `${m.points} points`;\n\n  // Started and every achievement: a card, with the cover when it came.\n  let card = null;\n  if (m.event === 'game_started') {\n    card = { author: m.linkup_game === 'joined' ? `🎮 ${m.person} joined a LinkUp game`\n                                                 : `🎮 ${m.person} started playing${over}`,\n             color: linkup ? PURPLE : CYAN };\n  } else if (m.event === 'set_completed') {\n    card = { author: `🌟 ${m.person} unlocked every achievement${over}`, color: GOLD };\n  }\n  // The rest: one line each.\n  const line = {\n    game_paused: `⏸️ ${who} paused ${game}${over}`,\n    game_resumed: `▶️ ${who} is back in ${game}${over}`,\n    game_ended: `🛑 ${who} stopped playing ${game}${over} after ${minutes(m.minutes_played)}`,\n    achievement_unlocked: `🏆 ${who} unlocked **${m.achievement}** (${points}) in ${game}${over}`,\n  }[m.event];\n  if (!card && !line) continue;\n\n  const post = { json: { url, cover: false, payload: { allowed_mentions: { parse: [] } } } };\n  if (line) post.json.payload.content = line;\n  if (card) {\n    const embed = { author: { name: card.author }, title: m.game, color: card.color };\n    if (m.system) embed.description = m.system;\n    const type = COVER[m.cover_type];\n    if (m.cover && type) {\n      const file = `cover.${type}`;\n      embed.thumbnail = { url: `attachment://${file}` };\n      post.json.cover = true;\n      post.binary = { cover: { data: m.cover, mimeType: m.cover_type, fileName: file } };\n    }\n    post.json.payload.embeds = [embed];\n  }\n  out.push(post);\n}\nreturn out;\n"
+      },
+      "id": "f3154338-5292-4c15-8b90-87e8243a63db",
+      "name": "Sort by person",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "7b63e266-d792-469a-90ad-de089fbf94c5",
+              "leftValue": "={{ $json.cover }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f2022917-65d9-4b52-85d2-4db83bf035d4",
+      "name": "Has a cover?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "wait",
+              "value": "true"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "payload_json",
+              "value": "={{ JSON.stringify($json.payload) }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "files[0]",
+              "inputDataFieldName": "cover"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "76b8f9eb-4cae-44c3-af59-11966f747b77",
+      "name": "To Discord, with the cover",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "wait",
+              "value": "true"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "80ac9b8d-2d23-4745-a11e-0eac416b41b1",
+      "name": "To Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "From the console": {
+      "main": [
+        [
+          {
+            "node": "Sort by person",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort by person": {
+      "main": [
+        [
+          {
+            "node": "Has a cover?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has a cover?": {
+      "main": [
+        [
+          {
+            "node": "To Discord, with the cover",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "To Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

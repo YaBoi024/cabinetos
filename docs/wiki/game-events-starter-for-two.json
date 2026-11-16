@@ -1,0 +1,242 @@
+{
+  "name": "CabinetOS Game events, starter for two",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "games",
+        "options": {}
+      },
+      "id": "81e10019-9a43-48f6-b8bb-5250175598bc",
+      "name": "From the console",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "c2d0bd14-5eee-4ea0-ba3a-67a736da2fac"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1a010ac4-05fc-4460-b02f-9d458f23cb20",
+              "leftValue": "={{ $json.body.event }}",
+              "rightValue": "game_started",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a5e554cf-55f6-4ce2-895e-9a464885ed35",
+      "name": "Only game starts",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a99f6c4b-8576-40bf-945b-ed9cfb8acd76",
+                    "leftValue": "={{ $json.body.person }}",
+                    "rightValue": "Sam",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Sam"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ba2321ed-41f2-4996-b260-00b430d0282b",
+                    "leftValue": "={{ $json.body.person }}",
+                    "rightValue": "Alex",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Alex"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2a821404-186f-44f7-9a34-fd10fd3f2022",
+      "name": "Who is playing?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        480,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/webhooks/PASTE-THEIR-WEBHOOK",
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "=🎮 {{ $json.body.person }} started {{ $json.body.game }} ({{ $json.body.system }})"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c7b39acc-a6ca-4034-8d13-6c231f05d897",
+      "name": "To Sam's Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        -200
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/webhooks/PASTE-THEIR-WEBHOOK",
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "=🎮 {{ $json.body.person }} started {{ $json.body.game }} ({{ $json.body.system }})"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "43c64628-4843-419b-ace2-cb57fb46ee3a",
+      "name": "To Alex's Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "From the console": {
+      "main": [
+        [
+          {
+            "node": "Only game starts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only game starts": {
+      "main": [
+        [
+          {
+            "node": "Who is playing?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Who is playing?": {
+      "main": [
+        [
+          {
+            "node": "To Sam's Discord",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "To Alex's Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {
+    "From the console": [
+      {
+        "json": {
+          "headers": {
+            "content-type": "application/json",
+            "user-agent": "CabinetOS"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "format": 1,
+            "event": "game_started",
+            "time": "2026-11-15T19:32:00-05:00",
+            "person": "Sam",
+            "game": "Contra III: The Alien Wars",
+            "system": "Super Nintendo",
+            "rom_id": 1234,
+            "linkup": "unused",
+            "linkup_game": "none"
+          },
+          "webhookUrl": "",
+          "executionMode": "production"
+        }
+      }
+    ]
+  }
+}

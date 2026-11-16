@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Tailscale reaches Sunshine and nothing else (#286; docs/SETTINGS.md, Remote
-  Play). Without this zone tailscale0 falls into the default one, which lets
-  in every port above 1024: File access, Developer access, anything else
-  listening.
+  Devices on Tailscale reach Sunshine and nothing else (#286; docs/SETTINGS.md,
+  Remote Play). Without this zone tailscale0 falls into the default one, which
+  lets in every port above 1024: File access, Developer access, anything else
+  listening. The console's own connections out, to a RomM server at its
+  Tailscale address, are not limited here.
 
   Sunshine's ports, as LizardByte documents them and as a stream on the A9
   used them (2026-10-08, a capture through Tailscale): TCP 47984 and 47989

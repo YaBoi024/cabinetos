@@ -27,7 +27,8 @@ adapted for handhelds (tested on Steam Deck OLEDs for now).
   your game to a friend's CabinetOS console, where they play as player two, and
   only you need the game. It runs through a small server you or a friend host,
   [cabinet-linkup](https://github.com/MMagTech/cabinet-linkup), and it is off
-  until you turn it on.
+  until you turn it on. A friend with no console can join from a Mac or a
+  Windows PC with [2P Start](https://github.com/MMagTech/cabinet-linkup-guest).
 - **Every system tuned.** An emulator chosen and set up for each of 35 systems,
   rendering up to 4K, with one pause menu in every game.
 - **Make it look right.** CRT and LCD looks per system, and sixteen colors for
@@ -43,7 +44,8 @@ adapted for handhelds (tested on Steam Deck OLEDs for now).
   downloaded and the ones you played recently; saves wait and go up when you
   are back.
 - **Install once.** From then on it updates itself in one press, the whole
-  system at once, checked against CabinetOS Handheld's signature.
+  system at once, checked against CabinetOS Handheld's signature, with the
+  version before kept on the console.
 
 | | | |
 |---|---|---|

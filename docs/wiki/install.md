@@ -21,6 +21,9 @@ your Steam games' saves.
 It is about 8 GB. No account is needed. The link never changes, and it always
 gives the newest installer.
 
+Anything newer than the installer comes after it: once installed, Settings,
+**System**, **System update** (see [Updates](updates.md)).
+
 To check the download is complete, compare its checksum with the one in
 [cabinetos.iso.sha256](https://pub-e4881344a12f4bdfa25b269cea81a741.r2.dev/cabinetos.iso.sha256).
 The two should be identical:

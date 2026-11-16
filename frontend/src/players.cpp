@@ -186,17 +186,28 @@ std::string addressOf(SDL_Gamepad* gp) {
     return asAddress(uniq);
 }
 
-// The name the kernel gives the pad's device, which SDL does not pass on: an
-// input device's name, or a HID device's HID_NAME.
-std::string deviceName(SDL_Gamepad* gp) {
-    const char* p = SDL_GetGamepadPath(gp);
-    if (!p) return {};
-    const std::string path = p;
+// The name the kernel gives the device at `path`, which SDL does not pass on:
+// an input device's name, or a HID device's HID_NAME.
+std::string deviceNameAt(const std::string& path) {
     if (path.rfind("/dev/input/", 0) == 0)
         return firstLine("/sys/class/input/" + path.substr(11) + "/device/name");
     if (path.rfind("/dev/hidraw", 0) == 0)
         return firstLine("/sys/class/hidraw/" + path.substr(5) + "/device/uevent", "HID_NAME=");
     return {};
+}
+
+std::string deviceName(SDL_Gamepad* gp) {
+    const char* p = SDL_GetGamepadPath(gp);
+    return p ? deviceNameAt(p) : std::string();
+}
+
+// THE CONSOLE'S OWN STAND-INS (vpad.h) are real controllers to this SDL too,
+// and a console that seated them would pass each press back to itself. The
+// plain ones are kept from SDL by their id (startup.cpp); the stand-in
+// DualSense carries Sony's id (vdualsense.h), so it is told apart by the name
+// the console gives both kinds, read before the pad is opened.
+bool isConsoleStandIn(const std::string& deviceName) {
+    return deviceName.rfind("CabinetOS player", 0) == 0;
 }
 
 // A PAD THAT CAME THROUGH A STREAM: Sunshine's virtual controller, whose
@@ -324,6 +335,11 @@ void loadMappings() {
 
 void added(SDL_JoystickID id) {
     if (gOpen.count(id) || id == gFriend.load()) return;
+    if (const char* path = SDL_GetGamepadPathForID(id); path && isConsoleStandIn(deviceNameAt(path))) {
+        std::fprintf(stderr, "[players] pad %u is the console's own stand-in, \"%s\" at %s: not seated\n",
+                     static_cast<unsigned>(id), deviceNameAt(path).c_str(), path);
+        return;
+    }
     SDL_Gamepad* gp = SDL_OpenGamepad(id);
     if (!gp) {
         std::fprintf(stderr, "[players] could not open pad %u: %s\n",

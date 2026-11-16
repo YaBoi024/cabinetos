@@ -30,7 +30,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 
 ### Emulators and cores
 
-- [when-an-emulator-pin-moves](2026-10-23-when-an-emulator-pin-moves.md): a pin moves only for a major feature, a bug or slowness we have seen, more games playing, a patch fixed upstream, or a move we do not choose.
+- [when-an-emulator-pin-moves](2026-10-23-when-an-emulator-pin-moves.md): a pin moves only for a major feature, a bug or slowness we have seen, more games playing, a patch fixed upstream, or a move we do not choose, a security fix for any hole outside data can reach among them.
 - [3ds-games-get-no-network](2026-10-20-3ds-games-get-no-network.md): a 3DS game never reaches a server named in the game; by a patch to Azahar until 2026-10-26, by the block for every emulator since.
 - [emulators-get-no-network](2026-10-26-emulators-get-no-network.md): one block keeps every emulator off the network, inside the console's program by who asked and outside it by starting each with no network.
 - [arcade-emulator-from-the-zip](2026-10-28-arcade-emulator-from-the-zip.md): an arcade game's emulator comes from its zip's name and files, in a fixed order, never from its folder.
@@ -48,7 +48,11 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [wii-remote-outside-wii-games](2026-10-24-wii-remote-outside-wii-games.md): a Wii Remote starts only Wii games, holding HOME on one opens the pause menu in every game, and a game's line says *Needs a controller* or *Needs a Wii Remote* when the controller it needs is off.
 - [fight-stick-layout](2026-10-24-fight-stick-layout.md): the 8BitDo Arcade Stick over Bluetooth plays arcade games with a fixed fight-stick layout, and every other pad as before.
 - [hold-start-opens-arcade-settings](2026-10-25-hold-start-opens-arcade-settings.md): holding Start in an arcade game opens the emulator's own menu, never one of the console's.
+- [stand-in-dualsense-id](2026-11-10-stand-in-dualsense-id.md): the controller the console gives Eden, Cemu and Vita3K is a stand-in DualSense Edge over USB, Sony's id and the console's name, so the kernel's own driver makes the sensor pair SDL needs; the console tells its stand-ins apart by name.
+- [a-pad-without-sensors-gives-none](2026-11-11-a-pad-without-sensors-gives-none.md): a player whose controller has no motion sensors gets a stand-in on which the emulator finds none, so a Switch, Wii U or Vita game reads no tilt from it.
+- [wii-u-and-vita-tilt-is-player-ones](2026-11-11-wii-u-and-vita-tilt-is-player-ones.md): in Wii U and Vita games only player 1's controller tilts the game, as on a GamePad or a Vita held by one person.
 - [no-remapping](2026-09-26-no-remapping.md): no button remapping on any system but arcade games, which have Controls.
+- [no-mapping-screen](2026-09-26-no-mapping-screen.md): nobody maps a controller; the image carries the community's controller list, and a missing pad is added to it.
 - [arcade-controls](2026-10-25-arcade-controls.md): an arcade game's pause menu has a Controls row that moves its buttons, per game, kind of controller and person.
 - [model-2-and-model-3-controls](2026-10-30-model-2-and-model-3-controls.md): Model 2 and Model 3 games with buttons have Controls, numbered from their emulator's list, played from the next start.
 - [rewind-only-with-shortcuts](2026-10-29-rewind-only-with-shortcuts.md): a game keeps a rewind history only while In-game shortcuts are on, and rewind has no switch of its own.
@@ -61,6 +65,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [one-sound-rule](2026-11-04-one-sound-rule.md): the screen the picture is on plays the sound, an output that reports a plug takes over, nothing else; one script reads what each output reports, on every PC.
 - [sound-backup-output](2026-10-26-sound-backup-output.md): the image starts pipewire-pulse at login, so a backup output catches the console's sound while the TV's is gone.
 - [games-draw-on-the-screens-gpu](2026-11-06-games-draw-on-the-screens-gpu.md): on a PC with two GPUs, games draw on the one the screen is on, matched by device UUID; one GPU is unchanged; the old order is the fallback.
+- [glow-always-on-at-strong](2026-10-04-glow-always-on-at-strong.md): the glow in the bars around a game is always on at Strong, with no setting.
 
 ### LinkUp
 
@@ -70,9 +75,9 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [linkup-own-program-and-hard-off](2026-11-03-linkup-own-program-and-hard-off.md): LinkUp is a program of its own, off on every new console, and a firewall table of its own blocks it while it is off.
 - [linkup-self-run-server](2026-11-03-linkup-self-run-server.md): the server is a container anyone runs, from a repository of its own; the project runs no service.
 - [linkup-server-in-go-with-pion](2026-11-03-linkup-server-in-go-with-pion.md): the server is one small Go program with Pion's relay inside, in a nearly empty container, and not coturn.
-- [linkup-one-server-per-console](2026-11-03-linkup-one-server-per-console.md): a console has one server, set by the admin; friends belong to an account on the server, and only its owner makes friends.
+- [linkup-one-person-on-every-console](2026-11-12-linkup-one-person-on-every-console.md): a console has one server, set by the admin; a RomM account is one person on every console, with one code that never expires, the owner looks after people, a knock rings the console used last, and Offline chosen holds on all.
 - [linkup-servers-link-two-accounts](2026-11-03-linkup-servers-link-two-accounts.md): linking two servers connects the two accounts picked and nobody else, with no chain to a third.
-- [linkup-pairing-by-the-owners-code](2026-11-03-linkup-pairing-by-the-owners-code.md): the owner makes a code that works once for 7 days, each side proves it with a slow hash and the code never travels.
+- [linkup-pairing-by-the-owners-code](2026-11-03-linkup-pairing-by-the-owners-code.md): the owner makes a code that becomes the person's own once used, or stops after 7 days unused; each side proves it with a slow hash and the code never travels.
 - [linkup-change-server](2026-11-08-linkup-change-server.md): Change server with another server's address asks for that server's code, and the old server stays until it pairs.
 - [linkup-pin-guards-what-is-new](2026-11-03-linkup-pin-guards-what-is-new.md): with a PIN set, turning LinkUp on, changing the server and Leave ask for it, and playing with friends asks nothing.
 - [linkup-works-like-a-friends-house](2026-11-04-linkup-works-like-a-friends-house.md): a game starts by inviting an Online friend and waiting for them to join, and the console never chases anyone.
@@ -84,7 +89,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [linkup-session-outlives-a-game](2026-11-05-linkup-session-outlives-a-game.md): quitting a game keeps the session for the next one, and a friend leaving ends it.
 - [linkup-idle-time](2026-11-02-linkup-idle-time.md): after 10 minutes with no press the game pauses on both screens, and 15 more end the session.
 - [linkup-game-list](2026-11-05-linkup-game-list.md): the list leaves out games a friend cannot play, and one-player games stay.
-- [linkup-status](2026-11-05-linkup-status.md): Status is each account's, and an account also shows Offline after 15 minutes with no press, with the screen off, asleep or in Steam.
+- [linkup-status](2026-11-05-linkup-status.md): Status is each account's, on every console it signs in on, and a console also says Offline after 15 minutes with no press, with the screen off, asleep or in Steam.
 - [linkup-friends-list](2026-11-05-linkup-friends-list.md): friends are ordered by status, each has a colour worked out from their name, and the empty screen stays.
 - [linkup-where-it-lives](2026-11-05-linkup-where-it-lives.md): a top-bar screen and rows in Settings' Streaming section, and while LinkUp is off only its switch shows.
 - [linkup-versions-and-the-pinned-server](2026-11-04-linkup-versions-and-the-pinned-server.md): the protocol only adds, a console names who is behind, no update is forced, and CI runs against one pinned server image.
@@ -98,6 +103,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [linkup-one-bitrate-rule](2026-11-03-linkup-one-bitrate-rule.md): one rule for every game, a steady bitrate up to 18 Mbit/s with a quality floor, and no tiers by system.
 - [linkup-picture-floor](2026-11-07-linkup-picture-floor.md): a LinkUp picture never goes below 720p at 3.5 Mbit/s; below that both consoles say *Slow connection* and the game carries on.
 - [linkup-friends-picture-in-opengl](2026-11-05-linkup-friends-picture-in-opengl.md): the friend's picture is drawn with OpenGL, because Vulkan costs 20 to 40 ms more delay to be as smooth; emulators keep Vulkan.
+- [linkup-friend-draws-the-glow](2026-11-10-linkup-friend-draws-the-glow.md): the host says where its game sits, and the friend's console draws black bars and the glow around it over the stream's.
 - [linkup-friend-sound-queue](2026-11-08-linkup-friend-sound-queue.md): a friend plays the sound from LinkUp's own queue at the host's pace, keeping 40 ms, more after a Wi-Fi stall, at most 100.
 - [linkup-host-sound-through-pulse](2026-11-08-linkup-host-sound-through-pulse.md): a host captures its sound with pulsesrc, because pipewiresrc lost more and more of it on the mini PC.
 - [linkup-server-small-surface](2026-11-03-linkup-server-small-surface.md): the server holds no logins and has no public page, runs without admin rights, and its worst case cannot reach anyone's RomM.
@@ -112,6 +118,8 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [one-arcade-tile](2026-10-29-one-arcade-tile.md): every arcade folder is one Library tile, Arcade, whose grid names each game's folder; everywhere else an arcade game's system is Arcade.
 - [romm-owns-management](2026-10-21-romm-owns-management.md): the console uses what RomM offers and never manages it: no gallery, list or manager of its own.
 - [game-gone-from-romm](2026-11-01-game-gone-from-romm.md): a game deleted in RomM leaves the console at the next start with the server there, a played copy or a download, with its saves, states and screenshots.
+- [one-download-or-one-game-at-a-time](2026-11-09-one-download-or-one-game-at-a-time.md): the console does one download or one game at a time, no queue, no download behind a game and none pausing for one; Stop on the row gets the console back.
+- [power-cut-caught-at-the-next-start](2026-11-14-power-cut-caught-at-the-next-start.md): a game starts at once after a download, unpacking or install; what its drive may not have yet is listed on the console's own drive and fetched again at its next start after a power cut.
 
 ### Screens and settings
 
@@ -120,6 +128,8 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [keyboard-shift-by-presses](2026-11-08-keyboard-shift-by-presses.md): Shift is off, one capital, then capitals locked, a press each with no timing; the key reads abc, Abc or ABC underlined.
 - [no-ui-for-the-few](2026-10-13-no-ui-for-the-few.md): an option only a few players would use never goes on Home, a grid or a game's page.
 - [stop-a-download-from-its-row](2026-11-06-stop-a-download-from-its-row.md): A on the row that is filling asks "Stop downloading?", Continue focused; no other button stops a download.
+- [tailscale-own-switch](2026-11-15-tailscale-own-switch.md): Tailscale is its own switch in Network, apart from Remote Play, and runs whenever it is on; the update turns off a Tailscale whose row read Off.
+- [game-events](2026-11-15-game-events.md): the console sends what is happening in a game to one app at home, at an address the owner types and only while it is on their own network, and that app does the rest; no Discord, switches or QR code on the console.
 
 ### The image and updates
 
@@ -138,6 +148,11 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 
 - [installer-iso-repacked](2026-11-02-installer-iso-repacked.md): the installer ISO is repacked after the builder, for CabinetOS's boot menu and look, with nothing the builder made rebuilt.
 - [portable-download](2026-11-05-portable-download.md): the portable's download is the file from a finished run, which was tried, not a new build; it sits beside the ISO on R2 for about 4 cents a month.
+- [scheduled-checks-monthly](2026-11-10-scheduled-checks-monthly.md): Steam's spare is checked on the 1st of each month with the Bazzite base, not every Monday.
+- [flathub-pins-held-and-watched](2026-11-10-flathub-pins-held-and-watched.md): every console ends with exactly the Flathub builds pinned, Flathub's Mesa included, and a monthly check fails while a pin is near the end of what Flathub keeps.
+- [when-the-downloads-are-cut](2026-11-12-when-the-downloads-are-cut.md): the ISO and the portable are cut again together after each month's base update, and at once for a fix to the installer, first run or privacy, each published by hand from the run that was checked.
+- [a-release-page-per-download](2026-11-13-a-release-page-per-download.md): each cut of the downloads gets a GitHub release page for the version the ISO installs, tagged at its image's commit, linking the SHA-256 rather than typing it.
+- [controller-list-on-report](2026-11-14-controller-list-on-report.md): the controller list is updated to the community's newest by hand, when a player reports a pad the console does not know, not on a schedule.
 
 ### How we work
 

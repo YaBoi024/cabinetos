@@ -79,6 +79,27 @@ log: The sound devices are there :: wpctl status | sed -n '/^Audio/,/^Video/p' |
 # systemd that renames or reorders those leaves the keys dead in every game
 # run as a program, with nothing in the log.
 log: The console can read every key device, for the volume keys :: out=$(for e in /dev/input/event*; do udevadm info -q property -n "$e" 2>/dev/null | grep -qx 'ID_INPUT_KEY=1' && [ ! -r "$e" ] && echo "$e $(cat "/sys/class/input/${e##*/}/device/name" 2>/dev/null)"; done); [ -z "$out" ] || { echo "$out"; exit 1; }
+# A PS3 player's tilt (#683): system_files/usr/lib/udev/rules.d/71-cabinetos-
+# motion-devices.rules tags each player's motion device for the seat the same
+# way, so RPCS3, which runs as the console's user, can open it; without it
+# every PS3 game's pad lies still, with nothing on screen. The self-test makes
+# two for real through /dev/uinput and opens them as RPCS3 does. Never while a
+# PS3 game runs: RPCS3 finds them by name.
+log: RPCS3 can read a PS3 player's motion device :: d=$(mktemp -d); HOME="$d" CABINETOS_DRIVES="$d" cabinetos-frontend --storage-root "$d" --motion-device-test > "$d/out" 2>&1; r=$?; grep -a FAIL "$d/out"; rm -rf "$d"; exit "$r"
+# The stand-in DualSense (#669, frontend/src/vdualsense.cpp) leans on the
+# kernel's PlayStation driver, hid-playstation, taking a /dev/uhid device with
+# the DualSense Edge's id, asking it the three feature reports, applying the
+# calibration it answers and making its gamepad, "Motion Sensors" and touchpad
+# devices with one uniq, the address it answers; on uhid itself; on udev
+# marking the motion device an accelerometer, which
+# 71-cabinetos-motion-devices.rules turns into the seat's access for a
+# stand-in whose address says it carries a pad's tilt; and on SDL's Linux
+# joystick code pairing a sensor device by uniq and scaling it by the node's
+# resolution. A kernel that changed any of it shows as a Switch, Wii U or Vita
+# game's pad lying still, or no pad at all. The self-test makes two for real,
+# one for a pad without sensors, and reads them back through SDL as the
+# emulators' SDL does. Never while a Switch, Wii U or Vita game runs.
+log: The kernel's PlayStation driver takes the stand-in DualSense and SDL reads its tilt :: d=$(mktemp -d); HOME="$d" CABINETOS_DRIVES="$d" cabinetos-frontend --storage-root "$d" --dualsense-test > "$d/out" 2>&1; r=$?; grep -a FAIL "$d/out"; rm -rf "$d"; exit "$r"
 # Picture quality's Auto judges the machine by the GPU's top clock from
 # amdgpu's pp_dpm_sclk ("2: 2900Mhz") and the processor's from cpufreq and
 # its topology (gpu.cpp, cpus.cpp); the kernel can rename either, and Auto
@@ -532,12 +553,12 @@ python3-firewall
 kmod-wl
 broadcom-wl
 
-# --- Remote Play away from home ---------------------------------------------
-# Tailscale runs only while Remote Play and its Tailscale switch are both on
-# (system_files/usr/libexec/cabinetos-saved-services). Not watched until
+# --- Tailscale: Remote Play and RomM away from home -------------------------
+# Tailscale runs whenever its own switch is on, by the rule in
+# system_files/usr/libexec/cabinetos-saved-services (runs). Not watched until
 # 44.20261012.1, which moved it.
-area: Remote Play away from home
-log: Tailscale runs when Remote Play away from home is on :: s=/var/lib/cabinetos/config/settings.json; if [ "$(jq -r '.remote_play // "off"' "$s")" = on ] && [ "$(jq -r '.tailscale // "off"' "$s")" = on ]; then systemctl is-active -q tailscaled && tailscale status >/dev/null; fi
+area: Tailscale, for Remote Play and RomM away from home
+log: Tailscale runs when its switch is on :: s=/var/lib/cabinetos/config/settings.json; if [ "$(jq -r '.tailscale // "off"' "$s")" = on ] && { [ "$(jq -r '.remote_play // "off"' "$s")" = on ] || [ "$(jq -r '.tailscale_own_switch // "no"' "$s")" = yes ]; }; then systemctl is-active -q tailscaled && tailscale status >/dev/null; fi
 # Settings reads `tailscale status --json` (tailscale.cpp), whose format
 # Tailscale says may change: BackendState in the words the console knows,
 # and, once signed in, Self.HostName and Self.TailscaleIPs.

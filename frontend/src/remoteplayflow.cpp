@@ -29,14 +29,6 @@ void App::setRemotePlay(bool on) {
     prefs::set("remote_play", on ? "on" : "off");
     remoteplay::watch(on, /*fresh=*/true);
     if (!on) rpAsked.clear();
-    // TAILSCALE GOES WITH IT: never running while Streaming is off, and
-    // back with Streaming when it was on.
-    if (ok && tsWant) {
-        std::string tsWhy;
-        if (!(on ? unit::start(kTsUnit, &tsWhy) : unit::stop(kTsUnit, &tsWhy)))
-            std::fprintf(stderr, "[tailscale] %s with Streaming: %s\n",
-                         on ? "could not start" : "could not stop", tsWhy.c_str());
-    }
     buildSettings();
 }
 

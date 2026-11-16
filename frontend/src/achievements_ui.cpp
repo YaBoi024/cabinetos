@@ -70,10 +70,11 @@ void App::tickRaToast(float dt) {
     // has it (MMagTech, 2026-10-06).
     if (!playing) {
         ra::Popup dropped;
-        while (ra::takePopup(&dropped)) {}
+        while (ra::takePopup(&dropped)) gameEventUnlocked(dropped);
         raToast.on = raToast.waiting = false;
     }
     if (!raToast.on && !raToast.waiting && ra::takePopup(&raToast.p)) {
+        gameEventUnlocked(raToast.p);
         raToast.waiting = true;
         raToast.age = 0.0f;
     }

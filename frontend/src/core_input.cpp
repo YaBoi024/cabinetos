@@ -1,13 +1,15 @@
 // The pads as the core sees them: the players and their ports, the answer to
-// inputState, the keys held on the core's keyboard, the rumble interface, the
-// port count and the button names a core declares, kept per port
-// (environmentInput), and the Core calls that set and read them. Moved
+// inputState, the keys held on the core's keyboard, the rumble and sensor
+// interfaces, the port count and the button names a core declares, kept per
+// port (environmentInput), and the Core calls that set and read them. Moved
 // out of core.cpp in the restructure (#398). Telling the core what is plugged
 // in stays in Core::loadGame (core.cpp), after retro_load_game, because that
 // is when the core has said how many ports it has.
 
 #include "core.h"
 #include "core_state.h"
+
+#include <SDL3/SDL_sensor.h>
 
 #include <algorithm>
 #include <bitset>
@@ -18,6 +20,7 @@
 #include "libretro.h"
 #include "ps2.h"
 #include "rumble.h"
+#include "tilt.h"
 
 namespace cab {
 namespace corestate {
@@ -168,10 +171,64 @@ int16_t inputState(unsigned port, unsigned device, unsigned index, unsigned id) 
     return 0;
 }
 
+namespace {
+
+// A PAD'S TILT, FOR A CORE THAT ASKS (#670): mGBA for a Game Boy Advance
+// cartridge with a tilt or gyro sensor, Azahar for a 3DS game's motion. The
+// sensors of the pad seated in that port (tilt.h), with RetroArch's answers
+// (its SDL3 driver, sdl3_joypad.c), so a core behaves as it does there: on
+// is yes only when that pad has the sensor; the accelerometer in g, SDL's y
+// and z swapped; the gyroscope in rad/s, y and z swapped and y negated. A pad
+// with none answers no, and each core then keeps what it did before.
+bool setSensorState(unsigned port, retro_sensor_action action, unsigned /*rate*/) {
+    const int player = static_cast<int>(port);
+    switch (action) {
+        case RETRO_SENSOR_ACCELEROMETER_ENABLE:
+        case RETRO_SENSOR_GYROSCOPE_ENABLE: {
+            const bool gyro = action == RETRO_SENSOR_GYROSCOPE_ENABLE;
+            const bool on = tilt::set(player, gyro ? tilt::Sensor::Gyro : tilt::Sensor::Accel, true);
+            std::fprintf(stderr, "[input] port %u asked for the %s: %s\n", port,
+                         gyro ? "gyroscope" : "accelerometer",
+                         on ? "on, from the pad there" : "no pad there has one");
+            return on;
+        }
+        case RETRO_SENSOR_ACCELEROMETER_DISABLE: return tilt::set(player, tilt::Sensor::Accel, false);
+        case RETRO_SENSOR_GYROSCOPE_DISABLE: return tilt::set(player, tilt::Sensor::Gyro, false);
+        // No pad has a light sensor (mGBA asks, for a cartridge's solar sensor).
+        case RETRO_SENSOR_ILLUMINANCE_DISABLE: return true;
+        default: return false;
+    }
+}
+
+float sensorInput(unsigned port, unsigned id) {
+    const int player = static_cast<int>(port);
+    float v[3];
+    if (id <= RETRO_SENSOR_ACCELEROMETER_Z) {
+        if (!tilt::read(player, tilt::Sensor::Accel, v)) return 0.0f;
+        const float g[3] = {v[0], v[2], v[1]};
+        return g[id - RETRO_SENSOR_ACCELEROMETER_X] / SDL_STANDARD_GRAVITY;
+    }
+    if (id <= RETRO_SENSOR_GYROSCOPE_Z) {
+        if (!tilt::read(player, tilt::Sensor::Gyro, v)) return 0.0f;
+        const float r[3] = {v[0], -v[2], v[1]};
+        return r[id - RETRO_SENSOR_GYROSCOPE_X];
+    }
+    return 0.0f;
+}
+
+}  // namespace
+
 // The input calls of the environment callback. core.cpp's environment asks
 // here before its own switch; nothing for any other call.
 std::optional<bool> environmentInput(unsigned cmd, void* data) {
     switch (cmd) {
+        case RETRO_ENVIRONMENT_GET_SENSOR_INTERFACE: {
+            auto* sensors = static_cast<retro_sensor_interface*>(data);
+            if (!sensors) return false;
+            sensors->set_sensor_state = setSensorState;
+            sensors->get_sensor_input = sensorInput;
+            return true;
+        }
         case RETRO_ENVIRONMENT_SET_KEYBOARD_CALLBACK:
             gKeyboardEvent = data ? static_cast<const retro_keyboard_callback*>(data)->callback
                                   : nullptr;

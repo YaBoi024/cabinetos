@@ -76,7 +76,11 @@ constexpr const char* kScratch = ".install";
 //                  games that ask for the PS TV's pad (ctrl.cpp)
 //   front/back-camera-type 0, a plain colour: a PS TV has no camera, and 2,
 //                  Vita3K's default, is the machine's own webcam
-//   disable-motion no gyro, as on the PS TV (the virtual pads have none)
+//   disable-motion off (#669): player 1's tilt reaches the game through
+//                  their stand-in DualSense (vpad.h), the one Vita's gyro;
+//                  every other player's stand-in, and one for a pad without
+//                  sensors, has none, and the game reads a Vita lying still,
+//                  as it did with this on
 //   http-enable, discord-rich-presence  nothing leaves the console
 //   show-compile-shaders  no notice over the game while shaders build
 //   validation-layer  Vulkan's debugging layer, only ever a cost
@@ -89,7 +93,7 @@ std::string configText(const std::string& prefPath, quality::Level level) {
            "pstv-mode: true\n"
            "front-camera-type: 0\n"
            "back-camera-type: 0\n"
-           "disable-motion: true\n"
+           "disable-motion: false\n"
            "http-enable: false\n"
            "discord-rich-presence: false\n"
            "show-compile-shaders: false\n"
@@ -110,8 +114,10 @@ std::string configText(const std::string& prefPath, quality::Level level) {
 // while Vita3K made its instance with its own, and every Vulkan start crashed
 // in the first call between them (measured on the A9 2026-10-20; OpenGL ran).
 // Named, it runs on Vulkan. The name is a link the image's install makes
-// (build_files/install-vita3k.sh). Only the console's virtual controllers, and none
-// of a real pad's HID protocol, as for the others.
+// (build_files/install-vita3k.sh). Only the console's virtual controllers, of
+// the kind open (vpad.h), and none of a real pad's HID protocol, as for the
+// others. An install runs before its game's controllers are made, when none
+// are open, so it is told the plain ones', and there are none.
 std::vector<std::string> vitaEnv(const Emulator& e) {
     const std::string bin = binaryOf(e);
     // <root>/bin/Vita3K
@@ -120,7 +126,7 @@ std::vector<std::string> vitaEnv(const Emulator& e) {
         "APPDIR=" + root,
         "SDL_VULKAN_LIBRARY=" + root + "/lib/libvulkan.so.1",
         "SDL_JOYSTICK_HIDAPI=0",
-        "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x1209/0xCAB0",
+        "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=" + cab::vpad::sdlIds(),
     };
 }
 
@@ -200,7 +206,7 @@ bool installVitaFirmware(const Emulator& e, const std::atomic<bool>& cancel,
         if (!done) somethingFailed = true;
     }
     if (!hasSystemSoftware(e) || !hasFonts(e)) return missing(somethingFailed);
-    writeFile(firmwareNote(e), stamp);
+    writeDoneNote(firmwareNote(e), stamp);
     return true;
 }
 
@@ -241,7 +247,7 @@ bool installArchives(const Emulator& e, const std::string& entryPath,
                      static_cast<long long>(bytes));
     }
     // Only now: an archive is deleted once the game it became is in place.
-    writeFile(entryPath + "/" + kInstalledNote, note);
+    writeInstalledNote(entryPath + "/" + kInstalledNote, note);
     for (const auto& a : archives) ::unlink((entryPath + "/" + a.second).c_str());
     return true;
 }

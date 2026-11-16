@@ -20,6 +20,16 @@
 #                     real one.
 #   --evict-test, --state-test, --speed-test, --sync-test, --overlay-test
 #                     need a screen, a core and a game, or a server.
+#   --motion-device-test
+#                     makes real devices through /dev/uinput and opens them
+#                     as RPCS3 does, which needs the image's udev rule; the
+#                     container has neither. It runs on a console
+#                     (ci/base-watch.txt, Kernel and startup).
+#
+# RUN HERE BUT PASSING FOR WANT OF A DEVICE: --dualsense-test makes its
+# stand-ins through /dev/uhid, which the container has no more than it has
+# /dev/uinput, so it says so and exits 0; it runs for real on a console
+# (ci/base-watch.txt, Kernel and startup).
 #
 # REPORT ONLY UNTIL A DATE: while today (UTC) is not past REPORT_ONLY_UNTIL
 # (YYYY-MM-DD, set by build-frontend.yml), a failing test is the same report
@@ -38,6 +48,7 @@ TESTS=(
     --first-run-writes
     --accounts-test
     --players-test
+    --tilt-test
     --fightstick-test
     --arcade-settings-test
     --arcade-match-test
@@ -53,10 +64,14 @@ TESTS=(
     --disc-test
     --same-names-test
     --linkup-test
+    --linkup-pad-test
     --files-test
     --vectrex-sheets-test
     --gone-games-test
     --gpu-choice-test
+    --tailscale-switch-test
+    --game-events-test
+    --dualsense-test
 )
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

@@ -96,6 +96,11 @@ ADDRESSES = {
     "10.0.0.0",
     "172.16.0.0",
     "192.168.0.0",
+    # The last address of each, the edges of the home rule's test
+    # (gameevents_test.cpp).
+    "10.255.255.255",
+    "172.31.255.255",
+    "192.168.255.255",
 }
 
 # What looks like ours and is not. Each says whose it is.

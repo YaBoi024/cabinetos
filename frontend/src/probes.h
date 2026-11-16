@@ -26,6 +26,7 @@ struct EarlyProbeOptions {
     bool filesTestMode = false;
     bool vectrexSheetsTestMode = false;
     bool gpuChoiceTestMode = false;
+    bool tailscaleSwitchTestMode = false;
     int padsSeconds = 0;
     bool firstRunRulesMode = false;
     bool firstRunWriteMode = false;

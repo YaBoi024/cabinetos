@@ -195,12 +195,16 @@ void App::buildSettings() {
                 {K::Action, SetWifi, "Wi-Fi", "",
                  !radioOn ? "Off" : (onWifi.empty() ? "Not connected" : onWifi)});
     }
+    // TAILSCALE, after Wi-Fi: how the console is reached from away, for
+    // Remote Play and for a RomM server at its Tailscale address, on its own
+    // switch (docs/decisions/2026-11-15-tailscale-own-switch.md).
+    cats.back().rows.push_back(tailscaleRow(players::streaming()));
 
     // STREAMING: Remote Play (#286) and LinkUp (#654), one section, so LinkUp
-    // does not lengthen the side list. Remote Play has three rows: the switch,
-    // with the app to use and the name to pick in it; the paired devices, one
-    // row however many there are, opening a list; and Tailscale, for playing
-    // away from home. Sunshine's own name is never on screen.
+    // does not lengthen the side list. Remote Play has two rows: the switch,
+    // with the app to use and the name to pick in it; and the paired devices,
+    // one row however many there are, opening a list. Tailscale, for playing
+    // away from home, is in Network. Sunshine's own name is never on screen.
     {
         const bool on = rpState == "active";
         std::string value = on ? "On" : "Off";
@@ -212,10 +216,11 @@ void App::buildSettings() {
         else if (!rpFailed.empty()) detail = rpFailed;
         const size_t n = remoteplay::paired().size();
         rpSeen = remoteplay::generation();
-        // WHILE A DEVICE STREAMS, THE WHOLE SECTION IS GREYED: its
-        // controller drives the console, and one press on its switch cut
-        // the stream it was playing on (MMagTech, from his phone,
-        // 2026-10-08); Remove could do the same to the device playing.
+        // WHILE A DEVICE STREAMS, THE WHOLE SECTION IS GREYED, and
+        // Tailscale's row in Network: its controller drives the console,
+        // and one press on its switch cut the stream it was playing on
+        // (MMagTech, from his phone, 2026-10-08); Remove, or Tailscale's
+        // Disconnect, could do the same to the device playing.
         // The console's own controllers are set aside during a stream, so
         // nobody at the TV loses anything.
         const bool streamingNow = players::streaming();
@@ -228,7 +233,6 @@ void App::buildSettings() {
             {on && n > 0 && !streamingNow ? K::Action : K::Disabled, SetPairedDevices,
              "Paired devices", "",
              n == 0 ? "None" : std::to_string(n) + " paired"},
-            tailscaleRow(on, streamingNow),
         };
         for (Row& r : linkupRows()) rows.push_back(std::move(r));
         cats.push_back({"Streaming", std::move(rows), {}});
@@ -479,6 +483,9 @@ void App::buildSettings() {
     // to bring the tile back. Somebody who never hid it never sees it.
     if (steam::available() && steam::hidden())
         sys.push_back({K::Action, SetSteamShow, "Steam", "", "Hidden"});
+    // GAME EVENTS (#716): one row, the address its switch; its host when
+    // on (gameeventsflow.cpp).
+    sys.push_back(gameEventsRow());
     // THE DIAGNOSTIC REPORT (#195): one row, the screen it opens says the
     // rest. No PIN: it changes nothing, and nothing private is in it.
     sys.push_back({K::Action, SetReport, "Diagnostic report", "", ""});
@@ -626,6 +633,8 @@ void App::applySetting(const screens::Result& res) {
         pressUpdate();
     } else if (res.value == SetServer) {
         pressServer();
+    } else if (res.value == SetGameEvents) {
+        pressGameEvents();
     } else if (res.value == SetRemoveAccount) {
         pressRemoveAccount();
     } else if (res.value == SetPinSet) {

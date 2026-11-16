@@ -214,6 +214,7 @@ void Rtc::attachChannel(GObject* channel) {
     if (label && std::strcmp(label, "control") == 0) {
         control_ = G_OBJECT(g_object_ref(channel));
         g_signal_connect(channel, "on-message-string", G_CALLBACK(onControlString), this);
+        g_signal_connect(channel, "on-open", G_CALLBACK(onControlOpen), this);
     } else if (label && std::strcmp(label, "fast") == 0) {
         fast_ = G_OBJECT(g_object_ref(channel));
         g_signal_connect(channel, "on-message-data", G_CALLBACK(onFastData), this);
@@ -360,6 +361,13 @@ void Rtc::onControlString(GObject*, gchar* text, gpointer self) {
     me->heard();
     const std::string copy = text ? text : "";
     Rtc::onMain([me, copy]() { me->hooks_.control(copy); });
+}
+
+// The host makes "control" before the connection, and it opens only once the other console answers.
+// The hook alone goes to the main thread: by then a new connection may have replaced this one.
+void Rtc::onControlOpen(GObject*, gpointer self) {
+    std::function<void()> fn = static_cast<Rtc*>(self)->hooks_.controlOpen;
+    if (fn) Rtc::onMain(std::move(fn));
 }
 
 void Rtc::onFastData(GObject*, GBytes* data, gpointer self) {

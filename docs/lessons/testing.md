@@ -499,6 +499,18 @@ minute and guessing at it for twenty.
   restored a save folder; nothing was lost). **Never run a headless frontend
   while he is at the TV**; use `tools/ui-loop.sh` and let him watch instead.
 
+- **And the TV's frontend reads a headless test's devices.** The other way
+  round: a self-test that makes real controllers (`--dualsense-test`'s
+  stand-ins through `/dev/uhid`) shows them to every program on the machine.
+  2026-11-11: the A9's TV ran the testing image, whose frontend did not yet
+  refuse the stand-ins (#669's `players.cpp`), so it seated them as two
+  DualSense Edges, took the test's Cross and d-pad presses as Play, and
+  started Mario Kart 8 Deluxe on Home; each later run paused and resumed it.
+  It ran 35 seconds unpaused, under the minute time played needs. **Run a
+  test that makes controllers only while the TV runs a build that refuses
+  them**: the branch's own, through `tools/ui-loop.sh`, or an image that
+  carries the refusal.
+
 - **Offline is tested with a wrong address, never by stopping RomM.**
   `CABINETOS_ROMM=<server host>:6099`, the server with a port nothing
   answers on (headless, or `tools/ui-loop.sh --env`), is offline from boot.

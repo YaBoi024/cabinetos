@@ -38,7 +38,10 @@ want() {
     shift 2
     local out
     out=$("$@" 2>&1)
-    if [ "${out%% *}" = "$expected" ]; then pass "$what"; else fail "$what: wanted $expected, got: $out"; fi
+    # FORK (handheld): the answer is the last line; the pairing's own log lines on stderr
+    # (linkup/pairing.cpp, which step refused) come before it.
+    local answer=${out##*$'\n'}
+    if [ "${answer%% *}" = "$expected" ]; then pass "$what"; else fail "$what: wanted $expected, got: $out"; fi
     LAST=$out
 }
 

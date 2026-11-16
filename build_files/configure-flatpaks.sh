@@ -96,9 +96,11 @@ for n, raw in enumerate(open(path), 1):
         print(f"    ERROR line {n}: '{ref}' is not a flatpak application id"); bad += 1
     if not re.fullmatch(r"[0-9a-f]{64}", commit):
         print(f"    ERROR line {n}: '{commit}' is not a 64-character commit"); bad += 1
-    if ref in seen:
-        print(f"    ERROR line {n}: '{ref}' listed twice"); bad += 1
-    seen.add(ref)
+    # Once per branch: the graphics driver is pinned on two (25.08 and
+    # 25.08-extra), and the console names every ref with its branch.
+    if (ref, branch) in seen:
+        print(f"    ERROR line {n}: '{ref}//{branch}' listed twice"); bad += 1
+    seen.add((ref, branch))
     if kind == "app":
         apps += 1
     else:
