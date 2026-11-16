@@ -1,0 +1,134 @@
+{
+  "name": "CabinetOS Game events, starter",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "games",
+        "options": {}
+      },
+      "id": "c6cb5b40-f742-4b3b-967d-38c20eee2a66",
+      "name": "From the console",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "67450ada-db21-48d0-8455-94ffcd1e2980"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "add7119a-1ffb-4271-9cc7-acb1b729574e",
+              "leftValue": "={{ $json.body.event }}",
+              "rightValue": "game_started",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d2879264-7c1a-4c10-9dfd-68efe63605ec",
+      "name": "Only game starts",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/webhooks/PASTE-YOUR-WEBHOOK",
+        "sendBody": true,
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "content",
+              "value": "=🎮 {{ $json.body.person }} started {{ $json.body.game }} ({{ $json.body.system }})"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "beff3dd0-330c-4788-840a-c1c414ee7f42",
+      "name": "To Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        -100
+      ]
+    }
+  ],
+  "connections": {
+    "From the console": {
+      "main": [
+        [
+          {
+            "node": "Only game starts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only game starts": {
+      "main": [
+        [
+          {
+            "node": "To Discord",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {
+    "From the console": [
+      {
+        "json": {
+          "headers": {
+            "content-type": "application/json",
+            "user-agent": "CabinetOS"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "format": 1,
+            "event": "game_started",
+            "time": "2026-11-15T19:32:00-05:00",
+            "person": "Sam",
+            "game": "Contra III: The Alien Wars",
+            "system": "Super Nintendo",
+            "rom_id": 1234,
+            "linkup": "unused",
+            "linkup_game": "none"
+          },
+          "webhookUrl": "",
+          "executionMode": "production"
+        }
+      }
+    ]
+  }
+}
