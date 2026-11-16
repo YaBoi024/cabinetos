@@ -262,6 +262,9 @@ curl -X POST -H "Content-Type: application/json" -d '{"format":1,"event":"game_s
 
 The app decides everything else: the console only says what happened.
 
+An AI assistant can help write one: give it this page's address and say what
+should happen, and it has every message and the five examples to work from.
+
 ## What was tested
 
 On 2026-11-15, with n8n 2.47.7, on the reference console (a GEEKOM A9 Max)
