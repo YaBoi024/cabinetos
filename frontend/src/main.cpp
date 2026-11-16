@@ -140,6 +140,7 @@ int App::run(int argc, char** argv) {
     startRemotePlayAtBoot();
     linkupStart();
     startTailscaleAtBoot();
+    startGameEventsAtBoot();
     // NOTHING HERE for a Remote Play session already open at start (back
     // from Steam, a crash): the session script starts gamescope composed
     // (cabinetos-session, #304).

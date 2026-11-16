@@ -46,12 +46,16 @@ void App::dropPressesFromClosing() {
 
 void App::finishExit() {
     // TIME PLAYED (#128): the session ends as the game does, and goes to
-    // RomM with the save.
+    // RomM with the save. Game events (#716) says so, with the minutes.
+    int64_t playedMs = 0;
     if (playClock.active()) {
-        playtime::close(storage::currentUser(), playClock.finish(playtime::wallMs()));
+        const playtime::Session played = playClock.finish(playtime::wallMs());
+        playedMs = played.playedMs;
+        playtime::close(storage::currentUser(), played);
         uploader.sendPlay();
         playedJustNow(session.romId);
     }
+    gameEventEnded(playedMs);
     syncSave(session, uploader);
     // The disc in the drive, kept for this person's next Play (#162);
     // GameCube changes its own discs, so the core is asked.

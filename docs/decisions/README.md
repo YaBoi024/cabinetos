@@ -129,6 +129,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [no-ui-for-the-few](2026-10-13-no-ui-for-the-few.md): an option only a few players would use never goes on Home, a grid or a game's page.
 - [stop-a-download-from-its-row](2026-11-06-stop-a-download-from-its-row.md): A on the row that is filling asks "Stop downloading?", Continue focused; no other button stops a download.
 - [tailscale-own-switch](2026-11-15-tailscale-own-switch.md): Tailscale is its own switch in Network, apart from Remote Play, and runs whenever it is on; the update turns off a Tailscale whose row read Off.
+- [game-events](2026-11-15-game-events.md): the console sends what is happening in a game to one app at home, at an address the owner types and only while it is on their own network, and that app does the rest; no Discord, switches or QR code on the console.
 
 ### The image and updates
 

@@ -1130,6 +1130,7 @@ void App::startPlaying(cab::Core& core) {
     if (session.romId > 0) {
         playClock.begin(session.romId, playtime::wallMs());
         playCheckpointClock = 0.0f;
+        gameEventStarted();
     }
 }
 

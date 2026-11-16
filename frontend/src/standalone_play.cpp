@@ -158,6 +158,7 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     if (session.romId > 0) {
         playClock.begin(session.romId, playtime::wallMs());
         playCheckpointClock = 0.0f;
+        gameEventStarted();
     }
     // THIS WINDOW STEPS OUT OF THE WAY AND WAITS ON TOP. It becomes
     // gamescope's overlay (overlaywin.h), draws nothing, and leaves the
@@ -206,11 +207,15 @@ void App::finishStandalone() {
     endPointer();
     cab::vpad::close();
     players::setInGame(false);
+    int64_t playedMs = 0;
     if (playClock.active()) {
-        playtime::close(storage::currentUser(), playClock.finish(playtime::wallMs()));
+        const playtime::Session played = playClock.finish(playtime::wallMs());
+        playedMs = played.playedMs;
+        playtime::close(storage::currentUser(), played);
         uploader.sendPlay();
         playedJustNow(session.romId);
     }
+    gameEventEnded(playedMs);
     curtain.from = curtain.to = 1.0f;
     curtain.elapsed = curtain.duration;
     curtain.retarget(0.0f, kCurtainUp);

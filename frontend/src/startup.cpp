@@ -988,6 +988,9 @@ int App::shutDown(char** argv) {
     uploader.shutdown();
     // And an unlock still waiting to go out is written to its queue on disk.
     ra::shutdown();
+    // Game events (#716): a game_ended still waiting gets one message's time
+    // to go, as Power off leaves the game, then its sender is joined.
+    gameevents::shutdown();
     if (!restartSelf) boundTheRestOfTheExit();
     // A STEAM DOWNLOAD IS CANCELLED, not waited for (#485, SETTINGS-04):
     // SteamJobStop joins the Steam job's thread as the App goes, and the
