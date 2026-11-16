@@ -38,6 +38,7 @@ from a blank PC to playing.
 - [Display and Sound](picture.md): picture levels, screen looks, colours, dark hours, sound.
 - [Updates](updates.md)
 - [File access](file-access.md): copy files to and from the console.
+- [Game events](game-events.md): tell an app at home what is happening in a game.
 
 ## Help
 

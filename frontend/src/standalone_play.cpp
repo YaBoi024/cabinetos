@@ -55,14 +55,12 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     // ONE VIRTUAL CONTROLLER PER PLAYER, and at least one: the emulator
     // is given these and never the real pads (vpad.h). Without them the
     // game would start and nothing would move it, so that refuses here.
-    // FORK (handheld): ONE CONTROLLER KEPT FREE FOR A FRIEND while Streaming is
-    // on and nobody is streaming yet. The emulator is given its controllers
-    // once, here, so a friend whose Moonlight connects after the game has
-    // started would otherwise have none to press (Switch, 2026-10-29).
-    const bool spare = rpState == "active" && players::sharing() && !remoteplay::streaming() &&
-                       players::count() < cab::vpad::kMaxPlayers;
-    const int pads = std::max(1, players::count() + (spare ? 1 : 0));
-    if (!cab::vpad::open(pads)) {
+    // Beside them, for an emulator that reads one, a motion device for each
+    // player whose pad has the sensors (PS3, #683); or, for an emulator that
+    // reads a pad's own sensors, the stand-in DualSense in place of the plain
+    // controller (Switch, Wii U and Vita, #669).
+    const int pads = std::max(1, players::count());
+    if (!cab::vpad::open(pads, emu.motion, emu.dualsense, emu.onlyPlayerOneTilts)) {
         refuseLaunch("Couldn't start this game");
         return;
     }
@@ -177,6 +175,7 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     if (session.romId > 0) {
         playClock.begin(session.romId, playtime::wallMs());
         playCheckpointClock = 0.0f;
+        gameEventStarted();
     }
     // THIS WINDOW STEPS OUT OF THE WAY AND WAITS ON TOP. It becomes
     // gamescope's overlay (overlaywin.h), draws nothing, and leaves the
@@ -225,11 +224,15 @@ void App::finishStandalone() {
     endPointer();
     cab::vpad::close();
     players::setInGame(false);
+    int64_t playedMs = 0;
     if (playClock.active()) {
-        playtime::close(storage::currentUser(), playClock.finish(playtime::wallMs()));
+        const playtime::Session played = playClock.finish(playtime::wallMs());
+        playedMs = played.playedMs;
+        playtime::close(storage::currentUser(), played);
         uploader.sendPlay();
         playedJustNow(session.romId);
     }
+    gameEventEnded(playedMs);
     curtain.from = curtain.to = 1.0f;
     curtain.elapsed = curtain.duration;
     curtain.retarget(0.0f, kCurtainUp);
@@ -766,6 +769,8 @@ void App::drawOverGame() {
     renderer.setPixelShift(0, 0);
     renderer.beginFrame(dw, dh);
     renderer.presentScene();
+    // A LinkUp friend's bars and glow around the host's game, under the rest (#692).
+    if (linkupPictureBehind()) linkupPlay.drawPlace(renderer);
     for (int d = 0; pointer.on && d < 2; ++d) {
         if (d == 1 && !pointer.second) break;
         const float r = pointer.finger[d] ? kDotPressed : kDotRadius;

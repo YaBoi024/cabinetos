@@ -47,14 +47,16 @@ void App::dropPressesFromClosing() {
 
 void App::finishExit() {
     // TIME PLAYED (#128): the session ends as the game does, and goes to
-    // RomM with the save.
+    // RomM with the save. Game events (#716) says so, with the minutes.
+    int64_t playedMs = 0;
     if (playClock.active()) {
-        playtime::close(storage::currentUser(), playClock.finish(playtime::wallMs()));
+        const playtime::Session played = playClock.finish(playtime::wallMs());
+        playedMs = played.playedMs;
+        playtime::close(storage::currentUser(), played);
         uploader.sendPlay();
         playedJustNow(session.romId);
     }
-    // A game played together writes its battery into its own folder and has no
-    // save tag, so this keeps the shared saved game and uploads nothing.
+    gameEventEnded(playedMs);
     syncSave(session, uploader);
     // The disc in the drive, kept for this person's next Play (#162);
     // GameCube changes its own discs, so the core is asked.
@@ -811,6 +813,8 @@ void App::drawGamePicture(cab::Core& core, int dh) {
         // a picture that fills the height leaves no room to ramp
         // across. The rect is the whole interface.
         renderer.drawBiasGlow(px, py, dw, dh, glowPeak);
+        // A LinkUp friend draws the same glow on their own TV, from where the picture sits (#692).
+        linkupTellPlace(px, py, dw, dh);
     }
 }
 

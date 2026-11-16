@@ -118,6 +118,7 @@ for expected in \
     /usr/lib/systemd/system/cabinetos-drive-claim.service \
     /usr/share/polkit-1/rules.d/63-cabinetos-drives.rules \
     /usr/lib/udev/rules.d/90-cabinetos-system-disk.rules \
+    /usr/lib/udev/rules.d/71-cabinetos-motion-devices.rules \
     /usr/lib/udev/rules.d/72-cabinetos-wii-remote.rules \
     /usr/lib/udev/rules.d/99-cabinetos-wii-remote.rules \
     /etc/ssh/sshd_config.d/30-cabinetos.conf \
@@ -334,7 +335,7 @@ bash /ctx/install-steam-session.sh
 # cannot complete first run at all (open question 15b's one hard gate), and one
 # that cannot pair a controller finishes setup owning a games console nobody can
 # play from a sofa.
-# tailscale and tailscaled: Remote Play away from home (#286) runs the
+# tailscale and tailscaled: Tailscale's switch in Network (#286) runs the
 # command and starts the daemon. Bazzite's, like the three above.
 # wpctl: the volume keys (#351, volume.cpp). WirePlumber's, in the base.
 # pdfinfo and pdftoppm: a game's manual (#364, manual.cpp) is measured and its

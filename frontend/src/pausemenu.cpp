@@ -326,9 +326,10 @@ void App::remotePlayHandover() {
     // focused, so for the first seconds the stream's presses do nothing
     // in a menu.
     if (on) idleWatch.woke(clockSeconds());
-    // Remote Play's section greys out for the stream, and back after. A
-    // panel already open from it (Paired devices, Tailscale's menu)
-    // closes, so nothing in it can be pressed from the stream either.
+    // Remote Play's section, and Tailscale's row in Network, grey out for
+    // the stream, and back after. A panel already open from either (Paired
+    // devices, Tailscale's menu) closes, so nothing in it can be pressed
+    // from the stream either.
     if (here() == Screen::Settings) {
         if (on && choiceScreen.isOpen()) choiceScreen.close();
         buildSettings();
@@ -409,9 +410,13 @@ void App::drawPauseMenu(float sc) {
     choiceScreen.setMenuFade(ovl);
     overlayTaps.clear();   // FORK (handheld): only the rows drawn this frame can be tapped
     const float rowsA = ovl * (level ? choiceScreen.menuRows() : 1.0f);
-    // NOT UNDER A QUESTION ASKED FROM IT (Change disc, #162): the panel
-    // takes its place, and the menu's words showed through the glass.
-    if (ovl > 0.001f && !(inGame && choiceScreen.isOpen() && !level)) {
+    // NOT UNDER A QUESTION ASKED OVER IT (Change disc, #162; LinkUp's panels
+    // over the host's game): the panel takes its place, and the menu's words
+    // showed through the glass. Nor while one closed with the menu fades out
+    // with it (ChoiceScreen::closeWithMenu): Resume, Save State and Load State
+    // showed for the length of the fade, as if the menu had come back.
+    const bool question = choiceScreen.isOpen() || choiceScreen.fadingWithMenu();
+    if (ovl > 0.001f && !(inGame && question && !level)) {
         const int ovN = ovCount();
         const float panelH = pauseMenuHeight();
         const float px = (ui::kCanvasWidth - kOverlayPanelWidth) * 0.5f;

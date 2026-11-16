@@ -98,6 +98,7 @@ void LinkUpScreen::setState(const linkup::State& state, bool inUse) {
     inUse_ = inUse;
     pill_ = inUse ? "Remote Play in use" : linkup::statusLine(state.appearOffline);
     instead_ = state.instead;
+    enterCode_ = state.instead == linkup::kConsoleRemoved && !inUse;
     tiles_.clear();
     if (state.instead.empty()) {
         const std::vector<int> colours = linkup::coloursApart(state.friends, kFriendColours, 1);
@@ -179,6 +180,7 @@ Result LinkUpScreen::key(Nav n) {
     if (n == Nav::Back) return {Action::Back, 0};
     if (at_ < 0) {
         if (n == Nav::Up) return {Action::FocusBar, 0};
+        if (n == Nav::Activate && enterCode_) return {Action::LinkUp, kEnterCode};
         if (n == Nav::Activate && count > 0 && !inUse_) return {Action::LinkUp, kAppearOffline};
         if (n == Nav::Down && count > 0) return go(0);
         sound::play(sound::Cue::Edge);
@@ -261,7 +263,8 @@ void LinkUpScreen::drawTile(Ctx& c, const FriendTile& tile, float x, float y, fl
 }
 
 // The console's cabinet, with a player two who is not here yet standing behind it, and
-// what the screen is for in words. Nothing here takes a press.
+// what the screen is for in words. Nothing here takes a press but A on a console taken off
+// its server.
 void LinkUpScreen::drawNoFriends(Ctx& c, float stars, float picture) {
     c.r.setContentAlpha(appear_.value() * stars);
     constexpr float kCabinetH = 340.0f;
@@ -325,6 +328,10 @@ void LinkUpScreen::drawNoFriends(Ctx& c, float stars, float picture) {
         centred(split == std::string::npos ? instead_ : instead_.substr(0, split + 1), big, 740.0f, 0.96f);
         if (split != std::string::npos)
             centred(instead_.substr(split + 2), ui::TextStyle::Title3, 804.0f, 0.60f);
+        // Dimmed while focus is up in the top bar, where A means something else, as Home's empty
+        // screen does.
+        if (enterCode_)
+            drawPressPrompt(c.r, c.text, c.sc, "Press", "to enter a code", 816.0f, hasFocus_ ? 1.0f : 0.45f);
     }
     // The cabinet is stacked shapes, and faded one by one they show through each other and
     // come apart. So it stays whole, and the ground comes over it.
@@ -405,6 +412,31 @@ void LinkUpPlayScreen::open(Shows shows, std::string title, std::string detail, 
     fade_ = 1.0f;
 }
 
+void LinkUpPlayScreen::setPlace(float x, float y, float w, float h, float glowPeak) {
+    // From the other console, so kept on the screen whatever it says.
+    placeX_ = std::clamp(x, 0.0f, ui::kCanvasWidth);
+    placeY_ = std::clamp(y, 0.0f, ui::kCanvasHeight);
+    placeW_ = std::clamp(w, 0.0f, ui::kCanvasWidth - placeX_);
+    placeH_ = std::clamp(h, 0.0f, ui::kCanvasHeight - placeY_);
+    glowPeak_ = glowPeak;
+    placed_ = placeW_ > 0.0f && placeH_ > 0.0f;
+}
+
+// Opaque over the stream's bars, which carry the host's glow in flat steps: black, and this console's
+// own glow over it, smooth, both stopping exactly at the picture. Not rectangles: their smoothed edge
+// darkened the game's outermost column of pixels. The edges on this screen's whole pixels, as the
+// host's are on its own.
+void LinkUpPlayScreen::drawPlace(ui::Renderer& r) const {
+    if (!placed_) return;
+    const float k = r.scale() > 0.0f ? r.scale() : 1.0f;
+    auto snap = [k](float v) { return std::round(v * k) / k; };
+    const float left = snap(placeX_);
+    const float top = snap(placeY_);
+    const float right = snap(placeX_ + placeW_);
+    const float bottom = snap(placeY_ + placeH_);
+    r.drawBiasGlow(left, top, right - left, bottom - top, glowPeak_, /*opaque=*/true);
+}
+
 void LinkUpPlayScreen::tick(float dt) { clock_ += dt; }
 
 Result LinkUpPlayScreen::key(Nav n) {
@@ -427,6 +459,7 @@ void LinkUpPlayScreen::draw(Ctx& c) {
     if (shows_ == Shows::Picture) {
         if (!standIn_) {
             c.r.setContentAlpha(1.0f);
+            drawPlace(c.r);
             return;
         }
         // Stands in for the game, where there is no program to show one.

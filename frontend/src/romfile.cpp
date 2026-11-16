@@ -11,7 +11,9 @@
 #include <set>
 
 #include "dirsave.h"
+#include "fileio.h"
 #include "storage.h"
+#include "unsettled.h"
 
 namespace romfile {
 namespace {
@@ -327,13 +329,19 @@ bool prepareFile(const std::string& downloadedPath, const std::string& outDir,
         return true;
     }
 
-    // EACH FILE WRITTEN TAKES THE ARCHIVE'S OWN TIME (#530), after it is
-    // closed, because a buffered write at the close sets the time again. That
-    // time and the file's size are what alreadyUnpacked looks for. A file cut
-    // off (a cancel, a failed read or write) or whose close failed is never
-    // stamped, so the next start unpacks it again.
+    // EACH FILE WRITTEN TAKES THE ARCHIVE'S OWN TIME (#530), once every one
+    // is closed, because a buffered write at the close sets the time again.
+    // That time and the file's size are what alreadyUnpacked looks for. On
+    // an exFAT or NTFS drive a time can be there after a power cut with the
+    // bytes never written (#559, fileio.h), so there the files are listed
+    // first (unsettled.h) and a power cut before the drive has them means
+    // they are unpacked again; with no list to put them in, it waits for the
+    // drive. On btrfs and ext4 a cut file comes back short. An unpacking cut
+    // off (a cancel, a failed read or write), a file whose close failed, or
+    // a drive that did not take them all leaves files unstamped, so the next
+    // start unpacks it again.
     struct stat from;
-    const bool stamp = ::stat(downloadedPath.c_str(), &from) == 0;
+    std::vector<std::string> closed;
     const std::string primary = eachMember(downloadedPath, k, outDir, validExtensions, err,
         [&](struct archive* a, struct archive_entry*, const std::string& out) -> int64_t {
             if (!storage::makeDirs(out.substr(0, out.find_last_of('/')))) {
@@ -367,13 +375,15 @@ bool prepareFile(const std::string& downloadedPath, const std::string& outDir,
                 }
                 written += got;
             }
-            if (std::fclose(f) == 0 && stamp) {
-                const struct timespec when[2] = {{0, UTIME_OMIT}, from.st_mtim};
-                ::utimensat(AT_FDCWD, out.c_str(), when, 0);
-            }
+            if (std::fclose(f) == 0) closed.push_back(out);
             return written;
         });
     if (primary.empty()) return false;
+    if (::stat(downloadedPath.c_str(), &from) == 0 &&
+        (cab::keepsSizeWithBytes(outDir) || unsettled::note(closed) || cab::syncDrive(outDir))) {
+        const struct timespec when[2] = {{0, UTIME_OMIT}, from.st_mtim};
+        for (const std::string& out : closed) ::utimensat(AT_FDCWD, out.c_str(), when, 0);
+    }
     *primaryPath = primary;
     return true;
 }

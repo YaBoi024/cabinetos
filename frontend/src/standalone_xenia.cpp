@@ -81,7 +81,7 @@ void xeniaArgs(std::vector<std::string>& full, const std::string& dir, const std
     // ONLY THE VIRTUAL CONTROLLERS, as for xemu: Edge's menus read
     // what is bound to a slot, and its slots auto-bind whatever SDL
     // shows it. SDL's own hint, no patch. GTK on gamescope's Xwayland.
-    full.insert(full.end() - 1, "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x1209/0xCAB0");
+    full.insert(full.end() - 1, "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=" + cab::vpad::sdlIds());
     full.insert(full.end() - 1, "GDK_BACKEND=x11");
     std::string slots;
     for (int p = 0; p < 4; ++p) {

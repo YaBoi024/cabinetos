@@ -14,26 +14,16 @@ source of truth for anything on RomM's data.
 
 ## Where things stand
 
-**2026-11-09.** The newest release is 2026.10.10. The newest image promoted
-to consoles is 2026.11.09.5: #678, "Wi-Fi: Forget removes a network saved
-twice (#642)", carrying #677, "System update row: "under 1 MB" instead of
-"0.0 MB", and no size when it is not known" (#672), merged on 2026-11-09
-after his TV checks. Before it the same day: #671, "On-screen keyboard: a
-held direction repeats, Shift locks, and the field has a cursor"
-(2026.11.09.4), and #666, "LinkUp: the console's side, step 3 of #654"
-(2026.11.09.3); LinkUp is on the wiki, in the README and in the changelog
-(#673, #674), and every wiki page and the README were read against the
-code on 2026-11-09, the lines found wrong fixed in #679, "Wiki: fix the
-lines the docs review found wrong, stale or missing", and #680, "Controls
-guide: LinkUp in the top bar, the keyboard's Shift lock, the date". Open:
-#528 waits on RomM and #644 is the controller list. #590, "A
-Wii Remote turned on after a Wii game starts is ignored by the game",
-waits in Later; fix it only in the console's own code, never by patching
-Dolphin (MMagTech, 2026-10-25). What the A9 runs now is not written here:
-read it from the console before a test.
-The machines' addresses are in his local notes. His standing rule: every
-check and every comment is written out in full each time it is asked for,
-never referred to.
+**2026-11-15.** The newest release is 2026.10.10. The newest image promoted
+to consoles is 2026.11.15: #715, "Tailscale gets its own switch in Network,
+apart from Remote Play", merged on 2026-11-15. docs/wiki/changelog.md lists
+every image before it. Open: #528 waits on RomM. #590, "A Wii Remote turned
+on after a Wii game starts is ignored by the game", waits in Later; fix it
+only in the console's own code, never by patching Dolphin (MMagTech,
+2026-10-25). What the A9 runs now is not written here: read it from the
+console before a test. The machines' addresses are in his local notes. His
+standing rule: every check and every comment is written out in full each
+time it is asked for, never referred to.
 
 **His rules from 2026-10-19 and 2026-10-20:** anything mechanical (a
 measurement, a build, research) runs in an Opus session, never in the Fable
@@ -45,37 +35,25 @@ RomM: keep test launches under a minute, or have his go.
 
 ## Next
 
-1. **LinkUp, step 6 of #654, "LinkUp: play a game with a friend on another
-   CabinetOS console over the internet": across the internet.** Steps 1 to 5
-   are done and recorded on the issue; the server is cabinet-linkup v0.1.1,
-   pinned in `ci/linkup-server.txt`. First his friend, on latest 2026.11.09.5,
-   against his own server, whose Relay tab test passed on 2026-11-09; then the
-   two testers in other homes. The result goes on #654 (how each game
-   connected, direct or relay, from the server's admin page); nothing is filed
-   from it unless he asks. Beside it: cabinet-linkup#7, the server's README
-   head, merges on his word; two server tidy-ups with no issue,
-   `.dockerignore` lets `docs/` into the build stage and the relay's block
-   list lacks 3fff::/20.
-2. **Gyro, beside item 1, which waits on his friend and holds up nothing
-   here but the last session; in this order, each a fresh session that
-   starts from its issue and builds nothing the issue does not say:** #670, "Tilt
-   for the Game Boy Advance and 3DS cores: answer libretro's sensor
-   interface" (Opus, one session; TV: WarioWare: Twisted!, Ocarina of Time
-   3D, Star Fox 64 3D); then #683, "Motion for PS3: a sensor device beside
-   each player's virtual pad" (Opus, one session; TV: LittleBigPlanet); then
-   #669, "Gyro for Switch, Wii U and Vita: a virtual pad that carries the
-   player's tilt", in two sessions: the fake pad proven with one Switch game
-   in Eden (Fable, decided 2026-11-09, the one session where a wrong turn
-   costs most; no TV sitting, the proof is the log), then the three emulators
-   (Opus; TV: Mario Kart 8 Deluxe, Captain Toad, Breath of the Wild's shrines,
-   Gravity Rush); last, the friend's tilt over LinkUp for Switch and PS3
-   (Opus, one session, two consoles; the friend needs a gyro pad of their
-   own). If it lands before item 1's sitting, that sitting tests both, as
-   two steps, the connection first; if not, the tilt gets its own short
-   test later. Settled 2026-11-09: Game Boy and Game
-   Boy Color stay on Gambatte and the two MBC7 cartridges stay out; no
-   greying for a few games; each issue carries its files and docs under
-   #398's rules. His DualSense is the gyro pad for every sitting.
+1. **Game events, #716, "Game events: tell an app at home what is happening
+   in a game".** The issue is the whole plan, settled on 2026-11-15; nothing
+   in it is decided again. PR #717, "Game events: tell an app at home what is
+   happening in a game (#716)", carries it, open and not merged. Steps 1 (the
+   build) and 2 (the real run, 2026-11-15, on testing image 2026.11.15.2 with
+   MMagTech's n8n and Discord; its findings are on #716; the wiki page is
+   `docs/wiki/game-events.md`) are done. Added during the run, his call:
+   every game message says `linkup_game` (`none`, `hosting`, `joined`) and
+   never names the other person; two achievements unlocked on the A9
+   reached Discord. **Step 3:** his TV check on `testing`, which already
+   holds this build: the row, the keyboard, the panel, every line the field
+   can show (while "Checking…" shows, the keyboard's focus goes back to its
+   first key), then merge on his go. The Discord webhooks in his n8n are
+   throwaways he replaces.
+2. **LinkUp: two server tidy-ups, no issue.** The internet test, step 6 of
+   #654, passed twice: his console and his friend's, two servers linking up
+   and playing a game (his word, 2026-11-10). Left: `.dockerignore` lets
+   `docs/` into the server's build stage, and the relay's block list lacks
+   3fff::/20.
 3. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
    Kirby: Planet Robobot saved into Mario Kart 7's folder. Read on RomM on
    2026-10-25: Mario Kart 7's save (uploaded 2026-10-22) still carries
@@ -84,31 +62,27 @@ RomM: keep test launches under a minute, or have his go.
    folder, so deleting them on the A9 alone does not last: Mario Kart 7's
    save on RomM has to be replaced. Restate exactly what goes and wait for
    his yes before anything is deleted.
-4. **Words from him, one at a time, no work:** #181, "Updates and DLC as
-   separate files in RomM (Switch, PS3, Xbox 360)", and #215, "Proposal, not
-   decided: opt-in "Help improve CabinetOS" report sharing" (he is unsure of
-   both); and which of the 36 faults the PROJECT.md scan found with no issue
-   (2026-10-22) become issues, none filed until he says. That list is in the
+4. **Words from him, one at a time, no work:** which of the 36 faults the
+   PROJECT.md scan found with no issue (2026-10-22) become issues, none
+   filed until he says. That list is in the
    notes of the session that made it ("Faults recorded in PROJECT.md with no
    GitHub issue"). Ten were checked in the code and still hold; five wait on
    an emulator or library.
 
 ## Waiting, not for the next session unless MMagTech raises them
 
-- **Needs the TV or a device:** #473 (a press while an emulator of its own
-  has the screen), #290 (the
-  C1, before a release), and #575, "Sinden light guns: plug in and
+- **Needs the TV or a device:** #575, "Sinden light guns: plug in and
   play gun games (waiting on the guns)".
-- **Waiting on others:** #297 and #390 (Sunshine), #346, #353 and #362
-  (RomM's save channels; revisit mid-January 2027), #545 and PR #528 (the
+- **Waiting on others:** #297 (Sunshine), #346, #353 and #362
+  (RomM's save channels; revisit mid-January 2027), #181, "Updates and DLC
+  as separate files in RomM (Switch, PS3, Xbox 360)" (kept open on
+  2026-11-11 to wait for RomM 5.5), #545 and PR #528 (the
   RomM token revoke, rommapp/romm#5274), #534 (the Azahar patch,
   azahar-emu/azahar#2694),
   eden-emulator/Issue-Reports#739 (a Switch controller connected mid-game),
   #203 closed until libretro/dolphin#508 moves.
-- **Filed, not scheduled:** #559, "A power cut right after a download or an
-  unpack can leave a damaged game that the console keeps (exFAT and NTFS
-  drives)", and #675, "Arcade: a Naomi or Atomiswave game with a plain
-  joystick moves only on the d-pad", the fix agreed in principle on
+- **Filed, not scheduled:** #675, "Arcade: a Naomi or Atomiswave game with
+  a plain joystick moves only on the d-pad", the fix agreed in principle on
   2026-10-28 and written on the issue.
 - **With the next real core change:** the comments #490, "Code comments
   that say what the code no longer does, and machine details left in

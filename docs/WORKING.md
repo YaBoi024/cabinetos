@@ -142,33 +142,54 @@ is what only the maintainer runs.
 opens a pull request listing what moved. A player's fault that a newer
 Bazzite fixes, or a security hole, is taken by hand in between
 (`gh workflow run base-update.yml`; docs/PROJECT.md, "Staying current with
-Bazzite").
+Bazzite"). The same day, `terra-fallback-update.yml` keeps the stored
+spare of Steam's session (`build_files/terra-fallback/`) current, so both
+ride one update. Once the base update has merged, the downloads are cut
+again from it (`build-disk.yml`, below). The base update covers only what
+comes from Bazzite, so the same day, run the skill `check-security-fixes`
+over the pins of our own.
 
-**Weekly, on Mondays.** `pad-db-update.yml` refreshes the controller list
-(`frontend/data/gamecontrollerdb.txt`); `terra-fallback-update.yml` keeps the
-stored spare of Steam's session (`build_files/terra-fallback/`) current.
+Neither merges anything.
 
-None of the three merges anything.
+**When a player reports a pad the console does not know or maps wrong,**
+`gh workflow run pad-db-update.yml` updates the controller list
+(`frontend/data/gamecontrollerdb.txt`) to the community's newest and opens
+a pull request naming the pads it adds, changes and removes. It runs on no
+schedule (docs/decisions/2026-11-14-controller-list-on-report.md). If the
+reported pad is not among them, the community's list does not have it
+either.
+
+**Also on the 1st, `flatpak-pins.yml`** checks that every Flathub pin (Eden,
+xemu, their runtimes and Flathub's Mesa) can still be downloaded. It opens
+nothing: a red run means a pin is gone or near the end of what Flathub keeps,
+so try a newer build on the A9 and move the pin in
+`system_files/usr/share/cabinetos/flatpaks.list`.
 
 **`build-disk.yml`**, by hand only: the installer ISO (`anaconda-iso`, an
 artifact kept 90 days, repacked in CabinetOS's look by
-`ci/brand-installer-iso.sh`), a qcow2, or the file a tester writes to a USB
-drive (`portable`, made by `ci/make-portable-image.sh`; the run fails unless
-`ci/check-portable-boots.sh` boots it to first run, and its picture and journal
-are a small artifact of their own). With `publish` ticked on an ISO it also
-replaces the download, `cabinetos.iso` and its SHA-256 in Cloudflare R2
+`ci/brand-installer-iso.sh`, its SHA-256 beside it), a qcow2, or the file a
+tester writes to a USB drive (`portable`, made by `ci/make-portable-image.sh`;
+the run fails unless `ci/check-portable-boots.sh` boots it to first run, and
+its picture and journal are a small artifact of their own). A build never
+publishes. `iso_run` and `portable_run`, each given a finished run's number,
+build nothing and put that run's file on Cloudflare R2
 (`download.mmagtech.com`, the link the README and the wiki's Install page
-give), and reads the size back to check it. `publish` is only for the ISO:
-`portable_run`, given a finished run's number, builds nothing and puts that
-run's file on R2 as `cabinetos-portable.img.xz`
-(`docs/decisions/2026-11-05-portable-download.md`). Build it once per release; an
-installed console updates itself. Try installer changes in a throwaway VM
-first with `tools/installer-vm.sh`. Before ticking `publish`, install the
-built ISO in the VM (`tools/installer-vm.sh install`) and look at its
-screens: the boot menu, the drive question, the summary, Time & Date,
-installing and first run. The build stops by itself if the installer changed
-under the branding (`ci/brand-installer-iso.sh` checks what it relies on); a
-change in the look shows only on screen.
+give) as `cabinetos.iso` or `cabinetos-portable.img.xz`, with its SHA-256,
+and read the size back to check it; one dispatch can take both. Cut both once
+each month's base update has merged, and at once for a fix to the installer,
+first run or privacy: a new console stays on the image it was installed from
+until its player updates it
+(`docs/decisions/2026-11-12-when-the-downloads-are-cut.md`). Each cut gets a
+GitHub release page for the version the ISO installs, tagged at the commit in
+its image's `org.opencontainers.image.revision` label
+(`docs/decisions/2026-11-13-a-release-page-per-download.md`). Try installer
+changes in a throwaway VM first with `tools/installer-vm.sh`. Before giving a
+run as `iso_run`, install that run's ISO in the VM
+(`tools/installer-vm.sh install`) and look at its screens: the boot menu,
+the drive question, the summary, Time & Date, installing and first run.
+The build stops by itself if the installer changed under the branding
+(`ci/brand-installer-iso.sh` checks what it relies on); a change in the look
+shows only on screen.
 
 **Repository settings the build depends on.** Settings, Actions, General,
 Workflow permissions: **Read and write**, or the push to GHCR fails with a 403.

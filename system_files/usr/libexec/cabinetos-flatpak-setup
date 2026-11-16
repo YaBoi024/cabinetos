@@ -77,13 +77,68 @@ fi
 # it to the exact revision, in either direction — verified 2026-09-18 by pinning
 # RPCS3 forward to a newer commit and back to an older one, with the version
 # string following both times.
+#
+# EACH STEP MOVES ONE REF AND NOTHING ELSE. By default both commands also bring
+# the ref's dependencies and its "related" refs (the graphics driver, the
+# translations) up to Flathub's newest. On a console installed 2026-11-06 that
+# moved both runtimes past their pins after they had been set: installing the
+# newest Eden updated its runtime, and the newest xemu pulled in a second
+# Freedesktop runtime (26.08). So an app is installed with --no-deps
+# --no-related (its runtime is listed above it and already pinned), every pin
+# is --no-deps --no-related, and every ref is named WITH its branch: by name
+# alone, a second branch on the machine made each later pin fail
+# ("Commit has no requested ref"), every 6 hours. A runtime's first install
+# keeps its related refs, which is how the graphics driver arrives; its
+# lines below the runtimes then pin it.
 failures=0
-installed=0
 
-# `|| [[ -n "${kind:-}" ]]`: read fails on a last line with no newline, after
-# filling its variables, so without this the list's last line was never run
-# (FORK: Moonlight, the last line of flatpaks.list, was skipped on every boot).
-while read -r kind ref branch commit || [[ -n "${kind:-}" ]]; do
+# pin <kind> <ref> <branch> <commit>: the ref installed if missing and moved to
+# its commit, read back. Returns 1 when it is not there afterwards.
+pin() {
+    local kind=$1 ref=$2 branch=$3 commit=$4
+    local name="${ref}//${branch}" full have now
+    full="${kind}/${ref}/$(uname -m)/${branch}"
+    local install_flags=(--system --noninteractive --or-update)
+    [[ "${kind}" == "app" ]] && install_flags+=(--no-deps --no-related)
+
+    have=$(flatpak info --system --show-commit "${name}" 2>/dev/null || true)
+    if [[ "${have}" == "${commit}" ]]; then
+        log "  ok: ${name} already at ${commit:0:12}"
+        return 0
+    fi
+
+    if [[ -n "${have}" ]]; then
+        log "  ${name}: at ${have:0:12}, want ${commit:0:12}"
+    else
+        log "  ${name}: not installed, want ${commit:0:12}"
+        if ! flatpak install "${install_flags[@]}" "${REMOTE}" "${full}" 2>&1 \
+                | sed 's/^/      /'; then
+            log "  ERROR: install failed for ${name}"
+            return 1
+        fi
+    fi
+
+    # The pin. Without this the machine has whatever Flathub served today, which
+    # is the thing this whole file exists to prevent.
+    if ! flatpak update --system --noninteractive --no-deps --no-related \
+            --commit="${commit}" "${name}" 2>&1 | sed 's/^/      /'; then
+        log "  ERROR: could not pin ${name} to ${commit:0:12}"
+        return 1
+    fi
+
+    # Read it back. A pin that did not take is exactly the silent failure this
+    # repository keeps finding, so it is checked rather than assumed.
+    now=$(flatpak info --system --show-commit "${name}" 2>/dev/null || true)
+    if [[ "${now}" == "${commit}" ]]; then
+        log "  pinned: ${name} at ${commit:0:12}"
+        return 0
+    fi
+    log "  ERROR: ${name} is at ${now:0:12} after pinning, wanted ${commit:0:12}"
+    return 1
+}
+
+entries=()
+while read -r kind ref branch commit; do
     [[ -z "${kind:-}" || "${kind}" =~ ^# ]] && continue
 
     if [[ -z "${ref:-}" || -z "${branch:-}" || -z "${commit:-}" ]]; then
@@ -98,52 +153,37 @@ while read -r kind ref branch commit || [[ -n "${kind:-}" ]]; do
            failures=$((failures + 1)); continue ;;
     esac
 
-    full="${kind}/${ref}/$(uname -m)/${branch}"
+    entries+=("${kind} ${ref} ${branch} ${commit}")
+done < "${MANIFEST}"
 
-    have=$(flatpak info --system --show-commit "${ref}//${branch}" 2>/dev/null || true)
-    if [[ "${have}" == "${commit}" ]]; then
-        log "  ok: ${ref} already at ${commit:0:12}"
-        installed=$((installed + 1))
-        continue
-    fi
+for entry in "${entries[@]}"; do
+    read -r kind ref branch commit <<<"${entry}"
+    pin "${kind}" "${ref}" "${branch}" "${commit}" || failures=$((failures + 1))
+done
 
-    if [[ -n "${have}" ]]; then
-        log "  ${ref}: at ${have:0:12}, want ${commit:0:12}"
-    else
-        log "  ${ref}: not installed, want ${commit:0:12}"
-        if ! flatpak install --system --noninteractive --or-update \
-                "${REMOTE}" "${full}" 2>&1 | sed 's/^/      /'; then
-            log "  ERROR: install failed for ${ref}"
-            failures=$((failures + 1))
-            continue
-        fi
-    fi
-
-    # The pin. Without this the machine has whatever Flathub served today, which
-    # is the thing this whole file exists to prevent.
-    # THE FULL REF, with its branch (FORK, Steam Deck). A bare name is taken to
-    # be whichever installed branch flatpak picks, and bazzite-deck carries
-    # several of org.freedesktop.Platform: it picked 26.08, which has no such
-    # commit ("Commit has no requested ref ... found 25.08"), so the pin failed
-    # on every run and the unit reported a failure each time.
-    if ! flatpak update --system --noninteractive --commit="${commit}" \
-            "${full}" 2>&1 | sed 's/^/      /'; then
-        log "  ERROR: could not pin ${ref} to ${commit:0:12}"
-        failures=$((failures + 1))
-        continue
-    fi
-
-    # Read it back. A pin that did not take is exactly the silent failure this
-    # repository keeps finding, so it is checked rather than assumed.
+# ---------------------------------------------------------------------------
+# The whole list again, once everything is in.
+# ---------------------------------------------------------------------------
+#
+# A later line can move an earlier one, which is how the 2026-11-06 console
+# ended with both runtimes off their pins while this logged every ref pinned.
+# The flags above should stop that; this is what notices if one day they do
+# not, and puts the ref back.
+held=0
+for entry in "${entries[@]}"; do
+    read -r kind ref branch commit <<<"${entry}"
     now=$(flatpak info --system --show-commit "${ref}//${branch}" 2>/dev/null || true)
     if [[ "${now}" == "${commit}" ]]; then
-        log "  pinned: ${ref} at ${commit:0:12}"
-        installed=$((installed + 1))
+        held=$((held + 1))
+        continue
+    fi
+    log "  ${ref}//${branch} moved after it was pinned; pinning it again"
+    if pin "${kind}" "${ref}" "${branch}" "${commit}"; then
+        held=$((held + 1))
     else
-        log "  ERROR: ${ref} is at ${now:0:12} after pinning, wanted ${commit:0:12}"
         failures=$((failures + 1))
     fi
-done < "${MANIFEST}"
+done
 
 # ---------------------------------------------------------------------------
 # Remove any emulator the manifest no longer names.
@@ -175,9 +215,9 @@ done < <(flatpak list --system --app --columns=application 2>/dev/null)
 if [[ "${failures}" -eq 0 ]]; then
     mkdir -p "${STATE_DIR}"
     echo "${want}" > "${STAMP}"
-    log "done: ${installed} refs at their pinned revisions"
+    log "done: ${held} refs at their pinned revisions"
 else
-    log "done with ${failures} failure(s); ${installed} ok. Will retry."
+    log "done with ${failures} failure(s); ${held} ok. Will retry."
 fi
 
 # Always. See the header.

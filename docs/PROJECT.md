@@ -1473,10 +1473,8 @@ into the picture, banding, not reaching the edge. A continuous slider on a real
 panel found the numbers, and only then were presets chosen. Do not guess these;
 build the slider.
 
-**DECIDED, MMagTech 2026-10-04: the glow is always on at Strong (0.04), with
-no setting anywhere.** The pause-menu row recorded above was never built, and
-he chose to leave it that way for now (fewer settings is the rule), raised from
-Subtle to Strong. `--glow off|subtle|strong` remains for testing only.
+**Moved:** the decision that the glow is always on at Strong is
+docs/decisions/2026-10-04-glow-always-on-at-strong.md.
 
 #### DECIDED, MMagTech 2026-10-04: screen looks are RetroArch's own shaders (#122)
 
@@ -1724,10 +1722,7 @@ then whether he was drifting into adding too much: *"the os is meant to be
 simple and take the complexity away alot of emulators add."* Decided:
 
 - **No remapping:** moved to [decisions/2026-09-26-no-remapping.md](decisions/2026-09-26-no-remapping.md).
-- **No mapping screen for unknown pads either (#66).** The console carries
-  SDL_GameControllerDB (`players::loadMappings`) and a weekly pull request
-  keeps it current; a pad that is still missing is added to the list. The
-  person never maps anything, which is the rule this section began with.
+- **No mapping screen for unknown pads either (#66):** moved to [decisions/2026-09-26-no-mapping-screen.md](decisions/2026-09-26-no-mapping-screen.md).
 - **Officially supported controllers: Xbox, PlayStation and Switch**
   (MMagTech, 2026-10-10, #318): *"the most likely controller someone would
   have laying around home."* Their kernel drivers (`hid_microsoft`,
@@ -3246,8 +3241,8 @@ not, and the A9 has no CEC to wake one.
   which the first build of the wait held back until a display answered, so
   that build left a console with no TV unreachable over SSH (measured,
   2026-10-10) and was undone. `cabinetos-saved-services.service`, a oneshot
-  at boot, reads `settings.json` and starts whichever are on (Tailscale only
-  with Remote Play, as the app has it). The app still starts and stops them
+  at boot, reads `settings.json` and starts whichever are on (Tailscale:
+  docs/decisions/2026-11-15-tailscale-own-switch.md). The app still starts and stops them
   from Settings; starting one already running does nothing.
   **Remote Play was started here too, and that was wrong** (2026-10-13, on
   the testing images 2026.10.13.3 and .4): at boot Sunshine ran before the
@@ -17506,8 +17501,7 @@ self-hosted server is not open source); Moonlight's own internet streaming
 the row off: MMagTech's own iPhone streamed over 5G through his Tailscale
 subnet router with nothing on the console.
 
-*Under Streaming, never alone:* it runs only while Streaming and Tailscale
-are both on, so "off means nothing runs" holds for both. *Locked down by the
+*Under Streaming, never alone:* moved to docs/decisions/2026-11-15-tailscale-own-switch.md (2026-11-15), which replaces it. *Locked down by the
 image,* not by Settings: operator `cabinet`, no DNS and no routes from the
 network, no exit node, no logs to Tailscale (`TS_NO_LOGS_NO_SUPPORT`; their
 support cannot look into a problem). *The firewall:* without a zone of its

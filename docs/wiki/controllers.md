@@ -10,10 +10,11 @@ controllers**, over Bluetooth or USB, and the **8BitDo Arcade Stick** (see
 tested around.
 
 Other pads in the [SDL controller list](https://github.com/mdqinc/SDL_GameControllerDB)
-usually work too, with no setup; the list holds over two thousand pads and
-arrives with each update. The original Steam Controller is expected to work; the
+usually work too, with no setup; the console knows hundreds of pads from
+it. The original Steam Controller is expected to work; the
 2026 Steam Controller needs a system update that has not arrived yet. If a pad
-misbehaves, [report it](troubleshooting.md). Buttons are matched by
+is not recognised or misbehaves, [report it](troubleshooting.md): the
+newest list may already have it. Buttons are matched by
 position, so the bottom face button is always **A** (Cross on PlayStation, B
 on Nintendo). There is no button-mapping screen, except in arcade games:
 their pause menu's [Controls](pause-menu.md#controls) moves the game's
@@ -63,6 +64,31 @@ connected.
 
 Settings, Controllers, **Rumble**: on or off for every controller and every
 system. It is on to start with.
+
+## Motion
+
+PS4, PS5 and Switch controllers have motion sensors; Xbox controllers do not.
+In the games made for tilting or turning the handheld, player 1's controller
+does it: Game Boy Advance cartridges with a tilt or gyro sensor, 3DS games
+that use the 3DS's gyro, such as aiming by moving it, and PS Vita games that
+use the Vita's. Tilt or turn the controller as the game asks.
+
+In PlayStation 3 and Switch games every player's controller moves as that
+console's controller did: tilt or turn it where a game asks you to move the
+controller, such as steering, balancing or aiming. Each player's own
+controller moves only their part of the game.
+
+In Wii U games player 1's controller is the GamePad, so tilting it is tilting
+the GamePad: aiming, looking around or steering where a game asks. The other
+players hold Pro Controllers, which had no motion on a Wii U.
+
+In [LinkUp](linkup.md) your friend's controller moves their part of a Switch or
+PlayStation 3 game the same way, when both consoles have the newest update.
+In Wii U and PS Vita games your friend is player 2, so their controller does
+not tilt the game.
+
+With a controller that has no motion sensors those games play as before, and
+the parts made for motion do nothing.
 
 ## Fight sticks
 

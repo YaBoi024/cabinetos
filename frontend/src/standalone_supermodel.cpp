@@ -438,7 +438,7 @@ void supermodelArgs(std::vector<std::string>& full, const Emulator& e, const std
     std::string db;
     for (int p = 0; p < cab::vpad::kMaxPlayers; ++p) db += cab::vpad::sdlMapping(p) + "\n";
     full.insert(full.end() - 1, "SDL_GAMECONTROLLERCONFIG=" + db);
-    full.insert(full.end() - 1, "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x1209/0xCAB0");
+    full.insert(full.end() - 1, "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=" + cab::vpad::sdlIds());
     full.insert(full.end() - 1, "SDL_VIDEO_DRIVER=x11");
     // The game's zip, whose name is its set, and its list in the image.
     full.insert(full.end(), {romPath, "-game-xml-file=" + share(e) + "/Games.xml"});

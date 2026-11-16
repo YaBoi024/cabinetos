@@ -347,13 +347,6 @@ bool removeCached(const Entry& e) {
     return true;
 }
 
-void syncLocation(const std::string& location) {
-    if (const int fd = ::open(location.c_str(), O_RDONLY | O_DIRECTORY); fd >= 0) {
-        ::syncfs(fd);
-        ::close(fd);
-    }
-}
-
 }  // namespace
 
 int64_t evictGame(int romId) {
@@ -362,7 +355,7 @@ int64_t evictGame(int romId) {
         int64_t here = 0;
         for (const Entry& e : candidates(loc))
             if (e.romId == romId && removeCached(e)) here += e.bytes;
-        if (here > 0) syncLocation(loc);
+        if (here > 0) cab::syncDrive(loc);
         freed += here;
     }
     return freed;
@@ -404,7 +397,7 @@ int64_t evictUntilFree(const std::string& location, int64_t needBytes,
         // syncfs rather than sync, so this is the one filesystem rather than
         // every mounted one. It happens once per eviction, on a path that is
         // about to move hundreds of megabytes over a network.
-        syncLocation(location);
+        cab::syncDrive(location);
         std::fprintf(stderr, "[cache] freed %lld bytes to make room for %lld\n",
                      static_cast<long long>(freed), static_cast<long long>(needBytes));
     }
@@ -570,7 +563,7 @@ bool unkeep(const storage::User& u, int romId, bool keepTheBytes, Release* out) 
     // leaves statvfs reporting the old figure until a transaction commits, so a
     // Storage screen refreshed a second later would show no change at all. Same
     // reason evictUntilFree does it.
-    syncLocation(p.location);
+    cab::syncDrive(p.location);
     std::fprintf(stderr, "[keep] %d released and removed, %lld bytes back\n", romId,
                  static_cast<long long>(bytes));
     r.what = Release::What::Deleted;
@@ -602,7 +595,7 @@ bool unkeepForEveryone(int romId, bool keepTheBytes, Release* out) {
             return true;
         }
         dropManual(p.entryPath, romId);
-        syncLocation(p.location);
+        cab::syncDrive(p.location);
         std::fprintf(stderr, "[keep] %d was kept by nobody; removed, %lld bytes back\n", romId,
                      static_cast<long long>(bytes));
         r.what = Release::What::Deleted;

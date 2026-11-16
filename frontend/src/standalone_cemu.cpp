@@ -97,10 +97,18 @@ std::string cemuProfile(int player) {
          "</type>\n  <controller>\n";
     x += "    <api>SDLController</api>\n";
     // `<n>_<GUID>`: the n-th pad with that GUID. Each player's virtual
-    // controller has a GUID of its own (vpad.h), so always the first.
+    // controller, plain or stand-in, has a GUID of its own (vpad.h), so
+    // always the first.
     x += "    <uuid>0_" + cab::vpad::sdlGuid(player) + "</uuid>\n";
     x += "    <display_name>CabinetOS player " + std::to_string(player + 1) + "</display_name>\n";
     x += "    <rumble>1</rumble>\n";
+    // THE PLAYER'S TILT (#669), when their controller is a stand-in DualSense
+    // carrying it, which for Cemu is player 1's alone (standalone.h): Cemu
+    // reads a pad's motion only when its profile says so
+    // (input/InputManager.cpp, "motion"; Controller.h, use_motion), and only
+    // for the GamePad (VPADController::update_motion), the one Wii U
+    // controller with a gyro.
+    if (cab::vpad::carriesMotion(player)) x += "    <motion>true</motion>\n";
     for (const char* a : {"axis", "rotation", "trigger"})
         x += std::string("    <") + a + "><deadzone>0.25</deadzone><range>1</range></" + a + ">\n";
     x += "    <mappings>\n";
@@ -191,14 +199,24 @@ bool prepareCemu(const Emulator& e, const std::string& saveDir, int players, std
 void cemuArgs(std::vector<std::string>& full, const std::string& dir, const std::string& romPath) {
     // ITS LOG under its home (XDG_DATA_HOME/Cemu); its settings and
     // shader cache are there already, by the two Run::start sets. ONLY THE
-    // VIRTUAL CONTROLLERS, as for xemu and Edge, with SDL told what
-    // each one is: Cemu (SDL 3) asks for gamepads, and its profiles
-    // bind them by GUID (prepareCemu). GTK on gamescope's Xwayland.
+    // VIRTUAL CONTROLLERS of the kind open (vpad.h: the stand-in
+    // DualSenses, or the plain ones when those could not be made), with SDL
+    // told what each one is: Cemu (SDL 3) asks for gamepads, and its
+    // profiles bind them by GUID (prepareCemu). GTK on gamescope's Xwayland.
     std::string db;
     for (int p = 0; p < cab::vpad::kMaxPlayers; ++p) db += cab::vpad::sdlMapping(p) + "\n";
     full.insert(full.end() - 1, "XDG_DATA_HOME=" + dir);
     full.insert(full.end() - 1, "SDL_GAMECONTROLLERCONFIG=" + db);
-    full.insert(full.end() - 1, "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x1209/0xCAB0");
+    full.insert(full.end() - 1, "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=" + cab::vpad::sdlIds());
+    // AND NOT THROUGH SONY'S HID PROTOCOL. Cemu turns SDL's PlayStation HID
+    // drivers back on in its code (input/api/SDL/SDLControllerProvider.cpp,
+    // SDL_HINT_JOYSTICK_HIDAPI_PS5), over the SDL_JOYSTICK_HIDAPI=0 every
+    // program gets (standalone.cpp), so its SDL took the stand-in DualSense
+    // through its hidraw node, under a GUID of the HID driver's that the
+    // profile does not name, and the game had no controller (measured on the
+    // A9 2026-11-11, Shovel Knight). A hint in the environment wins over one
+    // set in code, so the evdev path and the profile's GUID hold.
+    full.insert(full.end() - 1, "SDL_JOYSTICK_HIDAPI_PS5=0");
     full.insert(full.end() - 1, "GDK_BACKEND=x11");
     // `-g` starts the game with no game list and closes Cemu when it
     // ends; `-f` is fullscreen.

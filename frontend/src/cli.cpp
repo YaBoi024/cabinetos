@@ -24,11 +24,14 @@
 #include "gonegames.h"
 #include "idle.h"
 #include "launch.h"
+#include "linkup_pad.h"
 #include "netblock.h"
 #include "samenames.h"
 #include "screenview.h"
 #include "storage.h"
+#include "tilt.h"
 #include "update.h"
+#include "vdualsense.h"
 #include "xboxhdd.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
@@ -229,6 +232,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             vectrexSheetsTestMode = true;
         } else if (SDL_strcmp(argv[i], "--gpu-choice-test") == 0) {
             gpuChoiceTestMode = true;
+        } else if (SDL_strcmp(argv[i], "--tailscale-switch-test") == 0) {
+            tailscaleSwitchTestMode = true;
         } else if (SDL_strcmp(argv[i], "--load-state") == 0 && i + 1 < argc) {
             loadStateAfter = SDL_atoi(argv[++i]);
         } else if (SDL_strcmp(argv[i], "--sync-test") == 0) {
@@ -296,6 +301,12 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             accountsTestMode = true;
         } else if (SDL_strcmp(argv[i], "--players-test") == 0) {
             playersTestMode = true;
+        } else if (SDL_strcmp(argv[i], "--tilt-test") == 0) {
+            return tilt::test();
+        } else if (SDL_strcmp(argv[i], "--motion-device-test") == 0) {
+            return cab::vpad::motionTest();
+        } else if (SDL_strcmp(argv[i], "--dualsense-test") == 0) {
+            return cab::vdualsense::test();
         } else if (SDL_strcmp(argv[i], "--fightstick-test") == 0) {
             return fightstick::test();
         } else if (SDL_strcmp(argv[i], "--arcade-settings-test") == 0) {
@@ -316,6 +327,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             return ui::keyboardTest();
         } else if (SDL_strcmp(argv[i], "--gone-games-test") == 0) {
             return gone::test();
+        } else if (SDL_strcmp(argv[i], "--game-events-test") == 0) {
+            return gameevents::test();
         } else if (SDL_strcmp(argv[i], "--battery-test") == 0) {
             batteryTestMode = true;
         } else if (SDL_strcmp(argv[i], "--volume-test") == 0) {
@@ -343,6 +356,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             firstRunServerCheck = true;
         } else if (SDL_strcmp(argv[i], "--linkup-test") == 0) {
             return linkup::test();
+        } else if (SDL_strcmp(argv[i], "--linkup-pad-test") == 0) {
+            return linkuppad::test();
         } else if (SDL_strcmp(argv[i], "--same-names-test") == 0) {
             return samenames::test();
         } else if (SDL_strcmp(argv[i], "--arcade-tile-test") == 0) {

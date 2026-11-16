@@ -33,6 +33,7 @@
 #include "saves.h"
 #include "standalone.h"
 #include "storage.h"
+#include "unsettled.h"
 #include "wii.h"
 #include "wiimii.h"
 
@@ -1033,6 +1034,9 @@ void launchWorker(LaunchJob& job, romm::Client& client, const int id, const int 
         const std::string ext = dot == std::string::npos ? "" : fsName.substr(dot);
         const std::string tmp = entryPath + ".collapsing";
         const std::string flat = entryPath + ext;
+        // The flat name is a mark too (unsettled.h), as the download's was.
+        if (!cab::keepsSizeWithBytes(entryPath) && !unsettled::note({flat}))
+            cab::syncDrive(entryPath);
         if (::rename(dest.c_str(), tmp.c_str()) == 0 &&
             ::rmdir(entryPath.c_str()) == 0 &&
             ::rename(tmp.c_str(), flat.c_str()) == 0) {

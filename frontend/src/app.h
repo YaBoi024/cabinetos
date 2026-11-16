@@ -55,6 +55,7 @@
 #include "downloads.h"
 #include "drives.h"
 #include "files.h"
+#include "gameevents.h"
 #include "grid.h"
 #include "idle.h"
 #include "image.h"
@@ -368,6 +369,8 @@ struct App {
     bool vectrexSheetsTestMode = false;
     // --gpu-choice-test: which GPU the games draw on, with two (#659).
     bool gpuChoiceTestMode = false;
+    // --tailscale-switch-test: Tailscale's own switch (tailscale.h).
+    bool tailscaleSwitchTestMode = false;
     // Opens the overlay and takes Exit to Home, so the whole leave-a-game path
     // can be proved on a machine with nothing attached.
     bool overlayExitDemo = false;
@@ -676,6 +679,7 @@ struct App {
     bool linkupSignedIn = false;
     bool linkupAwaySent = false;
     std::string linkupStatusSent;
+    bool linkupChoiceToSend = false;   // Status pressed here and not yet sent as the person's choice
     romm::User linkupUser;
     int linkupUserFor = 0;
     cab::Job<romm::User> linkupUserJob;
@@ -693,6 +697,9 @@ struct App {
     bool linkupGameAsked = false;
     double linkupGameStartedAt = 0.0;
     bool linkupPictureSent = false;
+    // The host: where the game was last said to sit (linkupTellPlace), so it is said again only when
+    // it moves. All zero until a game shows.
+    float linkupPlaceSent[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     bool standaloneNoticeUp = false;   // a pill over an emulator run as a program (drawOverGame)
     bool linkupFriendShowsPicture = false;
     bool linkupOverlayMarked = false;
@@ -704,10 +711,14 @@ struct App {
     bool linkupIdlePaused = false;
     bool linkupPressHere = false;
     bool linkupPressHeard = false;
+    double linkupHeardAt = -1.0;        // when the other console's press last reached this one
     float linkupPressAge = 0.0f;
     bool linkupHeldRemotePlay = false;
-    SDL_JoystickID linkupFriendJoystick = 0;
     linkupwire::Pad linkupFriendPad;     // the host: what the friend's pad is doing
+    bool linkupFriendPadHeard = false;   // the host: a state of it has come this session
+    uint32_t linkupPadsHeard = 0;
+    bool linkupStartPending = false;     // the host: the first game waits for the friend's pad
+    double linkupConnectedAt = 0.0;
     linkupwire::Pad linkupVpadSaid;      // the host: what an emulator of its own was last told
     uint16_t linkupLastPadSeq = 0;
     linkupwire::Pad linkupPadSent;       // the friend: what was last sent
@@ -734,6 +745,7 @@ struct App {
     float linkupGalleryPictureIn = 0.0f;
     float linkupGalleryJoinIn = 0.0f;
     float linkupGalleryFriendIn = 0.0f;
+    float linkupGalleryChosenIn = 0.0f;
     float linkupGalleryNoAnswerIn = 0.0f;
     float linkupGalleryDeclineIn = 0.0f;
     float linkupGalleryHostQuitIn = 0.0f;
@@ -1702,11 +1714,11 @@ struct App {
     // Digits handed over: the name given to Sunshine, when, and the devices
     // paired before, so the new one is the one not among them.
     struct { std::string name; int64_t at = 0; std::set<std::string> before; } rpPairing;
-    // TAILSCALE, for Remote Play away from home (tailscale.h says why it is
-    // the one way in from outside). tailscaled.service runs only while
-    // Streaming AND Tailscale are on; turning Streaming off stops it too, and
-    // turning Streaming on starts it again when Tailscale was on. Signed in
-    // or not is remembered as well, so a console turned off can still say
+    // TAILSCALE, for Remote Play away from home and a RomM server at its
+    // Tailscale address (tailscale.h says why it is the one way in from
+    // outside). Its own switch, in Network: tailscaled.service runs whenever
+    // Tailscale is on, whatever Remote Play is. Signed in or not is
+    // remembered as well, so a console turned off can still say
     // "Disconnected" (signed in, not running) rather than "Off" (never).
     static constexpr const char* kTsUnit = "tailscaled.service";
     bool tsWant = false;
@@ -1914,6 +1926,18 @@ struct App {
     // The address the keyboard is waiting on, while it says "Checking…".
     std::string serverKeyboardFor;
     void askNetwork();
+    // ---- Game events (#716), gameeventsflow.cpp ----------------------------
+    //
+    // Done's test message, off the frame thread: up to five seconds. The
+    // keyboard says "Checking…" meanwhile, 700 ms at least, the server row's
+    // shape. Joined as the App goes (job.h).
+    cab::Job<gameevents::Tried> geCheck;
+    std::string geCheckFor;       // the address being tried
+    Uint64 geCheckAt = 0;         // SDL_GetTicks when it started
+    // The address the keyboard is waiting on, while it says "Checking…".
+    std::string geKeyboardFor;
+    void askGameEventsAddress(const std::string& typed, const std::string& why);
+    void startGameEventsCheck(const std::string& address);
     // ---- Downloads (downloads.h), #68 --------------------------------------
     //
     // Every downloaded game, for Settings' Downloads panel, named as the
@@ -1925,13 +1949,13 @@ struct App {
     void downloadsOutcome(screens::DownloadsPanel::Outcome o);
     std::vector<screens::DownloadItem> downloadItems();
 
-    // THE TAILSCALE ROW (#286), under Streaming and greyed while it is off.
-    // Its value is the address to give Moonlight; its second line is the
-    // console's name there and when its sign-in ends. MMagTech, 2026-10-08.
-    // "Sign in again" is offered for the last two weeks only.
+    // THE TAILSCALE ROW (#286), in Network after Wi-Fi, greyed while a device
+    // streams. Its value is the console's Tailscale address, the one to give
+    // Moonlight; its second line, the console's name there and when its sign-in
+    // ends (MMagTech, 2026-10-08). "Sign in again": the last two weeks only.
     static constexpr int64_t kTsWarnDays = 14;
     bool tsEndsSoon(const tailscale::Status& st);
-    screens::SettingsRow tailscaleRow(bool streaming, bool inUse);
+    screens::SettingsRow tailscaleRow(bool inUse);
     void buildSettings();
     void startUpdate(bool download, bool automatic);
     void askUpdateDownload();
@@ -1952,7 +1976,7 @@ struct App {
     void askDeviceName(const std::string& id, const std::string& current, bool justPaired);
     // THE PAIRED DEVICES: a list, however long, each one pressed for Remove
     // (the PIN when set). One row on the page, so a household with many
-    // devices does not push Tailscale off it (MMagTech, 2026-10-07).
+    // devices does not push the rows below off it (MMagTech, 2026-10-07).
     std::vector<remoteplay::Device> rpRowsShown;
 
     // THE PANEL: File access's, with the port. Same password, same New
@@ -2336,6 +2360,18 @@ struct App {
     // serveraddressflow.cpp
     void takeServerCheck();
     void pressServer();
+    // gameeventsflow.cpp
+    screens::SettingsRow gameEventsRow();
+    void pressGameEvents();
+    void takeGameEventsCheck();
+    void startGameEventsAtBoot();
+    gameevents::Who gameEventsWho();
+    void gameEventStarted();
+    void gameEventEnded(int64_t playedMs);
+    void followGameEventsPause();
+    void gameEventUnlocked(const ra::Popup& p);
+    void gameEventFriendStarted();
+    void gameEventFriendEnded();
     // curtain.cpp
     void startCurtain();
     void drawCurtain(float sc);
@@ -2425,6 +2461,9 @@ struct App {
     void linkupBeginPairing(const std::string& address, const std::string& code);
     void linkupFollowAccount();
     std::string linkupStatusWord() const;
+    void linkupChooseStatus(bool offline);
+    void linkupTookChosen(bool offline);
+    void linkupKeepStatus(bool offline);
     void linkupFollowStatus();
     void linkupFollowLink();
     void linkupOnMessage(const uint8_t* data, size_t len);
@@ -2441,12 +2480,15 @@ struct App {
     void linkupSendJoin(const linkup::Friend& f);
     void linkupSendDecline(const linkup::Friend& f);
     void linkupTellPeer(const std::string& word, const std::string& game = "");
+    void linkupSendPeer(json_object* inner);
+    void linkupTellPlace(float x, float y, float w, float h);
+    void linkupTookPlace(json_object* message);
     void linkupConnected(const std::string& path);
     void linkupStartGame();
     void linkupConnectFailed(const std::string& reason);
     void linkupSeatFriend();
     void linkupUnseatFriend();
-    void linkupFriendPadChanged();
+    void linkupFriendPadChanged(const linkupwire::Pad& pad);
     void linkupPassToEmulator();
     bool linkupGameAloneOnScreen() const;
     void linkupFollowGame();
@@ -2521,6 +2563,7 @@ struct App {
     void linkupRetypeAddress();
     void pressRunYourOwn();
     void pressLinkUpServer();
+    void linkupEnterCode();
     void pressLinkUpLeave();
     void tickLinkUp(float dt);
     // linkupgallery.cpp

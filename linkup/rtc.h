@@ -32,6 +32,7 @@ public:
         std::function<void()> failed;
         std::function<void(const std::string& text)> control;     // main thread
         std::function<void(const uint8_t* data, size_t len)> fast;   // any thread
+        std::function<void()> controlOpen;   // main thread: a word sent on "control" before this was lost
     };
     struct Paths {
         std::string stun;   // host:port, or empty
@@ -54,15 +55,16 @@ public:
     void sendControl(const std::string& text);
     void sendFast(const void* data, size_t len);
 
-    // Since anything was last heard from the other console, once any has been.
+    // Since anything was last heard from the other console on this connection, once any has been.
     int64_t quietMs() const;
     bool everHeard() const { return lastHeardMs_.load() != 0; }
-    void heard();
 
     static int64_t nowMs();
     static void onMain(std::function<void()> fn);
 
 private:
+    // Only what arrives marks the other console heard.
+    void heard();
     static void onNegotiationNeeded(GstElement* w, gpointer self);
     static void onIceCandidate(GstElement* w, guint mline, gchar* candidate, gpointer self);
     void reportEverySecond();
@@ -72,6 +74,7 @@ private:
     static void onAnswerCreated(GstPromise* promise, gpointer self);
     static void onStats(GstPromise* promise, gpointer self);
     static void onControlString(GObject*, gchar* text, gpointer self);
+    static void onControlOpen(GObject*, gpointer self);
     static void onFastData(GObject*, GBytes* data, gpointer self);
     void attachChannel(GObject* channel);
     void sendDescription(const char* kind, GstWebRTCSessionDescription* d);

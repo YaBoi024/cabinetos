@@ -1,5 +1,5 @@
-// Tailscale, for Remote Play away from home. docs/SETTINGS.md, Remote Play;
-// issue #286.
+// Tailscale: Remote Play away from home, and a RomM server reached at its
+// Tailscale address. docs/SETTINGS.md, Network; issue #286.
 //
 // WHY TAILSCALE, AND ONLY TAILSCALE (MMagTech, 2026-10-08; PROJECT.md
 // question 39): it works behind any router with nothing forwarded, which is
@@ -7,13 +7,15 @@
 // Bazzite). Somebody with their own way home (WireGuard, a Tailscale subnet
 // router of their own) leaves it off and loses nothing.
 //
-// IT LIVES UNDER STREAMING: tailscaled.service runs only while Streaming is on
-// AND Tailscale is on, so it can never be on by itself, and off means it is not
-// running at all. Its settings are the image's, set by the unit every time it
-// starts (tailscaled.service.d/50-cabinetos.conf): the console's own user may
-// drive it (operator), it takes no DNS and no routes from the network, and it
-// sends Tailscale no logs. The firewall lets Tailscale reach Sunshine's ports
-// and nothing else (cabinetos-tailscale zone).
+// ITS OWN SWITCH, IN NETWORK (docs/decisions/2026-11-15-tailscale-own-switch.md):
+// tailscaled.service runs whenever Tailscale is on, whatever Remote Play is,
+// and off means it is not running at all. Its settings are the image's, set
+// by the unit every time it starts (tailscaled.service.d/50-cabinetos.conf):
+// the console's own user may drive it (operator), it takes no DNS and no
+// routes from the network, and it sends Tailscale no logs. The firewall lets
+// devices on Tailscale reach Sunshine's ports and nothing else
+// (cabinetos-tailscale zone); the console's own connections out, to a RomM
+// at its Tailscale address, are not limited by it.
 //
 // THIS DRIVES THE `tailscale` COMMAND, the part Tailscale documents and keeps
 // stable; the local API under it can change without notice. Every call is a
@@ -81,5 +83,28 @@ bool answers();
 // Off Tailscale: the console is removed from the user's Tailscale and has to
 // sign in again. Blocks for a moment; run on a worker.
 bool logout(std::string* why);
+
+// THE SAVED SWITCH, and the one step at the first start after the update that
+// gave it its own row. Before it, tailscaled ran only while Remote Play was on
+// too, so a console could have Tailscale saved on while its row read Off. The
+// step turns such a console's Tailscale off, so an update never turns on what
+// the player saw as off; its sign-in stays. Then it saves that the step is
+// done. Pure, so --tailscale-switch-test checks every combination.
+//
+// THE BOOT SCRIPT READS THE SAME THREE KEYS BY THE SAME RULE
+// (/usr/libexec/cabinetos-saved-services, runs()). It runs before the app and
+// never writes settings.json, so until the step is done it starts tailscaled
+// only with Remote Play on too, as before: on the first boot after the update
+// it starts exactly what the app keeps on, and nothing runs unasked.
+struct Saved {
+    bool on = false;          // "tailscale"
+    bool remotePlay = false;  // "remote_play"
+    bool ownSwitch = false;   // "tailscale_own_switch" is "yes": the step is done
+};
+// What is saved after the first start. A second run changes nothing.
+Saved ownSwitchStep(Saved s);
+// Whether tailscaled runs with these saved, at boot and in the app.
+bool runs(Saved s);
+int test();
 
 }  // namespace tailscale

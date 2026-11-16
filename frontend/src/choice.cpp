@@ -273,7 +273,9 @@ void ChoiceScreen::draw(Ctx& c) {
         drawMenuRows(c, levelShown() * menuFade_);
         return;
     }
-    const float a = appear_.value();
+    // Closed with the pause menu, it goes as the menu does (closeWithMenu). It vanished at once, and
+    // the menu's own rows showed for the rest of the menu's fade.
+    const float a = appear_.value() * (withMenu_ ? menuFade_ : 1.0f);
     const float W = ui::kCanvasWidth, H = ui::kCanvasHeight, sc = c.sc;
 
     // The detail may be more than one line, split at '\n' (Sign out's two).
@@ -331,7 +333,7 @@ void ChoiceScreen::draw(Ctx& c) {
     const float px = (W - panelW) * 0.5f, py = (H - panelH) * 0.5f;
 
     c.r.setContentAlpha(1.0f);
-    c.r.draw(ui::Rect{0, 0, W, H, 0, ui::Color::black(0.55f * (dimHeld_ ? 1.0f : a))});
+    c.r.draw(ui::Rect{0, 0, W, H, 0, ui::Color::black(0.55f * (dimHeld_ && !withMenu_ ? 1.0f : a))});
     c.r.setContentAlpha(a);
     // THE PAUSE MENU'S PANEL (design::menuPanel). The keyboard's black glass
     // was tried first (*"forgotten about"*), then the account panel's frosted
