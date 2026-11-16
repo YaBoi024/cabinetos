@@ -123,7 +123,8 @@ path, which is hard to type with a controller. After any change in n8n,
 **Save**, then **Publish**. In n8n 2, an edit only reaches the console after
 you publish again, and a just-published workflow can answer 404 for a few
 seconds. A workflow's **Executions** list shows each message the console sent
-and what came of it.
+and what came of it. Each example was tried on the reference console with
+n8n 2.47.7: Discord, Telegram and Philips Hue.
 
 ### Start here: game starts to Discord
 
@@ -265,33 +266,3 @@ The app decides everything else: the console only says what happened.
 
 An AI assistant can help write one: give it this page's address and say what
 should happen, and it has every message and the five examples to work from.
-
-## What was tested
-
-On 2026-11-15, with n8n 2.47.7, on the reference console (a GEEKOM A9 Max)
-and a second console as a LinkUp friend.
-
-- **Discord, with covers:** setting the address; a game started, paused,
-  resumed and left; two accounts going to two channels; an account taken off
-  the list going nowhere; two achievements unlocked in one game, each its own
-  message; Sleep during a game, and the test message again on waking; a
-  LinkUp game from both sides, with the friend's Game events on and off; the
-  `SEND` line leaving pause out.
-- **The starters:** game starts to one channel; each person's to their own;
-  a game's end and an account with no rule going nowhere; the achievement
-  channel.
-- **Telegram:** every message, with JPEG, PNG and WebP covers, a LinkUp game
-  from both sides and every achievement; chat numbers sent with the test
-  message; the quiet hours.
-- **Philips Hue** (a Hue Bridge with five colour lights): the key from the
-  bridge's button; colours from six games' covers; one colour for a person;
-  lights off while playing; lights that were off coming on for the game and
-  going off again with their own colour; the rainbow; each time, the lights
-  back to exactly how they were.
-- **Telegram and Hue pasted together,** the `curl` line in
-  [Build your own](#build-your-own), and importing the starter from its link
-  and running its sample with **Execute workflow**.
-
-Telegram and Hue were sent the console's own messages from a game played
-earlier, from a computer: the same messages, sent again. Other apps were not
-tested.
