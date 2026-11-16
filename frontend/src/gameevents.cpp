@@ -31,6 +31,8 @@ namespace gameevents {
 namespace {
 
 constexpr const char* kPref = "game_events_address";
+// "1" while it is turned off: the address is kept, so Turn on needs no typing.
+constexpr const char* kOffPref = "game_events_off";
 // While the line is empty the sender looks at the network this often, so the
 // knock goes as the console joins one rather than with the next game.
 constexpr auto kLookEvery = std::chrono::seconds(5);
@@ -378,9 +380,11 @@ void standIns(std::function<std::string()> network,
 
 std::string address() { return prefs::get(kPref, ""); }
 
+bool turnedOff() { return prefs::get(kOffPref, "") == "1"; }
+
 void start() {
     const std::string url = address();
-    if (!url.empty()) startSending(url, /*knocked=*/false);
+    if (!url.empty() && !turnedOff()) startSending(url, /*knocked=*/false);
 }
 
 void shutdown() {
@@ -426,12 +430,18 @@ std::string why(const Tried& t) {
 
 void setAddress(const std::string& url) {
     prefs::set(kPref, url);
+    prefs::set(kOffPref, "");
     startSending(url, /*knocked=*/true);
 }
 
-void stopSending() {
-    prefs::set(kPref, "");
+void turnOff() {
+    prefs::set(kOffPref, "1");
     stopRunning();
+}
+
+void turnOn() {
+    prefs::set(kOffPref, "");
+    start();
 }
 
 // --- The messages -------------------------------------------------------------

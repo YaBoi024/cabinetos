@@ -957,17 +957,20 @@ Network, since 2026-11-15.
 - **Game events** (#716; `docs/decisions/2026-11-15-game-events.md`): the
   console tells one app in the owner's home (n8n, Home Assistant, Node-RED)
   what is happening in a game, and that app does the rest. One row, above
-  Diagnostic report; the address is the switch, console-wide
-  (`game_events_address` in `config/settings.json`), off for every console to
-  start. **Off:** pressing it (PIN if set) opens the keyboard with `http://`
+  Diagnostic report; console-wide (`game_events_address` in
+  `config/settings.json`, and `game_events_off` while it is turned off), off
+  for every console to start. **No address yet:** pressing it (PIN if set)
+  opens the keyboard with `http://`
   already in it. Done sends the test message ("Checking…" in the field, 700 ms
   at least). If the app answers, the address is saved and the row shows its
   host ("n8n.local"); if not, the field says why and keeps what was typed:
   "Not on your home network", "Can't connect", "It answered with an error
-  (404)" or "Its certificate isn't trusted. Use http:// at home." **On:**
-  pressing it (PIN if set) opens a panel titled with the address: Change
-  address, Stop sending, Cancel. Stop sending wipes the address. The RomM
-  server row's shape, and nothing else anywhere on the console. The messages
+  (404)" or "Its certificate isn't trusted. Use http:// at home." **With an
+  address:** pressing it (PIN if set) opens a panel titled with the address:
+  Turn off (Turn on while it is off), Change address, Cancel. Turn off keeps
+  the address and the row reads Off; Turn on needs no typing and knocks with
+  the test message first, as at start-up. The RomM server row's shape, and
+  nothing else anywhere on the console. The messages
   and the rules they keep (home addresses only, a knock on every network,
   nothing kept for later) are `frontend/src/gameevents.h`. **Built, #716.**
 
