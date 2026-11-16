@@ -110,9 +110,10 @@ every message should drop the cover or keep it small.
 
 These are starters, to give you an idea of what an app can do with the
 messages. Each is a workflow file for n8n. In n8n, make a new workflow, open
-its **⋯** menu, choose **Import from URL** and paste the file's link (right
-click the link here, **Copy link**). Or download the file and choose
-**Import from File**.
+its **⋯** menu, then **Import**, **From URL**, and paste the file's link
+(right click the link here, **Copy link**). Or download the file and choose
+**Import**, **From File**. If n8n then asks whether it came from an AI tool,
+**Skip**.
 
 Every one listens at `games`: on the console, type `http://` and your n8n's
 address with `:5678/webhook/games` after it (see [Turn it on](#turn-it-on)).
@@ -209,8 +210,9 @@ through Philips' cloud.
   seconds.
 - **The game ends:** every light goes back to exactly how it was.
 
-1. **Find the bridge's address:** in the Hue app, **Settings**, **Bridges**,
-   then your bridge.
+1. **Find the bridge's address:** open
+   [discovery.meethue.com](https://discovery.meethue.com) in a browser at
+   home. It lists your bridge, and its address is the `internalipaddress`.
 2. **In n8n,** import the file, open **Lights follow the game**, and fill in
    its first two lines: the bridge's address, and the room or zone, named
    exactly as in the Hue app. Save, then **Publish**.
@@ -282,8 +284,9 @@ and a second console as a LinkUp friend.
   lights off while playing; lights that were off coming on for the game and
   going off again with their own colour; the rainbow; each time, the lights
   back to exactly how they were.
-- **Telegram and Hue pasted together,** and the `curl` line in
-  [Build your own](#build-your-own).
+- **Telegram and Hue pasted together,** the `curl` line in
+  [Build your own](#build-your-own), and importing the starter from its link
+  and running its sample with **Execute workflow**.
 
 Telegram and Hue were sent the console's own messages from a game played
 earlier, from a computer: the same messages, sent again. Other apps were not
