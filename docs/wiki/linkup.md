@@ -13,7 +13,8 @@ contacted.
 ## What you need
 
 - A CabinetOS console each, on a RomM server. It can be your own or one someone shares with you, and it does not
-  have to be the same one.
+  have to be the same one. A friend with no console can join from a computer instead, with
+  [2P Start](#a-friend-with-no-console).
 - One LinkUp server between you, which either of you can run. It is a small free program, and the project runs no
   service. Settings, **Streaming**, **Server**, **Run your own** shows a QR code to how to set one up.
 
@@ -27,10 +28,27 @@ address and the code.
 2. Press **Server**, then **Add a server**. Type the address, then the code.
 3. LinkUp joins the top bar. Whoever was signed in when you typed the code becomes the friend.
 
-A code works once and lasts 7 days. Everyone on your console can use LinkUp after that, and each person has their
-own friends: a child sees only their own, and only the server's owner can add one.
+A code stops after 7 days if nobody uses it. Once you use it, it is your own: it works only for you, on every
+console you sign in on, until the server's owner changes it. On a second console, or after a reinstall, join with
+the same code while signed in as you, and you are there with the same friends. An invite rings the console you used
+last.
+
+Once one person on your console has joined, everyone on it can use LinkUp, and each person has their own friends: a
+child sees only their own, and only the server's owner can add one.
 
 ![The LinkUp tab before anyone has added you as a friend](../media/linkup-no-friends.webp)
+
+## A friend with no console
+
+A friend with no CabinetOS console can still play as player two, from a computer, with
+[2P Start](https://github.com/MMagTech/cabinet-linkup-guest/releases/latest). It only joins a game a console hosts,
+and never hosts one, so they need no games and no RomM server.
+
+They pair once, as a console does: the server's address, a code, and the name you will see them by. An invite
+reaches them as a notification, even with the window closed, and they play with their own controller, or a
+keyboard and mouse. It runs on a Mac with Apple silicon or a PC with Windows 10 or 11. It is not signed, so the
+computer warns the first time it opens: [its README](https://github.com/MMagTech/cabinet-linkup-guest#installing)
+says how to get past that.
 
 ## Play
 
@@ -49,8 +67,10 @@ own friends: a child sees only their own, and only the server's owner can add on
 4. The game starts on both when they join, so you both begin at its title screen. You are player one, they are
    player two, and any other controller on your console does nothing in the game until the session ends.
 
-**Status** at the top of the list is whether your friends see you as Online. It stays where you leave it. You also
-show Offline after 15 minutes with no press, when the screen is off, while the console sleeps and in Steam.
+**Status** at the top of the list is whether your friends see you as Online. It stays where you leave it, on every
+console you sign in on: choose Offline on one, and the others turn Offline too. A console nobody is using stops
+showing you after 15 minutes with no press, when its screen is off, while it sleeps and in Steam, and friends see
+you Online while any of your consoles does.
 
 ## While you play
 
@@ -58,6 +78,8 @@ show Offline after 15 minutes with no press, when the screen is off, while the c
   with **Resume** and **Leave**, and you see *Alex paused*. **A** on either console resumes both.
 - **Your friend sees only the game.** When you open a menu, or anything else is on your screen, no picture or sound
   is sent, and they see *Waiting for Alex*.
+- **Your friend's controller tilts too,** in Switch and PlayStation 3 games made for it, as on their own console.
+  In Wii U and PS Vita games only player one's controller tilts, and that is yours ([Motion](controllers.md#motion)).
 - **Saves, states and achievements are yours.** Nothing from the game is kept on your friend's console.
 - **If the connection drops,** the game pauses on both with *Reconnecting to Alex*. After a minute, *Alex left*, and
   your game carries on as a normal game.
@@ -75,6 +97,10 @@ console the other's internet address, as any direct connection does. LinkUp is o
 chose, and that is one more reason.
 
 ## If it won't connect
+
+*Removed from the LinkUp server* means the server's owner changed your code or removed you. Ask them for the new
+code, or a new invite, then press **A** on that line, or Settings, **Streaming**, **Server**, **Enter a code**, and
+type it. Do it on each of your consoles.
 
 *Can't connect to the LinkUp server* means the server cannot be reached. A game already running carries on. *Can't
 connect to Alex* means the two consoles found no way through: the server's owner can turn on its relay, which sends

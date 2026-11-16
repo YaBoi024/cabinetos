@@ -1,0 +1,7 @@
+# A controller without motion sensors gives the emulator none
+
+- **Decided:** A player whose controller has no motion sensors when a Switch, Wii U or Vita game starts gets a stand-in DualSense whose motion device the emulator cannot open, so the emulator sees a controller without sensors, as the player's own is. The stand-in's made-up address says which kind it is, and the udev rule gives the console's user the motion device only of a stand-in that carries a controller's tilt. Eden's motion lines and Cemu's profile turn motion on only for a player whose stand-in carries it.
+- **Date:** 2026-11-11
+- **Why:** The kernel's PlayStation driver gives every stand-in a motion device, and SDL reads one that never moves as a controller weighing nothing, 250 times a second. Eden ignores that, but Cemu and Vita3K take it as tilt, and Vita3K reads every controller's motion into the one Vita, so a second player's controller without sensors would have mixed a still reading into the first player's real tilt. The other choice, the plain virtual controller for such a player, would have given one game two kinds of controller, with different buttons and identities, to keep apart player by player.
+- **Numbers:** #669, "Gyro for Switch, Wii U and Vita: a virtual pad that carries the player's tilt"; pull request #696, "Gyro for Switch, Wii U and Vita: a stand-in DualSense carries the player's tilt (#669)".
+- **Replaces:** none.

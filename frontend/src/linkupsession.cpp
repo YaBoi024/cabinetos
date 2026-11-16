@@ -24,6 +24,7 @@
 
 #include "accounts.h"
 #include "fileio.h"
+#include "linkup_pad.h"
 #include "linkup_wire.h"
 #include "overlaywin.h"
 #include "players.h"
@@ -49,14 +50,19 @@ const char* folder() {
 }
 std::string switchPath() { return std::string(folder()) + "/on"; }
 
-// Offline after this long with no press (#654, "Status belongs to each account"). The figures of the
-// session's own idle rule are beside it.
+// Offline as the signed-in person last chose it, kept in their folder. The server holds the choice
+// for every console they are on, and this is that choice as this console last knew it: what it signs
+// in with, and all there is with a server from before PROTOCOL.md's `chosen`.
+std::string chosenOfflinePath() { return storage::userDir(storage::currentUser()) + "/linkup-offline"; }
+
+// Offline after this long with no press (#654, "Status belongs to each account"). The session's own
+// idle rule is linkuprules.h's.
 constexpr double kAwaySeconds = 15 * 60.0;
-constexpr float kIdlePauseSeconds = 10 * 60.0f;
-constexpr float kIdleEndSeconds = 15 * 60.0f;
 constexpr float kDropEndsSeconds = 60.0f;
 constexpr float kPressEverySeconds = 2.0f;
 constexpr float kPadKeepAliveSeconds = 0.1f;
+// The host's first game waits this long at most for the friend's controller (linkupFollowGame).
+constexpr double kFirstPadWaitSeconds = 1.0;
 
 json_object* command(const char* name) {
     json_object* o = json_object_new_object();
@@ -111,7 +117,7 @@ void App::linkupStart() {
         linkUp.paired = !linkUp.server.empty();
         if (o) json_object_put(o);
     }
-    linkUp.appearOffline = !cab::readBytes(storage::userDir(storage::currentUser()) + "/linkup-offline").empty();
+    linkUp.appearOffline = !cab::readBytes(chosenOfflinePath()).empty();
     if (linkUp.on && linkUp.paired) linkupWantProgram(true);
 }
 
@@ -163,7 +169,8 @@ void App::linkupFollowAccount() {
         linkupUserFor = got.id;
         linkupSignedIn = false;
         // Status belongs to each account.
-        linkUp.appearOffline = !cab::readBytes(storage::userDir(storage::currentUser()) + "/linkup-offline").empty();
+        linkUp.appearOffline = !cab::readBytes(chosenOfflinePath()).empty();
+        linkupChoiceToSend = false;
         refreshLinkUpScreen();
     }
     // Off asks RomM nothing: the first frame after LinkUp is turned on asks.
@@ -173,6 +180,31 @@ void App::linkupFollowAccount() {
         linkupUserFor = active;
         linkupUserJob.start([this](romm::User& out, std::string& e) { return liveClient.fetchCurrentUser(&out, &e); });
     }
+}
+
+// Status, pressed here or by --linkup-script: kept, and sent as the person's choice, which the server
+// holds on every console they are on (#690). It goes once the program and the sign-in are there
+// (linkupFollowStatus).
+void App::linkupChooseStatus(bool offline) {
+    linkupKeepStatus(offline);
+    linkupChoiceToSend = !linkupGallery;
+}
+
+// Chosen on another of the person's consoles, or what the sign-in found. Kept, and not sent back: the
+// console's own word follows as it always does (linkupFollowStatus). A press here not sent yet is newer.
+void App::linkupTookChosen(bool offline) {
+    if (linkupChoiceToSend || offline == linkUp.appearOffline) return;
+    std::fprintf(stderr, "[linkup] status, as the server has the person's choice: %s\n", offline ? "offline" : "online");
+    linkupKeepStatus(offline);
+}
+
+void App::linkupKeepStatus(bool offline) {
+    linkUp.appearOffline = offline;
+    if (!linkupGallery) {
+        if (offline) cab::writeBytes(chosenOfflinePath(), std::string("offline"));
+        else cab::removeFile(chosenOfflinePath());
+    }
+    refreshLinkUpScreen();
 }
 
 std::string App::linkupStatusWord() const {
@@ -194,6 +226,15 @@ void App::linkupFollowStatus() {
         linkupSend(c);
         linkupSignedIn = true;
         linkupStatusSent = word;
+    }
+    if (linkupChoiceToSend) {
+        const std::string chose = linkUp.appearOffline ? "offline" : "online";
+        json_object* c = command("status");
+        setText(c, "status", chose);
+        json_object_object_add(c, "chosen", json_object_new_boolean(true));
+        linkupSend(c);
+        linkupChoiceToSend = false;
+        linkupStatusSent = chose;
     } else if (word != linkupStatusSent) {
         json_object* c = command("status");
         setText(c, "status", word);
@@ -240,9 +281,9 @@ void App::linkupFollowLink() {
 
 void App::linkupOnMessage(const uint8_t* data, size_t len) {
     if (len == 0) return;
-    if (data[0] == linkupwire::kTagPad && len >= sizeof(linkupwire::Pad)) {
-        std::memcpy(&linkupFriendPad, data, sizeof linkupFriendPad);
-        linkupFriendPadChanged();
+    linkupwire::Pad pad;
+    if (linkuppad::decode(data, len, &pad)) {
+        linkupFriendPadChanged(pad);
         return;
     }
     if (data[0] == linkupwire::kTagRumble && len >= sizeof(linkupwire::Rumble)) {
@@ -287,6 +328,8 @@ void App::linkupOnEvent(json_object* o) {
         linkupSignedIn = false;
         linkupWantProgram(false);
         if (here() == Screen::Settings) buildSettings();
+    } else if (ev == "chosen") {
+        linkupTookChosen(textOf(o, "status") == "offline");
     } else if (ev == "friends") {
         linkupTookFriends(json_object_object_get(o, "list"));
     } else if (ev == "invited") {
@@ -408,10 +451,18 @@ void App::linkupSessionOpens(LinkupSide side) {
     linkupLost = false;
     linkupLostFor = 0.0f;
     linkupIdleFor = 0.0f;
+    linkupHeardAt = -1.0;
     linkupGameAsked = false;
+    linkupStartPending = false;
+    linkupFriendPad = linkupwire::Pad{};
+    linkupFriendPadHeard = false;
+    linkupLastPadSeq = 0;
+    linkupPadsHeard = 0;
+    std::fill(linkupPlaceSent, linkupPlaceSent + 4, 0.0f);
+    linkupPlay.clearPlace();
     // ONE AT A TIME WITH REMOTE PLAY: Sunshine stops for the length of a session and comes back by
     // itself, with the switch unchanged, and nobody else's device can get into the game. Not
-    // App::setRemotePlay, which saves the switch as off and takes Tailscale with it.
+    // App::setRemotePlay, which saves the switch as off. Tailscale is left alone: it is its own switch.
     if (rpWant) {
         remoteplay::watch(false);
         std::string why;
@@ -421,8 +472,15 @@ void App::linkupSessionOpens(LinkupSide side) {
 }
 
 void App::linkupSessionClosed() {
+    // The friend's player 1 sent its tilt; nothing reads it now. A game on
+    // ends with the session, for Game events.
+    if (linkupSide == LinkupSide::Friend) {
+        linkuppad::senseHere(false);
+        gameEventFriendEnded();
+    }
     linkupSide = LinkupSide::None;
     linkupStreamUp = false;
+    linkupStartPending = false;
     if (linkupHeldRemotePlay) {
         std::string why;
         if (!unit::start(kRemotePlayUnit, &why)) std::fprintf(stderr, "[linkup] Remote Play would not start again: %s\n", why.c_str());
@@ -493,13 +551,51 @@ void App::linkupTellPeer(const std::string& word, const std::string& game) {
     json_object* inner = json_object_new_object();
     setText(inner, "t", word);
     if (!game.empty()) setText(inner, "game", game);
+    linkupSendPeer(inner);
+}
+
+// To the other console as it is, through the program's peer command. Takes the object.
+void App::linkupSendPeer(json_object* inner) {
     json_object* c = command("peer");
     setText(c, "text", json_object_to_json_string_ext(inner, JSON_C_TO_STRING_PLAIN));
     json_object_put(inner);
     linkupSend(c);
 }
 
-// The two consoles are connected. On the host the game starts, so that both begin at its title screen.
+// THE HOST: WHERE THE GAME SITS, in canvas points with the pixel shift in, so the friend's console
+// draws the bars and the glow around it on its own TV (#692). The stream carries this screen's glow
+// too, but the encoder keeps nothing that faint and turns its fade into flat steps. Said when a game
+// first shows and whenever it moves. An emulator in a window of its own says nothing, and the friend
+// has no glow, as this TV has none.
+void App::linkupTellPlace(float x, float y, float w, float h) {
+    if (linkupSide != LinkupSide::Host || !linkupStreamUp) return;
+    const float k = renderer.scale() > 0.0f ? renderer.scale() : 1.0f;
+    const float place[4] = {x + static_cast<float>(shiftShown.dx) / k, y + static_cast<float>(shiftShown.dy) / k, w, h};
+    if (std::equal(place, place + 4, linkupPlaceSent)) return;
+    std::copy(place, place + 4, linkupPlaceSent);
+    json_object* inner = json_object_new_object();
+    setText(inner, "t", "place");
+    const char* names[4] = {"x", "y", "w", "h"};
+    for (int i = 0; i < 4; ++i) json_object_object_add(inner, names[i], json_object_new_double(place[i]));
+    linkupSendPeer(inner);
+}
+
+// THE FRIEND: the host's word on where the game sits. The bars are drawn from the next frame on
+// (linkupWatchPicture), and an older host that never says leaves this TV as it was.
+void App::linkupTookPlace(json_object* message) {
+    float v[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    const char* names[4] = {"x", "y", "w", "h"};
+    for (int i = 0; i < 4; ++i) {
+        json_object* n = nullptr;
+        if (!json_object_object_get_ex(message, names[i], &n)) return;
+        v[i] = static_cast<float>(json_object_get_double(n));
+    }
+    linkupPlay.setPlace(v[0], v[1], v[2], v[3], glowPeak);
+    standaloneClearFrames = 30;
+}
+
+// The two consoles are connected. On the host the game starts, so that both begin at its title screen,
+// as soon as the friend's controller is heard (linkupFollowGame). The friend's sends its tilt.
 void App::linkupConnected(const std::string& path) {
     // Direct or relay goes to the log only, and no name goes with it: the report is made to be attached
     // to a public issue.
@@ -508,16 +604,21 @@ void App::linkupConnected(const std::string& path) {
     if (linkupStreamUp) return;
     linkupStreamUp = true;
     if (linkupSide == LinkupSide::Host) {
-        linkupSeatFriend();
-        linkupStartGame();
+        linkupStartPending = true;
+        linkupConnectedAt = clockSeconds();
     } else if (linkupSide == LinkupSide::Friend) {
+        linkuppad::senseHere(true);
         linkupFriendHandover(true);
     }
 }
 
 void App::linkupStartGame() {
+    // Each game: the friend's seat with the sensors their controller has now.
+    linkupSeatFriend();
     linkupGameAsked = true;
     linkupGameStartedAt = clockSeconds();
+    // The friend forgets where the last game sat when this one starts, so it is said again.
+    std::fill(linkupPlaceSent, linkupPlaceSent + 4, 0.0f);
     // With its name: a session's next game is not the one the invite named.
     linkupTellPeer("starting", linkupGame);
     std::fprintf(stderr, "[linkup] starting the game for both\n");
@@ -553,62 +654,42 @@ bool hostAtFriendRumble(void* userdata, Uint16 low, Uint16 high) {
 
 }  // namespace
 
-// The friend is a pad: a virtual one SDL treats as any other, so every game hears player two the way
-// it hears anybody, and a game's rumble comes back through it. The menus never hear it
-// (players::setAside), which is how a friend's presses stay out of the host's console.
+// The friend is a pad: a virtual one SDL treats as any other, with the motion sensors their controller
+// has (linkup_pad.h), so every game hears player two the way it hears anybody, and a game's rumble
+// comes back through it. The menus never hear it (players::setAside), which is how a friend's presses
+// stay out of the host's console. Before each game: seated again only when that controller's sensors
+// changed since.
 void App::linkupSeatFriend() {
-    if (linkupFriendJoystick) return;
-    SDL_VirtualJoystickDesc desc;
-    SDL_INIT_INTERFACE(&desc);
-    desc.type = SDL_JOYSTICK_TYPE_GAMEPAD;
-    desc.naxes = SDL_GAMEPAD_AXIS_COUNT;
-    desc.nbuttons = SDL_GAMEPAD_BUTTON_COUNT;
-    desc.axis_mask = (1u << SDL_GAMEPAD_AXIS_COUNT) - 1u;
-    desc.button_mask = (1u << SDL_GAMEPAD_BUTTON_COUNT) - 1u;
-    desc.name = "LinkUp friend";
-    desc.userdata = &linkupLink;
-    desc.Rumble = hostAtFriendRumble;
-    const SDL_JoystickID id = SDL_AttachVirtualJoystick(&desc);
-    if (id == 0) {
-        std::fprintf(stderr, "[linkup] no seat for the friend: %s\n", SDL_GetError());
-        return;
-    }
-    linkupFriendJoystick = id;
-    players::seatFriend(id);
-    linkupFriendPad = linkupwire::Pad{};
+    if (linkuppad::seated() && linkuppad::seatSenses() == linkupFriendPad.senses) return;
+    if (!linkuppad::seat(linkupFriendPad.senses, hostAtFriendRumble, &linkupLink)) return;
     linkupVpadSaid = linkupwire::Pad{};
-    linkupLastPadSeq = 0;
+    linkuppad::play(linkupFriendPad);
 }
 
 void App::linkupUnseatFriend() {
-    if (!linkupFriendJoystick) return;
-    std::fprintf(stderr, "[linkup] heard %u states of the friend's pad\n", static_cast<unsigned>(linkupLastPadSeq));
-    players::unseatFriend();
-    SDL_DetachVirtualJoystick(linkupFriendJoystick);
-    linkupFriendJoystick = 0;
+    if (!linkuppad::seated()) return;
+    std::fprintf(stderr, "[linkup] heard %u states of the friend's pad\n", static_cast<unsigned>(linkupPadsHeard));
+    linkuppad::unseat();
 }
 
-// A pad's state from the friend. Trigger axes run from the bottom of a joystick's range in SDL's
-// virtual pad, where a pad's own triggers read from 0.
-void App::linkupFriendPadChanged() {
-    if (linkupLastPadSeq == linkupFriendPad.seq) return;
-    const int16_t ahead = static_cast<int16_t>(linkupFriendPad.seq - linkupLastPadSeq);
-    if (ahead < 0 && ahead > -1000) return;   // an old one overtaken by a later one
-    linkupLastPadSeq = linkupFriendPad.seq;
-    linkupIdleFor = 0.0f;
-    linkupPressHeard = true;
-    SDL_Gamepad* gp = SDL_GetGamepadFromID(linkupFriendJoystick);
-    SDL_Joystick* joy = gp ? SDL_GetGamepadJoystick(gp) : nullptr;
-    if (!joy) return;
-    SDL_LockJoysticks();
-    for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; ++b)
-        SDL_SetJoystickVirtualButton(joy, b, (linkupFriendPad.buttons >> b) & 1u);
-    for (int a = 0; a < SDL_GAMEPAD_AXIS_COUNT; ++a) {
-        int value = linkupFriendPad.axes[a];
-        if (a == SDL_GAMEPAD_AXIS_LEFT_TRIGGER || a == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) value = value * 2 - 32768;
-        SDL_SetJoystickVirtualAxis(joy, a, static_cast<Sint16>(std::clamp(value, -32768, 32767)));
+// A pad's state from the friend, heard from the moment the consoles connect, before the seat is made.
+void App::linkupFriendPadChanged(const linkupwire::Pad& pad) {
+    if (linkupFriendPadHeard) {
+        const int16_t ahead = static_cast<int16_t>(pad.seq - linkupLastPadSeq);
+        if (ahead <= 0 && ahead > -1000) return;   // the same one, or an old one overtaken by a later one
     }
-    SDL_UnlockJoysticks();
+    // Only a press is somebody there: this state comes every tenth of a second all the same, and a
+    // controller lying on a table still reads a little tilt.
+    if (linkuppad::pressed(linkupFriendPad, pad)) {
+        linkupIdleFor = 0.0f;
+        linkupPressHeard = true;
+    }
+    linkupLastPadSeq = pad.seq;
+    linkupFriendPad = pad;
+    linkupFriendPadHeard = true;
+    ++linkupPadsHeard;
+    if (!linkuppad::seated()) return;
+    linkuppad::play(pad);
     linkupPassToEmulator();
 }
 
@@ -638,6 +719,15 @@ bool App::linkupGameAloneOnScreen() const {
 // achievement, and those are harmless and stay.
 void App::linkupFollowGame() {
     if (linkupSide != LinkupSide::Host || !linkupStreamUp) return;
+    // The first game waits for the friend's controller, so their seat has the sensors it has: its state
+    // comes every tenth of a second, and an older console's says it has none.
+    if (linkupStartPending &&
+        (linkupFriendPadHeard || clockSeconds() - linkupConnectedAt >= kFirstPadWaitSeconds)) {
+        linkupStartPending = false;
+        if (!linkupFriendPadHeard)
+            std::fprintf(stderr, "[linkup] nothing heard from the friend's controller yet: seated with no motion sensors\n");
+        linkupStartGame();
+    }
     const bool show = linkupGameAloneOnScreen();
     if (show != linkupPictureSent) {
         json_object* c = command("picture");
@@ -698,19 +788,24 @@ void App::linkupPauseGame() {
     }
 }
 
+// The panel goes with the pause menu under it, fading out as the menu does (toggleOverlay closes a
+// question with the menu). Closed first, it left the menu's own rows showing for the length of the
+// menu's fade, Resume, Save State and Load State, as if the menu had come back.
 void App::linkupResumeGame() {
-    if (choiceScreen.isOpen()) choiceScreen.close();
     choiceThen = nullptr;
     if (overlayOpen) toggleOverlay();
+    if (choiceScreen.isOpen()) choiceScreen.close();
 }
 
 // The panel over the host's stopped game. The pause menu is what stops a game, and its own rows do not
 // show while a question is up (App::drawPauseMenu), so this reads as LinkUp's panel over the picture.
+// A does not close it: linkupResumeGame closes the menu with it still up, so the two go together.
 void App::linkupHostPanel(const std::string& title, std::function<void()> then) {
     linkupPauseGame();
     linkupPanel(title, "", {}, 0, [then = std::move(then)](int) { then(); });
     choiceScreen.setPrompt("Press", "A", "to resume");
     choiceScreen.setOnlyA(true);
+    choiceScreen.setStaysOpen(true);
 }
 
 // ---- The friend: the picture on this television ----------------------------------
@@ -763,25 +858,14 @@ bool App::linkupPictureBehind() {
            linkupPlay.shows() == screens::LinkUpPlayScreen::Shows::Picture;
 }
 
-// The friend's pad, to the host. Only presses travel: a friend's keyboard and mouse stay at home.
+// The friend's pad, to the host: its presses, sticks and tilt (linkup_pad.h). A friend's keyboard and
+// mouse stay at home.
 void App::linkupSendPad(float dt) {
     if (linkupSide != LinkupSide::Friend || !linkupStreamUp) return;
-    linkupwire::Pad pad;
-    SDL_Gamepad* gp = players::gamepad(0);
     const bool asleep = !linkupPictureBehind() || choiceScreen.visible();
-    pad.buttons = linkupScriptPad;
-    if (gp && !asleep) {
-        for (int b = 0; b < SDL_GAMEPAD_BUTTON_COUNT; ++b) {
-            // The console's own button never reaches the other console, and a shortcut button is this
-            // console's: it opens this console's menu.
-            if (b == SDL_GAMEPAD_BUTTON_GUIDE) continue;
-            if (SDL_GetGamepadButton(gp, static_cast<SDL_GamepadButton>(b))) pad.buttons |= 1u << b;
-        }
-        for (int a = 0; a < SDL_GAMEPAD_AXIS_COUNT; ++a) pad.axes[a] = SDL_GetGamepadAxis(gp, static_cast<SDL_GamepadAxis>(a));
-    }
+    linkupwire::Pad pad = linkuppad::read(asleep, linkupScriptPad, linkupPadSent);
     linkupPadAge += dt;
-    const bool changed = pad.buttons != linkupPadSent.buttons || std::memcmp(pad.axes, linkupPadSent.axes, sizeof pad.axes) != 0;
-    if (!changed && linkupPadAge < kPadKeepAliveSeconds) return;
+    if (!linkuppad::differs(pad, linkupPadSent) && linkupPadAge < kPadKeepAliveSeconds) return;
     linkupPadAge = 0.0f;
     pad.seq = ++linkupPadSeq;
     linkupPadSent = pad;
@@ -843,7 +927,8 @@ bool App::takeLinkUpEvent(const SDL_Event& e) {
 }
 
 // Every frame while the picture is all there is. True when this frame is done: nothing is drawn but
-// the dim, and a short wait for the next press, so nothing is added to the time a press takes.
+// the dim and the bars around the host's game, each only when it changes, and a short wait for the
+// next press, so nothing is added to the time a press takes.
 bool App::linkupWatchPicture(float dt) {
     if (!linkupPictureOnly()) return false;
     tickLinkUpLive(dt);
@@ -852,11 +937,16 @@ bool App::linkupWatchPicture(float dt) {
     else if (standaloneClearFrames > 0) {
         --standaloneClearFrames;
         renderer.setTransparentBackground(true);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glDisable(GL_SCISSOR_TEST);
-        glClearColor(0, 0, 0, 0);
-        glClear(GL_COLOR_BUFFER_BIT);
-        SDL_GL_SwapWindow(window);
+        // With the host's word on where the game sits, the bars and the glow around it (#692).
+        if (linkupPlay.placed()) {
+            drawOverGame();
+        } else {
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glDisable(GL_SCISSOR_TEST);
+            glClearColor(0, 0, 0, 0);
+            glClear(GL_COLOR_BUFFER_BIT);
+            SDL_GL_SwapWindow(window);
+        }
     }
     SDL_WaitEventTimeout(nullptr, 3);
     return true;
@@ -869,6 +959,7 @@ void App::linkupFromPeer(const std::string& word, json_object* message) {
     using Shows = screens::LinkUpPlayScreen::Shows;
     if (word == "press") {
         idleWatch.input(clockSeconds());
+        linkupHeardAt = clockSeconds();
         linkupIdleFor = 0.0f;
     } else if (word == "slow") {
         menuNotice.say(linkup::kTooSlow, Tone::Problem);
@@ -904,8 +995,14 @@ void App::linkupFromPeer(const std::string& word, json_object* message) {
     } else if (word == "starting" && linkupSide == LinkupSide::Friend) {
         const std::string game = textOf(message, "game");
         if (!game.empty()) linkupGame = game;
+        gameEventFriendStarted();
+        linkupPlay.clearPlace();
         linkupPlay.open(Shows::Waiting, linkup::waitingFor(who), linkupGame, /*friendSide=*/true);
+    } else if (word == "place" && linkupSide == LinkupSide::Friend) {
+        linkupTookPlace(message);
     } else if (word == "quit" && linkupSide == LinkupSide::Friend) {
+        gameEventFriendEnded();
+        linkupPlay.clearPlace();
         linkupPlay.open(Shows::Waiting, linkup::waitingFor(who), "", /*friendSide=*/true);
     } else if (word == "ended" && linkupSide == LinkupSide::Friend) {
         linkupPeerEndedSession();
@@ -946,11 +1043,7 @@ void App::linkupFriendLeft() {
     const bool inGame = playing || standaloneRun.active();
     linkupSide = LinkupSide::None;
     linkupStreamUp = false;
-    players::unseatFriend();
-    if (linkupFriendJoystick) {
-        SDL_DetachVirtualJoystick(linkupFriendJoystick);
-        linkupFriendJoystick = 0;
-    }
+    linkupUnseatFriend();
     if (linkupHeldRemotePlay) {
         std::string why;
         if (!unit::start(kRemotePlayUnit, &why)) std::fprintf(stderr, "[linkup] %s\n", why.c_str());
@@ -960,6 +1053,7 @@ void App::linkupFriendLeft() {
     if (inGame) {
         if (choiceScreen.isOpen()) {
             choiceThen = [this](int) { linkupResumeGame(); };
+            choiceScreen.setStaysOpen(true);
             choiceScreen.changeTitle(linkup::left(who));
         } else {
             linkupHostPanel(linkup::left(who), [this]() { linkupResumeGame(); });
@@ -1049,7 +1143,9 @@ void App::linkupIdlePause() {
 void App::tickLinkUpSession(float dt) {
     if (linkupSide == LinkupSide::None) return;
     // A press from either player keeps both screens awake, and the idle rule below is the only clock.
-    if (idleWatch.idleFor(clockSeconds()) < 0.2) {
+    // Only a press made here is told to the other console: one heard from it and told back would go
+    // back and forth every two seconds for ever, and neither console would ever be idle.
+    if (idleWatch.idleFor(clockSeconds()) < 0.2 && clockSeconds() - linkupHeardAt >= 0.2) {
         linkupIdleFor = 0.0f;
         linkupPressHere = true;
     }
@@ -1062,6 +1158,7 @@ void App::tickLinkUpSession(float dt) {
     if (linkupPressHeard) {
         linkupPressHeard = false;
         idleWatch.input(clockSeconds());
+        linkupHeardAt = clockSeconds();
     }
     if (linkupLost) {
         linkupLostFor += dt;
@@ -1079,24 +1176,34 @@ void App::tickLinkUpSession(float dt) {
             }
         }
     }
-    // Only over a running game, on the host's clock: 10 minutes with no press from either player
-    // pauses both, and through the relay those minutes are a full-quality stream nobody watches.
+    // Only over a running game, on the host's clock (linkup::idleStep): through the relay, idle minutes
+    // are a full-quality stream nobody watches.
     if (linkupSide == LinkupSide::Host && linkupStreamUp && (playing || standaloneRun.active())) {
         linkupIdleFor += dt;
-        if (!linkupIdlePaused && linkupIdleFor >= kIdlePauseSeconds && !overlayOpen && !choiceScreen.isOpen()) {
-            linkupIdlePaused = true;
-            linkupTellPeer("idle");
-            linkupIdlePause();
-        } else if (linkupIdlePaused && linkupIdleFor < kIdlePauseSeconds) {
-            linkupIdlePaused = false;
-        } else if (linkupIdlePaused && linkupIdleFor >= kIdlePauseSeconds + kIdleEndSeconds) {
-            // LinkUp ends the session and frees the relay; the host's game stays paused on the TV.
-            linkupIdlePaused = false;
-            linkupTellPeer("ended");
-            linkupSend(command("end"));
-            linkupSide = LinkupSide::None;
-            linkupStreamUp = false;
-            linkupUnseatFriend();
+        switch (linkup::idleStep(linkupIdleFor, linkupIdlePaused, overlayOpen || choiceScreen.isOpen())) {
+            case linkup::IdleStep::Pause:
+                linkupIdlePaused = true;
+                std::fprintf(stderr, "[linkup] no press from either player for %d minutes: both paused\n",
+                             static_cast<int>(linkup::kIdlePauseSeconds / 60));
+                linkupTellPeer("idle");
+                linkupIdlePause();
+                break;
+            case linkup::IdleStep::PressedSince:
+                linkupIdlePaused = false;
+                break;
+            case linkup::IdleStep::End:
+                // LinkUp ends the session and frees the relay; the host's game stays paused on the TV.
+                linkupIdlePaused = false;
+                std::fprintf(stderr, "[linkup] no press from either player for %d minutes: the session ends\n",
+                             static_cast<int>((linkup::kIdlePauseSeconds + linkup::kIdleEndSeconds) / 60));
+                linkupTellPeer("ended");
+                linkupSend(command("end"));
+                linkupSide = LinkupSide::None;
+                linkupStreamUp = false;
+                linkupUnseatFriend();
+                break;
+            case linkup::IdleStep::None:
+                break;
         }
     }
 }
@@ -1196,8 +1303,7 @@ void App::runLinkUpScript() {
     else if (word == "quit") exitToHome();
     else if (word == "end") linkupNextDone();
     else if (word == "offline" || word == "online") {
-        linkUp.appearOffline = word == "offline";
-        refreshLinkUpScreen();
+        linkupChooseStatus(word == "offline");
     } else if (!word.empty()) std::fprintf(stderr, "[linkup] script: no step %s\n", word.c_str());
     if (!done) return;
     std::fprintf(stderr, "[linkup] script: %s\n", word.c_str());

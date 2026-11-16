@@ -1,8 +1,10 @@
 #include "standalone.h"
 
+#include "fileio.h"
 #include "proc.h"
 #include "standalone_internal.h"
 #include "storage.h"
+#include "unsettled.h"
 #include "xtitles.h"
 
 #include <dirent.h>
@@ -47,7 +49,7 @@ const Emulator kEmulators[] = {
      // folder (user/save/), as Xenia and Cemu do, so a session cut off by a
      // crash, a power cut or an app restart is sent at the next start or
      // launch instead of being overwritten by the older copy on RomM.
-     "nsp|xci", "keys", false, false, false, false, false, true, false},
+     "nsp|xci", "keys", false, false, false, false, false, true, false, false, true, false},
 
     // PLAYSTATION 3. Its log sits beside its cache, in the game's folder
     // (XDG_CACHE_HOME, rpcs3/ appended: Utilities/File.cpp, get_cache_dir).
@@ -64,7 +66,7 @@ const Emulator kEmulators[] = {
      nullptr, 0, nullptr,
      // notesPlaying (#213): its savedata is in the person's folder too
      // (hdd0/home/<user>/savedata), the same case as Eden's.
-     "iso|pkg", "firmware", true, true, true, false, false, true, false},
+     "iso|pkg", "firmware", true, true, true, false, false, true, false, true, false, false},
 
     // ORIGINAL XBOX. xemu keeps no log of its own; what it prints is it. A
     // game is a folder, as a PS3 game is, because its hard drive lives beside
@@ -77,7 +79,7 @@ const Emulator kEmulators[] = {
      {nullptr, nullptr, nullptr, nullptr},
      nullptr, nullptr,
      nullptr, 0, nullptr,
-     "iso|xiso", "BIOS", true, false, false, true, true, false, false},
+     "iso|xiso", "BIOS", true, false, false, true, true, false, false, false, false, false},
 
     // XBOX 360. Xenia Edge's own Linux build, in the image
     // (build_files/install-xenia.sh). Its log is where the console tells it
@@ -96,7 +98,7 @@ const Emulator kEmulators[] = {
      nullptr,
      "x> ",
      "Xenia-edge", 2, nullptr,
-     "iso|xex|zar", "", false, false, true, false, false, true, false},
+     "iso|xex|zar", "", false, false, true, false, false, true, false, false, false, false},
 
     // WII U. Cemu main, built from source at a pin (cores/build-cemu.sh) and in
     // the image at /usr/lib/cabinetos/cemu. Its log is under its home
@@ -115,7 +117,9 @@ const Emulator kEmulators[] = {
      nullptr,
      "Unrecoverable error in Vulkan",
      nullptr, 0, "Error",
-     "wua", "", false, false, true, false, false, true, false},
+     // dualsense (#669): Cemu reads a pad's own sensors, as SDL pairs them;
+     // onlyPlayerOneTilts: the GamePad, the one Wii U controller with a gyro.
+     "wua", "", false, false, true, false, false, true, false, false, true, true},
 
     // PLAYSTATION VITA. Vita3K's own build, in the image
     // (build_files/install-vita3k.sh), started through its SDL frontend: a
@@ -136,7 +140,9 @@ const Emulator kEmulators[] = {
      nullptr, 0, nullptr,
      // notesPlaying: Vita3K writes the saves straight into the person's
      // folder, through the link standalone_vita3k.cpp makes, as Xenia does.
-     "zip|vpk", "firmware", true, false, false, false, false, true, true},
+     // dualsense (#669): Vita3K reads a pad's own sensors, as SDL pairs them;
+     // onlyPlayerOneTilts: the Vita is one handheld, held by player 1.
+     "zip|vpk", "firmware", true, false, false, false, false, true, true, false, true, true},
 
     // SEGA MODEL 2. sm2-emu, built from source at a pin (cores/build-sm2emu.sh)
     // and in the image at /usr/lib/cabinetos/sm2emu, for the Model 2 games
@@ -155,7 +161,7 @@ const Emulator kEmulators[] = {
      nullptr, 0, nullptr,
      // notesPlaying: it writes the board's NVRAM straight into the person's
      // folder, as Cemu writes its saves.
-     "zip|7z", "", false, false, false, false, false, true, false},
+     "zip|7z", "", false, false, false, false, false, true, false, false, false, false},
 
     // SEGA MODEL 3. Supermodel, built from source at a pin
     // (cores/build-supermodel.sh) and in the image at
@@ -176,7 +182,7 @@ const Emulator kEmulators[] = {
      nullptr, 0, nullptr,
      // notesPlaying: its NVRAM is written straight into the person's folder,
      // through the link standalone_supermodel.cpp makes, as Vita3K's saves are.
-     "zip", "", false, false, false, false, false, true, false},
+     "zip", "", false, false, false, false, false, true, false, false, false, false},
 };
 
 // How long a program that was asked to close gets before it is made to.
@@ -256,6 +262,27 @@ bool writeFile(const std::string& path, const std::string& data) {
         if (!out) return false;
     }
     return std::rename(tmp.c_str(), path.c_str()) == 0;
+}
+
+// A NOTE THAT SAYS WHAT IS BESIDE IT IS COMPLETE. On any drive, a note is a
+// file of its own and can be there after a power cut with the files it
+// vouches for never written, and be trusted at every start (#559, fileio.h).
+//
+// A firmware's stamp, shared by every game of its system, is written only
+// once the drive holding it has every file the install wrote; it is on the
+// console's own drive, so that is quick. No note when the drive did not take
+// them, so the next start installs again.
+bool writeDoneNote(const std::string& path, const std::string& note) {
+    return cab::syncDrive(path.substr(0, path.find_last_of('/'))) && writeFile(path, note);
+}
+
+// What was installed into a game's folder (kInstalledNote), which can be on a
+// slow USB drive: listed first (unsettled.h), so a power cut before the drive
+// has the install means that game installs again at its next start. With no
+// list to put it in, it waits for the drive as writeDoneNote does.
+bool writeInstalledNote(const std::string& path, const std::string& note) {
+    return (unsettled::note({path}) || cab::syncDrive(path.substr(0, path.find_last_of('/')))) &&
+           writeFile(path, note);
 }
 
 // Copies `from` to `to` unless `to` already holds the same bytes.

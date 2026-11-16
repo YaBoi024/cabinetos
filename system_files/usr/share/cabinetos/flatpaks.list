@@ -28,6 +28,13 @@
 # depends on the date somebody installed. Pinning both means the image version
 # alone says what is on the machine.
 #
+# SO IS THE GRAPHICS DRIVER. A flatpak cannot see Bazzite's Mesa; it draws
+# with Flathub's own copy, org.freedesktop.Platform.GL.default, which comes
+# with the runtime and was not pinned until 2026-11-10. Then the A9 drew
+# Switch with Mesa 26.2.2 and a console installed on 2026-11-06 with 26.2.5,
+# on the same image. Both of its copies are pinned (25.08 is the one the
+# runtimes load first, 25.08-extra the next), at the builds the A9 runs.
+#
 # HOW TO MOVE A VERSION
 #
 #   flatpak remote-info --system flathub <app>           # current commit
@@ -35,6 +42,12 @@
 #
 # Edit the commit here, in its own commit, and say why in the message. Nothing
 # else moves it: the flatpak auto-update timers are masked by strip-desktop.sh.
+#
+# FLATHUB KEEPS ONLY ITS LAST FEW BUILDS (4 to 7 of each, 2026-11-10), so a pin
+# left alone is eventually gone, and a console installed after that quietly
+# gets the newest. ci/check-flatpak-pins.sh fails on the 1st of each month, and
+# on a pull request that changes this file, while a pin is gone or has fewer
+# than two older builds behind it: time to try the next one on the A9.
 #
 # FORMAT — four fields, whitespace separated. Blank lines and lines starting
 # with # are ignored. Nothing may follow the fields, not even a comment: the
@@ -45,14 +58,22 @@
 #   <branch>  the branch
 #   <commit>  the exact revision to hold
 #
-# A runtime must be listed before the apps that use it, so it is installed at
-# the right revision rather than pulled in as a dependency at whatever is
-# current. Commits below were read off Flathub on 2026-09-18.
+# A ref may be listed once for each branch. A runtime must be listed before
+# the apps that use it, so it is installed at the right revision rather than
+# pulled in as a dependency at whatever is current, and the graphics driver
+# after the runtimes, since installing a runtime brings it at Flathub's newest.
+# Commits below were read off Flathub on 2026-09-18; the graphics driver's off
+# the A9 on 2026-11-10 (Mesa 26.2.2, built 2026-09-15).
 
 # --- runtimes -------------------------------------------------------------
 
 runtime  org.freedesktop.Platform  25.08  d27f7a6a974e40b061070bec1be9e1b52a7a6872b271e6a45c2c34a48bf6fedf
 runtime  org.kde.Platform          6.11   4da4797cdce707e1db7bc25720ac5e1f56818c087621f3737ea5482b0ed53c18
+
+# --- the graphics driver, Flathub's Mesa ----------------------------------
+
+runtime  org.freedesktop.Platform.GL.default  25.08        0083f33e9a33c454d0f0850d06581e5f991ecf2dbde02e38079db49e01c7ebac
+runtime  org.freedesktop.Platform.GL.default  25.08-extra  695a049fc6520a9c8041cbdb35df59f9d38b562b02c6316a36fb2deb50a0992b
 
 # --- emulators ------------------------------------------------------------
 

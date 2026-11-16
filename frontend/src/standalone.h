@@ -143,6 +143,22 @@ struct Emulator {
     // virtual touch screen (vtouch.h; App::pointerButton). The Vita, played
     // as a PS TV (docs/PROJECT.md question 49, decision 4).
     bool touchPointer;
+    // IT READS EACH PLAYER'S TILT FROM A MOTION DEVICE beside their virtual
+    // controller (vpad.h), which the console makes for every player whose
+    // pad has the sensors: RPCS3's Buddy Device, for every PS3 game (#683).
+    bool motion;
+    // IT READS EACH PLAYER'S TILT FROM THE PAD'S OWN SENSORS, as SDL pairs
+    // them, so its virtual controller is the stand-in DualSense of
+    // vdualsense.h and not the plain one: Eden, Cemu and Vita3K (#669). The
+    // two switches are never both set.
+    bool dualsense;
+    // THE MACHINE HAS ONE GYRO, AND PLAYER 1 HOLDS IT: the Wii U's GamePad
+    // (Cemu), the Vita itself (Vita3K), as a Game Boy Advance's or a 3DS's
+    // tilt is player 1's controller's. With `dualsense`, only player 1's stand-in
+    // carries tilt and every other player's shows no sensors, so a second
+    // controller never moves the game: Vita3K reads every controller's
+    // motion into the one Vita. Never set without `dualsense`.
+    bool onlyPlayerOneTilts;
 };
 
 // The emulator for a catalog core name, or nullptr for an ordinary core.

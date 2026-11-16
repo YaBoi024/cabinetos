@@ -12,6 +12,18 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
   `system_files/usr/lib/tmpfiles.d/cabinetos.conf` rather than by a `mkdir`.
   **Everything the image installs goes in `/usr`.**
 
+- **INSTALLING A FLATPAK MOVES THE RUNTIMES UNDER IT.** `flatpak install`
+  takes Flathub's newest app and brings its runtime to Flathub's newest, and
+  `flatpak install` or `update` of anything also brings its related refs (the
+  graphics driver, translations) up to date. A pin set earlier in the same run
+  quietly moves. On a console installed 2026-11-06 both runtimes ended off
+  their pins while `cabinetos-flatpak-setup` logged every ref pinned, and the
+  newest xemu pulled in a second branch of its runtime, after which an update
+  by name without the branch failed every 6 hours. Use `--no-deps
+  --no-related`, name every ref with its branch, and read the whole list back
+  at the end. Flathub's own Mesa (`GL.default`) is a separate download from
+  Bazzite's and drifts unless it is pinned too.
+
 - **A SYSFS SETTING A UDEV RULE MAKES CAN BE UNDONE BY TUNED AND BY THE
   DRIVER, AND TRIGGERING THE RULE BY HAND WILL NOT SHOW IT.** The rule for
   #228 ("Sound can die until a restart: the TV's HDMI audio chip fails to
@@ -540,7 +552,7 @@ Read before touching `build_files/`, `system_files/`, `ci/`, the workflows, the 
 - **A GitHub Release takes at most 2 GB per file, and the ISO is about 6.7 GB.**
   Nobody checked the size when the release was planned; it surfaced on
   release day. The installer lives in Cloudflare R2 (`download.mmagtech.com`,
-  MMagTech's account), uploaded by **Build disk images** with `publish`.
+  MMagTech's account), uploaded by **Build disk images** from a finished run (`iso_run`).
   Why R2: the comment on that workflow's publish step (#308, "At the first
   release: the download goes on a GitHub Release, and the page and wiki
   point to it", whose plan the 2 GB limit overturned).

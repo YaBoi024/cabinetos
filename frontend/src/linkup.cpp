@@ -10,11 +10,9 @@
 
 #include <json-c/json.h>
 
-#include "fileio.h"
 #include "linkuprules.h"
 #include "players.h"
 #include "screenparts.h"
-#include "storage.h"
 
 // ---- The top bar --------------------------------------------------------
 
@@ -58,13 +56,12 @@ void App::refreshLinkUpScreen() { linkupScreen.setState(linkUp, linkupInUse()); 
 void App::applyLinkUp(const screens::Result& res) {
     using Play = screens::LinkUpPlayScreen;
     if (res.value == screens::LinkUpScreen::kAppearOffline) {
-        // Belongs to this account, and asks for no PIN.
-        linkUp.appearOffline = !linkUp.appearOffline;
-        const std::string mark = storage::userDir(storage::currentUser()) + "/linkup-offline";
-        if (linkUp.appearOffline) cab::writeBytes(mark, std::string("offline"));
-        else cab::removeFile(mark);
-        refreshLinkUpScreen();
+        // The person's own, on every console they are on, and asks for no PIN.
+        linkupChooseStatus(!linkUp.appearOffline);
         sound::play(sound::Cue::Activate);
+    } else if (res.value == screens::LinkUpScreen::kEnterCode) {
+        sound::play(sound::Cue::Activate);
+        linkupEnterCode();
     } else if (res.value == Play::kCancelInvite) {
         linkupCancelInvite();
     } else if (res.value == Play::kLeave) {

@@ -7,6 +7,18 @@
 // or a full disk halfway through leaves the old file, never an empty or cut
 // one. The fsync matters on the console's btrfs, which commits every 30 s: a
 // renamed file whose bytes were never synced can come back empty.
+//
+// AND NOTHING A POWER CUT MAY HAVE LEFT HALF WRITTEN IS TRUSTED AS COMPLETE
+// (#559). exFAT and NTFS keep no journal, so after a power cut a download's
+// name or an unpacked file's time can be on the drive with the bytes never
+// written; on any drive a note is a file of its own and can arrive before
+// the files it vouches for. Each such mark in a game's folder is listed
+// first, on the console's own drive (unsettled.h), so a power cut before the
+// drive has it all means the game downloads, unpacks or installs again, and
+// nothing waits; where it cannot be listed, it waits for the drive
+// (syncDrive), as a firmware's note always does. btrfs and ext4 put a size
+// on the drive only with its bytes (keepsSizeWithBytes), so there a cut
+// download or unpacked file comes back short and needs neither.
 
 #pragma once
 
@@ -32,6 +44,16 @@ bool writeBytes(const std::string& path, const std::string& text, mode_t mode = 
 // Removes the file, and reports only whether it is gone afterwards. A file
 // that was never there is a success.
 bool removeFile(const std::string& path);
+
+// Waits until everything written to the drive holding `path` (a file or a
+// folder) is on it: syncfs, the one drive rather than every one. False when
+// `path` cannot be opened or the drive reports a write that failed.
+bool syncDrive(const std::string& path);
+
+// Whether the drive holding `path` puts a file's size on it only together
+// with the file's bytes: true on btrfs and ext4, false on exFAT, NTFS and
+// any filesystem it does not know, and when `path` cannot be read.
+bool keepsSizeWithBytes(const std::string& path);
 
 }  // namespace cab
 

@@ -42,6 +42,7 @@
     - { file: picture.md, title: Display and Sound }
     - { file: updates.md, title: Updates }
     - { file: file-access.md, title: File access }
+    - { file: game-events.md, title: Game events }
 - section: Help
   pages:
     - { file: navigation.md, title: Buttons and shortcuts }

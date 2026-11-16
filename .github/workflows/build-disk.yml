@@ -12,14 +12,17 @@
 #                target machine. See CONTRIBUTING.md, "Building".
 #   portable     The file a tester writes to a USB drive with Etcher or Rufus,
 #                to run CabinetOS from that drive. CI boots it before the run
-#                can pass. `portable_run` publishes the file from a finished
-#                run, and builds nothing.
+#                can pass.
 #
-# Run manually, ONCE PER RELEASE, not per update. The ISO carries the whole
-# image, but an installed console updates itself from GHCR from then on, so an
-# ISO only has to be new enough to install; it does not have to be current. It
-# is not on a push trigger: disk builds are slow and the installer changes
-# rarely. Build one for a release, and for a change to disk_config/iso.toml.
+# And the two downloads, each taken from a finished run and never built again:
+# `iso_run` publishes that run's ISO, `portable_run` that run's portable file.
+# Either or both; a run given one builds nothing.
+#
+# Run by hand only, never on a push or a schedule. The downloads are cut again
+# once each month's base update has merged, and at once for a fix to the
+# installer, first run or privacy, because a new console stays on the image it
+# was installed from until its player updates it.
+# docs/decisions/2026-11-12-when-the-downloads-are-cut.md says why.
 
 name: Build disk images
 
@@ -37,11 +40,11 @@ on:
         default: "anaconda-iso"
         type: choice
         options: ["anaconda-iso", "qcow2", "both", "portable"]
-      publish:
-        description: "Publish the ISO as the download (R2, replaces the current one)"
-        required: true
-        default: false
-        type: boolean
+      iso_run:
+        description: "Build nothing: publish the ISO from this run number as the download (R2, replaces the current one)"
+        required: false
+        default: ""
+        type: string
       portable_run:
         description: "Build nothing: publish the portable file from this run number as the download (R2, replaces the current one)"
         required: false
@@ -60,14 +63,17 @@ env:
   # never by accident.
   BIB_IMAGE: "quay.io/centos-bootc/bootc-image-builder:latest@sha256:2b52843ea2bfda73b0a08d97e76b734393b1d3a804681b9fabb26723bd3a2f0b"
 
+# One group for each kind of run, so an ISO build, a portable build and a
+# publish started together never cancel each other. The same kind started
+# again on the same branch replaces the older one.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-${{ inputs.types }}-${{ inputs.iso_run }}-${{ inputs.portable_run }}
   cancel-in-progress: true
 
 jobs:
   build:
     name: Build ${{ matrix.disk-type }}
-    if: inputs.portable_run == ''
+    if: inputs.iso_run == '' && inputs.portable_run == ''
     runs-on: ubuntu-24.04
     # The ISO alone by default: the qcow2 is only for making a new test VM,
     # which is updated in place and almost never remade. A computed matrix,
@@ -128,8 +134,8 @@ jobs:
       # CabinetOS's colours, logo and title, and Network & Host Name hidden.
       # Nothing the builder made is rebuilt.
       # docs/decisions/2026-11-02-installer-iso-repacked.md says why. The ISO
-      # is replaced where it lies, so the upload and the publish below take
-      # the repacked one.
+      # is replaced where it lies, so the upload below takes the repacked one,
+      # with its SHA-256 beside it for `iso_run` to check.
       - name: Brand the installer ISO
         if: matrix.disk-type == 'anaconda-iso'
         env:
@@ -143,6 +149,7 @@ jobs:
           df -h "${RUNNER_TEMP}" "$(dirname "${iso}")"
           ci/brand-installer-iso.sh "${iso}" "${RUNNER_TEMP}/branded.iso"
           mv "${RUNNER_TEMP}/branded.iso" "${iso}"
+          (cd "$(dirname "${iso}")" && sha256sum "$(basename "${iso}")" >"$(basename "${iso}").sha256")
 
       # THE PORTABLE FILE, from the builder's raw disk, then booted before anybody
       # can have it. ci/make-portable-image.sh says what changes and why;
@@ -190,38 +197,66 @@ jobs:
           path: ${{ steps.build.outputs.output-directory }}
           if-no-files-found: error
           # 90 days, the maximum for a public repository and free at that.
-          # The artifact is only a convenience: the image it is built from lives
-          # on GHCR permanently, and a fresh disk build takes about 5 minutes.
-          # But there is no reason to make anyone re-run one unnecessarily.
+          # The image it is built from lives on GHCR permanently, but the
+          # downloads are published from this artifact, so it is the only
+          # copy of the bytes that were checked.
           retention-days: 90
           compression-level: 0
           overwrite: true
 
-      # THE DOWNLOAD (#308). One file people can get without an account:
-      # GitHub takes at most 2 GB per release file and the ISO is about
-      # 7 GB, so it lives in Cloudflare R2, which charges nothing for
-      # downloads (MMagTech, 2026-10-10). ONE NAME, REPLACED EACH RELEASE:
-      # the link never changes, and the bucket only ever holds one ISO and
-      # one portable file (docs/decisions/2026-11-05-portable-download.md).
-      # Its SHA-256 beside it, for the release page. The keys are repository
-      # secrets, MMagTech's; nothing here prints them.
-      - name: Publish the ISO
-        if: inputs.publish && matrix.disk-type == 'anaconda-iso'
+  # THE DOWNLOADS (#308). Files people can get without an account: GitHub
+  # takes at most 2 GB per release file and the ISO is about 7 GB, so they
+  # live in Cloudflare R2, which charges nothing for downloads (MMagTech,
+  # 2026-10-10). ONE NAME EACH, REPLACED EACH TIME: the links never change,
+  # and the bucket only ever holds one ISO and one portable file
+  # (docs/decisions/2026-11-05-portable-download.md). Each comes from a
+  # finished run, not a new build, so what goes up is byte for byte the file
+  # that was checked: the ISO installed in the VM (tools/installer-vm.sh), the
+  # portable booted here and tried on a real PC. Only a successful run has the
+  # file to take, and its checksum is checked after the download. The keys are
+  # repository secrets, MMagTech's; nothing here prints them.
+  publish-iso:
+    name: Publish the ISO
+    if: inputs.iso_run != ''
+    runs-on: ubuntu-24.04
+
+    permissions:
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      # About 7 GB, and the download keeps its zip beside what it unpacks.
+      - name: Maximize space
+        uses: ublue-os/remove-unwanted-software@695eb75bc387dbcd9685a8e72d23439d8686cba6
+        with:
+          remove-codeql: true
+
+      - name: Fetch the ISO from that run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ inputs.iso_run }}
+        run: |
+          set -euo pipefail
+          [[ "${RUN}" =~ ^[0-9]+$ ]] || { echo "not a run number: ${RUN}"; exit 1; }
+          state=$(gh run view "${RUN}" --repo "${GITHUB_REPOSITORY}" --json workflowName,conclusion --jq '.workflowName + ", " + .conclusion')
+          [[ "${state}" == "Build disk images, success" ]] || { echo "run ${RUN} is ${state}"; exit 1; }
+          gh run download "${RUN}" --repo "${GITHUB_REPOSITORY}" --name cabinetos-anaconda-iso --dir "${RUNNER_TEMP}/iso"
+          iso=$(find "${RUNNER_TEMP}/iso" -name '*.iso' -type f | head -n1)
+          [[ -n "${iso}" ]] || { echo "no ISO in run ${RUN}"; exit 1; }
+          (cd "$(dirname "${iso}")" && sha256sum --check "$(basename "${iso}").sha256")
+          echo "ISO=${iso}" >>"${GITHUB_ENV}"
+
+      - name: Publish it
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          OUT: ${{ steps.build.outputs.output-directory }}
-        run: |
-          set -euo pipefail
-          iso=$(find "${OUT}" -name '*.iso' -type f | head -n1)
-          [[ -n "${iso}" ]] || { echo "no ISO in ${OUT}"; exit 1; }
-          ci/publish-to-r2.sh "${iso}" cabinetos.iso application/x-iso9660-image
+        run: ci/publish-to-r2.sh "${ISO}" cabinetos.iso application/x-iso9660-image
 
-  # THE PORTABLE DOWNLOAD, from a finished run, not a new build, so what goes up
-  # is byte for byte the file that passed its boot check and was tried on a real
-  # PC. Only a successful run has this artifact to take, and its checksum is
-  # checked after the download.
+  # The portable file the same way; read the comment above.
   publish-portable:
     name: Publish the portable file
     if: inputs.portable_run != ''

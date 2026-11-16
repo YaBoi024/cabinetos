@@ -19,7 +19,7 @@
 # in, the whole tree as tarball.tar.gz, rpmbuild with its own spec. Its build
 # dependencies come from that spec (`dnf builddep`), so they follow the pin.
 # What we change besides our patch is only where the spec fetches tools from
-# the internet unpinned (below).
+# the internet unpinned, and its one check that reaches the internet (below).
 #
 # WHAT IT ASSERTS: the source is at the tag's commit; each patch applies, and
 # is not already in Sunshine (then this says to drop it); the spec still has
@@ -119,6 +119,12 @@ edit '%global commit 0' "%global commit $COMMIT"
 edit 'nvm-sh/nvm/master/install.sh' "nvm-sh/nvm/$NVM_VERSION/install.sh"
 edit 'nvm install node' "nvm install $NODE_VERSION"
 edit 'nvm use node' "nvm use $NODE_VERSION"
+# THE METAINFO CHECK OFFLINE, as the spec's second one already is
+# (appstream-util --nonet). Online it loads the screenshots named in the
+# metainfo from LizardByte's website, and one going missing there failed the
+# build with nothing changed in Sunshine (2026-11-12: 01-sunshine-welcome-page.png,
+# not found). What the file says is still checked.
+edit 'appstreamcli validate %{buildroot}' 'appstreamcli validate --no-net %{buildroot}'
 
 # The whole tree, as copr-ci.sh tars it.
 tar -czf "$WORK/tarball.tar.gz" -C "$SRC" .

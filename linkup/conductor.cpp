@@ -173,9 +173,7 @@ void Conductor::onClient(bool connected) {
     }
     if (!connected && signedIn_) {
         status_ = "offline";
-        json_object* q = requestNamed("status");
-        set(q, "status", status_);
-        ask(q, nullptr);
+        sendStatus();
     }
 }
 
@@ -214,10 +212,14 @@ void Conductor::onCommand(json_object* o) {
         friends_.clear();
         ask(requestNamed("signout"), nullptr);
     } else if (cmd == "status") {
+        // `chosen`: the person pressed Status, and it holds on all their consoles.
         status_ = str(o, "status");
-        json_object* q = requestNamed("status");
-        set(q, "status", status_);
-        ask(q, nullptr);
+        if (flag(o, "chosen")) {
+            chosenOwed_ = status_;
+            sendChosen();
+        } else {
+            sendStatus();
+        }
     } else if (cmd == "friends") {
         fetchFriends();
     } else if (cmd == "away") {
@@ -258,10 +260,11 @@ void Conductor::cmdPair(json_object* o) {
     set(j, "username", str(o, "username"));
     const std::string joining = jsonutil::text(j);
     json_object_put(j);
-    work([this, address, code, joining]() {
+    const auto before = keys_.server();
+    work([this, address, code, joining, before]() {
         std::string name;
         const pairing::Result result = pairing::pair(keys_, address, code, joining, name);
-        Rtc::onMain([this, result, name]() {
+        Rtc::onMain([this, result, name, before]() {
             const char* word = "failed";
             switch (result) {
                 case pairing::Result::Paired: word = "paired"; break;
@@ -279,6 +282,14 @@ void Conductor::cmdPair(json_object* o) {
             if (result == pairing::Result::Paired) {
                 link_.reset();
                 paired_ = true;
+                removed_ = false;
+                // Another server numbers its events from the start. The same one, letting a
+                // console back on, keeps its numbers.
+                const auto now = keys_.server();
+                if (!before || !now || before->key != now->key) {
+                    seenSeq_ = 0;
+                    seenEpoch_.clear();
+                }
                 connection_ = "ok";
                 ++waitGeneration_;
                 sendState();
@@ -322,6 +333,10 @@ void Conductor::cmdLeave() {
         link_.reset();
         paired_ = false;
         signedIn_ = false;
+        removed_ = false;
+        seenSeq_ = 0;
+        seenEpoch_.clear();
+        chosenOwed_.clear();
         friends_.clear();
         connection_ = "ok";
         ++waitGeneration_;
@@ -332,7 +347,10 @@ void Conductor::cmdLeave() {
 
 void Conductor::cmdSignin(json_object* o) {
     username_ = str(o, "username");
-    account_ = accountOf(num(o, "id"), str(o, "created"));
+    const std::string account = accountOf(num(o, "id"), str(o, "created"));
+    // A choice not yet taken was the last person's.
+    if (account != account_) chosenOwed_.clear();
+    account_ = account;
     status_ = str(o, "status");
     signedIn_ = true;
     signIn();
@@ -344,10 +362,47 @@ void Conductor::signIn() {
     set(q, "account", account_);
     set(q, "username", username_);
     set(q, "status", status_);
-    ask(q, [this](ServerLink::Outcome outcome, json_object* answer) {
+    const std::string account = account_;
+    ask(q, [this, account](ServerLink::Outcome outcome, json_object* answer) {
         --signinsOut_;
-        if (outcome == ServerLink::Outcome::Ok && str(answer, "error").empty()) fetchFriends();
+        if (outcome != ServerLink::Outcome::Ok || !str(answer, "error").empty()) return;
+        // The answer says what the person chose, on whichever console they chose it. A choice made
+        // here that the server has not taken is newer, so it is sent instead. A server from before
+        // PROTOCOL.md's `chosen` says nothing, and the main program keeps its own.
+        if (account == account_) {
+            if (!chosenOwed_.empty()) sendChosen();
+            else tellChosen(str(answer, "chosen"));
+        }
+        fetchFriends();
     });
+}
+
+void Conductor::sendStatus() {
+    json_object* q = requestNamed("status");
+    set(q, "status", status_);
+    ask(q, nullptr);
+}
+
+// Sent until the server takes it. The console's own word goes after it when it differs, as when the
+// choice is Online but nobody has pressed anything for a while: that Offline is this console's alone.
+void Conductor::sendChosen() {
+    const std::string chose = chosenOwed_;
+    json_object* q = requestNamed("status");
+    set(q, "status", chose);
+    set(q, "chosen", true);
+    ask(q, [this, chose](ServerLink::Outcome outcome, json_object* answer) {
+        if (outcome == ServerLink::Outcome::Ok && str(answer, "error").empty() && chosenOwed_ == chose)
+            chosenOwed_.clear();
+    });
+    if (status_ != chose) sendStatus();
+}
+
+// The main program keeps it and sends nothing back.
+void Conductor::tellChosen(const std::string& status) {
+    if (status != "online" && status != "offline") return;
+    json_object* ev = eventNamed("chosen");
+    set(ev, "status", status);
+    local_.sendJson(ev);
 }
 
 // The server keeps who is signed in on each console in memory only, so after it restarts it knows
@@ -548,22 +603,31 @@ void Conductor::waitLoop() {
         }
         // After a miss, a short request first. The long one is held up to 25 seconds, so the server
         // would be seen back, and signed in to again, only that much later.
+        // An answer to a request sent before a pairing, a retyped address or Leave is the old
+        // link's, and is dropped, here and again on the main loop, where the generation moves:
+        // a "removed" queued before a code was typed again would take the console back off.
         if (missed) {
             std::string answer;
             const ServerLink::Outcome outcome = link_.call("{\"op\":\"config\"}", answer);
+            if (generation != waitGeneration_.load()) continue;
             if (outcome == ServerLink::Outcome::Unreachable) {
                 link_.waitBeforeRetry(stop);
                 continue;
             }
             missed = false;
-            Rtc::onMain([this, outcome]() { setConnection(outcome); });
+            Rtc::onMain([this, outcome, generation]() {
+                if (generation == waitGeneration_.load()) setConnection(outcome);
+            });
         }
         const std::string request = "{\"op\":\"wait\",\"after\":" + std::to_string(after) + "}";
         std::string answer;
         const ServerLink::Outcome outcome = link_.call(request, answer, 40);
+        if (generation != waitGeneration_.load()) continue;
         if (outcome != ServerLink::Outcome::Ok) {
             missed = outcome == ServerLink::Outcome::Unreachable;
-            Rtc::onMain([this, outcome]() { setConnection(outcome); });
+            Rtc::onMain([this, outcome, generation]() {
+                if (generation == waitGeneration_.load()) setConnection(outcome);
+            });
             link_.waitBeforeRetry(stop);
             continue;
         }
@@ -578,7 +642,8 @@ void Conductor::waitLoop() {
         std::string events = "[]";
         if (json_object* list = get(o, "events")) events = jsonutil::text(list);
         json_object_put(o);
-        Rtc::onMain([this, events, restarted]() {
+        Rtc::onMain([this, events, restarted, generation, nowEpoch]() {
+            if (generation != waitGeneration_.load()) return;
             setConnection(ServerLink::Outcome::Ok);
             if (restarted) {
                 signInAgain();
@@ -586,6 +651,10 @@ void Conductor::waitLoop() {
             }
             json_object* list = jsonutil::parse(events);
             if (list) {
+                if (nowEpoch != seenEpoch_) {
+                    seenEpoch_ = nowEpoch;
+                    seenSeq_ = 0;
+                }
                 onEvents(list);
                 json_object_put(list);
             }
@@ -597,6 +666,9 @@ void Conductor::onEvents(json_object* events) {
     bool refresh = false;
     for (size_t i = 0; i < json_object_array_length(events); ++i) {
         json_object* e = json_object_array_get_idx(events, i);
+        const int seq = static_cast<int>(num(e, "seq"));
+        if (seq > 0 && seq <= seenSeq_) continue;
+        seenSeq_ = std::max(seenSeq_, seq);
         const std::string type = str(e, "type");
         if (type == "friends") {
             refresh = true;
@@ -627,7 +699,13 @@ void Conductor::onEvents(json_object* events) {
                 endGame();
             }
         } else if (type == "removed") {
-            setConnection(ServerLink::Outcome::Removed);
+            // An old one comes again in a replay, after the console was let back on. An answer says
+            // whether it still holds (send, setConnection).
+            ask(requestNamed("config"), nullptr);
+        } else if (type == "chosen") {
+            // Chosen on another of this person's consoles. One chosen here and not yet taken is
+            // newer, and a sign-in still out answers with the person's choice anyway.
+            if (chosenOwed_.empty() && signinsOut_ == 0) tellChosen(str(e, "status"));
         }
     }
     if (refresh) fetchFriends();
@@ -729,6 +807,10 @@ void Conductor::sendFriends() {
 }
 
 void Conductor::setConnection(ServerLink::Outcome outcome) {
+    // The server still answers `wait` on a console it took off, with what is queued, every 25
+    // seconds. That says nothing about being back, and taken as ok it blinked the Removed screen.
+    if (outcome == ServerLink::Outcome::Removed) removed_ = true;
+    if (outcome == ServerLink::Outcome::Ok && removed_) outcome = ServerLink::Outcome::Removed;
     std::string word = "ok";
     switch (outcome) {
         case ServerLink::Outcome::Ok: word = "ok"; break;
@@ -786,6 +868,13 @@ Rtc::Hooks Conductor::makeHooks() {
     hooks.failed = [this]() { std::fprintf(stderr, "[linkup] the connection failed\n"); };
     hooks.control = [this](const std::string& text) { onControl(text); };
     hooks.fast = [this](const uint8_t* data, size_t len) { onFast(data, len); };
+    // On a new connection the friend's console has heard none of this, and keeps the last picture word
+    // it heard on the old one.
+    hooks.controlOpen = [this]() {
+        if (!game_ || !host_) return;
+        host_->askFullPicture();
+        if (Rtc* r = rtc()) r->sendControl(host_->pictureOn() ? "picture:1" : "picture:0");
+    };
     return hooks;
 }
 
@@ -1144,32 +1233,27 @@ void Conductor::tick() {
                      rttSamples_[rttSamples_.size() / 2], rttSamples_.back());
         rttSamples_.clear();
     }
-    if (r->everHeard()) {
-        const int64_t quiet = r->quietMs();
-        if (!game_->lost && quiet > kDropMs) {
-            game_->lost = true;
-            std::fprintf(stderr, "[linkup] nothing heard from the friend for %lld ms\n", static_cast<long long>(quiet));
-            local_.sendJson(eventNamed("peer_lost"));
-        } else if (game_->lost && quiet < 500) {
-            game_->lost = false;
-            std::fprintf(stderr, "[linkup] the friend is back\n");
-            local_.sendJson(eventNamed("peer_back"));
-            // On a new connection the friend's console has heard none of this.
-            if (host_) {
-                host_->askFullPicture();
-                r->sendControl(host_->pictureOn() ? "picture:1" : "picture:0");
-            }
-        }
-        // Only the host makes a new connection: the friend follows its generation number.
-        if (game_->lost && game_->host && quiet > kReconnectAfterMs && now - game_->lastReconnectMs > kReconnectEveryMs) {
-            game_->lastReconnectMs = now;
-            ++game_->generation;
-            std::fprintf(stderr, "[linkup] trying a new connection\n");
-            game_->connected = false;
-            game_->startedMs = 0;
-            host_->reconnect();
-            r = rtc();
-            if (r) r->heard();
-        }
+    // Heard is this connection's alone, so a new one is the friend back only once something arrives on it,
+    // and the main program's minute (kDropEndsSeconds in linkupsession.cpp) runs out while nothing does.
+    const bool heardHere = r->everHeard();
+    const int64_t quiet = r->quietMs();
+    if (heardHere && !game_->lost && quiet > kDropMs) {
+        game_->lost = true;
+        std::fprintf(stderr, "[linkup] nothing heard from the friend for %lld ms\n", static_cast<long long>(quiet));
+        local_.sendJson(eventNamed("peer_lost"));
+    } else if (heardHere && game_->lost && quiet < 500) {
+        game_->lost = false;
+        std::fprintf(stderr, "[linkup] the friend is back\n");
+        local_.sendJson(eventNamed("peer_back"));
+    }
+    // Only the host makes a new connection: the friend follows its generation number. The first comes
+    // after kReconnectAfterMs of quiet, then one each kReconnectEveryMs while nothing arrives on the last.
+    if (game_->lost && game_->host && now - game_->lastReconnectMs > kReconnectEveryMs && (!heardHere || quiet > kReconnectAfterMs)) {
+        game_->lastReconnectMs = now;
+        ++game_->generation;
+        std::fprintf(stderr, "[linkup] trying a new connection\n");
+        game_->connected = false;
+        game_->startedMs = 0;
+        host_->reconnect();
     }
 }

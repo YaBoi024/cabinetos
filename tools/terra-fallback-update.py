@@ -9,7 +9,8 @@ through its metalink, whose checksum list is what lagged on 2026-10-05),
 downloads the newest of each package, checks each against terra's key, and
 replaces the stored file when the version changed.
 
-Run by .github/workflows/terra-fallback-update.yml every Monday, and by hand:
+Run by .github/workflows/terra-fallback-update.yml on the 1st of each month,
+and by hand:
     tools/terra-fallback-update.py
 Prints `changed=true` or `changed=false` as its last line. Needs rpmkeys and
 zstd. Exits non-zero, changing nothing, if anything does not verify.

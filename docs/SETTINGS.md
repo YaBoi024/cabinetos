@@ -191,9 +191,10 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
     its first press closes the window if it is open).
 - **No Button mapping screen** (#66, decided with MMagTech 2026-09-26). An
   unrecognised pad is handled by the console, not the person: the image
-  carries the community's controller list (SDL_GameControllerDB, 491 more
-  controllers than SDL knows alone), refreshed by a weekly pull request, and
-  a pad reported missing is added to it. **No remapping in Settings**: every
+  carries the community's controller list (SDL_GameControllerDB, hundreds
+  of controllers SDL does not know alone), and when a player reports a pad
+  missing, the list is updated to the community's newest
+  (docs/decisions/2026-11-14-controller-list-on-report.md). **No remapping in Settings**: every
   system plays with RetroArch's default layout by button position, arcade
   games on a fight stick the console knows with a fixed fight-stick layout,
   and an arcade game's own buttons are moved from its pause menu's Controls,
@@ -274,6 +275,55 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
   first run nor Settings can: both join only a network in the list, and a
   network with no name is left out of it (`net::join` with `hidden` false in
   `setup.cpp` and `wifi.cpp`; `net.cpp`).
+- **Tailscale**, the row after Wi-Fi: how the console is reached away from
+  home, for Remote Play and for a RomM server at its Tailscale address
+  (MMagTech, 2026-10-08; in Network on its own switch since 2026-11-15,
+  `docs/decisions/2026-11-15-tailscale-own-switch.md`). **Built, #715.** Off by
+  default. It runs whenever it is on, whatever Remote Play is: turning
+  Remote Play on or off leaves it alone, and so does a LinkUp session.
+  **Greyed while a device streams**, since the stream may come in over it.
+  Its states:
+  - **Off**: pressing it asks for the PIN when one is set, then **Sign in
+    to Tailscale**, the Add an account screen's shape: "Use the Tailscale
+    account your phone is signed in to.", the link in cyan, its QR code on
+    the right. Approved on a phone, the screen goes back to Settings by
+    itself; B leaves it, and Tailscale is off again.
+  - **Connected**: the console's Tailscale address on the right
+    (`100.x.y.z`, the one to give Moonlight), and under it the console's
+    name and when its sign-in ends, from the moment it is signed in
+    ("cabinetos · Sign-in ends 6 Apr 2027"): somebody turns Tailscale on
+    once and rarely comes back, so that is when to see the date. No date
+    when the owner turned expiry off in Tailscale. Pressing it:
+    **Disconnect** (the PIN), **Log out** (asked again, then the PIN), and
+    **Sign in again** in the last 14 days, which starts the 180 days again
+    and keeps the name and address. Disconnect asks because Tailscale may be
+    how the console reaches its RomM server.
+  - **Disconnected**: signed in, not running. **Connect** (the PIN) and
+    **Log out**.
+  - **Sign in again**, with "Sign-in ended 6 Apr 2027" under it once the
+    date has passed, or "Signed out" when it was removed some other way
+    (Tailscale's own page). Pressing it: the PIN, then the QR code. Tailscale
+    knows the console again: same name, same address.
+  - **Waiting for approval**, when the owner's Tailscale approves new
+    devices by hand; **Logging out…**, **Turning on…**, **Couldn't start**.
+  - **The update that gave it its own switch** saves Tailscale off, once, at
+    its first start, on a console that had it on with Remote Play off (its
+    row read Off then), so an update never turns on what a player saw as
+    off. The sign-in stays: Connect brings it back. `cabinetos-saved-services`
+    starts it at boot by the same rule, and never before that step is done
+    unless Remote Play is on too.
+  - **RomM through Tailscale** is the RomM server row's Change address, to
+    the server's Tailscale address: the same server, so nothing is lost.
+    There is one address, never a second "away" one.
+- **Tailscale, set by the image and never shown**
+  (`tailscaled.service.d/50-cabinetos.conf`): the console's user drives it,
+  it takes no DNS and no routes from the owner's Tailscale (so a tailnet
+  that overrides DNS changes nothing here, and a RomM at a Tailscale address
+  is given by its `100.x.y.z` address, not a MagicDNS name), it is no exit
+  node, and it sends Tailscale no logs (`TS_NO_LOGS_NO_SUPPORT`). The
+  firewall lets devices on Tailscale reach Sunshine's ports and nothing else
+  (zone `cabinetos-tailscale`); the console's own connections out, to RomM,
+  are not limited by it. NetworkManager leaves its interface alone.
 - **Addresses are automatic only.** A fixed address is set on the router.
   **Dropped: manual IP**, unless people ask, then it is one "Advanced" page.
 - **RomM server** is one row showing the address. Pressing it (PIN if set)
@@ -377,8 +427,9 @@ a player and an owner use it.
     PIN when one is set, on any account but the owner's; off at once. It stays on through restarts, and
     turning it back on needs no new pairing.
   - **Server**: hidden while off. "None", or the address. Pressing it opens a panel: **Add a server** or
-    **Change server**, **Run your own** (a QR code to the server's repository), and **Leave**. Adding,
-    changing and leaving ask for the PIN. The same server at a new address needs no new code: the console
+    **Change server**, **Run your own** (a QR code to the server's repository), and **Leave**, with **Enter a
+    code** first on a console taken off its server (below). Adding, changing, entering a code and leaving
+    ask for the PIN. The same server at a new address needs no new code: the console
     remembers the server's key. Another server's address asks for that server's code on Add a server's Code
     screen, and pairing with it forgets the old server; cancelled or wrong, the old server stays as it was.
 - **Adding a server** is the address, then the 12-character code, typed on the on-screen keyboard. The account
@@ -386,11 +437,19 @@ a player and an owner use it.
   code*, too many tries *Too many tries*, nothing at that address *Can't reach that server*, and something there
   that cannot prove it holds the code *That server failed its check*, the one sign of a typo in the address or a
   fake server.
+- **A console taken off its server** (the server's owner pressed Change code or Remove on a person's page)
+  says *Removed from the LinkUp server* on LinkUp's screen, with *Press (A) to enter a code* under it, dimmed
+  while focus is in the top bar. A there, or **Enter a code** in the Server panel, asks for the PIN as Adding
+  does, then the code on Add a server's Code screen with the same address. The console keeps its key, so it
+  comes back to the same server; a code that fails says what it says when adding, and changes nothing.
 - **With LinkUp on and no server yet, nothing runs.** Once paired, LinkUp joins the top bar for everyone on
   that console: Home, Library, Search, LinkUp, Settings. It greys where the top bar says Offline.
-- **Status belongs to each account**, kept in that person's folder, and asks for no PIN. A person also shows
-  Offline after 15 minutes with no press, when the screen turns off, when the console sleeps, during a Remote
-  Play stream, and in Steam.
+- **Status belongs to each account, on every console it signs in on** (#690), and asks for no PIN. Pressed on
+  one console, it is sent to the server as the person's choice, and their other consoles turn too; each keeps
+  the last choice it knew in that person's folder. A console also says Offline for its account after 15
+  minutes with no press, when the screen turns off, when the console sleeps, during a Remote Play stream, and
+  in Steam: that stays with the console, and friends see Online while any of the person's consoles says so.
+  With a server from before this, Offline stays each console's own.
 - **One at a time with Remote Play.** While a device streams, the rows are greyed and every friend is grey with
   their real status. While a session is open, on either console, Sunshine is stopped, and comes back by itself
   with the switch unchanged.
@@ -399,9 +458,10 @@ a player and an owner use it.
 
 Sunshine on the console, Moonlight on a phone, tablet or computer to play
 from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
-2026-10-08; **merged (#292)**.
+2026-10-08; **merged (#292)**. Tailscale has been its own switch, in
+Network, since 2026-11-15.
 
-- **Three rows.**
+- **Two rows.**
   - **Remote Play**: On or Off, "Moonlight app" under it, and "Moonlight app ·
     CabinetOS" when on: the app to get, and the name it lists the console
     under.
@@ -413,37 +473,12 @@ from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
     or nobody is paired. One row however many there are; it opens a list.
     Pressing a device offers **Rename** and **Remove** (Remove behind the
     PIN when set).
-  - **Tailscale**, for playing away from home (MMagTech, 2026-10-08). Off
-    by default, greyed while Remote Play is off, and never running then:
-    turning Remote Play off stops it, turning it on brings it back when
-    it was on. Its states:
-    - **Off**: pressing it asks for the PIN when one is set, then **Sign in
-      to Tailscale**, the Add an account screen's shape: "Use the Tailscale
-      account your phone is signed in to.", the link in cyan, its QR code on
-      the right. Approved on a phone, the screen goes back to Settings by
-      itself; B leaves it, and Tailscale is off again.
-    - **Connected**: the address to give Moonlight on the right (the
-      console's Tailscale address, `100.x.y.z`), and under it the console's
-      name and when its sign-in ends, from the moment it is signed in
-      ("cabinetos · Sign-in ends 6 Apr 2027"): somebody turns Remote Play
-      on once and rarely comes back, so that is when to see the date. No
-      date when the owner turned expiry off in Tailscale. Pressing it:
-      **Disconnect**, **Log out** (asked again, then the PIN), and **Sign in
-      again** in the last 14 days, which starts the 180 days again and keeps
-      the name and address.
-    - **Disconnected**: signed in, not running. **Connect** (the PIN) and
-      **Log out**.
-    - **Sign in again**, with "Sign-in ended 6 Apr 2027" under it once the
-      date has passed, or "Signed out" when it was removed some other way
-      (Tailscale's own page). Pressing it: the PIN, then the QR code. Tailscale
-      knows the console again: same name, same address.
-    - **Waiting for approval**, when the owner's Tailscale approves new
-      devices by hand; **Logging out…**, **Turning on…**, **Couldn't start**.
-  - **While a device is streaming, the whole section is greyed**, and
-    Remote Play's line reads **"In use"**. The device's controller drives the
-    console, and one press on that switch cut the stream it was playing on
-    (MMagTech, from his iPhone, 2026-10-08); Remove could do the same. A
-    panel open from the section closes when a stream starts. The console's
+  - **While a device is streaming, the whole section is greyed**, and so is
+    Tailscale's row in Network, and Remote Play's line reads **"In use"**.
+    The device's controller drives the console, and one press on that switch
+    cut the stream it was playing on (MMagTech, from his iPhone, 2026-10-08);
+    Remove, or Tailscale's Disconnect, could do the same. A panel open from
+    either closes when a stream starts. The console's
     own controllers are set aside during a stream, so nobody loses anything.
   - **Into Steam the same (#296).** A stream started in Steam, or Steam
     opened during one, shows Steam's games on the device, and the TV's
@@ -489,12 +524,6 @@ from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
 - **Wii Remote games during a stream**: greyed, "Needs a Wii Remote" (the
   paired Remote is by the TV, the person streaming is not); one already
   running stays paused, its menu without Resume, until the stream ends.
-- **Tailscale, set by the image and never shown**
-  (`tailscaled.service.d/50-cabinetos.conf`): the console's user drives it,
-  it takes no DNS and no routes from the owner's Tailscale, it is no exit
-  node, and it sends Tailscale no logs (`TS_NO_LOGS_NO_SUPPORT`). The
-  firewall lets it reach Sunshine's ports and nothing else (zone
-  `cabinetos-tailscale`), and NetworkManager leaves its interface alone.
 - **An iPhone on mobile data needs an exit node** in the Tailscale app (any:
   the owner's own, or one Tailscale offers) until Moonlight for iPhone is
   updated. On an IPv6-only network iOS sends Moonlight's stream around a VPN
@@ -504,7 +533,7 @@ from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
   Android, computers and Apple TV are not affected. VoidLink, an open-source
   iPhone fork of Moonlight, has the fix.
 - **Somebody with their own way home** (WireGuard, a Tailscale subnet router)
-  leaves the row off and loses nothing; a device already paired plays the
+  leaves Tailscale off and loses nothing; a device already paired plays the
   same through either.
 - **The TV during a stream** shows the same picture; switching it off by
   hand does not stop play. No "Remote Play in progress" screen (whatever the
@@ -928,6 +957,26 @@ from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
 
 - **Developer access**: moved to About, below (it is About's last row).
 
+- **Game events** (#716; `docs/decisions/2026-11-15-game-events.md`): the
+  console tells one app in the owner's home (n8n, Home Assistant, Node-RED)
+  what is happening in a game, and that app does the rest. One row, above
+  Diagnostic report; console-wide (`game_events_address` in
+  `config/settings.json`, and `game_events_off` while it is turned off), off
+  for every console to start. **No address yet:** pressing it (PIN if set)
+  opens the keyboard with `http://`
+  already in it. Done sends the test message ("Checking…" in the field, 700 ms
+  at least). If the app answers, the address is saved and the row shows its
+  host ("n8n.local"); if not, the field says why and keeps what was typed:
+  "Not on your home network", "Can't connect", "It answered with an error
+  (404)" or "Its certificate isn't trusted. Use http:// at home." **With an
+  address:** pressing it (PIN if set) opens a panel titled with the address:
+  Turn off (Turn on while it is off), Change address, Cancel. Turn off keeps
+  the address and the row reads Off; Turn on needs no typing and knocks with
+  the test message first, as at start-up. The RomM server row's shape, and
+  nothing else anywhere on the console. The messages
+  and the rules they keep (home addresses only, a knock on every network,
+  nothing kept for later) are `frontend/src/gameevents.h`. **Built, #716.**
+
 - **Diagnostic report** (#195, built 2026-10-10; docs/PROJECT.md,
   open question 41). One row, no PIN. Pressing it opens a screen, "Creating…"
   for a few seconds, then the QR code (a download link to the report, home
@@ -958,8 +1007,9 @@ from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
   page is the newest entry, and the link never has to change. Made once by
   tools/make-wiki-qr.py, as How to's Wiki code is (level H, version 6). No
   notes on the first start after an update (the one-time notice was
-  dropped, 2026-10-12). The GitHub release for each update stays by hand,
-  on his go. **Built.**
+  dropped, 2026-10-12). A GitHub release page goes up with each cut of the
+  downloads, not each update
+  (docs/decisions/2026-11-13-a-release-page-per-download.md). **Built.**
 - **How to** (#314, built 2026-10-10, judged on the TV): the controls, in
   Settings' own shape, a section per row on the left and its lines as rows
   on the right, nothing to press. In a game (pause menu by both sticks, a
@@ -1076,8 +1126,10 @@ right there and the choice is about a system:
   out. Cabinet's option is not carried over.
 - ~~Shader and glow, as already decided.~~ **Reopened and decided
   2026-10-04 (#122):** one Look row per system, RetroArch's own shaders,
-  on by default; the glow has no row and is always on at Strong. Both in
-  docs/PROJECT.md, *Shaders, and the glow around the picture*.
+  on by default; the glow has no row and is always on at Strong. The
+  shaders are in docs/PROJECT.md, *Shaders, and the glow around the
+  picture*, and the glow in
+  docs/decisions/2026-10-04-glow-always-on-at-strong.md.
 
 **Built, #73 ("Pause menu: per-system picture and controller options"), in
 pull request #225 ("Picture quality: one setting for every system, and the

@@ -232,6 +232,7 @@ with 0 when it passes, and CI runs every one ("What CI checks"):
 | `--first-run-writes` | that finishing first run actually sticks |
 | `--accounts-test` | the rules for the people on a console and switching between them |
 | `--players-test` | the rules for which controller is which player, and LinkUp's friend as player two: no third seat, a TV's other controllers heard by no game, and the TV's numbers back as they were |
+| `--tilt-test` | a controller's motion sensors for a game that asks (`tilt.h`), on two controllers made inside the test, one with an accelerometer and a gyroscope and one with neither, and no real controller opened: asking says yes only for the one with them, what it reads is SDL's own numbers, player 1 never reads player 2's controller, an empty seat reads nothing, off stops the sensor, the request stays with the player's seat when a controller leaves, a new one arrives or two swap, and a reset turns every controller's sensors off |
 | `--fightstick-test` | which fight sticks are known, and where a game's buttons go on one: every count of buttons in the arcade cores' orders, a Naomi board's in Flycast, MAME 0.289's from its catalogue's count with its 7th and 8th on the stick clicks, and no layout for any other pad or a Dreamcast game |
 | `--arcade-settings-test` | holding Start in an arcade game: a hold of about a second presses a MAME's menu key once, in MAME 2003-Plus or MAME 0.289, or a Naomi or Atomiswave board's Test button in Flycast, a tap or a shorter hold presses nothing, a second hold closes MAME's menu, player 1's left stick click never reaches MAME 2003-Plus and does reach MAME 0.289 (its button 7), no player's stick clicks reach a board, and nothing changes on FinalBurn Neo, a Dreamcast game or any other core |
 | `--arcade-match-test` | which emulator plays an arcade game (`arcadematch.cpp`), on catalogues written in the test: by the zip's name for a grid, by its files and CHDs at Play, an emulator that marks the set not working skipped, MAME 2003-Plus before MAME 0.289 and never for a 7z, a disc going to the MAME its CHD was made for, a disc name with spaces, a light-gun game greyed for a light gun, one any list marks as made for anything but a controller not supported, a Dreamcast zip only Flycast's, and the reason when no emulator's files fit |
@@ -246,11 +247,15 @@ with 0 when it passes, and CI runs every one ("What CI checks"):
 | `--playtime-test` | time played: the clock and what is reported to RomM |
 | `--disc-test` | the rules for games on several discs |
 | `--same-names-test` | the diagnostic report's list of games with the same name |
-| `--linkup-test` | LinkUp's rules with no network in them: the friends list's order and its names, and the pairing code's format |
+| `--linkup-test` | LinkUp's rules with no network in them: the friends list's order and its names, the pairing code's format, and the idle rule: a pause at 10 minutes with no press, never over a menu, and the session's end 25 minutes after the last press whatever is on the screen |
+| `--linkup-pad-test` | a LinkUp friend's controller at both ends (`linkup_pad.h`), on controllers made inside the test and no network: the friend's console sends its presses and tilt with the sensors its controller has, never the console's own button, and, while its own panel is up, lets go and holds the controller still; the host reads an older console's shorter state as a controller with no sensors, seats the friend with exactly the sensors theirs has, so a game asking player 2's hears none for a controller without them, reads back the friend's numbers in SDL's units, and a controller lying flat and still for a sensor the friend's no longer has; for the idle rule, a state sent again or a tilt alone is no press, and a button going down or a stick past the deadzone is |
 | `--files-test` | that a full disk leaves the file it was replacing whole, credentials stay 0600, a cut save's marker is not counted as owed, two settings changed at once both stick, the cover sweeps spare the tile map, a cover being written and what a link points at, and a game's archive keeps its folders and refuses a name outside them or one that comes twice, and is not unpacked again at a later start, but is when a file that came out of it was changed or cut short, its unpacking was cancelled, or it was downloaded again |
 | `--gone-games-test` | a game RomM no longer has (#625, `gonegames.h`): gone only when its own entry answers 404 to every person on the console, never for a 5xx, a 403, no answer, a list that does not come or a game another person can see; and on a scratch drive, a played copy with its manual, a download kept by two people with both keeps, the record and the covers removed, a game being played or still holding Xbox saves left, a game RomM has untouched; then every person's saves, states, screenshots and copy of RomM's saves of it removed, the signed-in person's owed save only once RomM has refused it this run, a person's saves still in an emulator's folder left, and a live game's owed save still owed |
 | `--vectrex-sheets-test` | which Vectrex game takes which screen sheet: RomM's md5 first, then the longest name token, and the sheets that never shipped drawing nothing, against `frontend/data/vectrex-overlays.json` |
 | `--gpu-choice-test` | which GPU the games draw on (#659, `gpu.h`), on made-up devices: with one GPU that one; with two, the one the screen is on, in either order and whether or not it is the discrete card; the screen's GPU not known or not among them, a discrete card first and then the first listed; no device, none |
+| `--tailscale-switch-test` | Tailscale's own switch (#286, `tailscale.h`), on every combination of Tailscale, Remote Play and the update's step saved: the step turns off only a Tailscale saved on with Remote Play off, never turns one on, leaves Remote Play alone and changes nothing a second time; the boot script's rule and the app's agree on the first boot after the update, and after the step the switch alone decides |
+| `--game-events-test` | Game events (#716, `gameevents.h`), with a receiver on loopback inside the test and no other network: every message with every field, a LinkUp friend's (joined) without `rom_id`, `system` and `cover`, and a hosting console's saying so; the home-address rule on a table of addresses, a name that gives one public address among private ones refused, and a public address refused before anything connects; the knock first on each network, nothing else sent on a network that did not answer it, and nothing with no network; a redirect not followed; a slow receiver given up on at five seconds without holding the caller; and with no address, no sender and nothing sent |
+| `--dualsense-test` | the stand-in DualSense (#669, `vdualsense.h`), made for real through `/dev/uhid` beside two test pads, one with sensors and one with none: the kernel's driver made its gamepad, motion and touchpad devices with one uniq; the console refuses to seat it and the player count stays; SDL, standing in for the emulators' (Eden, Cemu, Vita3K), takes it as a game controller with the GUIDs Eden's lines and Cemu's profile carry, pairs its motion device (the udev rule) and reads a written tilt back in SDL's units, and a press and a stick where the layout puts them, by its own mapping and by the console's line; a pad without sensors gets a stand-in on which SDL finds none; rumble comes back; closing takes every device away. On a machine with no `/dev/uhid`, which CI's builder is, it says so and passes |
 | `--check-option-tables cores/options` | that every option the console sets (`coreoptions.cpp`, `quality.cpp`, `sysopts.cpp`, the Wii's rumble in `wii.cpp` and the Vectrex sheets' fit in `vectrexsheets.cpp`, with every answer that depends on the machine or a setting) exists in the core it is set on, and that every libretro core in `catalog.cpp`'s table has its list in `cores/options/` (CI runs it as a step of its own) |
 
 `--romm-race-test <address> <seconds>` checks the RomM client's thread rule
@@ -258,7 +263,17 @@ under load, against the stand-in server `tools/racemock.py <port>` only
 (start it, then `--romm-race-test 127.0.0.1:<port> 30`; it exits 0 when
 nothing went out wrong); do not point it at a real RomM.
 
-**Every flag is in `frontend/src/cli.cpp`**, 122 of them plus
+`--motion-device-test` checks the PS3's motion devices (`vpad.h`, #683) on a
+console, not in CI: it makes them for real through `/dev/uinput`, beside test
+pads inside the test with and without sensors, and opens them as RPCS3 does,
+which needs the image's udev rule. It asserts that only a player whose pad
+has sensors gets one, the shape RPCS3 looks for, a tilt landing in the
+DualShock 3's units, player 2's tilt never reaching player 1, rest when a
+pad has gone, and the sensors off and the devices gone when the pads close.
+Never run it while a PS3 game runs on the same console: RPCS3 finds the
+devices by name.
+
+**Every flag is in `frontend/src/cli.cpp`**, 129 of them plus
 `--check-option-tables` in `main.cpp`; there is no `--help`.
 `frontend/README.md` holds the build recipe and the storage tree. What it
 said about running and the flags in September 2026 is history, in
@@ -458,6 +473,10 @@ runs `checks.yml`, a few seconds each:
   with podman, and the console's probe (`linkup/probe.cpp`, built and run in the builder) speaks every
   part of PROTOCOL.md to them through `tools/linkup-interop.sh`. Moving the pin is a pull request.
   Report only until 2026-11-14.
+- **Flathub pins** (`ci/check-flatpak-pins.sh`, in `flatpak-pins.yml`), on a pull request that changes
+  `system_files/usr/share/cabinetos/flatpaks.list`: each pinned build must still be on Flathub with at
+  least two older builds behind it, so a mistyped commit, or one about to go, fails before it ships. The
+  same check runs on the 1st of each month.
 - **Licences** (`ci/check-licences.sh`): a text in `licences/` that
   `licences/SOURCES` lists and that is missing, or whose first line does not
   name the repository, path and revision SOURCES pins, fails: a text added by
@@ -679,11 +698,14 @@ here, not reworded; follow the link for the full text.
 - **The console connects only to fixed places the code chooses:** the
   player's RomM server, GitHub for updates, and RetroAchievements, Flathub,
   Tailscale or Steam when the player uses them. Never to an address found in
-  the data, such as a cover's web address. LinkUp is the one curated
-  exception. While a player has it on, it connects to the LinkUp server they
-  paired with and the addresses that server hands it: a friend's console, a
-  relay and STUN helpers. While it is off, its program does not run and the
-  firewall blocks it.
+  the data, such as a cover's web address. LinkUp and Game events are the
+  two curated exceptions. While a player has LinkUp on, it connects to the
+  LinkUp server they paired with and the addresses that server hands it: a
+  friend's console, a relay and STUN helpers. While it is off, its program
+  does not run and the firewall blocks it. While the owner has Game events
+  on, the console sends what is happening in a game to the one address they
+  typed, and only while that address is on their own network, checked every
+  time it sends. While it is off, no part of it runs and nothing is sent.
 - **A feature a person does not use is completely off:** off to start with,
   and off means its program is not running, nothing listens and nothing is
   contacted.

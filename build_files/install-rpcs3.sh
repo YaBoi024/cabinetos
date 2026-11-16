@@ -120,6 +120,17 @@ done
 install -m 0644 "${DATABASE}" "${DEST}/config_database.dat"
 log "  per-game settings database: ${games} games"
 
+# EACH PLAYER'S TILT (#683): the console writes these keys into RPCS3's
+# controls for every PS3 game (frontend/src/standalone_rpcs3.cpp,
+# rpcs3Controls), naming the motion device beside each virtual controller
+# and its four sensors. A build that renames one reads none of it, and every
+# game's pad lies still with no error on screen, so it fails here.
+for key in "Buddy Device" "Motion Sensor X" "Motion Sensor Y" "Motion Sensor Z" \
+           "Motion Sensor G"; do
+    grep -q -a -F "${key}" "${root}/usr/bin/rpcs3" ||
+        { log "ERROR: RPCS3 no longer has the controls key '${key}': each player's tilt moved"; exit 1; }
+done
+
 # READABLE BY EVERYONE: the console runs as `cabinet`, and the checks below run
 # as root, so they would pass on a folder only root can read. Xenia's AppImage
 # unpacks that way and its first testing image shipped it (install-xenia.sh).

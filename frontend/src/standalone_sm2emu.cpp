@@ -179,7 +179,7 @@ void sm2emuArgs(std::vector<std::string>& full, const std::string& dir,
     for (int p = 0; p < cab::vpad::kMaxPlayers; ++p) db += cab::vpad::sdlMapping(p) + "\n";
     full.insert(full.end() - 1, "XDG_DATA_HOME=" + dir);
     full.insert(full.end() - 1, "SDL_GAMECONTROLLERCONFIG=" + db);
-    full.insert(full.end() - 1, "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x1209/0xCAB0");
+    full.insert(full.end() - 1, "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=" + cab::vpad::sdlIds());
     full.insert(full.end() - 1, "SDL_VIDEO_DRIVER=x11");
     // `--game` names the set, which its own match by the zip's files would
     // otherwise choose among a parent and its clones.

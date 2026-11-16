@@ -69,8 +69,8 @@ public:
     // How much the pause menu's own rows show under a level of it, 0 to 1:
     // none while it is up, fading back in after close().
     float menuRows() const;
-    // The pause menu's own fade, which a level of it is drawn under (the App
-    // sets it as it draws the menu).
+    // The pause menu's own fade, which a level of it, and a question closed
+    // with it, is drawn under (the App sets it as it draws the menu).
     void setMenuFade(float a) { menuFade_ = a; }
     // A LIST THAT FILLS WHILE IT IS OPEN GROWS SMOOTHLY. It opens one row
     // tall with `placeholder` said in it, and glides taller as rows arrive.
@@ -121,8 +121,9 @@ public:
     void setDetail(std::string detail) { detail_ = std::move(detail); }
     // A level of the pause menu fades out, then the menu's rows fade back in.
     void close();
-    // The pause menu is closing with a level of it up: the level fades with
-    // the menu's panel instead, and the menu's rows stay hidden.
+    // The pause menu is closing with a level of it or a question over it up:
+    // either fades with the menu's panel instead, and the menu's rows stay
+    // hidden (App::drawPauseMenu).
     void closeWithMenu() {
         open_ = false;
         withMenu_ = true;
@@ -143,6 +144,9 @@ public:
     bool isOpen() const { return open_; }
     // Open, or a level of the pause menu still fading out.
     bool visible() const { return open_ || (overMenu_ && appear_.value() > 0.001f); }
+    // A question over the pause menu, not a level of it, closed with the menu and still fading
+    // with it. It takes no presses, so it is not visible().
+    bool fadingWithMenu() const { return withMenu_ && !overMenu_ && menuFade_ > 0.001f; }
     const std::string& title() const { return title_; }
     // The answer, after Chosen.
     int chosen() const { return slot_; }

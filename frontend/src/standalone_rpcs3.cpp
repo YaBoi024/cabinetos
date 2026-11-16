@@ -145,7 +145,7 @@ bool installPs3Firmware(const Emulator& e, const std::atomic<bool>& cancel,
         *message = "Couldn't install the PlayStation 3 firmware";
         return false;
     }
-    writeFile(note, stamp);
+    writeDoneNote(note, stamp);
     std::fprintf(stderr, "[standalone] PS3 firmware installed from %s\n", pup.c_str());
     return true;
 }
@@ -230,7 +230,7 @@ bool installPackages(const Emulator& e, const std::string& entryPath,
         return false;
     }
     // Only now: a PKG is deleted once the game it became is in place.
-    writeFile(entryPath + "/" + kInstalledNote, note);
+    writeInstalledNote(entryPath + "/" + kInstalledNote, note);
     for (const auto& pkg : pkgs) ::unlink((entryPath + "/" + pkg.second).c_str());
     return true;
 }
@@ -268,6 +268,15 @@ constexpr const char* kRpcs3Settings =
 // the codes by those older words. Its own default (Square "X") suits pads
 // whose drivers send by label rather than position. Players past `players`
 // are unplugged, or a game would see four pads.
+//
+// AND THEIR TILT (#683), from the motion device beside the controller
+// (vpad.h): RPCS3's "Buddy Device", found by name the same way
+// (Input/evdev_joystick_handler.cpp, add_motion_device). Its four sensors are
+// a DualShock 3's, the accelerometer's X, Y and Z, and G, the yaw rate, on RY,
+// which is RPCS3's own default for G; the device already speaks the
+// DualShock 3's units, so nothing is mirrored or shifted. Every PS3 game gets
+// them. A player whose pad has no sensor has no motion device, and "Null",
+// RPCS3's word for none, leaves that player's pad lying still as before.
 std::string rpcs3Controls(int players) {
     std::string out;
     for (int p = 1; p <= 7; ++p) {
@@ -278,6 +287,8 @@ std::string rpcs3Controls(int players) {
         }
         out += "  Handler: Evdev\n";
         out += "  Device: " + yamlQuote("CabinetOS player " + std::to_string(p)) + "\n";
+        const std::string motion = cab::vpad::motionName(p - 1);
+        out += "  Buddy Device: " + yamlQuote(motion.empty() ? std::string("Null") : motion) + "\n";
         out += "  Config:\n";
         const char* map[][2] = {
             {"Left Stick Left", "LX-"},   {"Left Stick Down", "LY+"},
@@ -295,6 +306,13 @@ std::string rpcs3Controls(int players) {
             {"L2", "LZ+"},                {"L3", "Thumb L"},
         };
         for (const auto& m : map) out += std::string("    ") + m[0] + ": " + yamlQuote(m[1]) + "\n";
+        const char* sensors[][2] = {
+            {"Motion Sensor X", "X"}, {"Motion Sensor Y", "Y"},
+            {"Motion Sensor Z", "Z"}, {"Motion Sensor G", "RY"},
+        };
+        for (const auto& s : sensors)
+            out += std::string("    ") + s[0] + ":\n      Axis: " + yamlQuote(s[1]) +
+                   "\n      Mirrored: false\n      Shift: 0\n";
     }
     return out;
 }

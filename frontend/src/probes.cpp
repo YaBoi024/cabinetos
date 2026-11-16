@@ -36,6 +36,7 @@
 #include "selftests.h"
 #include "server.h"
 #include "storage.h"
+#include "tailscale.h"
 #include "timezone.h"
 #include "vectrexsheets.h"
 #include "volume.h"
@@ -621,6 +622,7 @@ std::optional<int> earlyProbe(const EarlyProbeOptions& o) {
     const bool filesTestMode = o.filesTestMode;
     const bool vectrexSheetsTestMode = o.vectrexSheetsTestMode;
     const bool gpuChoiceTestMode = o.gpuChoiceTestMode;
+    const bool tailscaleSwitchTestMode = o.tailscaleSwitchTestMode;
     const int padsSeconds = o.padsSeconds;
     const bool firstRunRulesMode = o.firstRunRulesMode;
     const bool firstRunWriteMode = o.firstRunWriteMode;
@@ -649,6 +651,7 @@ std::optional<int> earlyProbe(const EarlyProbeOptions& o) {
     if (filesTestMode) return filesTest();
     if (vectrexSheetsTestMode) return vectrexsheets::test();
     if (gpuChoiceTestMode) return cab::gpu::test();
+    if (tailscaleSwitchTestMode) return tailscale::test();
     if (padsSeconds > 0) return players::report(padsSeconds);
     if (firstRunRulesMode) return firstRunRules();
     if (firstRunWriteMode) return firstRunWriteTest();

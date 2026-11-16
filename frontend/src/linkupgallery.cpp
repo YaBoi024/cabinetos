@@ -183,6 +183,11 @@ void App::linkupGalleryTick(float dt) {
             refreshLinkUpScreen();
         }
     }
+    // Offline, as if chosen on another of the person's consoles.
+    if (linkupGalleryChosenIn > 0.0f) {
+        linkupGalleryChosenIn -= dt;
+        if (linkupGalleryChosenIn <= 0.0f) linkupTookChosen(true);
+    }
     if (linkupGalleryPictureIn > 0.0f) {
         linkupGalleryPictureIn -= dt;
         if (linkupGalleryPictureIn <= 0.0f && here() == Screen::LinkUpPlay &&
@@ -283,6 +288,10 @@ const Scene kScenes[] = {
     {"Appear Offline on", [](App& a) {
          a.linkUp.appearOffline = true;
          a.goToDestination(App::BarLinkUp);
+     }},
+    {"Offline chosen on another of your consoles: Status turns by itself after 4 seconds", [](App& a) {
+         a.goToDestination(App::BarLinkUp);
+         a.linkupGalleryChosenIn = 4.0f;
      }},
     {"No friends", [](App& a) {
          a.linkUp.friends.clear();
@@ -414,10 +423,6 @@ const Scene kScenes[] = {
          a.linkUp.instead = linkup::kCantConnect;
          a.goToDestination(App::BarLinkUp);
      }},
-    {"Taken off the server", [](App& a) {
-         a.linkUp.instead = linkup::kConsoleRemoved;
-         a.goToDestination(App::BarLinkUp);
-     }},
     {"Friends greyed, In use: a device is streaming", [](App& a) {
          a.linkupGalleryStreaming = true;
          a.goToDestination(App::BarLinkUp);
@@ -513,6 +518,38 @@ const Scene kScenes[] = {
          a.linkupAnswerInvite(a.linkUp.friends[1]);
          a.linkupGalleryInviteEndsIn = 6.0f;
      }},
+    {"#Taken off the server", nullptr},
+    {"The LinkUp tab: A enters a code, and the list comes back", [](App& a) {
+         a.linkUp.instead = linkup::kConsoleRemoved;
+         a.goToDestination(App::BarLinkUp);
+     }},
+    {"The LinkUp tab, with focus in the top bar", [](App& a) {
+         a.linkUp.instead = linkup::kConsoleRemoved;
+         a.goToDestination(App::BarLinkUp);
+         a.barFocused = true;
+         a.barSlot = App::BarLinkUp;
+     }},
+    {"Settings: Server, with Enter a code first", [](App& a) {
+         a.linkUp.instead = linkup::kConsoleRemoved;
+         settingsOnLinkUp(a);
+         a.pressLinkUpServer();
+     }},
+    {"Entering a code asks for the PIN (0000 here)", [](App& a) {
+         a.linkUp.instead = linkup::kConsoleRemoved;
+         a.goToDestination(App::BarLinkUp);
+         a.linkupGalleryPin = true;
+         a.linkupEnterCode();
+     }},
+    {"The code, for the same server", [](App& a) {
+         a.linkUp.instead = linkup::kConsoleRemoved;
+         a.goToDestination(App::BarLinkUp);
+         a.linkupAskCode(kMadeUpServer, "K7MR-4QXT-9HPV");
+     }},
+    {"A code that doesn't work: the console stays off", [](App& a) {
+         a.linkUp.instead = linkup::kConsoleRemoved;
+         a.goToDestination(App::BarLinkUp);
+         a.menuNotice.say("Wrong or expired code", Tone::Problem);
+     }},
 };
 
 constexpr int kSceneCount = static_cast<int>(sizeof kScenes / sizeof kScenes[0]);
@@ -540,6 +577,7 @@ void App::linkupGalleryShow(int index) {
     linkupGalleryPictureIn = 0.0f;
     linkupGalleryJoinIn = 0.0f;
     linkupGalleryFriendIn = 0.0f;
+    linkupGalleryChosenIn = 0.0f;
     linkupGalleryNoAnswerIn = 0.0f;
     linkupGalleryDeclineIn = 0.0f;
     linkupGalleryDropEndsIn = 0.0f;

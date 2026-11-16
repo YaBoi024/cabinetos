@@ -1,0 +1,157 @@
+{
+  "name": "CabinetOS Game events, Hue",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "games",
+        "options": {}
+      },
+      "id": "916f5873-fde3-4605-8f52-e516c896dfac",
+      "name": "From the console",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "735186a2-bcaa-43bb-87fe-52e87ae0d696"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Hand the message on, and a game's cover as a picture, so n8n can shrink it\n// and the lights can take their colours from it.\nconst { cover, ...body } = $input.first().json.body ?? {};\nconst item = { json: { body, picture: false } };\nif (body.event === 'game_started' && cover) {\n  item.json.picture = true;\n  item.binary = { cover: { data: cover, mimeType: body.cover_type, fileName: 'cover' } };\n}\nreturn [item];\n"
+      },
+      "id": "3d53d13a-9396-4eb7-9ea5-bcb444a9ed15",
+      "name": "The cover, as a picture",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b90f3eb5-6812-43e9-b99a-86295677f4cb",
+              "leftValue": "={{ $json.picture }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b317515d-62b1-41c9-92f5-c8e5f2758e82",
+      "name": "Started with a cover?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "resize",
+        "dataPropertyName": "cover",
+        "width": 24,
+        "height": 32,
+        "resizeOption": "ignoreAspectRatio",
+        "options": {
+          "format": "bmp"
+        }
+      },
+      "id": "153819ca-970e-4f86-8ddf-1ab29b586092",
+      "name": "Shrink the cover",
+      "type": "n8n-nodes-base.editImage",
+      "typeVersion": 1,
+      "position": [
+        720,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// CabinetOS Game events: the lights in one room follow the game.\n// The bridge's address on your network, and the room or zone, named exactly\n// as in the Hue app. The rest can stay as it is.\nconst BRIDGE = \"PASTE-THE-BRIDGE-ADDRESS\";\nconst ROOM = \"PASTE-THE-ROOM-OR-ZONE\";\n\n// The lights' colour while a game runs: \"cover\" gives each light a colour from\n// the game's box art, a colour like \"#3050FF\" turns them all that colour, and\n// \"\" keeps their own colour.\nconst PLAYING_COLOUR = \"cover\";\n// A colour of their own for some people, used instead of the one above, by\n// their name exactly as the console shows it: { \"Sam\": \"#FF4FA3\" }\nconst PERSON_COLOUR = {};\n// A LinkUp game's colour.\nconst LINKUP = \"#A07CF0\";\n// When every achievement in a game is unlocked: \"rainbow\" runs the lights\n// through every colour, and a colour like \"#F2C14E\" flashes that colour.\nconst CELEBRATE = \"rainbow\";\n// How bright the lights are while a game runs and while it is paused, as a\n// share of how bright they were before: 1 is as they were, 0 is off.\nconst PLAYING = 0.2, PAUSED = 0.6;\n// Lights that are off when a game starts: \"stay off\", or \"turn on\" to light\n// them for the game (as a share of full brightness) and turn them off after.\nconst LIGHTS_OFF = \"stay off\";\nconst FADE = 10;  // tenths of a second\n\n// The first time, the bridge gives n8n a key of its own: press the round\n// button on the bridge, then start a game within 30 seconds. n8n keeps it.\nconst saved = $getWorkflowStaticData('global');\nif (!saved.key) {\n  const answer = await this.helpers.httpRequest({ method: 'POST', url: `http://${BRIDGE}/api`, body: { devicetype: 'cabinetos#n8n' }, json: true });\n  saved.key = answer?.[0]?.success?.username;\n  if (!saved.key) throw new Error('Press the round button on the Hue bridge, then start a game within 30 seconds');\n}\nconst errors = [];\nconst hue = async (method, path, body) => {\n  const answer = await this.helpers.httpRequest({ method, url: `http://${BRIDGE}/api/${saved.key}${path}`, body, json: true });\n  for (const a of [].concat(answer)) if (a && a.error) errors.push(a.error.description);\n  return answer;\n};\nconst wait = (ms) => new Promise((done) => setTimeout(done, ms));\n// A #RRGGBB colour as Hue's x and y.\nconst xy = (hex) => {\n  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)\n    .map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));\n  const X = 0.4124 * r + 0.3576 * g + 0.1805 * b, Y = 0.2126 * r + 0.7152 * g + 0.0722 * b;\n  const all = X + Y + 0.0193 * r + 0.1192 * g + 0.9505 * b || 1;\n  return [+(X / all).toFixed(4), +(Y / all).toFixed(4)];\n};\n// Where a colour sits on the colour wheel, 0 to 6.\nconst wheel = (r, g, b) => {\n  const top = Math.max(r, g, b), spread = top - Math.min(r, g, b);\n  return top === r ? ((g - b) / spread + 6) % 6 : top === g ? (b - r) / spread + 2 : (r - g) / spread + 4;\n};\n// The cover's main colours, most common first, read from the small copy n8n\n// made of it. Dark and grey pixels are left out, and so are colours close to\n// one already picked, so a cover of greys, black and white gives none. Lamps\n// wash colours out, so each one is made vivid.\nconst coverColours = async () => {\n  if (!$input.first().binary?.cover) return [];\n  const bmp = await this.helpers.getBinaryDataBuffer(0, 'cover');\n  const start = bmp.readUInt32LE(10), width = bmp.readInt32LE(18), height = Math.abs(bmp.readInt32LE(22));\n  const step = bmp.readUInt16LE(28) / 8, row = Math.ceil((width * step) / 4) * 4;\n  const shades = {};\n  for (let y = 0; y < height; y++) {\n    for (let x = 0; x < width; x++) {\n      const p = start + y * row + x * step;\n      const [b, g, r] = [bmp[p], bmp[p + 1], bmp[p + 2]];\n      const top = Math.max(r, g, b);\n      if (top < 64 || top - Math.min(r, g, b) < top * 0.35) continue;\n      const shade = (shades[Math.floor(wheel(r, g, b) * 2)] ??= { n: 0, r: 0, g: 0, b: 0 });\n      shade.n++; shade.r += r; shade.g += g; shade.b += b;\n    }\n  }\n  const picked = [];\n  for (const s of Object.values(shades).filter((s) => s.n >= 8).sort((a, b) => b.n - a.n)) {\n    const [r, g, b] = [s.r, s.g, s.b].map((c) => c / s.n);\n    const at = wheel(r, g, b), top = Math.max(r, g, b);\n    if (picked.some((p) => Math.min(Math.abs(p.at - at), 6 - Math.abs(p.at - at)) < 0.5)) continue;\n    const sat = Math.max((top - Math.min(r, g, b)) / top, 0.8);\n    const vivid = [5, 3, 1].map((n) => { const k = (n + at) % 6; return Math.round(255 * (1 - sat * Math.max(0, Math.min(k, 4 - k, 1)))); });\n    picked.push({ at, hex: '#' + vivid.map((c) => c.toString(16).padStart(2, '0')).join('') });\n  }\n  return picked.slice(0, 5).map((p) => p.hex);\n};\n\nconst m = $input.first().json.body ?? {};\nconst all = await hue('GET', '');\nif (Array.isArray(all)) {\n  delete saved.key;\n  throw new Error('The Hue bridge no longer knows n8n: press its round button, then start a game within 30 seconds');\n}\nconst room = Object.values(all.groups).find((g) => g.name === ROOM && g.type !== 'Entertainment');\nif (!room) throw new Error(`The Hue bridge has no room or zone named \"${ROOM}\"`);\nconst now = (id) => all.lights[id].state;\nconst reachable = room.lights.filter((id) => now(id).reachable !== false);\nconst lit = reachable.filter((id) => now(id).on);\n\n// What the lights were before the game, kept until it ends, and each light's\n// colour while it runs. Lights that were off are in it only with \"turn on\". A\n// start without an end before it keeps the first one, so the lights still go\n// back to how they were before any game.\nconst colour = (st) => st.colormode === 'ct' ? { ct: st.ct } : st.colormode === 'hs' ? { hue: st.hue, sat: st.sat } : { xy: st.xy };\nconst level = (share) => Object.entries(saved.before ?? {}).map(([id, was]) => ({ id, state: share === 0\n  ? { on: false, transitiontime: FADE }\n  : { on: true, bri: Math.max(1, Math.round((was.on ? was.bri : 254) * share)), ...(saved.colours?.[id] ? { xy: xy(saved.colours[id]) } : {}), transitiontime: FADE } }));\n\nlet set = [];\nif (m.event === 'game_started') {\n  if (!saved.before) {\n    const join = LIGHTS_OFF === 'turn on' ? reachable : lit;\n    saved.before = Object.fromEntries(join.map((id) => [id, { on: now(id).on, bri: now(id).bri, ...colour(now(id)), colormode: now(id).colormode }]));\n  }\n  const linkup = m.linkup_game === 'hosting' || m.linkup_game === 'joined';\n  const own = PERSON_COLOUR[m.person] ?? PLAYING_COLOUR;\n  const colours = linkup ? [LINKUP] : own === 'cover' ? await coverColours() : own ? [own] : [];\n  saved.colours = Object.fromEntries(Object.keys(saved.before).map((id, i) => [id, colours[i % colours.length] ?? null]));\n  set = level(PLAYING);\n} else if (m.event === 'game_paused') {\n  set = level(PAUSED);\n} else if (m.event === 'game_resumed') {\n  set = level(PLAYING);\n} else if (m.event === 'game_ended' && saved.before) {\n  // Lights that were off go off again with their own colour, so they come on\n  // as before the next time they are turned on.\n  set = Object.entries(saved.before).map(([id, was]) =>\n    ({ id, state: { on: was.on, bri: was.bri, ...colour(was), transitiontime: FADE } }));\n  delete saved.before;\n  delete saved.colours;\n} else if (m.event === 'achievement_unlocked') {\n  set = lit.map((id) => ({ id, state: { alert: 'select' } }));\n} else if (m.event === 'set_completed') {\n  const party = CELEBRATE === 'rainbow' ? { effect: 'colorloop', sat: 254 } : { xy: xy(CELEBRATE), alert: 'select', transitiontime: 2 };\n  for (const id of lit) await hue('PUT', `/lights/${id}/state`, party);\n  await wait(CELEBRATE === 'rainbow' ? 10000 : 4000);\n  set = lit.map((id) => ({ id, state: { effect: 'none', ...colour(now(id)), transitiontime: FADE } }));\n}\nfor (const { id, state } of set) await hue('PUT', `/lights/${id}/state`, state);\n\nreturn [{ json: { event: m.event ?? null, room: ROOM, lights: room.lights.length, on: lit.length, changed: set.length, colours: saved.colours ?? null, errors } }];\n"
+      },
+      "id": "27aad962-ac05-476e-b931-c3490096bdc4",
+      "name": "Lights follow the game",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "From the console": {
+      "main": [
+        [
+          {
+            "node": "The cover, as a picture",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "The cover, as a picture": {
+      "main": [
+        [
+          {
+            "node": "Started with a cover?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shrink the cover": {
+      "main": [
+        [
+          {
+            "node": "Lights follow the game",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Started with a cover?": {
+      "main": [
+        [
+          {
+            "node": "Shrink the cover",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lights follow the game",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
