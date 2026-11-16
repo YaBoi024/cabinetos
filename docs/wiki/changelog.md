@@ -11,8 +11,9 @@ one you install, so you only ever install the newest.
   achievement, so the app can dim the lights or post to your Discord. Set it
   in Settings, **System**, **Game events**. It is off until you type an
   address, and it only ever sends to that address while it is on your own
-  network. [Game events](game-events.md) has every message and a ready-made
-  n8n workflow that posts to Discord.
+  network. [Game events](game-events.md) has every message and ready-made n8n
+  workflows to start from: Discord, Telegram, and Philips Hue lights that take
+  their colours from the game's cover.
   ([#716](https://github.com/MMagTech/cabinetos/issues/716))
 
 ## 2026.11.15 {#v2026-11-15}

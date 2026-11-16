@@ -9,9 +9,10 @@ while it is on your own network. It never listens.
 ## What you need
 
 An app on your home network that takes a webhook: [n8n](https://n8n.io),
-Home Assistant, Node-RED, or a small script of your own. The example below is
-n8n posting to Discord, the one that was tested. The app can be on your home
-network or on your [Tailscale](network.md#tailscale) network.
+Home Assistant, Node-RED, or a small script of your own. The
+[examples](#examples) use n8n; [Build your own](#build-your-own) is for
+everything else. The app can be on your home network or on your
+[Tailscale](network.md#tailscale) network.
 
 ## Turn it on
 
@@ -105,239 +106,185 @@ A started message, with the cover cut short:
 A cover is often a few hundred kilobytes once in base64, so an app that keeps
 every message should drop the cover or keep it small.
 
-## Example: n8n to Discord
+## Examples
 
-This workflow posts each person's games to their own Discord channel: a card
-with the cover when a game starts, a gold card when every achievement is
-unlocked, and one line for the rest. A LinkUp game's card is purple and says
-"over LinkUp". A person not on its list goes nowhere, so an account added to
-the console later stays quiet until you choose where its games go.
+These are starters, to give you an idea of what an app can do with the
+messages. Each is a workflow file for n8n. In n8n, make a new workflow, open
+its **⋯** menu, choose **Import from URL** and paste the file's link (right
+click the link here, **Copy link**). Or download the file and choose
+**Import from File**.
 
-1. **In Discord,** for each person: make a channel (or pick one), then the
-   gear beside its name, **Integrations**, **Webhooks**, **New Webhook**,
-   **Copy Webhook URL**.
-2. **In n8n,** make a new workflow, click the empty canvas, and paste the
-   workflow below (Cmd+V or Ctrl+V). Five boxes appear.
-3. Open **Sort by person** and change the two lines at the top of its code:
-   each person's name exactly as the console shows it, then their Discord
-   webhook. Add a line for each person; delete the lines you do not need.
-4. Save, then **Publish**. In n8n 2, an edit only reaches the console after
-   you publish again, and a just-published workflow can answer 404 for a few
-   seconds.
-5. **On the console:** Settings, **System**, **Game events**, and type
-   `http://` and your n8n's address with `:5678/webhook/games` after it.
+Every one listens at `games`: on the console, type `http://` and your n8n's
+address with `:5678/webhook/games` after it (see [Turn it on](#turn-it-on)).
+The path is short on purpose: a webhook n8n makes itself gets a long random
+path, which is hard to type with a controller. After any change in n8n,
+**Save**, then **Publish**. In n8n 2, an edit only reaches the console after
+you publish again, and a just-published workflow can answer 404 for a few
+seconds. A workflow's **Executions** list shows each message the console sent
+and what came of it.
 
-The workflow's webhook path is `games`, short on purpose: a webhook n8n makes
-itself gets a long random path, which is hard to type with a controller. Its
-**Executions** list shows each message the console sent and Discord's answer.
+### Start here: game starts to Discord
 
-```json
-{
-  "name": "CabinetOS Game events",
-  "nodes": [
-    {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "games",
-        "options": {}
-      },
-      "id": "f0207f5f-7683-4d1c-8bc8-1ecbf1b42ebe",
-      "name": "From the console",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
-      "position": [
-        0,
-        0
-      ],
-      "webhookId": "9c5bc21b-7e04-4858-b26c-a49ac18ef4e0"
-    },
-    {
-      "parameters": {
-        "jsCode": "// CabinetOS Game events: each person's games go to their own Discord channel.\n// One line per person: the name exactly as the console shows it, then that\n// person's Discord webhook (in Discord: Edit Channel, Integrations, Webhooks).\n// Anyone not listed goes nowhere, and so does the console's test message.\nconst PEOPLE = {\n  \"First person\": \"https://discord.com/api/webhooks/PASTE-THEIR-WEBHOOK\",\n  \"Second person\": \"https://discord.com/api/webhooks/PASTE-THEIR-WEBHOOK\",\n};\n\nconst CYAN = 0x58E8F6, PURPLE = 0xA07CF0, GOLD = 0xF2C14E;\nconst COVER = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };\n\nfunction minutes(n) {\n  if (!n) return 'less than a minute';\n  return n === 1 ? '1 minute' : `${n} minutes`;\n}\n\nconst out = [];\nfor (const item of $input.all()) {\n  const m = item.json.body ?? {};\n  const url = PEOPLE[m.person];\n  if (!url) continue;\n  const linkup = m.linkup_game === 'hosting' || m.linkup_game === 'joined';\n  const over = linkup ? ' over LinkUp' : '';\n  const who = `**${m.person}**`, game = `**${m.game}**`;\n  const points = m.points === 1 ? '1 point' : `${m.points} points`;\n\n  // Started and every achievement: a card, with the cover when it came.\n  let card = null;\n  if (m.event === 'game_started') {\n    card = { author: m.linkup_game === 'joined' ? `🎮 ${m.person} joined a LinkUp game`\n                                                 : `🎮 ${m.person} started playing${over}`,\n             color: linkup ? PURPLE : CYAN };\n  } else if (m.event === 'set_completed') {\n    card = { author: `🌟 ${m.person} unlocked every achievement${over}`, color: GOLD };\n  }\n  // The rest: one line each.\n  const line = {\n    game_paused: `⏸️ ${who} paused ${game}${over}`,\n    game_resumed: `▶️ ${who} is back in ${game}${over}`,\n    game_ended: `🛑 ${who} stopped playing ${game}${over} after ${minutes(m.minutes_played)}`,\n    achievement_unlocked: `🏆 ${who} unlocked **${m.achievement}** (${points}) in ${game}${over}`,\n  }[m.event];\n  if (!card && !line) continue;\n\n  const post = { json: { url, cover: false, payload: { allowed_mentions: { parse: [] } } } };\n  if (line) post.json.payload.content = line;\n  if (card) {\n    const embed = { author: { name: card.author }, title: m.game, color: card.color };\n    if (m.system) embed.description = m.system;\n    const type = COVER[m.cover_type];\n    if (m.cover && type) {\n      const file = `cover.${type}`;\n      embed.thumbnail = { url: `attachment://${file}` };\n      post.json.cover = true;\n      post.binary = { cover: { data: m.cover, mimeType: m.cover_type, fileName: file } };\n    }\n    post.json.payload.embeds = [embed];\n  }\n  out.push(post);\n}\nreturn out;\n"
-      },
-      "id": "f3154338-5292-4c15-8b90-87e8243a63db",
-      "name": "Sort by person",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        240,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "7b63e266-d792-469a-90ad-de089fbf94c5",
-              "leftValue": "={{ $json.cover }}",
-              "rightValue": "",
-              "operator": {
-                "type": "boolean",
-                "operation": "true",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "f2022917-65d9-4b52-85d2-4db83bf035d4",
-      "name": "Has a cover?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        480,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $json.url }}",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "wait",
-              "value": "true"
-            }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "multipart-form-data",
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "payload_json",
-              "value": "={{ JSON.stringify($json.payload) }}"
-            },
-            {
-              "parameterType": "formBinaryData",
-              "name": "files[0]",
-              "inputDataFieldName": "cover"
-            }
-          ]
-        },
-        "options": {
-          "response": {
-            "response": {
-              "fullResponse": true
-            }
-          }
-        }
-      },
-      "id": "76b8f9eb-4cae-44c3-af59-11966f747b77",
-      "name": "To Discord, with the cover",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        720,
-        -100
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "={{ $json.url }}",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "wait",
-              "value": "true"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.payload) }}",
-        "options": {
-          "response": {
-            "response": {
-              "fullResponse": true
-            }
-          }
-        }
-      },
-      "id": "80ac9b8d-2d23-4745-a11e-0eac416b41b1",
-      "name": "To Discord",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        720,
-        100
-      ]
-    }
-  ],
-  "connections": {
-    "From the console": {
-      "main": [
-        [
-          {
-            "node": "Sort by person",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Sort by person": {
-      "main": [
-        [
-          {
-            "node": "Has a cover?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Has a cover?": {
-      "main": [
-        [
-          {
-            "node": "To Discord, with the cover",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "To Discord",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    }
-  },
-  "settings": {
-    "executionOrder": "v1"
-  }
-}
+[game-events-starter.json](game-events-starter.json) posts one line to a
+Discord channel when anyone starts a game, with no code: three boxes.
+
+1. **In Discord,** the gear beside a channel, **Integrations**,
+   **Webhooks**, **New Webhook**, **Copy Webhook URL**.
+2. **In n8n,** import the file, open **To Discord**, and paste the webhook
+   over `https://discord.com/api/webhooks/PASTE-YOUR-WEBHOOK`. Save, then
+   **Publish**.
+3. **Start a game.** "🎮 Sam started Contra III: The Alien Wars (Super
+   Nintendo)" appears in the channel, with your names.
+
+The parts in `{{ }}` are filled in from each message: you type nothing there.
+The file holds a sample message, Sam starting Contra III, which n8n uses when
+you press **Execute workflow**, so you can try it without the console.
+
+For each person's games in their own channel, import
+[game-events-starter-for-two.json](game-events-starter-for-two.json) instead.
+Its **Who is playing?** box has one rule per person, `Sam` and `Alex`: change
+them to your people's names, exactly as the console shows them, and paste each
+person's webhook in their own **To ... Discord** box. A third person is one
+more rule and one more box. A person with no rule goes nowhere.
+
+For a channel of achievements instead, change `game_started` in **Only game
+starts** to `achievement_unlocked`, and the line in **To Discord** to
+`🏆 {{ $json.body.person }} unlocked {{ $json.body.achievement }} in {{ $json.body.game }}`.
+
+### Discord, with covers
+
+[game-events-discord.json](game-events-discord.json) posts each person's
+games to their own Discord channel: a card with the cover when a game starts,
+a gold card when every achievement is unlocked, and one line for the rest. A
+LinkUp game's card is purple and says "over LinkUp". A person not on its list
+goes nowhere, so an account added to the console later stays quiet until you
+choose where its games go.
+
+1. **In Discord,** make a webhook for each person's channel, as above.
+2. **In n8n,** import the file and open **Sort by person**. Change the two
+   lines at the top of its code: each person's name exactly as the console
+   shows it, then their webhook. Add a line for each person; delete the lines
+   you do not need. Save, then **Publish**.
+
+The `SEND` line under them lists the messages it posts: delete the ones you
+do not want.
+
+### Telegram
+
+[game-events-telegram.json](game-events-telegram.json) sends each person's
+games to their own Telegram chat, from a bot of your own: the cover and the
+game's name when a game starts or every achievement is unlocked, and one line
+for the rest. A LinkUp game says "over LinkUp". Pause and resume arrive
+without a sound, and so does everything between 10 pm and 7 am. A person not
+on its list goes nowhere, and a child's name can go to a parent's chat.
+Telegram shows every picture as wide as the chat, so a cover is large there.
+
+1. **In Telegram,** open **@BotFather**, send `/newbot`, and give the bot a
+   name and a username ending in `bot`. BotFather answers with its token.
+2. **In n8n,** import the file, open **Sort by person**, and put the token in
+   its first line. Save, then **Publish**.
+3. **Each person** opens the bot in Telegram (search its username, or tap the
+   `t.me` link BotFather gave) and presses **Start**.
+4. **On the console,** type the address (with one already saved: **Change
+   address**, then Done). The bot sends everyone who pressed Start their chat
+   number.
+5. **In n8n,** put each person's name, exactly as the console shows it, and
+   their chat number in **Sort by person**. Save, then **Publish**.
+
+The `SEND` line lists the messages it sends, and the quiet hours are the line
+under it.
+
+### Philips Hue
+
+[game-events-hue.json](game-events-hue.json) makes the lights in one room or
+zone follow the game. n8n talks to the Hue bridge on your home network, not
+through Philips' cloud.
+
+- **A game starts:** the lights that are on dim to a fifth, and each takes a
+  colour from the game's cover. Lights that are off stay off, or come on for
+  the game if you choose.
+- **Pause:** they come up to 60%. **Resume:** back down to a fifth.
+- **A LinkUp game:** purple instead of the cover's colours.
+- **An achievement:** one blink. **Every achievement:** a rainbow for ten
+  seconds.
+- **The game ends:** every light goes back to exactly how it was.
+
+1. **Find the bridge's address:** in the Hue app, **Settings**, **Bridges**,
+   then your bridge.
+2. **In n8n,** import the file, open **Lights follow the game**, and fill in
+   its first two lines: the bridge's address, and the room or zone, named
+   exactly as in the Hue app. Save, then **Publish**.
+3. **Press the round button on the bridge, then start a game within 30
+   seconds.** The bridge gives n8n a key of its own, and the lights dim. This
+   is needed only once.
+
+The lines below those two change how it looks, and the code says what each
+takes: the colour while a game runs (the cover's colours, one colour of your
+choice, or the lights' own), a colour of their own for some people, the
+LinkUp colour, a rainbow or a colour flash for every achievement, how bright
+the lights are while playing and paused (0 turns them off), and whether
+lights that are off come on for the game. If the
+lights do not change, the workflow's **Executions** list says why.
+
+### More than one at once
+
+The console sends to one address, and only one workflow can answer it. To
+post to Discord and work the lights, for example: open the second file's
+link, select all of it and copy it, then click the first workflow's canvas
+and paste. Delete the pasted **From the console** box, and drag a line from
+the first one's **From the console** to the box the deleted one led to. Save,
+then **Publish**.
+
+## Build your own
+
+Any app that can answer a web request works: Home Assistant's webhook
+trigger, Node-RED's HTTP In, or a script. What it has to do:
+
+- Take an HTTP POST at an `http://` address on your home network or your
+  Tailscale network. Use `http://` at home.
+- Read the JSON body: [The messages](#the-messages) has every field.
+- Answer with any 2xx status within five seconds, and do anything slow after
+  answering. A message not answered in time is dropped.
+- Answer the `test` message. It comes first on every network, and until your
+  app answers it, nothing else is sent.
+- Expect one message at a time, in order, and nothing kept for later while
+  your app is down.
+- Pass over events and fields it does not know: new ones can be added.
+
+To try your app without the console, send it a pretend game start from a
+computer on your network, with your app's address at the end:
+
+```sh
+curl -X POST -H "Content-Type: application/json" -d '{"format":1,"event":"game_started","time":"2026-11-15T19:32:00-05:00","person":"Sam","game":"Contra III: The Alien Wars","system":"Super Nintendo","rom_id":1234,"linkup":"unused","linkup_game":"none"}' http://your-app-address
 ```
 
-## Other apps
-
-Any app that takes a JSON POST at an `http://` address on your network and
-answers quickly with a 2xx status should work: a Home Assistant webhook
-trigger, Node-RED's HTTP In, or a script. Use `http://` at home. The app
-decides everything else, the console only says what happened.
+The app decides everything else: the console only says what happened.
 
 ## What was tested
 
-On 2026-11-15, with n8n 2.47.7 and Discord, on the reference console (a GEEKOM
-A9 Max) and a second console as a LinkUp friend: setting the address; a game
-started, paused, resumed and left; two accounts going to two channels; an
-account taken off the list going nowhere; two achievements unlocked in one
-game, each its own message; Sleep during a game, and the test message again
-on waking; a LinkUp game from both sides, with the friend's Game events on
-and off. Other apps were not tested.
+On 2026-11-15, with n8n 2.47.7, on the reference console (a GEEKOM A9 Max)
+and a second console as a LinkUp friend.
+
+- **Discord, with covers:** setting the address; a game started, paused,
+  resumed and left; two accounts going to two channels; an account taken off
+  the list going nowhere; two achievements unlocked in one game, each its own
+  message; Sleep during a game, and the test message again on waking; a
+  LinkUp game from both sides, with the friend's Game events on and off; the
+  `SEND` line leaving pause out.
+- **The starters:** game starts to one channel; each person's to their own;
+  a game's end and an account with no rule going nowhere; the achievement
+  channel.
+- **Telegram:** every message, with JPEG, PNG and WebP covers, a LinkUp game
+  from both sides and every achievement; chat numbers sent with the test
+  message; the quiet hours.
+- **Philips Hue** (a Hue Bridge with five colour lights): the key from the
+  bridge's button; colours from six games' covers; one colour for a person;
+  lights off while playing; lights that were off coming on for the game and
+  going off again with their own colour; the rainbow; each time, the lights
+  back to exactly how they were.
+- **Telegram and Hue pasted together,** and the `curl` line in
+  [Build your own](#build-your-own).
+
+Telegram and Hue were sent the console's own messages from a game played
+earlier, from a computer: the same messages, sent again. Other apps were not
+tested.
