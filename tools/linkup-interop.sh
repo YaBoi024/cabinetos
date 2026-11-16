@@ -36,9 +36,12 @@ pass() { say "ok: $1"; }
 want() {
     local what=$1 expected=$2
     shift 2
-    local out
-    out=$("$@" 2>&1)
-    if [ "${out%% *}" = "$expected" ]; then pass "$what"; else fail "$what: wanted $expected, got: $out"; fi
+    local out err
+    # The word is the probe's stdout; its [linkup] log lines go to stderr and
+    # are shown only when the check fails.
+    out=$("$@" 2>"$work/stderr")
+    err=$(cat "$work/stderr")
+    if [ "${out%% *}" = "$expected" ]; then pass "$what"; else fail "$what: wanted $expected, got: $out${err:+ (stderr: $err)}"; fi
     LAST=$out
 }
 
