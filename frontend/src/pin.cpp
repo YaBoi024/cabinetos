@@ -179,7 +179,19 @@ void PinScreen::tick(float dt) {
     }
 }
 
+void PinScreen::focusOn(int key) {
+    if (!open_ || key < 0 || key > 11) return;
+    if (row_ != key / 3 || col_ != key % 3) {
+        row_ = key / 3;
+        col_ = key % 3;
+        focus_.retarget(0.0f, 0.0f);
+        focus_.elapsed = 0.0f;
+        focus_.retarget(1.0f, design::kFocusDuration);
+    }
+}
+
 void PinScreen::draw(Ctx& c) {
+    taps_.clear();   // FORK (handheld): only the keys drawn this frame can be tapped
     if (!open_) return;
     const float a = appear_.value();
     const float W = ui::kCanvasWidth, H = ui::kCanvasHeight;
@@ -273,6 +285,7 @@ void PinScreen::draw(Ctx& c) {
             const float dx = x - (dw - kKeyW) * 0.5f, dy = ky - (dh - kKeyH) * 0.5f;
             const float kf = focused ? f : 0.0f;
             c.r.draw(design::menuButton(dx, dy, dw, dh, kKeyRadius * s, kf, 1.0f));
+            if (a > 0.5f) taps_.add(r * 3 + col, x, ky, kKeyW, kKeyH);
             const bool action = isCancel(r, col) || isDelete(r, col);
             const TextStyle st = action ? TextStyle::Callout : TextStyle::Title3;
             const std::string label = kKeys[r][col];

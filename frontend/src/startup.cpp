@@ -8,6 +8,7 @@
 // Home's focus, the uploader before the power-cut recovery; the comments
 // in place say why each one is where it is.
 
+#include "platform.h"
 #include "app.h"
 
 #include <dirent.h>
@@ -277,10 +278,18 @@ std::optional<int> App::startDisplay() {
     if (overlayTest) renderer.setTransparentBackground(true);
     // Regular, SemiBold, Bold, then the CJK fallback. All four are already
     // in the Bazzite base, so the type costs the image nothing.
-    if (!text.init({"/usr/share/fonts/google-noto/NotoSans-Regular.ttf",
-                    "/usr/share/fonts/google-noto/NotoSans-SemiBold.ttf",
-                    "/usr/share/fonts/google-noto/NotoSans-Bold.ttf",
-                    "/usr/share/fonts/google-noto-sans-cjk-fonts/NotoSansCJK-Regular.ttc"})) {
+    //
+    // FORK (handheld): WHERE THE FONTS ARE can be moved by two variables, for a build that is
+    // not the console (the Android app has no /usr/share): CABINETOS_FONT_DIR
+    // is a directory holding the three NotoSans-*.ttf files, and
+    // CABINETOS_FONT_CJK is the fallback face's file. Unset, the console's own
+    // paths are used, exactly as before.
+    std::string fontDir = "/usr/share/fonts/google-noto";
+    std::string fontCjk = "/usr/share/fonts/google-noto-sans-cjk-fonts/NotoSansCJK-Regular.ttc";
+    if (const char* d = std::getenv("CABINETOS_FONT_DIR"); d && *d) fontDir = d;
+    if (const char* c = std::getenv("CABINETOS_FONT_CJK"); c && *c) fontCjk = c;
+    if (!text.init({fontDir + "/NotoSans-Regular.ttf", fontDir + "/NotoSans-SemiBold.ttf",
+                    fontDir + "/NotoSans-Bold.ttf", fontCjk})) {
         std::fprintf(stderr, "[frontend] text init failed\n");
         return 1;
     }
@@ -381,7 +390,9 @@ std::optional<int> App::startStartupScreen() {
     // therefore never once fired. Without this a physical keyboard cannot type
     // a character into the on-screen keyboard — which is not a small gap, it is
     // the input the whole first-run design is built on being guaranteed.
-    SDL_StartTextInput(window);
+    // FORK (handheld): a machine with its own keyboard (platform.h) starts text
+    // input when a field opens, not here, or its keyboard would cover Home.
+    if (!platform::textInputOnDemand()) SDL_StartTextInput(window);
     idleWatch.setTimeScale(idleScale);
     idleWatch.setEnabled(!idleOff);
     dimLayer.smooth = true;

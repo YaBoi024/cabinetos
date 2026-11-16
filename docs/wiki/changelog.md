@@ -4,6 +4,14 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.11.09.5 {#v2026-11-09-5}
+
+- **Fixed:** in Settings, **Wi-Fi**, a network the console had saved twice
+  could not be forgotten: **Forget** said "Couldn't forget" and kept it, and
+  **Change password** joined with the new password but left the old copies
+  saved. Both now remove every saved copy of the network.
+  ([#642](https://github.com/MMagTech/cabinetos/issues/642))
+
 ## 2026.11.09.4 {#v2026-11-09-4}
 
 - **Improved:** the on-screen keyboard is quicker for long entries such as a

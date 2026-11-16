@@ -7,6 +7,8 @@
 #include "romm_internal.h"
 
 #include <curl/curl.h>
+
+#include "tlsca.h"
 #include <json-c/json.h>
 
 #include <algorithm>
@@ -194,6 +196,7 @@ bool Client::setFavorite(int romId, bool on, bool* forbidden, std::string* err,
                                  "\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\n"
                                  "Favorites\r\n--" + boundary + "--\r\n";
         CURL* c = curl_easy_init();
+        if (c) tlsca::apply(c);
         if (!c) { if (err) *err = "curl init failed"; return false; }
         curl_slist* hdrs = curl_slist_append(
             nullptr, ("Content-Type: multipart/form-data; boundary=" + boundary).c_str());

@@ -17,6 +17,7 @@
 #include "dirsave.h"
 #include "fightstick.h"
 #include "overlaywin.h"
+#include "platform.h"
 #include "quality.h"
 #include "rumble.h"
 #include "saves.h"
@@ -33,6 +34,21 @@ using namespace design;   // NOLINT: the design system's names (design.h, motion
 // what every launch looks like. gamescope gives the new window the screen
 // by itself (measured 2026-09-28), so this window stays as it is.
 void App::startStandalone(const cab::standalone::Emulator& emu) {
+    // FORK (handheld): AN EMULATOR THAT IS ANOTHER ANDROID APP gets the game file and the
+    // screen, and this program waits underneath, as it does for any app the person
+    // switches to. None of what follows applies: there are no virtual controllers (the
+    // phone's own controller or touch buttons are Eden's to read), no keys written into its
+    // home (Eden keeps its own, which the person set up there), and no save to sync (Eden's
+    // saves stay in Eden).
+    if (platform::runsInAnotherApp(emu.core)) {
+        if (!platform::openInAnotherApp(emu.core, launchJob.romPath)) {
+            refuseLaunch("Couldn't start this game");
+            return;
+        }
+        cache::touch(launchJob.entryPath);
+        curtain.retarget(0.0f, kCurtainUp);
+        return;
+    }
     const storage::User& user = storage::currentUser();
     const std::string saveDir = storage::savesDir(
         user, launchJob.platformFsSlug, launchJob.romId, launchJob.coreName);

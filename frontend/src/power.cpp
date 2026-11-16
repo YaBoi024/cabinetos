@@ -195,6 +195,7 @@ const char* name(Action a) {
         case Action::Rest: return "rest";
         case Action::Restart: return "restart";
         case Action::PowerOff: return "power off";
+        case Action::ExitApp: return "exit app";
     }
     return "?";
 }
@@ -235,6 +236,9 @@ void act(Action a) {
         sd_bus_unref(bus);
     }).detach();
 }
+
+bool canRestartAndPowerOff() { return true; }
+bool canExitApp() { return false; }
 
 std::string refusal() {
     std::lock_guard<std::mutex> lock(gRefusalMutex);

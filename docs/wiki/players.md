@@ -45,7 +45,9 @@ With a PIN set, it is asked before:
 - changing Wi-Fi or the RomM server,
 - formatting a drive, opening Downloads, or File access and Developer access,
 - installing an update,
-- turning on Remote Play, pairing a device, or changing Tailscale,
+- turning on Remote Play, removing a paired device, or changing Tailscale,
+- turning LinkUp on, or adding, changing or leaving its server (not asked of
+  the owner),
 - using, changing or showing Steam,
 - the Picture setting, which only the owner sees.
 

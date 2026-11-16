@@ -17,6 +17,20 @@ namespace screens {
 
 namespace {
 
+// FORK (handheld): the style a line is drawn at, a step smaller each time it is wider than the
+// screen allows (a phone held upright), down to Caption1.
+ui::TextStyle fitting(ui::TextRenderer& text, const std::string& line, ui::TextStyle st, float sc) {
+    const float room = ui::kCanvasWidth - 2.0f * 48.0f;
+    const ui::TextStyle order[] = {ui::TextStyle::LargeTitle, ui::TextStyle::Title2, ui::TextStyle::Title3,
+                                   ui::TextStyle::Callout, ui::TextStyle::Caption1};
+    bool started = false;
+    for (ui::TextStyle s : order) {
+        if (s == st) started = true;
+        if (started && text.measure(line, s, sc) <= room) return s;
+    }
+    return ui::TextStyle::Caption1;
+}
+
 constexpr float kCellGap = 24.0f;
 constexpr float kTileH = 156.0f;
 constexpr float kTileRadius = 18.0f;
@@ -293,13 +307,14 @@ void LinkUpScreen::drawNoFriends(Ctx& c, float stars, float picture) {
         // With something wrong, one cabinet and nothing lit.
         dimCabinet(midX - cabinetW * 0.5f, kTop + 14.0f);
     }
-    auto centred = [&](const std::string& line, ui::TextStyle st, float baseline, float alpha) {
+    auto centred = [&](const std::string& line, ui::TextStyle want, float baseline, float alpha) {
+        const ui::TextStyle st = fitting(c.text, line, want, c.sc);
         c.text.draw(c.r, line, midX - c.text.measure(line, st, c.sc) * 0.5f, baseline, st,
                     ui::Color::white(alpha), c.sc);
     };
-    const ui::TextStyle big = ui::TextStyle::Title2;
+    const std::string first = "Player two,", rest = " from anywhere.";
+    const ui::TextStyle big = fitting(c.text, first + rest, ui::TextStyle::Title2, c.sc);
     if (instead_.empty()) {
-        const std::string first = "Player two,", rest = " from anywhere.";
         const float x = midX - c.text.measure(first + rest, big, c.sc) * 0.5f;
         c.text.draw(c.r, first, x, 740.0f, big, ui::palette::kMarqueeAmber, c.sc);
         c.text.draw(c.r, rest, x + c.text.measure(first, big, c.sc), 740.0f, big, ui::Color::white(0.96f), c.sc);
@@ -403,7 +418,8 @@ Result LinkUpPlayScreen::key(Nav n) {
 void LinkUpPlayScreen::draw(Ctx& c) {
     c.r.setContentAlpha(fade_);
     const float midX = ui::kCanvasWidth * 0.5f;
-    auto centred = [&](const std::string& s, ui::TextStyle st, float baseline, float alpha) {
+    auto centred = [&](const std::string& s, ui::TextStyle want, float baseline, float alpha) {
+        const ui::TextStyle st = fitting(c.text, s, want, c.sc);
         c.text.draw(c.r, s, midX - c.text.measure(s, st, c.sc) * 0.5f, baseline, st,
                     ui::Color::white(alpha), c.sc);
     };

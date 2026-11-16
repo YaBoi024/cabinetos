@@ -41,7 +41,9 @@ copied in by hand is only used for a game that has no save on the server.
 
 ## Developer access
 
-For people working on CabinetOS Handheld itself: Settings, **About**, press **Version**
-seven times and **Developer access** appears. It opens a full shell over SSH on
-port 2222, with the same user name and password. It needs a PIN to be set. Seven
-more presses on Version hide it and turn it off.
+For people working on CabinetOS itself: Settings, **About**, press **Version**
+seven times, each within two seconds of the last, and **Developer access**
+appears. It opens a full shell over SSH on port 2222, with the same user name
+and password. It needs a PIN: with none set, the owner is asked to choose one,
+and anyone else sees *Needs a PIN from* the owner's name. Seven more presses on
+Version hide it and turn it off.

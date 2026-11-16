@@ -171,7 +171,8 @@ bool join(const std::string& ssid, const std::string& passphrase, bool hidden,
 
 // Deletes every saved connection for an SSID. Plural deliberately:
 // NetworkManager will happily hold two profiles for one network, and forgetting
-// one of them leaves the console rejoining with the other.
+// one of them leaves the console rejoining with the other. True when none is
+// left; false, with why in `err`, when none was saved or one would not go.
 bool forget(const std::string& ssid, std::string* err);
 
 // The radio. A console has no reason to turn it off, but it may well find it

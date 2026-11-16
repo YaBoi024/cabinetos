@@ -82,7 +82,7 @@ bool looksLocal(const std::string& host) {
 // is then the server's, for every request after. Nowhere else is a redirect
 // off the server followed, so this is the only place the console's server
 // can change, and only to where the server itself said.
-bool Client::probe(const std::string& candidate, bool report) {
+bool Client::probe(const std::string& candidate, bool report, std::string* why) {
     Where at = where();
     at.base = candidate;
     std::string body;
@@ -90,7 +90,7 @@ bool Client::probe(const std::string& candidate, bool report) {
     static const std::string kHeartbeat = "/api/heartbeat";
     for (int moves = 0;; ++moves) {
         movedTo.clear();
-        if (getAt(at, kHeartbeat, &body, nullptr, report, &movedTo)) break;
+        if (getAt(at, kHeartbeat, &body, why, report, &movedTo)) break;
         if (moves >= 2 || movedTo.size() <= kHeartbeat.size() ||
             movedTo.compare(movedTo.size() - kHeartbeat.size(), kHeartbeat.size(), kHeartbeat) != 0)
             return false;
@@ -120,8 +120,13 @@ bool Client::setAddress(const std::string& address, std::string* err) {
     // An explicit scheme is an instruction, not a hint. Honour it and do not
     // second-guess by trying the other one.
     if (a.compare(0, 7, "http://") == 0 || a.compare(0, 8, "https://") == 0) {
-        if (probe(a)) return true;
-        if (err) *err = "nothing answered at " + a;
+        std::string why;
+        if (probe(a, true, &why)) return true;
+        // THE REASON IS SAID, not dropped: a certificate that is not trusted, a
+        // name that does not resolve and a port that refuses are three different
+        // faults, and "nothing answered" named none of them.
+        std::fprintf(stderr, "[romm] %s: %s\n", a.c_str(), why.empty() ? "no reason given" : why.c_str());
+        if (err) *err = "nothing answered at " + a + (why.empty() ? "" : " (" + why + ")");
         return false;
     }
 
@@ -137,9 +142,17 @@ bool Client::setAddress(const std::string& address, std::string* err) {
     const bool local = looksLocal(a);
     const std::string first  = (local ? "http://" : "https://") + a;
     const std::string second = (local ? "https://" : "http://") + a;
-    if (probe(first, /*report=*/false)) return true;
-    if (probe(second)) return true;
-    if (err) *err = "nothing answered at " + a + " over http or https";
+    std::string whyFirst, whySecond;
+    if (probe(first, /*report=*/false, &whyFirst)) return true;
+    if (probe(second, true, &whySecond)) return true;
+    std::fprintf(stderr, "[romm] %s: %s: %s; %s: %s\n", a.c_str(), first.c_str(), whyFirst.c_str(),
+                 second.c_str(), whySecond.c_str());
+    if (err) {
+        const std::string s1 = local ? "http" : "https", s2 = local ? "https" : "http";
+        *err = "nothing answered at " + a + " over http or https (" + s1 + ": " +
+               (whyFirst.empty() ? "no reason" : whyFirst) + "; " + s2 + ": " +
+               (whySecond.empty() ? "no reason" : whySecond) + ")";
+    }
     return false;
 }
 

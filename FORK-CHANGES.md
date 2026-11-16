@@ -28,6 +28,42 @@ Files marked `FORK (handheld)` in their comments are the fork's.
   and the commits. `.github/workflows/watch-upstream.yml`, `.github/upstream-watch.txt`;
   `base-update.yml` follows bazzite-deck monthly. A weekly Claude task on the Mac reviews both and
   says what is ready to merge; it never merges.
+- **The font files can be moved by two variables**, for the Android app (private repository
+  `cabinetos-android`), which has no `/usr/share/fonts`: `CABINETOS_FONT_DIR` (the folder with the
+  three NotoSans files) and `CABINETOS_FONT_CJK` (the fallback face). Unset, the console's paths are
+  used as before. `startup.cpp`
+- **`platform.h`: a short list of questions the program asks the machine under it**, for the Android
+  app. Fifteen calls: does the machine own the network screens, skip the controller step, open a link,
+  open its network settings, use its own keyboard (only while a text field is open, with the
+  program's key grid replaced by the field and a Done key, also under Search's results), fill a
+  screen wider than 16:9 or narrower than it (down to 4 to 3, for the iPhone Duo), keep clear of the part of the window a phone covers (a camera cut-out, the home indicator), show the games of a system whose emulator is not there yet, greyed, and be told when a game starts and ends and for which system (`gamePlaying`, so a phone can show the buttons that system had and keep the screen on only while a game runs). The console's
+  answers are in `platform_linux.cpp` and are all "no" or nothing, so the Deck behaves exactly as
+  before; the Android build leaves that file out and supplies its own. What changes on a phone: first
+  run's network step shows the phone's state and a button to its Wi-Fi settings instead of a list, the
+  sign-in step has a button that opens the approval page in the phone's browser, and the controller
+  step is skipped. `platform.h`, `platform_linux.cpp`; calls in `firstrun.cpp`, `setup.cpp`,
+  `startup.cpp`, `keyboard.cpp`, `launch.cpp` (`startPlaying`), `play.cpp` (`finishExit`), `ui.cpp` (`kCanvasWidth` is now a value the renderer sets each
+  frame, 1920 unless the machine asks to fill a wider or a narrower screen: `ui.h`; the picture is fitted inside the safe area, and `ui::gCanvasLeft`, `gCanvasTop` and `gCanvasScale` say where the canvas sits, which `touchinput.cpp` and `setup.cpp` use to turn a pointer into canvas points), `catalog.cpp`, `library.cpp`,
+  `search.cpp`.
+- **A failed server probe says why.** Entering a RomM address that does not answer used to say "nothing
+  answered at <address>" and drop the reason (the probe passed no error string down). It now adds what
+  curl says (a certificate that is not trusted, a name that does not resolve, a refused port, with curl's
+  own detail) to that sentence and to the log (`[romm] <address>: ...`). No behaviour changes; the
+  Deck's wording is longer only when the probe fails. `romm.h` (`probe` has an optional `why`),
+  `romm_pairing.cpp` (`probe`, `setAddress`), `romm_http.cpp` (`getAt`).
+- **Two self-tests remove their scratch folder without a shell**, for the iPhone app (private
+  repository `cabinetos-ios`), which cannot start one: `std::filesystem::remove_all` in place of
+  `system("rm -rf ...")`. Same result on the Deck. `playtime.cpp`, `selftests.cpp`.
+- **The certificate authorities can be named by a variable**, for the Android app, whose curl cannot read
+  the folder a phone keeps them in: `CABINETOS_CA_BUNDLE` (a file of PEM certificates). Every checked
+  connection (RomM, RetroAchievements) passes its new curl handle through `tlsca::apply`, which sets
+  `CURLOPT_CAINFO` from it. Unset, which it is on the console, nothing changes. `tlsca.h`;
+  one call after each `curl_easy_init` in `romm_http.cpp` (6), `romm_playdata.cpp`, `ra_net.cpp`.
+- **A core can be linked into the program instead of opened from a file**, for the iPhone app (private
+  repository `cabinetos-ios`): iOS only runs code signed into the app, so its cores are static libraries
+  found by name. Built with `CABINETOS_STATIC_CORES`, `core.cpp`'s three calls (`dlopen`, `dlsym`,
+  `dlclose`) go to `cab::staticcores`, which the iPhone app defines; without it, which is every other
+  build, the lines are the ones that were there. `frontend/src/core.cpp`.
 - **`tools/deck-loop.sh`**: edit on the Mac, build and run on the Deck, no GitHub round trip.
 
 ## System fixes

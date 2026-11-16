@@ -24,10 +24,12 @@ greyed until it is online.
 
 - **Ethernet:** plug in the cable and it connects by itself.
 - **Wi-Fi:** pick your network from the list. A secured network opens the
-  on-screen keyboard for the password (the character just typed stays visible;
-  **show** reveals the rest). *Wrong password* opens the keyboard again.
+  on-screen keyboard for the password (the character just typed shows for a
+  moment, then becomes a dot; **show** reveals the whole password). *Wrong
+  password* opens the keyboard again.
 - Networks that need a user name as well as a password (802.1X, as used by
-  many offices and schools) show *not supported*.
+  many offices and schools) show *not supported* here. Settings, Network
+  leaves them out of its list.
 - Hidden networks cannot be joined.
 
 ## 2. RomM server

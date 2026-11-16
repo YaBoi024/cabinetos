@@ -251,10 +251,13 @@ void playInvite() {
 }
 
 void setEnabled(bool on) { gEnabled = on; }
+static bool gTouchQuiet = false;
+void setTouchQuiet(bool on) { gTouchQuiet = on; }
 void setVolume(float v) { gVolume = v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v); }
 
 void play(Cue c) {
     if (!gReady || !gEnabled || gVolume <= 0.0f) return;
+    if (gTouchQuiet && (c == Cue::Move || c == Cue::Edge)) return;
     const Voice& v = gVoices[static_cast<int>(c)];
     if (v.pcm.empty()) return;
 

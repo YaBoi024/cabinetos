@@ -46,6 +46,16 @@ adapted for handhelds (tested on Steam Deck OLEDs for now).
   system at once, checked against CabinetOS Handheld's signature, with the
   version before kept on the console.
 
+| | | |
+|---|---|---|
+| ![The Library](docs/media/library.webp) | ![A game's page with three save states](docs/media/game.webp) | ![The pause menu](docs/media/pause-menu.webp) |
+| ![Zero Gunner 2 on Dreamcast](docs/media/play-dreamcast.webp) | ![Deathsmiles in the arcade, CRT look](docs/media/play-arcade.webp) | ![Six of the sixteen colours](docs/media/colours-grid.webp) |
+| ![LinkUp: your friends, one with an invite](docs/media/linkup-friends.webp) | ![Steam's Big Picture, one press from Home](docs/media/steam-bigpicture.webp) | ![Hammerin' Hero on PSP](docs/media/play-psp.webp) |
+
+Every picture here was captured from a running console. The
+[showcase page](https://cabinetos.mmagtech.com/) has the videos.
+
+
 ## What you need
 
 - **A handheld.** Currently testing on Steam Deck OLEDs.

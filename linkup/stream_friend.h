@@ -47,6 +47,10 @@ public:
         std::string xauthority;
     };
 
+    // For a system whose picture needs a place to be drawn (a view on iOS): called with the video sink
+    // as the picture's pipeline is made, before it plays. Unset on a console.
+    static void setVideoSinkHook(std::function<void(GstElement* sink)> hook);
+
     explicit StreamFriend(Rtc::Hooks hooks, std::function<void()> askFullPicture);
     ~StreamFriend();
 

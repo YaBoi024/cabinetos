@@ -27,7 +27,8 @@ or a USB keyboard.
 
 - **Hidden networks.** Make the network visible to join it.
 - **802.1X** networks (a user name and a password, common in offices and
-  schools). They are left out of the list.
+  schools). They are left out of this list; [first run](first-run.md) shows
+  them as *not supported*.
 
 ## The RomM server row
 

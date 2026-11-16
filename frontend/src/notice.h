@@ -45,6 +45,8 @@ struct MenuNotice {
     bool holdUntilPress = false;
     // An invite's dot is the friend's own colour.
     bool ownDot = false;
+    // FORK (handheld): whose invite this pill is, so a tap on it can answer it. Empty otherwise.
+    std::string inviteFrom;
     ui::Color dot;
     void pressed() {
         if (!holdUntilPress) return;
@@ -54,6 +56,7 @@ struct MenuNotice {
     void say(std::string t, Tone k) {
         holdUntilPress = false;
         ownDot = false;
+        inviteFrom.clear();
         text = std::move(t);
         tone = k;
         // Busy holds until the answer replaces it; a stuck "Saving…" is still

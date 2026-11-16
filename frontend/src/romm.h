@@ -319,7 +319,9 @@ private:
                   std::string* body, long* status, std::string* err) const;
     // `report` false: a failure to connect is not told to serverAway, for
     // the first of setAddress's two schemes (#479); an answer still is.
-    bool probe(const std::string& candidate, bool report = true);
+    // `why`, when given, gets the reason a failed probe failed (what curl says),
+    // for the sentence setAddress puts on the screen.
+    bool probe(const std::string& candidate, bool report = true, std::string* why = nullptr);
 
     // What a request is sent with, the address and the token, copied
     // together under the lock (romm_http.cpp).

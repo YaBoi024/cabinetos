@@ -2,6 +2,7 @@
 #include "arcadematch.h"
 #include "catalog_internal.h"
 #include "ncch.h"
+#include "platform.h"
 #include "players.h"
 
 #include "standalone.h"
@@ -231,12 +232,20 @@ Coverage answer(const Entry* e) {
     Coverage c{e->support, e->core, e->reason};
     if (c.support != Support::Playable || !c.core) return c;
 
+    // FORK (handheld): A SYSTEM WHOSE EMULATOR IS ANOTHER ANDROID APP BUT WHOSE
+    // CATALOG ROW NAMES A LIBRETRO CORE (GameCube and Wii: Dolphin). The phone
+    // plays it in that app when that app is installed (platform.h), so the
+    // missing core file below is not the question. The console never gets here.
+    if (!cab::standalone::find(c.core) && platform::runsInAnotherApp(c.core)) return c;
+
     // Two emulators that are their own application, xemu and Eden, are
     // installed by first boot from Flathub, not shipped in the image, so
     // "not here" is an ordinary state for a while on a new machine, and a
     // permanent one on a console that has never reached the internet (open
     // question 21). RPCS3, Xenia and Cemu are in the image.
     if (const cab::standalone::Emulator* emu = cab::standalone::find(c.core)) {
+        // FORK (handheld): on a phone the emulator may be an app of its own (platform.h).
+        if (platform::runsInAnotherApp(c.core)) return c;
         if (!cab::standalone::installed(*emu)) {
             c.support = Support::NotInstalled;
             c.reason = "Its emulator is not installed on this console yet";
@@ -396,7 +405,10 @@ const char* shortReason(Support s) {
 }
 
 bool shownGreyed(Support s) {
-    return s == Support::NeedsController || s == Support::UnsupportedGame;
+    // FORK (handheld): a system whose core is not here yet, on a machine that
+    // is given its emulators one at a time (platform.h).
+    return s == Support::NeedsController || s == Support::UnsupportedGame ||
+           (s == Support::NotInstalled && platform::showsGamesWithoutACore());
 }
 
 const char* shortReason(const Coverage& c) {

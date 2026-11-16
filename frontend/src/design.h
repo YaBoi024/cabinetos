@@ -589,7 +589,15 @@ constexpr float kSettingsPaneGap = 60.0f;
 constexpr float kSettingsDetailGap = 4.0f;
 // The two columns, which LinkUp's screen shares with Settings.
 inline float settingsListX() { return kContentInset - kRowPadX * 0.5f; }
-inline float settingsPaneX() { return settingsListX() + kSettingsListWidth + kSettingsPaneGap; }
+// FORK (handheld): on a screen narrower than the console's (a phone held upright) the list takes
+// about a third of it and the gap closes up, so the rows keep most of the width.
+inline bool settingsNarrow() { return ui::kCanvasWidth < 1400.0f; }
+inline float settingsListWidth() {
+    return settingsNarrow() ? std::max(220.0f, ui::kCanvasWidth * 0.32f) : kSettingsListWidth;
+}
+inline float settingsPaneX() {
+    return settingsListX() + settingsListWidth() + (settingsNarrow() ? 28.0f : kSettingsPaneGap);
+}
 inline float settingsPaneW() {
     return std::min(kRowColumnMaxWidth, ui::kCanvasWidth - kContentInset - settingsPaneX());
 }

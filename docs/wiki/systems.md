@@ -47,8 +47,8 @@ downloads anything new into the console's shared BIOS folder.
   `Game (Disc 1).chd`, `Game (Disc 2).chd`. The console fetches them all, keeps
   one save for the game, and changes discs from the pause menu. Discs are
   ordered by the `(Disc N)` in their names. Loose discs are separate games.
-  See [Games on several discs](discs.md).
-  PlayStation, Saturn, Dreamcast, Sega CD, 3DO and GameCube.
+  This works on PlayStation, Saturn, Dreamcast, Sega CD, 3DO and GameCube: see
+  [Games on several discs](discs.md).
 
 ## Every system
 
@@ -101,6 +101,16 @@ downloads anything new into the console's shared BIOS folder.
 - Your Miis from the Mii Channel are copied into every Wii game.
 - Wii U games that need a Wii Remote or the GamePad are greyed: *Needs a Wii
   Remote*, *Needs a Wii U GamePad*.
+
+## Nintendo DS
+
+- **The two screens one above the other.** Click L3 for the top screen alone,
+  again for the bottom screen alone, and again for both. Every game starts
+  with both.
+- **Touch screen:** the right stick moves a pointer on the touch screen and
+  pressing it (R3) touches.
+- **The lid:** hold **R2** to close it, for the few games that ask for it.
+- **Save states, rewind and fast forward** all work.
 
 ## Nintendo 3DS
 
@@ -156,6 +166,7 @@ downloads anything new into the console's shared BIOS folder.
 | PS2 | No | No | Yes |
 | GameCube, Wii | No | No | Yes |
 | 3DS | States and fast forward; no rewind | No | No |
-| Switch, PS3, Xbox, Xbox 360, Wii U, PS Vita | No | No | No |
+| Arcade, in the built-in emulators | Yes | Yes | Only where FinalBurn Neo plays the game |
+| Switch, PS3, Xbox, Xbox 360, Wii U, PS Vita, Model 2 and Model 3 | No | No | No |
 
 Saves sync for every system. See [Saves, states and sync](saves.md).

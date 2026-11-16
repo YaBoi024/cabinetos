@@ -302,6 +302,7 @@ void App::linkupSayInvited(const std::string& who) {
     sound::playInvite();
     menuNotice.life = 6.0f;
     menuNotice.holdUntilPress = true;
+    menuNotice.inviteFrom = who;   // FORK (handheld): a tap on the pill answers it
 }
 
 void App::linkupAnswerInvite(const linkup::Friend& f) {

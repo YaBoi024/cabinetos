@@ -119,9 +119,20 @@ std::string turnUri(const std::string& url, const std::string& user, const std::
 
 }  // namespace
 
-Conductor::Conductor(Keys& keys, LocalSocket& local) : keys_(keys), local_(local), link_(keys) {}
+Conductor::Conductor(Keys& keys, LocalSocket& local) : keys_(keys), local_(local), link_(keys) { ServerLink::abortRequests(false); }
 
-Conductor::~Conductor() = default;
+Conductor::~Conductor() { finish(); }
+
+void Conductor::finish() {
+    stopping_ = true;
+    workCv_.notify_all();
+    if (tickSource_) {
+        g_source_remove(tickSource_);
+        tickSource_ = 0;
+    }
+    if (worker_.joinable()) worker_.join();
+    if (waiter_.joinable()) waiter_.join();
+}
 
 void Conductor::start() {
     paired_ = keys_.server().has_value();
@@ -140,6 +151,7 @@ void Conductor::start() {
 
 void Conductor::shutDown() {
     stopping_ = true;
+    ServerLink::abortRequests(true);
     if (game_) {
         if (Rtc* r = rtc()) r->sendControl("bye");
         if (host_) host_->stop();

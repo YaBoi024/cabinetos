@@ -1,10 +1,14 @@
 #include "ui.h"
+#include "platform.h"
 
 #include <cstdio>
 #include <cstring>
 #include <vector>
 
 namespace ui {
+
+float kCanvasWidth = kCanvasDesignWidth;
+float gCanvasLeft = 0.0f, gCanvasTop = 0.0f, gCanvasScale = 0.0f;
 namespace {
 
 // The eight shader sources (shaders.inc, included here and nowhere else).
@@ -353,17 +357,52 @@ void Renderer::beginFrame(int drawableWidth, int drawableHeight) {
     // Letterbox rather than stretch. A 16:9 panel is the normal case and this is
     // a no-op there; anything else keeps the design's proportions and puts the
     // slack in bars, which is what a console does.
-    float scale = std::min(static_cast<float>(drawableWidth) / kCanvasWidth,
-                           static_cast<float>(drawableHeight) / kCanvasHeight);
+    //
+    // FORK (handheld): a screen wider than 16:9 widens the canvas to fit (see
+    // kCanvasWidth in ui.h), to at most 2.4 to 1; anything else is as before.
+    //
+    // FORK (iPhone): the picture is fitted inside the part of the window a phone
+    // does not cover (platform::safeInsets), and a screen narrower than 16:9
+    // narrows the canvas to fit, to at least 4 to 3 (platform::fillsNarrowScreens).
+    // The console answers zeros and false, and gets what it always had.
+    int insL = 0, insT = 0, insR = 0, insB = 0;
+    if (drawableWidth > 0 && drawableHeight > 0) {
+        platform::safeInsets(drawableWidth, drawableHeight, &insL, &insT, &insR, &insB);
+        if (insL < 0 || insT < 0 || insR < 0 || insB < 0 ||
+            insL + insR >= drawableWidth || insT + insB >= drawableHeight)
+            insL = insT = insR = insB = 0;   // an answer that cannot be right is not used
+    }
+    const int areaW = drawableWidth - insL - insR;
+    const int areaH = drawableHeight - insT - insB;
+    kCanvasWidth = kCanvasDesignWidth;
+    if (areaW > 0 && areaH > 0) {
+        const float aspect = static_cast<float>(areaW) / static_cast<float>(areaH);
+        if (platform::fillsWideScreens()) {
+            constexpr float kWidest = 2.4f;
+            kCanvasWidth = std::max(kCanvasDesignWidth, kCanvasHeight * std::min(aspect, kWidest));
+        }
+        if (platform::fillsNarrowScreens() && aspect < kCanvasDesignWidth / kCanvasHeight) {
+            // FORK (iPhone): held upright, a phone is about 3 to 4 (the Duo's inner screen) or
+            // 0.6 (its outer one). The canvas goes that narrow, so the menus fill the screen.
+            constexpr float kNarrowest = 0.6f;
+            kCanvasWidth = kCanvasHeight * std::max(aspect, kNarrowest);
+        }
+    }
+    float scale = std::min(static_cast<float>(areaW > 0 ? areaW : drawableWidth) / kCanvasWidth,
+                           static_cast<float>(areaH > 0 ? areaH : drawableHeight) / kCanvasHeight);
     scale_ = scale;
     int vw = static_cast<int>(kCanvasWidth * scale);
     int vh = static_cast<int>(kCanvasHeight * scale);
     drawableW_ = drawableWidth;
     drawableH_ = drawableHeight;
-    vx_ = (drawableWidth - vw) / 2;
-    vy_ = (drawableHeight - vh) / 2;
+    // GL's y runs up from the bottom edge, the window's insets run from the top.
+    vx_ = insL + (areaW - vw) / 2;
+    vy_ = insB + (areaH - vh) / 2;
     vw_ = vw;
     vh_ = vh;
+    gCanvasScale = scale;
+    gCanvasLeft = static_cast<float>(insL) + (static_cast<float>(areaW) - kCanvasWidth * scale) * 0.5f;
+    gCanvasTop = static_cast<float>(insT) + (static_cast<float>(areaH) - kCanvasHeight * scale) * 0.5f;
     scenePresented_ = false;
 
     // The scene is drawn into a texture so panels can blur it. Sized to the

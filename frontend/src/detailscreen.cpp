@@ -316,9 +316,6 @@ void DetailScreen::draw(Ctx& c) {
     // shorter; once Continue from makes it taller, the cover is centred
     // against it instead.
     const float calloutLH = c.text.lineHeight(ui::TextStyle::Callout, c.sc);
-    const float colW = design::kRowColumnMaxWidth;
-    cardW_ = (colW - 2.0f * design::kStateCardGap) / 3.0f;
-    cardH_ = cardW_ * (9.0f / 16.0f);
     const float headToRows = c.text.ascent(ui::TextStyle::LargeTitle, c.sc) +
                              c.text.lineHeight(ui::TextStyle::LargeTitle, c.sc) * 0.55f +
                              c.text.ascent(ui::TextStyle::Callout, c.sc) + calloutLH * 2.6f;
@@ -330,6 +327,31 @@ void DetailScreen::draw(Ctx& c) {
     // was a shelf, first, and MMagTech: a game without saves and states
     // should look like one with them.)
     const float rowsH = 2.0f * rowH + design::kDetailRowGap;
+    const float capInset = c.text.ascent(ui::TextStyle::LargeTitle, c.sc) -
+                           c.text.capHeight(ui::TextStyle::LargeTitle, c.sc);
+    // FORK (handheld): THE COLUMN GIVES WAY ON A NARROW SCREEN. The pair (column,
+    // gap, cover) was 1.5 to 1.7 thousand points wide and the canvas can now be as
+    // narrow as 4:3 (1440), so the page ran off both edges and looked zoomed in. The
+    // column takes what the cover leaves, and the cover follows the pictures' height,
+    // which follows the column: a few passes settle it. On a canvas of 1920 or more
+    // nothing changes (the column stays at its usual width).
+    float colW = design::kRowColumnMaxWidth;
+    {
+        float coverGuess = design::kDetailCoverWidth;
+        for (int pass = 0; pass < 4; ++pass) {
+            const float room = ui::kCanvasWidth - 2.0f * design::kContentInset -
+                               design::kDetailCoverGap - coverGuess;
+            colW = std::clamp(room, 560.0f, design::kRowColumnMaxWidth);
+            const float cw = (colW - 2.0f * design::kStateCardGap) / 3.0f;
+            const float foot = headToRows + rowsH + design::kStateShelfGap + calloutLH +
+                               design::kDetailRowGap + cw * (9.0f / 16.0f);
+            const float ch = std::clamp(foot - capInset, design::kDetailCoverHeight,
+                                        design::kDetailCoverMaxHeight);
+            coverGuess = ch * (design::kDetailCoverWidth / design::kDetailCoverHeight);
+        }
+    }
+    cardW_ = (colW - 2.0f * design::kStateCardGap) / 3.0f;
+    cardH_ = cardW_ * (9.0f / 16.0f);
     const float shelfH = design::kStateShelfGap + calloutLH + design::kDetailRowGap + cardH_ +
               design::kDetailRowGap * 0.75f + calloutLH;
     const float colH = headToRows + rowsH + shelfH;
@@ -344,8 +366,6 @@ void DetailScreen::draw(Ctx& c) {
     // the same day: the cover's top sat above the title's letters and its foot
     // below the pictures, at the labels'). Its top is the top of the title's
     // capitals; its foot is the foot of the state pictures.
-    const float capInset = c.text.ascent(ui::TextStyle::LargeTitle, c.sc) -
-                           c.text.capHeight(ui::TextStyle::LargeTitle, c.sc);
     const float picturesFoot = headToRows + rowsH + design::kStateShelfGap + calloutLH +
                                design::kDetailRowGap + cardH_;
     const float coverH = std::clamp(picturesFoot - capInset, design::kDetailCoverHeight,

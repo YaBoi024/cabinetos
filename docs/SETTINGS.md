@@ -800,7 +800,7 @@ from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
     no line; pressing it checks (MMagTech on the TV, 2026-09-25: no state
     for "never checked").
     **A check somebody pressed that finds an update opens a panel**,
-    "Update available" / "2026.09.28 · 0.9 MB" / **Download** · Later, and
+    "Update available" / "2026.09.28 · 312.5 MB" / **Download** · Later, and
     the row opens it again; Download goes to the PIN. Without it the second
     press that downloads was nowhere on screen (MMagTech on the TV,
     2026-09-25). A weekly check stays quiet: the pill only. After a
@@ -809,9 +809,12 @@ from (#286). Decided with MMagTech on the A9, 2026-10-07, and Tailscale
     Download will fetch, not what was newest then (#485, SETTINGS-19).
     Up to date / "Checked today" (both kinds of check write that line;
     "yesterday", "3 days ago" by the calendar).
-    Checking…. Update available / "2026.09.28 · 0.9 MB": the size is shown,
-    because a base-image update is hundreds of MB to GB. Downloading: "45%" /
-    "0.4 of 0.9 MB". Installing… with the time taken and the amount written
+    Checking…. Update available / "2026.09.28 · 312.5 MB": the size is shown,
+    because a base-image update is hundreds of MB to GB. Below a megabyte it
+    says "under 1 MB", since one decimal would print 0.0 (#672), and a size
+    root could not work out (it writes 0) is left off, the version alone.
+    Downloading: "45%" / "140.7 of 312.5 MB", or "under 1 MB" alone for a
+    smaller total. Installing… with the time taken and the amount written
     ("3m 12s, 1.4 GB written"), because unpacking has no honest percentage
     and a spinner would not show it is not frozen. Restart to update.
     Couldn't update / "Stalled" or the reason; pressing retries. **A failed

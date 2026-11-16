@@ -7,9 +7,9 @@ The same menu in every game, on every system.
 ## Open it
 
 - **Press both sticks in together (L3 + R3).** Always, on any pad.
-- **Escape** on a USB keyboard. In PS2, Switch, PS3, Xbox, Xbox 360, Wii U
-  and PS Vita games, and Model 2 and Model 3 arcade games, the keyboard does
-  not reach the menu: use a pad.
+- **Escape** on a USB keyboard. In PS2 games, and in Switch, PS3, Xbox,
+  Xbox 360, Wii U, PS Vita, Model 2 and Model 3 games, the keyboard does not
+  reach the menu: use a pad.
 - A tap of the **shortcut button** (Home, unless you chose another), when
   [In-game shortcuts](navigation.md#in-game-shortcuts) are on.
 - **Hold HOME** for a second on a Wii Remote, in any game.
@@ -34,19 +34,21 @@ Remote Play stream starts or ends.
 | **Widescreen** | PS2: **On** plays the game in 16:9 with PCSX2's widescreen patch; **Off** plays it in 4:3 as made. Kept for this game. Takes effect from the next start. |
 | **Look** | The screen look for this system: CRT, LCD, sharp or plain. Changes behind the menu straight away. |
 | **Screen** / **Colors** | Virtual Boy's screen colours and 3D glasses, Game Boy's colour palettes. |
+| **Overlays** | Vectrex: **On** draws the game's coloured screen sheet over its picture, **Off** shows the bare screen. See [Display and Sound](picture.md#screen-looks). |
 | **Controls** | Arcade games: puts the game's buttons on the buttons you choose, for this game. See [Controls](#controls). |
 | **Exit to Home** | Saves your game to RomM and goes back to its page. |
 
 Rows appear only where they apply:
 
-- **Save state** and **Load latest state**: not on PS2, GameCube, Wii,
-  Switch, PS3, Xbox, Xbox 360, Wii U or PS Vita, or in Model 2 and Model 3
-  arcade games, which have no save states. A 3DS
-  state may not load after an update changes the emulator.
+- **Save state** and **Load latest state**: not on PS2, GameCube or Wii, and
+  not in Switch, PS3, Xbox, Xbox 360, Wii U, PS Vita, Model 2 and Model 3
+  games, which have no save states. A 3DS state may not load after an update
+  changes the emulator.
 - **Picture**: only on systems with picture levels, and only for the owner
   when a PIN is set.
 - **Widescreen**: only on PS2 games that have a widescreen patch.
 - **Look**: only on systems that have looks. See [Display and Sound](picture.md#screen-looks).
+- **Overlays**: only on a Vectrex game that has a screen sheet.
 - **Change disc**: only on a game with several discs. Not on GameCube, which
   changes discs by itself; 3DO has Insert and restart only. On Saturn Insert
   goes through the console's CD player screen: press Start there.
@@ -77,9 +79,9 @@ With two kinds of controller on (a pad and a fight stick, say), the first row
 says whose they are, **Player 1** or **Player 2**: press Left or Right to
 change it.
 
-Your changes are kept on the console, in `users/<you>/controls/`, one small
-file per game, which [File access](file-access.md) shows. They are not sent to
-your RomM server.
+Your changes are kept on the console, in the `controls` folder inside your own
+folder under `users`, one small file per game, which
+[File access](file-access.md) shows. They are not sent to your RomM server.
 
 ## The Power menu
 

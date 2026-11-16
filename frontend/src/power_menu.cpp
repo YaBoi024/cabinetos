@@ -30,9 +30,10 @@ void App::powerActivate(PowerItem item) {
         steamPressed();
         return;
     }
-    const power::Action act = item == PwRest      ? power::Action::Rest
-                              : item == PwRestart ? power::Action::Restart
-                                                  : power::Action::PowerOff;
+    const power::Action act = item == PwRest       ? power::Action::Rest
+                              : item == PwRestart  ? power::Action::Restart
+                              : item == PwExitApp  ? power::Action::ExitApp
+                                                   : power::Action::PowerOff;
     std::fprintf(stderr, "[power] %s chosen%s\n", power::name(act),
                  playing || standalonePaused ? " from a game; leaving it first" : "");
     if (act == power::Action::Rest) {
@@ -130,8 +131,11 @@ void App::openPowerMenu() {
     // Steam?" or the PIN. Gone when somebody chose Hide Steam.
     if (!game && steam::available() && !steam::hidden()) powerItems.push_back(PwSteam);
     if (restAvailable) powerItems.push_back(PwRest);
-    powerItems.push_back(PwRestart);
-    powerItems.push_back(PwPowerOff);
+    if (power::canRestartAndPowerOff()) {
+        powerItems.push_back(PwRestart);
+        powerItems.push_back(PwPowerOff);
+    }
+    if (power::canExitApp()) powerItems.push_back(PwExitApp);
     powerMenu = true;
     overlayOpen = true;
     overlaySlot = 0;

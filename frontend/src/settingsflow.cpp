@@ -10,6 +10,7 @@
 
 #include "chargelimit.h"
 #include "idlesleep.h"
+#include "platform.h"
 #include "prefs.h"
 #include "quality.h"
 #include "rumble.h"
@@ -67,7 +68,9 @@ void App::buildSettings() {
     // somebody else is signed in, the owner switches in, which asks for it.
     {
         auto& rows = cats.back().rows;
-        const char* protects = "Protects accounts, network, storage, Steam and updates";
+        const char* protects = steam::available()
+            ? "Protects accounts, network, storage, Steam and updates"
+            : "Protects accounts, network, storage and updates";   // FORK (handheld): no Steam here
         const bool isOwner = accounts::activeId() == accounts::ownerId();
         const std::vector<accounts::Account> list = accounts::all();
         const accounts::Account* owner = accounts::find(list, accounts::ownerId());
@@ -518,6 +521,14 @@ void App::buildSettings() {
         cats.push_back({"About", std::move(about)});
     }
 
+
+    // FORK (handheld): rows that mean nothing on this machine (platform.h hidesSetting).
+    for (auto& c : cats)
+        c.rows.erase(std::remove_if(c.rows.begin(), c.rows.end(),
+                                    [](const screens::SettingsRow& r) { return platform::hidesSetting(r.title.c_str()); }),
+                     c.rows.end());
+    cats.erase(std::remove_if(cats.begin(), cats.end(), [](const screens::SettingsCategory& c) { return c.rows.empty(); }),
+               cats.end());
 
     settingsScreen.setCategories(std::move(cats));
 }

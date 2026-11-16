@@ -101,8 +101,8 @@ use them, and L3+R3 is the pause menu.
 | Hold it + **X** (left face button) | Screenshot, also with the pause menu open |
 
 State, rewind, fast forward and screenshot shortcuts work in the built-in
-emulators (3DS: no rewind). In Switch, PS3, Xbox, Xbox 360, Wii U and PS Vita games, and Model 2 and Model 3 arcade games, only the tap works;
-use the pause menu for the rest.
+emulators (3DS: no rewind). In Switch, PS3, Xbox, Xbox 360, Wii U, PS Vita,
+Model 2 and Model 3 games, only the tap works; use the pause menu for the rest.
 
 ## The on-screen keyboard
 

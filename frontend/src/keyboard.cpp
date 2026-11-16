@@ -6,6 +6,7 @@
 #include <cstdio>
 
 #include "design.h"
+#include "platform.h"
 #include "sound.h"
 #include "text.h"
 #include "ui.h"
@@ -88,6 +89,7 @@ void Keyboard::open(const Config& config) {
     col_ = 0;
     letGoOfHeld();
     open_ = true;
+    platform::textFieldOpened();   // FORK (handheld): the machine's own keyboard, if it has one
     ghost_ = false;
     buildLayouts();
 }
@@ -125,6 +127,25 @@ void Keyboard::buildLayouts() {
             key.width = w;
             return key;
         };
+
+        // FORK (handheld): THE MACHINE TYPES, so the grid is one row: the
+        // field's shortcuts, show or hide for a password, and Done. Typing,
+        // delete and Return reach the field as a physical keyboard's do.
+        if (platform::ownsKeyboard()) {
+            std::vector<Key> only;
+            float used = 0;
+            for (const auto& sc : config_.shortcuts) {
+                only.push_back(wide(k(sc.c_str(), sc.c_str()), 2.5f));
+                used += 2.5f;
+            }
+            if (config_.conceal) {
+                only.push_back(wide(action(conceal_ ? "show" : "hide", Key::Conceal), 2.5f));
+                used += 2.5f;
+            }
+            only.push_back(wide(action("done", Key::Done), std::max(3.0f, kCols - used)));
+            rows.push_back(only);
+            return rows;
+        }
 
         std::vector<Key> digits;
         for (const char* p = "1234567890"; *p; ++p)
@@ -470,12 +491,14 @@ KeyboardResult Keyboard::commit() {
     }
     restoreHeld();
     open_ = false;
+    platform::textFieldClosed();
     return KeyboardResult::Committed;
 }
 
 KeyboardResult Keyboard::cancel() {
     busy_ = false;
     open_ = false;
+    platform::textFieldClosed();
     return KeyboardResult::Cancelled;
 }
 
@@ -521,9 +544,16 @@ void Keyboard::draw(Renderer& r, TextRenderer& text, float scale) {
     // Bottom-anchored when docked, with the safe inset under it — this is text
     // and controls a person has to reach, so it obeys the same rule the top bar
     // does about the edges of a television.
-    const float restY = config_.dockedBottom
-                            ? kCanvasHeight - panelH - kSafeInset * 0.5f
-                            : (kCanvasHeight - panelH) * 0.5f;
+    //
+    // FORK (handheld): WITH THE MACHINE'S KEYBOARD a full-size panel sits in
+    // the top third, because that keyboard covers the lower half of the screen.
+    // A docked panel's bottom edge is at the middle of the screen then, with the
+    // results above it, for the same reason.
+    const float restY = platform::ownsKeyboard()
+                            ? (config_.dockedBottom ? kCanvasHeight * 0.5f - panelH - kSafeInset * 0.25f
+                                                    : kCanvasHeight * 0.10f)
+                            : (config_.dockedBottom ? kCanvasHeight - panelH - kSafeInset * 0.5f
+                                                    : (kCanvasHeight - panelH) * 0.5f);
     // Where the results stop is where the panel's top edge IS this frame,
     // slide included: Search's covers grow and shrink with the slide instead
     // of jumping to their resting size while the panel is still moving

@@ -12,6 +12,8 @@
 
 #include <curl/curl.h>
 
+#include "tlsca.h"
+
 #include <unistd.h>
 
 #include <algorithm>
@@ -198,6 +200,7 @@ bool Client::getAt(const Where& at, const std::string& path, std::string* body,
                    long* statusOut) const {
     if (statusOut) *statusOut = 0;
     CURL* c = curl_easy_init();
+    if (c) tlsca::apply(c);
     if (!c) { if (err) *err = "curl init failed"; return false; }
     const std::string url = at.base + path;
     curl_slist* hdrs = nullptr;
@@ -205,6 +208,10 @@ bool Client::getAt(const Where& at, const std::string& path, std::string* body,
         hdrs = curl_slist_append(hdrs, ("Authorization: Bearer " + at.token).c_str());
 
     body->clear();
+    // The words curl keeps for a failure (a certificate's fault, the step that
+    // failed), which its code alone does not carry. Read only on a failure.
+    char detail[CURL_ERROR_SIZE] = {0};
+    curl_easy_setopt(c, CURLOPT_ERRORBUFFER, detail);
     curl_easy_setopt(c, CURLOPT_URL, url.c_str());
     curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, sink);
     curl_easy_setopt(c, CURLOPT_WRITEDATA, body);
@@ -219,7 +226,13 @@ bool Client::getAt(const Where& at, const std::string& path, std::string* body,
     if (hdrs) curl_slist_free_all(hdrs);
     curl_easy_cleanup(c);
 
-    if (rc != CURLE_OK) { if (err) *err = curl_easy_strerror(rc); return false; }
+    if (rc != CURLE_OK) {
+        if (err) {
+            *err = curl_easy_strerror(rc);
+            if (detail[0] != '\0' && *err != detail) *err += std::string(": ") + detail;
+        }
+        return false;
+    }
     if (statusOut) *statusOut = status;
     if (status == 401 || status == 403) {
         if (err) *err = "not authorised: the token is missing, expired or lacks the scope";
@@ -240,6 +253,7 @@ bool Client::postJson(const std::string& path, const std::string& json,
 bool Client::sendJson(const char* method, const std::string& path, const std::string& json,
                       std::string* body, long* status, std::string* err) const {
     CURL* c = curl_easy_init();
+    if (c) tlsca::apply(c);
     if (!c) { if (err) *err = "curl init failed"; return false; }
     const Where at = where();
     const std::string url = at.base + path;
@@ -305,6 +319,7 @@ bool Client::postMultipart(const std::string& path, const char* partName,
                            std::string* err, const std::string& shotName,
                            const std::vector<uint8_t>& shot) const {
     CURL* c = curl_easy_init();
+    if (c) tlsca::apply(c);
     if (!c) { if (err) *err = "curl init failed"; return false; }
 
     const std::string boundary = "CabinetOSBoundary7f3a91c4";
@@ -380,6 +395,7 @@ int reportProgress(void* user, curl_off_t dlTotal, curl_off_t dlNow, curl_off_t,
 bool Client::fetchToFile(const std::string& path, const std::string& destPath,
                          const ProgressFn& onProgress, std::string* err) const {
     CURL* c = curl_easy_init();
+    if (c) tlsca::apply(c);
     if (!c) { if (err) *err = "curl init failed"; return false; }
 
     // Written to a neighbouring .part and renamed only on success, so an
@@ -451,6 +467,7 @@ bool Client::fetchToFile(const std::string& path, const std::string& destPath,
 std::vector<uint8_t> Client::fetchBytes(const std::string& path) const {
     std::vector<uint8_t> data;
     CURL* c = curl_easy_init();
+    if (c) tlsca::apply(c);
     if (!c) return data;
     // The path comes from the server and may carry anything; see encodeUrl.
     // A whole address is taken only when it is on the RomM server, and a
@@ -524,6 +541,7 @@ std::vector<uint8_t> Client::fetchRange(const Game& g, uint64_t offset, size_t b
     // `Sonic & Sega All-Stars Racing` must not become a query.
     const std::string name = encodeSegment(g.fsName);
     CURL* c = curl_easy_init();
+    if (c) tlsca::apply(c);
     if (!c) return data;
     const Where at = where();
     const std::string url = at.base + "/api/roms/" + std::to_string(g.id) + "/content/" + name;

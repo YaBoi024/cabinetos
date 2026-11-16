@@ -4,6 +4,7 @@
 
 #include <cctype>
 #include <chrono>
+#include <cstdio>
 #include <cstring>
 #include <thread>
 
@@ -37,7 +38,10 @@ std::string tidy(const std::string& typed) {
 Result pair(Keys& keys, const std::string& address, const std::string& code, const std::string& joining,
             std::string& serverName) {
     const std::string twelve = tidy(code);
-    if (twelve.empty()) return Result::WrongCode;
+    if (twelve.empty()) {
+        std::fprintf(stderr, "[linkup] pairing: what was typed is not 12 characters of the code's alphabet (%zu typed)\n", code.size());
+        return Result::WrongCode;
+    }
     noise::Handshake::Config c;
     c.pattern = noise::Pattern::XXpsk0;
     c.initiator = true;
@@ -65,9 +69,15 @@ Result pair(Keys& keys, const std::string& address, const std::string& code, con
         }
     }
     if (base.empty()) return Result::Unreachable;
-    if (answer.status == 403) return Result::WrongCode;
+    if (answer.status == 403) {
+        std::fprintf(stderr, "[linkup] pairing: the server refused the first message (403): the code it holds is not this one\n");
+        return Result::WrongCode;
+    }
     if (answer.status == 429) return Result::TooManyTries;
-    if (answer.status != 200 || answer.body.size() <= kPairIdLen) return Result::Unreachable;
+    if (answer.status != 200 || answer.body.size() <= kPairIdLen) {
+        std::fprintf(stderr, "[linkup] pairing: the first answer was status %ld, %zu bytes\n", static_cast<long>(answer.status), answer.body.size());
+        return Result::Unreachable;
+    }
 
     // Message 2 is the server's proof. Something that cannot make one that opens does not hold
     // the code: a typo that happened to fit nothing there, or a fake. It stops here, keeping nothing.
@@ -93,7 +103,10 @@ Result pair(Keys& keys, const std::string& address, const std::string& code, con
         std::this_thread::sleep_for(std::chrono::seconds(1));
     }
     if (!reply.answered) return Result::Unreachable;
-    if (reply.status == 403) return Result::WrongCode;
+    if (reply.status == 403) {
+        std::fprintf(stderr, "[linkup] pairing: the server refused the second message (403)\n");
+        return Result::WrongCode;
+    }
     if (reply.status == 429) return Result::TooManyTries;
     if (reply.status != 200) return Result::Unreachable;
 
@@ -103,7 +116,10 @@ Result pair(Keys& keys, const std::string& address, const std::string& code, con
     const bool ok = jsonutil::flag(result, "ok");
     const std::string error = jsonutil::str(result, "error");
     if (result) json_object_put(result);
-    if (!ok) return error == "wrong_code" ? Result::WrongCode : Result::Refused;
+    if (!ok) {
+        std::fprintf(stderr, "[linkup] pairing: the server said %s\n", error.c_str());
+        return error == "wrong_code" ? Result::WrongCode : Result::Refused;
+    }
 
     // Only now is the server's key kept (PROTOCOL.md).
     Keys::Server server;

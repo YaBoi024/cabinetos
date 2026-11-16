@@ -20,6 +20,12 @@ The system's name in a message is RomM's name for the platform.
 | *This game's file is a web page, not a game* | The file on the server is a saved download page. Replace it in RomM. |
 | *Needs X.X GB more space* | Remove downloads (Settings, Storage, Downloads) or plug in a drive. |
 | *Couldn't start this game* | Check the format against [Systems](systems.md#file-formats-in-short). A zipped Dreamcast, GameCube, Wii or Saturn disc will not start: use CHD, RVZ or ISO. |
+| *Disc can't be read* | A PS2 disc image that would not start. It may be damaged, or be a CD image made from a DVD. Replace it in RomM with a CHD or ISO made from the original disc. |
+| *Couldn't download this game* | The console could not fetch the game. Check that the server answers (the top bar says *Offline* when it does not) and try again. |
+| *Needs a controller* | Only Wii Remotes are on, and this is not a Wii game. Turn on a pad, or see [Wii Remotes](controllers.md#wii-remotes). |
+| *Not supported* (an arcade game) | No emulator here plays it. See [Arcade](arcade.md). |
+| *Needs a light gun* (an arcade game) | The game is made for a light gun. See [Arcade](arcade.md). |
+| *Can't connect* (changing the RomM server's address) | Nothing answered at that address. Check the address and its port. |
 
 ## A game crashes, freezes or looks wrong
 
@@ -53,8 +59,9 @@ graphics under Linux:
   controller in pairing mode again, and keep it close.
 - **A Wii Remote will not pair.** Press the red sync button inside the battery
   cover, not the 1 and 2 buttons.
-- **No pause menu with the keyboard.** In PS2 and in Switch, PS3, Xbox, Xbox 360,
-  Wii U and PS Vita games, use a pad: both sticks pressed together.
+- **No pause menu with the keyboard.** In PS2 games, and in Switch, PS3, Xbox,
+  Xbox 360, Wii U, PS Vita, Model 2 and Model 3 games, use a pad: both sticks
+  pressed together.
 
 ## The screen
 
@@ -62,11 +69,24 @@ graphics under Linux:
   Settings, Display and Sound. Press any button; that first press only wakes
   it, and buttons do nothing for 3 seconds while the picture comes back.
 
+## Sound
+
+- **No sound.** The sound plays on the TV the picture is on, so check the TV's
+  volume and its input first. A speaker in the PC's case, a USB sound card and
+  a USB headset get none of it, and there is no setting for that: only
+  headphones in a jack that senses the plug take it, while they are in. See
+  [Display and Sound](picture.md#sound).
+- **No sound after starting from a USB drive.** Restart the console from its
+  menu. See [Run from a USB drive](portable.md).
+- **Still silent.** Send a report ([below](#reporting-a-problem)): it shows
+  where the sound goes.
+
 ## Remote Play
 
 - **Steam looks washed out on the device.** Turn on HDR in Moonlight's settings.
-- **The device cannot find the console.** Check Remote Play is on, and that the
-  device is on the same network (or on Tailscale, using the Tailscale address).
+- **The device cannot find the console.** Check the TV is on (Remote Play
+  needs a screen to stream), that Remote Play is on, and that the device is on
+  the same network (or on Tailscale, using the Tailscale address).
 
 ## Reporting a problem
 

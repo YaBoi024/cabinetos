@@ -54,6 +54,9 @@ bool init();
 // interface changes — there is no visual compensation for a muted console,
 // because a person who turns the sounds off has said what they want.
 void setEnabled(bool on);
+// FORK (handheld): a finger dragging through a menu makes no Move and no Edge sound, as a
+// scrolled list on a phone makes none. A tap still clicks. On while a drag's steps are sent.
+void setTouchQuiet(bool on);
 
 // 0..1. The default is deliberately low: this is punctuation under whatever
 // else is happening, and a navigation click that competes with a game's music

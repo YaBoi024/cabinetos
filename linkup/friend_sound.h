@@ -1,4 +1,4 @@
-// The friend's sound: a queue of its own, played through PipeWire at the host's pace.
+// The friend's sound: a queue of its own, played at the host's pace (PipeWire on a console).
 //
 // WHY A QUEUE OF ITS OWN (#654): the host's sound clock is not the friend's. Measured, the mini PC
 // sent 47,960.6 samples a second by the reference console's clock, so a queue played at the friend's
@@ -22,14 +22,11 @@
 
 #pragma once
 
-#include <pipewire/pipewire.h>
-#include <spa/utils/ringbuffer.h>
-
 #include <atomic>
 #include <cstdint>
 #include <vector>
 
-// The queue and its pace, with no PipeWire in it: what noise-test.cpp holds to a host's clock.
+// The queue and its pace, with no sound system in it: what noise-test.cpp holds to a host's clock.
 class SoundQueue {
 public:
     static constexpr uint32_t kRate = 48000;
@@ -39,9 +36,9 @@ public:
 
     // GStreamer's thread. Never waits: what does not fit is dropped and counted.
     void push(const int16_t* frames, uint32_t count);
-    // PipeWire's thread: exactly count frames into out, silence while it fills.
+    // The output's thread: exactly count frames into out, silence while it fills.
     void pull(int16_t* out, uint32_t count);
-    // For pw_stream_set_rate, on PipeWire's thread: below 1 takes more of the queue each cycle.
+    // For the output's resampler (pw_stream_set_rate), on its thread: below 1 takes more of the queue each cycle.
     double rate() const { return rate_; }
 
     // Any thread.
@@ -64,10 +61,12 @@ private:
     void setTarget(uint32_t frames);
 
     std::vector<int16_t> data_;
-    mutable spa_ringbuffer ring_{};   // SPA's reads take it unconst
+    // Free-running indexes, as SPA's ring buffer has them: filled = write - read, the slot is index & mask.
+    std::atomic<uint32_t> readIndex_{0};
+    std::atomic<uint32_t> writeIndex_{0};
     const uint32_t least_;
 
-    // PipeWire's thread only.
+    // The output's thread only.
     uint32_t target_;
     bool playing_ = false;
     bool stalled_ = false;   // ran dry, not yet playing again
@@ -88,9 +87,11 @@ private:
     std::atomic<uint32_t> targetFrames_{0};
 };
 
-// The PipeWire playback stream that drains a SoundQueue, on a thread loop of its own.
+// The output that drains a SoundQueue, on a thread of its own. What plays it is the platform's:
+// friend_sound_pw.cpp (PipeWire) on a console, another file for another system.
 class FriendSound {
 public:
+    FriendSound();
     ~FriendSound();
 
     // Plays silence until the queue holds the target. Any thread; a second call does nothing.
@@ -98,17 +99,14 @@ public:
     void push(const int16_t* frames, uint32_t count) { queue_.push(frames, count); }
     // After the pipeline that pushes has stopped.
     void stop();
-    bool running() const { return stream_ != nullptr; }
+    bool running() const { return out_ != nullptr; }
     SoundQueue::Stats stats() const { return queue_.stats(); }
     uint32_t rateRefused() const { return rateRefused_.load(); }
 
-private:
-    static void onState(void* self, pw_stream_state old, pw_stream_state now, const char* error);
-    static void onProcess(void* self);
+    struct Output;   // the platform's, in its own file
 
+private:
     SoundQueue queue_;
-    pw_thread_loop* loop_ = nullptr;
-    pw_stream* stream_ = nullptr;
-    double rateGiven_ = 0;   // PipeWire's thread only
+    Output* out_ = nullptr;
     std::atomic<uint32_t> rateRefused_{0};
 };

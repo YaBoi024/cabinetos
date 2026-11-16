@@ -1027,6 +1027,8 @@ struct App {
     float owedClock = 0.0f;   // seconds since the last try at what is owed
     StateLoad stateLoad;
     MenuNotice menuNotice;
+    float noticeDrawn[4] = {0, 0, 0, 0};   // FORK (handheld): the pill as last drawn: x, y, w, h
+    bool tapNotice(float x, float y);      // FORK (handheld): a tap on an invite's pill
     // THE PADS WHOSE LOW-BATTERY NOTICE HAS BEEN SHOWN (#293), by the pad and
     // not its number: numbers change with a stream or a pad coming back, and a
     // pad warned before a stream must not be warned again after it. Cleared
@@ -1230,7 +1232,7 @@ struct App {
     // first — the one way out of a game, which uploads every kind of save — so
     // this is true for every emulator without any of them knowing.
     bool powerMenu = false;
-    enum PowerItem { PwResume, PwCancel, PwRest, PwRestart, PwPowerOff, PwSteam };
+    enum PowerItem { PwResume, PwCancel, PwRest, PwRestart, PwPowerOff, PwSteam, PwExitApp };
     std::vector<PowerItem> powerItems;
     bool restAvailable = false;
     // Rest waits for the uploads finishExit queued: a machine that sleeps
@@ -1430,6 +1432,8 @@ struct App {
     BarSpot barSpot[BarCount];
     uint64_t barDrawnAt = 0;
     screens::TapSpots homeTaps;   // FORK (handheld): Home's covers, as last drawn
+    screens::TapSpots overlayTaps;   // FORK (handheld): the pause menu's rows, as last drawn
+    bool tapOverlay(float x, float y);   // FORK (handheld): a tap on one of them
     // Trigger edge state. See the axis handler.
     bool l2Held = false, r2Held = false;
     // A HELD TRIGGER KEEPS JUMPING (MMagTech, 2026-10-10: "holding them should
@@ -1649,6 +1653,7 @@ struct App {
     static int64_t prefNum(const char* key);
     static std::string updBytes(int64_t b);
     static std::string updOf(int64_t done, int64_t total);
+    static std::string updVersionSize(const std::string& version, int64_t size);
     std::string updChecked();
     bool updFoundNewer();
     screens::SettingsRow updateRow();

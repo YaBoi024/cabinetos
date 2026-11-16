@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "screens.h"
+#include "tapspots.h"
 
 namespace screens {
 
@@ -151,8 +152,14 @@ public:
     // For a capture: the resting frame.
     void settle() { appear_.settle(1.0f); focus_.settle(1.0f); }
     void draw(Ctx& c);
+    // FORK (handheld): a finger. The answer drawn under (x, y) last frame, or -1; whether there
+    // are answers to tap at all; and focus put on one, as Up and Down would.
+    int tapAt(float x, float y) const { return taps_.at(x, y); }
+    bool hasAnswers() const { return !options_.empty(); }
+    void focusOn(int i);
 
 private:
+    TapSpots taps_;
     bool open_ = false;
     bool staysOpen_ = false;
     bool onlyA_ = false;

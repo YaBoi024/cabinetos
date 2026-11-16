@@ -230,6 +230,8 @@ void ChoiceScreen::drawMenuRows(Ctx& c, float a) {
         const float bx = px + (panelW_ - bw) * 0.5f;
         const float by = py + 32.0f + static_cast<float>(i - top_) * (rowH + gap) - (bh - rowH) * 0.5f;
         c.r.draw(design::menuButton(bx, by, bw, bh, design::kOverlayButtonRadius, fi, 1.0f));
+        if (a > 0.5f && !isDisabled(i))
+            taps_.add(i, px + 32.0f, py + 32.0f + static_cast<float>(i - top_) * (rowH + gap), panelW_ - 64.0f, rowH);
         const std::string value =
             i < static_cast<int>(values_.size()) ? values_[i] : std::string();
         const std::string line = value.empty() ? options_[i] : options_[i] + ": " + value;
@@ -251,7 +253,19 @@ void ChoiceScreen::drawMenuRows(Ctx& c, float a) {
     c.r.setContentAlpha(1.0f);
 }
 
+// FORK (handheld): focus put on the answer a finger tapped, as Up and Down would put it.
+void ChoiceScreen::focusOn(int i) {
+    if (!open_ || fading_ || i < 0 || i >= static_cast<int>(options_.size()) || isDisabled(i)) return;
+    if (i != slot_) {
+        slot_ = i;
+        focus_.retarget(0.0f, 0.0f);
+        focus_.elapsed = 0.0f;
+        focus_.retarget(1.0f, design::kFocusDuration);
+    }
+}
+
 void ChoiceScreen::draw(Ctx& c) {
+    taps_.clear();   // FORK (handheld): only what is drawn this frame can be tapped
     if (!visible()) return;
     using ui::TextStyle;
     if (overMenu_) {
@@ -403,6 +417,7 @@ void ChoiceScreen::draw(Ctx& c) {
         const float dx = bx - (dw - rowW) * 0.5f, dy = y - (dh - kButtonH) * 0.5f;
         const float bf = on ? f : 0.0f;
         c.r.draw(design::menuButton(dx, dy, dw, dh, kButtonRadius * s, bf, 1.0f));
+        if (a > 0.5f && !isDisabled(i)) taps_.add(i, bx, y, rowW, kButtonH);
         const float base = dy + dh * 0.5f + c.text.ascent(TextStyle::Title3, sc) * 0.40f;
         // A LIST (answers with values) reads left to right, "name ... state",
         // like a Settings row; a plain question keeps its answers centred.

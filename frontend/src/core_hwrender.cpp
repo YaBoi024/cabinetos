@@ -8,6 +8,7 @@
 
 #include "core.h"
 #include "core_state.h"
+#include "platform.h"
 
 #include <SDL3/SDL.h>
 
@@ -114,6 +115,10 @@ SDL_GLContext gHWDesktopContext = nullptr;
 SDL_GLContext gUIContext = nullptr;
 SDL_Window* gHWWindow = nullptr;
 GLuint gHWDesktopFBO = 0;
+// FORK (handheld): a GLES core's own context on a phone (platform.h, coreGLContextMake). While it
+// is set, gHWDesktop is true as well: everything that follows a core into a context of its own
+// (its framebuffer, no restoreGLState, the switch in CoreContext) is the same for both.
+void* gHWOwnES = nullptr;
 
 uintptr_t currentFramebuffer(void) { return gHWDesktop ? gHWDesktopFBO : gHWFBO; }
 
@@ -296,6 +301,11 @@ bool openDesktopContext(const retro_hw_render_callback& cb, std::string* what) {
 // After the core has unloaded and destroyHWTarget has run: the core's
 // framebuffer goes with its context.
 void closeDesktopContext() {
+    if (gHWOwnES) {
+        platform::coreGLContextUse(nullptr);
+        platform::coreGLContextFree(gHWOwnES);
+        gHWOwnES = nullptr;
+    }
     if (gHWDesktopContext) {
         SDL_GL_MakeCurrent(gHWWindow, gUIContext);
         SDL_GL_DestroyContext(gHWDesktopContext);
@@ -305,8 +315,19 @@ void closeDesktopContext() {
     gHWDesktop = false;
 }
 
-CoreContext::CoreContext() : switched_(gHWDesktop && gHWDesktopContext) {
-    if (switched_) SDL_GL_MakeCurrent(gHWWindow, gHWDesktopContext);
+CoreContext::CoreContext() : switched_(gHWDesktop && (gHWDesktopContext || gHWOwnES)) {
+    if (!switched_) return;
+    if (gHWOwnES) {
+        platform::coreGLContextUse(gHWOwnES);
+        // FORK (handheld): THE CORE NEVER SEES THE WINDOW'S FRAMEBUFFER. On iOS framebuffers are
+        // shared across the share group, and a bind of 0 in this program is SDL's window
+        // (the iPhone's gl3.h). With it left bound when GLideN64's context_reset ran, nothing the
+        // UI drew reached the screen (2026-11-12). So the core's context holds its target,
+        // or nothing; the parentheses call the real glBindFramebuffer, not that wrapper.
+        (glBindFramebuffer)(GL_FRAMEBUFFER, gHWDesktopFBO);
+    } else {
+        SDL_GL_MakeCurrent(gHWWindow, gHWDesktopContext);
+    }
 }
 
 CoreContext::~CoreContext() {
@@ -316,19 +337,55 @@ CoreContext::~CoreContext() {
     // core's context, waited on by the graphics chip in the UI's: nothing on
     // the processor waits. Flushed first, so the wait is never on a fence
     // that was never sent.
+    // FORK (handheld): once, about ten seconds in, what the core drew as each side sees it,
+    // for the log: the centre pixel of its target in its own context and in the UI's.
+    static int runs = 0;
+    const bool look = gHWOwnES && ++runs == 600;
+    unsigned char inCore[4] = {0, 0, 0, 0}, inUi[4] = {0, 0, 0, 0};
+    GLint coreLeft = 0;
+    if (look) {
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &coreLeft);
+        glBindFramebuffer(GL_FRAMEBUFFER, gHWDesktopFBO);
+        glReadPixels(static_cast<GLint>(gHWTargetW / 2), static_cast<GLint>(gHWTargetH / 2), 1, 1, GL_RGBA,
+                     GL_UNSIGNED_BYTE, inCore);
+        glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(coreLeft));
+    }
+    if (gHWOwnES) (glBindFramebuffer)(GL_FRAMEBUFFER, 0);   // and leaves holding nothing (above)
     GLsync drawn = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
     glFlush();
-    SDL_GL_MakeCurrent(gHWWindow, gUIContext);
+    if (gHWOwnES) platform::coreGLContextUse(nullptr);
+    else SDL_GL_MakeCurrent(gHWWindow, gUIContext);
     if (drawn) {
         glWaitSync(drawn, 0, GL_TIMEOUT_IGNORED);
         glDeleteSync(drawn);
+    }
+    if (gHWOwnES) {
+        // FORK (handheld): Apple's rule for a share group: a change made in one context to a
+        // texture is seen in another once that one binds it again.
+        GLint was = 0;
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &was);
+        glBindTexture(GL_TEXTURE_2D, gHWColor);
+        glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(was));
+        if (look) {
+            GLint uiWas = 0;
+            glGetIntegerv(GL_FRAMEBUFFER_BINDING, &uiWas);
+            glBindFramebuffer(GL_FRAMEBUFFER, gHWFBO);
+            glReadPixels(static_cast<GLint>(gHWTargetW / 2), static_cast<GLint>(gHWTargetH / 2), 1, 1, GL_RGBA,
+                         GL_UNSIGNED_BYTE, inUi);
+            glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(uiWas));
+            std::fprintf(stderr,
+                         "[core] own context check: the core left framebuffer %d bound (its target is %u); "
+                         "centre pixel %u,%u,%u,%u in its context, %u,%u,%u,%u in the UI's\n",
+                         coreLeft, gHWDesktopFBO, inCore[0], inCore[1], inCore[2], inCore[3], inUi[0], inUi[1],
+                         inUi[2], inUi[3]);
+        }
     }
 }
 
 void destroyHWTarget() {
     // The core's framebuffer in its own context: deleted from the UI's, the
     // same number would delete one of the UI's.
-    if (gHWDesktopFBO && gHWDesktopContext) {
+    if (gHWDesktopFBO && (gHWDesktopContext || gHWOwnES)) {
         CoreContext in;
         glDeleteFramebuffers(1, &gHWDesktopFBO);
     }
@@ -519,6 +576,17 @@ std::optional<bool> environmentHWRender(unsigned cmd, void* data) {
                              what.c_str());
             }
             gHWVulkan = cb->context_type == RETRO_HW_CONTEXT_VULKAN;
+            // FORK (handheld): a GLES core on a phone draws in a context of its own (platform.h).
+            // Asked again, the one it has is kept, as for desktop GL above.
+            if (!gHWVulkan && !isDesktopGL(*cb) && !gHWDesktop) {
+                gUIContext = SDL_GL_GetCurrentContext();
+                gHWWindow = SDL_GL_GetCurrentWindow();
+                gHWOwnES = platform::coreGLContextMake();
+                if (gHWOwnES) {
+                    gHWDesktop = true;
+                    std::fprintf(stderr, "[core] the core's own context: OpenGL ES, in the UI's share group\n");
+                }
+            }
             gHWInterfaceLogged = 0;
             if (!gHWVulkan) {
                 // The core keeps this struct and calls through it, so the two

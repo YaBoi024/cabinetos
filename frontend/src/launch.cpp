@@ -19,6 +19,7 @@
 #include "filesave.h"
 #include "library.h"
 #include "mamehome.h"
+#include "platform.h"
 #include "ps2.h"
 #include "quality.h"
 #include "romm.h"
@@ -208,9 +209,14 @@ bool beginLaunch(LaunchJob& job, romm::Client& client, const romm::Game& game,
     // starts the program once it is on the disk. docs/PROJECT.md, open
     // question 32.
     const cab::standalone::Emulator* emu = cab::standalone::find(cov.core);
+    // FORK (handheld): a core's system that the phone plays in another app (Dolphin): no core is
+    // loaded here, the file is fetched and unpacked to what that app reads.
+    const bool otherApp = !emu && platform::runsInAnotherApp(cov.core);
     std::string validExts;
     bool blockExtract = false;
-    if (emu) {
+    if (otherApp) {
+        validExts = platform::otherAppExtensions(cov.core);
+    } else if (emu) {
         // The emulator opens the file as it came, and a Switch NSP is not an
         // archive the console would open, so nothing is unpacked. NOT
         // `blockExtract`: that also stops a one-file game collapsing into one
@@ -367,8 +373,21 @@ auto App::launchById(int romId) -> bool {
         // this console cannot play: beginLaunch refuses that before it
         // touches the job, so refuseLaunch would name the last game.
         const catalog::Coverage cov = catalog::coverageFor(*g);
-        if (cov.support == catalog::Support::Playable && cov.core) refuseLaunch(lerr);
-        else showWhyUnplayable(romId);
+        if (cov.support == catalog::Support::Playable && cov.core) {
+            refuseLaunch(lerr);
+        } else if (cov.support == catalog::Support::NotInstalled && cov.core &&
+                   !platform::emulatorInstallUrl(cov.core).empty()) {
+            // FORK (handheld): a phone is offered the emulator's download page, as the console is
+            // offered Steam: said first, opened only on a yes. The page is the emulator's own.
+            showWhyUnplayable(romId);
+            const std::string url = platform::emulatorInstallUrl(cov.core);
+            askChoice("Get the emulator", "This system plays in a separate app. Open its download page?",
+                      {"Open download page", "Not now"}, 0, [url](int pick) {
+                          if (pick == 0) platform::openUrl(url);
+                      });
+        } else {
+            showWhyUnplayable(romId);
+        }
         return false;
     }
     launchJob.startedOn = static_cast<int>(here());
@@ -663,6 +682,19 @@ bool App::takeFinishedJob() {
             cab::standalone::find(launchJob.coreName)) {
         forgetLaunchAsks();
         startStandalone(*emu);
+        return false;
+    }
+    // FORK (handheld): a core's system that the phone plays in another app (Dolphin). Same
+    // hand-over as an emulator that is another app (standalone_play.cpp): the file goes to that
+    // app, which keeps its own saves, and this program waits underneath.
+    if (platform::runsInAnotherApp(launchJob.coreName.c_str())) {
+        forgetLaunchAsks();
+        if (!platform::openInAnotherApp(launchJob.coreName.c_str(), launchJob.romPath)) {
+            refuseLaunch("Couldn't start this game");
+            return false;
+        }
+        cache::touch(launchJob.entryPath);
+        curtain.retarget(0.0f, kCurtainUp);
         return false;
     }
     return true;
@@ -1110,6 +1142,7 @@ void App::startPlaying(cab::Core& core) {
     std::fprintf(stderr, "[launch] running %s\n",
                  core.isPs2() ? "PCSX2" : core.coreName().c_str());
     playing = true;
+    platform::gamePlaying(true, session.platformSlug.c_str());   // FORK (Android): its buttons and screen-on
     // An arcade game's buttons as this person moved them (controls.h).
     controls::beginGame(session.arcadeCore(), session.romId, session.title);
     // RetroAchievements, when this person signed in (achievements.h):

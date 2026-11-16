@@ -127,6 +127,12 @@ void pressed(SDL_JoystickID id);
 void seatFriend(SDL_JoystickID id);
 void unseatFriend();
 
+// FORK (iOS): THE PHONE'S ON-SCREEN BUTTONS are a virtual gamepad named "On-screen buttons". It is
+// never a player of its own. It is player one's pad when there is no other (gamepad(0) returns it),
+// and when there is one it is player one's second hand: the game hears both (play.cpp ORs them), so
+// the buttons work with a controller connected, before the game or during it. Null when there are none.
+SDL_Gamepad* onScreen();
+
 // The pad a game hears as `player`, or null.
 SDL_Gamepad* gamepad(int player);
 // The fight stick an open pad is (fightstick.h), or null for any other pad:
