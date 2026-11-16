@@ -30,9 +30,10 @@ and keeps what you typed:
 | It answered with an error (404) | Something answered, with that error. For n8n, a 404 usually means the workflow is not published yet |
 | Its certificate isn't trusted. Use http:// at home. | An `https://` address whose certificate the console does not trust |
 
-With an address saved, pressing the row again opens **Change address** and
-**Stop sending**. Stop sending forgets the address, and nothing more is sent.
-Off is the start for every console, and while it is off no part of it runs.
+With an address saved, pressing the row again opens **Turn off** and
+**Change address**. Turn off keeps the address, and nothing more is sent;
+**Turn on** then needs no typing, and sends the test message first. Off is
+the start for every console, and while it is off no part of it runs.
 
 ## When it sends, and when it doesn't
 

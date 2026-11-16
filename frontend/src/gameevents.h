@@ -3,11 +3,12 @@
 // rest: dims the lights, posts to Discord, pings a phone.
 // docs/decisions/2026-11-15-game-events.md says why it is this shape.
 //
-// ONE ADDRESS, CONSOLE-WIDE, AND IT IS THE SWITCH: `game_events_address` in
-// config/settings.json (prefs.h), typed in Settings > System > Game events
-// (gameeventsflow.cpp). Empty is off, and OFF IS OFF: the sender thread is
-// never started, every call below returns at once and nothing is sent. It
-// never listens, even when on.
+// ONE ADDRESS, CONSOLE-WIDE, WITH A SWITCH THAT KEEPS IT: `game_events_address`
+// in config/settings.json (prefs.h), typed in Settings > System > Game events
+// (gameeventsflow.cpp), and `game_events_off` while it is turned off there, so
+// Turn on needs no typing. No address, or turned off, is off, and OFF IS OFF:
+// the sender thread is never started, every call below returns at once and
+// nothing is sent. It never listens, even when on.
 //
 // THE MESSAGES are JSON, POSTed one at a time, in order, by one thread of
 // gameevents.cpp's own (job.h is one worker for one result, and ra_net.cpp's
@@ -48,13 +49,15 @@ namespace gameevents {
 
 // --- The address --------------------------------------------------------------
 
-// The saved address, or empty when off.
+// The saved address, kept while it is turned off; empty until one is typed.
 std::string address();
+// Turned off in Settings, with the address kept.
+bool turnedOff();
 // What the Settings row shows for it: its host, "n8n.local".
 std::string hostOf(const std::string& url);
 
 // Start-up (App::startGameEventsAtBoot): the sender starts when an address is
-// saved; with none, nothing runs.
+// saved and it is not turned off; otherwise nothing runs.
 void start();
 // Exit: what is still waiting gets one message's time to go, then the sender
 // is joined.
@@ -73,12 +76,14 @@ struct Tried {
 Tried tryAddress(const std::string& url);
 // The words for the keyboard's field, empty for Ok.
 std::string why(const Tried& t);
-// Saved, and sent to from now. The test that just answered is this network's
-// knock.
+// Saved and turned on, and sent to from now. The test that just answered is
+// this network's knock.
 void setAddress(const std::string& url);
-// Stop sending: the address wiped and the sender told to stop. It is not
-// waited for; the next start or the exit joins it.
-void stopSending();
+// Turn off: the sender told to stop, the address kept. It is not waited for;
+// the next start or the exit joins it.
+void turnOff();
+// Turn on: as at start-up, with the saved address, so the knock goes first.
+void turnOn();
 
 // --- The messages -------------------------------------------------------------
 //
@@ -101,8 +106,8 @@ struct Game {
     bool linkupHost = false;   // this console hosts a LinkUp game
 };
 
-// An address is saved, so the sender runs. Every call below does nothing
-// while this is false.
+// It is on, so the sender runs. Every call below does nothing while this is
+// false.
 bool on();
 // A game is between its started and its ended: this console's own, or a
 // LinkUp friend's.

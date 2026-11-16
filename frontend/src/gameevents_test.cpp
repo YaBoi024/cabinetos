@@ -426,11 +426,11 @@ int test() {
         waitFor(3, 300);
     }
 
-    std::printf("Stop sending, and the exit\n");
+    std::printf("Turned off, and the exit\n");
     {
         stopRunning();
         started(contra, who);
-        check(!on() && pending() == 0, "stopped: nothing goes in the line");
+        check(!on() && pending() == 0, "turned off: nothing goes in the line");
         check(waitFor(1, 500).empty(), "and nothing is sent");
         startSending(base + "/hook", /*knocked=*/true);
         started(contra, who);

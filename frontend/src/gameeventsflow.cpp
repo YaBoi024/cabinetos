@@ -14,30 +14,34 @@
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
 
-// The address is the switch: Off, or its host.
+// Off (no address yet, or turned off), or its host.
 screens::SettingsRow App::gameEventsRow() {
     const std::string a = gameevents::address();
     return {screens::SettingsRow::Kind::Action, SetGameEvents, "Game events", "",
-            a.empty() ? "Off" : gameevents::hostOf(a)};
+            a.empty() || gameevents::turnedOff() ? "Off" : gameevents::hostOf(a)};
 }
 
 void App::startGameEventsAtBoot() { gameevents::start(); }
 
 void App::pressGameEvents() {
-    // PIN FIRST, then the keyboard, or the panel when one is set: the RomM
-    // server row's shape.
+    // PIN FIRST, then the keyboard until an address is typed, or the panel:
+    // the RomM server row's shape. Turn off keeps the address, so Turn on
+    // needs no typing.
     askPin("Enter the PIN", "To change Game events", [&]() {
         const std::string addr = gameevents::address();
         if (addr.empty()) {
             askGameEventsAddress("http://", "");
             return;
         }
-        askChoice(addr, "", {"Change address", "Stop sending", "Cancel"}, 0, [&, addr](int i) {
+        const bool off = gameevents::turnedOff();
+        askChoice(addr, "", {off ? "Turn on" : "Turn off", "Change address", "Cancel"}, 0,
+                  [&, addr, off](int i) {
             if (i == 0) {
-                askGameEventsAddress(addr, "");
-            } else if (i == 1) {
-                gameevents::stopSending();
+                if (off) gameevents::turnOn();
+                else gameevents::turnOff();
                 buildSettings();
+            } else if (i == 1) {
+                askGameEventsAddress(addr, "");
             }
         });
     });
