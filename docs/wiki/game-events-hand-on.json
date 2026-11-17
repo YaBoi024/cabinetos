@@ -1,0 +1,25 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:5678/webhook/games-discord",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify(Object.fromEntries(Object.entries($json.body ?? {}).filter(([key]) => key !== 'cover'))) }}",
+        "options": {
+          "timeout": 5000
+        }
+      },
+      "name": "Hand on to Discord status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        -220
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {}
+}
