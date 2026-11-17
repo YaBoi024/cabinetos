@@ -1,0 +1,233 @@
+{
+  "name": "CabinetOS Game events, Discord status",
+  "nodes": [
+    {
+      "id": "5e751751-bf44-464f-bd8d-6c0333540385",
+      "name": "From the console",
+      "webhookId": "6a558f28-a882-4305-a43c-cc515361fafe",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "games",
+        "options": {}
+      }
+    },
+    {
+      "id": "95af82c5-85cc-4a21-b7a0-720145df906d",
+      "name": "Every 15 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f762eea4-c7dd-4f26-a95c-ff4dccab4e5a",
+      "name": "What to tell Discord",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// CabinetOS Game events: your Discord status shows the game you are playing.\n// Your Discord application's Client ID, from its OAuth2 page.\nconst APP_ID = \"PASTE-THE-CLIENT-ID\";\n// Whose games: the console account's name exactly as the console shows it.\nconst PERSON = \"PASTE-THE-NAME\";\n// Stop showing a game after this many hours with no word from the console,\n// since a power cut sends no \"game ended\".\nconst MAX_HOURS = 8;\n\nconst s = $getWorkflowStaticData('global');\nconst now = Date.now();\n// Discord drops a session after 20 minutes; after 19, start a new one.\nconst live = Boolean(s.token && s.sentAt && now - s.sentAt < 19 * 60 * 1000);\n// The console's message, or nothing when the 15-minute clock started this run.\nconst body = $input.first().json.body;\n\nfunction end() {\n  const token = live ? s.token : null;\n  s.playing = null;\n  s.token = null;\n  s.sentAt = null;\n  return token ? [{ json: { action: 'end', token } }] : [];\n}\n\nif (body) {\n  // The console sends a test when it starts or joins a network: nothing is\n  // playing then.\n  if (body.event === 'test') return end();\n  if (body.person !== PERSON) return [];\n  if (body.event === 'game_started') {\n    s.playing = { game: body.game, system: body.system, start: Date.parse(body.time) || now, paused: false, heard: now };\n  } else if (body.event === 'game_paused' || body.event === 'game_resumed') {\n    if (!s.playing) return [];\n    s.playing.paused = body.event === 'game_paused';\n    s.playing.heard = now;\n  } else if (body.event === 'game_ended') {\n    return end();\n  } else {\n    return [];\n  }\n} else {\n  if (!s.playing) return [];\n  if (now - s.playing.heard > MAX_HOURS * 3600 * 1000) return end();\n}\n\nconst p = s.playing;\nconst cut = (t) => String(t ?? '').slice(0, 128);\nconst activity = { type: 0, application_id: APP_ID, name: cut(p.game), details: cut(p.system), platform: 'desktop' };\nif (p.paused) activity.state = 'Paused';\nelse activity.timestamps = { start: p.start };\nconst request = { activities: [activity] };\nif (live) request.token = s.token;\nreturn [{ json: { action: 'set', request } }];\n"
+      }
+    },
+    {
+      "id": "4aadafca-17db-4c73-8b36-d4781e88bca8",
+      "name": "Show or clear?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1e314a2d-3d74-4ff8-832f-f4815d728e1f",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "set",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "4c2d8d63-78eb-40e2-a5cc-d4783ef9fbfa",
+      "name": "Show it on Discord",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueErrorOutput",
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/v10/users/@me/headless-sessions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {
+          "timeout": 10000
+        }
+      }
+    },
+    {
+      "id": "92150c1b-973c-4597-b54d-1e3aa0a567db",
+      "name": "Keep the session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        -60
+      ],
+      "parameters": {
+        "jsCode": "// Keep the session Discord gave back, so the next update goes to the same one.\nconst s = $getWorkflowStaticData('global');\nconst token = $input.first().json.token;\nif (token && s.playing) {\n  s.token = token;\n  s.sentAt = Date.now();\n}\nreturn $input.all();\n"
+      }
+    },
+    {
+      "id": "650a393f-f766-4bcf-b81a-006acafba09b",
+      "name": "Start a new session next time",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        960,
+        80
+      ],
+      "parameters": {
+        "jsCode": "// Discord turned the update down, often because the session had run out:\n// the next one starts a new session.\nconst s = $getWorkflowStaticData('global');\ns.token = null;\ns.sentAt = null;\nreturn $input.all();\n"
+      }
+    },
+    {
+      "id": "b7012137-f2e4-441f-9345-01de2b47f299",
+      "name": "End the session",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "onError": "continueRegularOutput",
+      "position": [
+        720,
+        240
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://discord.com/api/v10/users/@me/headless-sessions/delete",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ token: $('What to tell Discord').first().json.token }) }}",
+        "options": {
+          "timeout": 10000
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every 15 minutes": {
+      "main": [
+        [
+          {
+            "node": "What to tell Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "What to tell Discord": {
+      "main": [
+        [
+          {
+            "node": "Show or clear?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Show or clear?": {
+      "main": [
+        [
+          {
+            "node": "Show it on Discord",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "End the session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Show it on Discord": {
+      "main": [
+        [
+          {
+            "node": "Keep the session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Start a new session next time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "From the console": {
+      "main": [
+        [
+          {
+            "node": "What to tell Discord",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
