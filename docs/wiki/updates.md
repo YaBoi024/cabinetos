@@ -13,7 +13,10 @@ Settings, **System**, **System update**. What each update changed:
 **What's new**, then scan the code with your phone.
 
 1. The row checks and says *Up to date* or *Update available*, with the new
-   version and its size.
+   version and its size. If it says *Needs RomM 5.5 or newer.* (or another
+   version), the update needs a newer [RomM](romm.md) than your server
+   runs: update the server first, and within a minute Download is back. The
+   console keeps working as it is until then.
 2. **Download** (the PIN, if one is set). The row shows the progress, then
    *Installing...*. You can keep playing meanwhile.
 3. *Update ready*: **Restart now**, or **Later** to have it apply at the next

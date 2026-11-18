@@ -357,6 +357,17 @@ void setServerAway(bool away);
 long long serverAwaySince();
 void noteTransport(void* curlHandle, int curlCode);
 
+// THE SERVER'S VERSION AS LAST HEARD: the newest heartbeat this run that
+// answered with one, from any client ("5.5.0-alpha.2"); empty before the
+// first. Read from any thread. Each client's own serverVersion() is only
+// what that client was told; the once-a-minute heartbeat (offline_sync.cpp)
+// is a client of its own, so a RomM updated while the console runs shows
+// here within a minute. Change server address asks the address typed
+// (server::check), which may be another server's; the next minute's
+// heartbeat puts this console's back. System update writes it down
+// (updateflow.cpp).
+std::string heardServerVersion();
+
 // True for addresses that are obviously on a local network, which decides
 // whether http or https is tried first. A hostname with no dots is local by
 // construction, and so is anything in the private ranges, Tailscale's

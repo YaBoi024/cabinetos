@@ -71,10 +71,13 @@ void App::openScreenForCapture() {
     } else if (initialScreen && SDL_strcmp(initialScreen, "settings") == 0) {
         // `--screen settings --tile N` opens on category N; `--focus-row 1`
         // puts focus in its rows. The network is waited for here, because a
-        // capture has no wall clock and would otherwise always say Checking.
+        // capture has no wall clock and would otherwise always say Checking,
+        // and System update's status is read, so a walk's first press meets
+        // root's answer as a person's would (--update-dir; #346).
         goToDestination(BarSettings);
         if (settingsNet.th.joinable()) settingsNet.th.join();
         if (settingsWifi.th.joinable()) settingsWifi.th.join();
+        pollUpdate();
         buildSettings();
         settingsScreen.focusCategory(initialTile, initialRow > 0);
     } else if (initialScreen && SDL_strcmp(initialScreen, "search") == 0) {

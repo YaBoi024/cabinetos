@@ -6,6 +6,10 @@ one you install, so you only ever install the newest.
 
 ## Next
 
+- **New:** an update that needs a newer RomM than your server runs says so
+  in Settings, **System**, **System update**, and Download waits until the
+  server is updated. Until then the console keeps playing as it is.
+  ([Updates](updates.md#update-the-console))
 - **New:** Game events. The console can tell an app in your home, such as
   n8n or Home Assistant, when a game starts, pauses, ends, or unlocks an
   achievement, so the app can dim the lights or post to your Discord. Set it
