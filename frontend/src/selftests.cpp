@@ -762,7 +762,7 @@ romm::SnapshotFile noteFile(int id, const std::string& name, const std::string& 
     f.fileName = name;
     f.sizeBytes = 1000 + id;
     f.contentHash = hash;
-    f.picturePath = "/api/raw/assets/users/notes/" + std::to_string(id) + ".png";
+    f.picturePath = "picture-" + std::to_string(id) + ".png";
     f.shape = "SINGLE";
     f.format = "native";
     f.emulator = "gambatte-native";
