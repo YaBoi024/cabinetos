@@ -4,12 +4,15 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## Next
+## 2026.11.18 {#v2026-11-18}
 
 - **New:** an update that needs a newer RomM than your server runs says so
   in Settings, **System**, **System update**, and Download waits until the
   server is updated. Until then the console keeps playing as it is.
   ([Updates](updates.md#update-the-console))
+
+## 2026.11.16 {#v2026-11-16}
+
 - **New:** Game events. The console can tell an app in your home, such as
   n8n or Home Assistant, when a game starts, pauses, ends, or unlocks an
   achievement, so the app can dim the lights or post to your Discord. Set it

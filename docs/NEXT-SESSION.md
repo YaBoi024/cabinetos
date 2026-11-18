@@ -39,10 +39,11 @@ RomM: keep test launches under a minute, or have his go.
    Built in the eleven steps of the plan posted on the issue on 2026-11-17,
    every step approved; nothing in it is decided again. Step 1, System
    update holding back an update that needs a newer RomM than the server's,
-   is a pull request of its own and goes out alone in the next ordinary
-   release, since only a version already on a console can hold back the
-   next one. Steps 2 to 11 go on one draft pull request, each step in a
-   fresh Opus session; before steps 4 and 5 (starting and leaving a game)
+   went out alone in 2026.11.18 (PR #721), since only a version already on
+   a console can hold back the next one. Steps 2 to 11 go on one draft pull
+   request, cut from main, each step in a fresh Opus session that keeps to
+   CLAUDE.md's seven rules and its piece's files, reuses, removals, docs and
+   tests in the plan; before steps 4 and 5 (starting and leaving a game)
    he is asked about Fable. Step 11 is #353's cartridge clocks and Saturn
    cartridge; its arcade high scores wait.
 2. **Game events, #716, "Game events: tell an app at home what is happening
