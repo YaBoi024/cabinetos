@@ -256,6 +256,7 @@ with 0 when it passes, and CI runs every one ("What CI checks"):
 | `--tailscale-switch-test` | Tailscale's own switch (#286, `tailscale.h`), on every combination of Tailscale, Remote Play and the update's step saved: the step turns off only a Tailscale saved on with Remote Play off, never turns one on, leaves Remote Play alone and changes nothing a second time; the boot script's rule and the app's agree on the first boot after the update, and after the step the switch alone decides |
 | `--update-romm-test` | which RomM a console update waits for (#346, `update.h`): RomM 5.4.1 is too old for an update that needs 5.5, RomM's alpha 5.5.0-alpha.2 and 5.5.0 are new enough, each part compared as a number with a missing one as 0, anything after a "-" or "+" not read; a server never heard, "development" (a RomM built from source) or anything else that is not a version is unknown, never new enough; an update that names none waits for nothing; and the status file's `romm=` line read as written |
 | `--game-events-test` | Game events (#716, `gameevents.h`), with a receiver on loopback inside the test and no other network: every message with every field, a LinkUp friend's (joined) without `rom_id`, `system` and `cover`, and a hosting console's saying so; the home-address rule on a table of addresses, a name that gives one public address among private ones refused, and a public address refused before anything connects; the knock first on each network, nothing else sent on a network that did not answer it, and nothing with no network; a redirect not followed; a slow receiver given up on at five seconds without holding the caller; and with no address, no sender and nothing sent |
+| `--romm-snapshots-test` | RomM 5.5's save channels in the RomM client (#346, `romm_snapshots.cpp`), against answers recorded from RomM 5.5.0-alpha.2 and no network: the heartbeat's save channels block read in 5.5's and missing from 5.4.1's; RomM's content hash of a save, a state and a zip (each file's under its name, sorted, a folder and a name marked UTF-8 among them), a zip the console makes hashed by the same rule, and bytes that only begin like a zip hashed as bytes; a game's channels read whole, each current's save and state by hash with the names they were pushed with, the picture, the device and who holds it, and a hardcore channel; every answer to a push: bytes missing, made, unchanged, moved on (from the current expected, and from an older snapshot) and hardcore, and refused: a wrong hash, a file RomM does not have, a 400 that names nothing missing, a 201 that is no snapshot, a 409 RomM never sends; and the manifest: a new channel with no id and no parent, an empty channel expected as null, the save by hash, shape and format with the emulator's and the core's names, the save and the states carried from the parent when not named, an older parent named, and the states a core at a time |
 | `--dualsense-test` | the stand-in DualSense (#669, `vdualsense.h`), made for real through `/dev/uhid` beside two test pads, one with sensors and one with none: the kernel's driver made its gamepad, motion and touchpad devices with one uniq; the console refuses to seat it and the player count stays; SDL, standing in for the emulators' (Eden, Cemu, Vita3K), takes it as a game controller with the GUIDs Eden's lines and Cemu's profile carry, pairs its motion device (the udev rule) and reads a written tilt back in SDL's units, and a press and a stick where the layout puts them, by its own mapping and by the console's line; a pad without sensors gets a stand-in on which SDL finds none; rumble comes back; closing takes every device away. On a machine with no `/dev/uhid`, which CI's builder is, it says so and passes |
 | `--check-option-tables cores/options` | that every option the console sets (`coreoptions.cpp`, `quality.cpp`, `sysopts.cpp`, the Wii's rumble in `wii.cpp` and the Vectrex sheets' fit in `vectrexsheets.cpp`, with every answer that depends on the machine or a setting) exists in the core it is set on, and that every libretro core in `catalog.cpp`'s table has its list in `cores/options/` (CI runs it as a step of its own) |
 
@@ -274,7 +275,7 @@ pad has gone, and the sensors off and the devices gone when the pads close.
 Never run it while a PS3 game runs on the same console: RPCS3 finds the
 devices by name.
 
-**Every flag is in `frontend/src/cli.cpp`**, 129 of them plus
+**Every flag is in `frontend/src/cli.cpp`**, 132 of them plus
 `--check-option-tables` in `main.cpp`; there is no `--help`.
 `frontend/README.md` holds the build recipe and the storage tree. What it
 said about running and the flags in September 2026 is history, in
@@ -292,7 +293,10 @@ in: run it on a console already signed in to your server, with the real
 `HOME` on purpose (the tokens are there, above), copy the console's
 `config/*.json` into the scratch root's `config/`, and set
 `CABINETOS_DRIVES` to an empty folder, or downloads go to the real games
-drive (docs/lessons/testing.md, the bullet on the read-only relay). **Its upstream server comes from
+drive (docs/lessons/testing.md, the bullet on the read-only relay).
+`--romm-channels <id>` reads one game's save channels that way (RomM 5.5,
+#346): the file RomM keys them to, and each channel's current snapshot,
+its save and its states. **Its upstream server comes from
 `CABINETOS_RELAY_UP`** (`http://<your server>:<port>`), and so does
 `tools/offline-relay.py`'s.
 

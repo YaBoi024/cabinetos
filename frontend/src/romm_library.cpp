@@ -1,5 +1,6 @@
 // The library as RomM lists it: platforms, collections and smart collections,
-// games under any filter, one game with its facts and files, firmware, and
+// games under any filter, one game with its facts and files (the one its save
+// channels belong to marked), firmware, and
 // Home's recent and favourite shelves; with the JSON field readers the whole
 // client uses (jstr, jint, jstrs) and the game parser behind every list.
 // Moved out of romm.cpp in the restructure (#398).
@@ -476,12 +477,14 @@ bool Client::fetchFirmware(int platformId, std::vector<Firmware>* out, std::stri
 }
 
 // A game's `files`, from the one rom payload both fetchRomFiles and
-// fetchFacts read. False when the payload has no files array.
+// fetchFacts read, the one `channel_file_id` names marked (RomM 5.5). False
+// when the payload has no files array.
 static bool parseRomFiles(json_object* root, std::vector<RomFile>* out) {
     json_object* files = nullptr;
     if (!root || !json_object_object_get_ex(root, "files", &files) ||
         json_object_get_type(files) != json_type_array)
         return false;
+    const int64_t channelFile = jint(root, "channel_file_id");
     const size_t n = json_object_array_length(files);
     for (size_t i = 0; i < n; ++i) {
         json_object* o = json_object_array_get_idx(files, i);
@@ -496,6 +499,7 @@ static bool parseRomFiles(json_object* root, std::vector<RomFile>* out) {
             f.topLevel = json_object_get_boolean(top);
         if (json_object* m = nullptr; json_object_object_get_ex(o, "archive_members", &m))
             f.members = parseMembers(m);
+        f.channelFile = channelFile != 0 && f.id == channelFile;
         if (f.id != 0 && !f.fileName.empty()) out->push_back(std::move(f));
     }
     return true;

@@ -72,6 +72,7 @@ TESTS=(
     --tailscale-switch-test
     --update-romm-test
     --game-events-test
+    --romm-snapshots-test
     --dualsense-test
 )
 

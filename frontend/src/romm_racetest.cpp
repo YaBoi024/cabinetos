@@ -2,7 +2,8 @@
 // under load (#398, batch i). One client, as the app's own is, called by
 // eight readers at once, each making every kind of request the app's workers
 // make (a page of games, a game, a cover, a download to a file, a range
-// read, a save upload, a state deletion, a favourite with its own POST) and
+// read, a save upload, a state deletion, a favourite with its own POST, a
+// game's save channels and a snapshot pushed with a state, #346) and
 // reading the address and the token back, while this thread, standing in for
 // the frame thread, writes the client the three ways the app does: the
 // address (setAddress, under two names and with a dead port between, as a
@@ -11,17 +12,20 @@
 //
 // AGAINST A STAND-IN, NEVER RomM. The stand-in at `address` (the
 // restructure's suite's stand-in, now tools/racemock.py) answers these requests from
-// memory: the heartbeat; any /api/roms page with one game, id 1, `race.sfc`
-// on platform 1, and that game by id; its cover; its content, whole or by a
-// range; a save upload; a state deletion; /api/collections, empty and with a
-// favourites collection (id 7, user 1) in turn, the POST that makes one and
-// its roms; /api/users/me (id 1); and a pairing's token. It refuses a token
-// or a host it did not hand out. A request that could not reach it at all is
-// counted apart (the stand-in going away is part of the test); any other
-// failure is a request that went out wrong, and so is an address or a token
-// read back that is neither of the two the writer sets. Returns 0 when
-// nothing failed, 3 when only the stand-in's absence did, 1 when anything
-// went out wrong, 2 when the stand-in did not answer to begin with.
+// memory: the heartbeat, with a save channels block; any /api/roms page with
+// one game, id 1, `race.sfc` on platform 1, and that game by id; its cover;
+// its content, whole or by a range; a save upload; a state deletion;
+// /api/collections, empty and with a favourites collection (id 7, user 1)
+// in turn, the POST that makes one and its roms; /api/users/me (id 1); a
+// pairing's token; /api/channels for file 1, one channel; and a snapshot
+// push, made (201) only when its manifest names file 1 and it carries the
+// save and the state the test sends. It refuses a token or a host it did not
+// hand out. A request that could not reach it at all is counted apart (the
+// stand-in going away is part of the test); any other failure is a request
+// that went out wrong, and so is an address or a token read back that is
+// neither of the two the writer sets. Returns 0 when nothing failed, 3 when
+// only the stand-in's absence did, 1 when anything went out wrong, 2 when
+// the stand-in did not answer to begin with.
 
 #include "romm.h"
 
@@ -106,6 +110,24 @@ int raceTest(const std::string& address, int seconds) {
     }
     const Game game = games[0];
     const std::string content = "/api/roms/" + std::to_string(game.id) + "/content/" + game.fsName;
+    // A push into the game's channel, with a save and a state's bytes.
+    SnapshotPush push;
+    push.romFileId = 1;
+    push.channelId = "00000000-0000-7000-8000-000000000001";
+    push.expectedCurrentId = 1;
+    push.emulator = "race";
+    push.core = "race";
+    push.hasSave = true;
+    push.save.fileName = "race.srm";
+    push.save.bytes.assign(64, 0x5a);
+    push.save.hash = contentHash(push.save.bytes);
+    PushState state;
+    state.core = "race";
+    state.slot = "1";
+    state.file.fileName = "race.state1";
+    state.file.bytes.assign(128, 0xa5);
+    state.file.hash = contentHash(state.file.bytes);
+    push.states.push_back(state);
 
     constexpr int kReaders = 8;
     constexpr int kWindow = 5;
@@ -135,7 +157,7 @@ int raceTest(const std::string& address, int seconds) {
             const std::string file = dir + "/download-" + std::to_string(r);
             for (int n = r; std::chrono::steady_clock::now() < until; ++n) {
                 std::string e;
-                switch (n % 8) {
+                switch (n % 10) {
                 case 0: {
                     std::vector<Game> page;
                     result(client.fetchRoms("platform_ids=1", 1, &page, &e), e, "a page of games");
@@ -163,6 +185,21 @@ int raceTest(const std::string& address, int seconds) {
                 case 6:
                     result(client.deleteStates({1}, &e), e, "a state deletion");
                     break;
+                case 7: {
+                    std::vector<Channel> channels;
+                    const bool got = client.fetchChannels({1}, &channels, &e);
+                    if (got && channels.size() != 1) e = "the channels came back short";
+                    result(got && channels.size() == 1, e, "a game's channels");
+                    break;
+                }
+                case 8: {
+                    PushAnswer answer;
+                    const bool sent = client.pushSnapshot(push, &answer, &e);
+                    if (sent && answer.kind != PushAnswer::Kind::Made)
+                        e = "answered " + std::to_string(answer.status) + ": " + answer.detail;
+                    result(sent && answer.kind == PushAnswer::Kind::Made, e, "a snapshot push");
+                    break;
+                }
                 default: {
                     bool forbidden = false;
                     result(client.setFavorite(game.id, n % 16 < 8, &forbidden, &e), e,
@@ -212,6 +249,9 @@ int raceTest(const std::string& address, int seconds) {
         }
     }
     for (std::thread& t : readers) t.join();
+    // The stand-in's heartbeat carries a save channels block, which every
+    // probe the writer made heard.
+    if (!heardServerChannels()) note(2, "the heartbeat's save channels went unheard");
 
     long ok = 0, away = 0, wrong = 0;
     for (int w = 0; w < windows; ++w) {

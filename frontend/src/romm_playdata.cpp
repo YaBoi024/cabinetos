@@ -126,7 +126,9 @@ bool Client::uploadSave(int romId, const std::string& emulator, const std::strin
     // device_id RomM does nothing with it.
     const std::string path = "/api/saves?rom_id=" + std::to_string(romId) +
                              "&emulator=" + emulator + "&overwrite=true";
-    return postMultipart(path, "saveFile", fileName, data, err);
+    return postMultipart(path, {{"saveFile", fileName, "application/octet-stream", data.data(),
+                                 data.size()}},
+                         err);
 }
 
 bool Client::uploadState(int romId, const std::string& emulator, const std::string& fileName,
@@ -135,13 +137,21 @@ bool Client::uploadState(int romId, const std::string& emulator, const std::stri
     // Deliberately NOT overwrite: a history of states is the point of states.
     const std::string path = "/api/states?rom_id=" + std::to_string(romId) +
                              "&emulator=" + emulator;
-    return postMultipart(path, "stateFile", fileName, data, err, shotName, shot);
+    std::vector<Part> parts{{"stateFile", fileName, "application/octet-stream", data.data(),
+                             data.size()}};
+    // The picture is Cabinet's to the byte: `screenshotFile`, image/png
+    // (RommClient.swift, uploadState).
+    if (!shotName.empty() && !shot.empty())
+        parts.push_back({"screenshotFile", shotName, "image/png", shot.data(), shot.size()});
+    return postMultipart(path, parts, err);
 }
 
 bool Client::uploadScreenshot(int romId, const std::string& fileName,
                               const std::vector<uint8_t>& png, std::string* err) const {
-    return postMultipart("/api/screenshots?rom_id=" + std::to_string(romId), "screenshotFile",
-                         fileName, png, err);
+    return postMultipart("/api/screenshots?rom_id=" + std::to_string(romId),
+                         {{"screenshotFile", fileName, "application/octet-stream", png.data(),
+                           png.size()}},
+                         err);
 }
 
 bool Client::deleteStates(const std::vector<int>& ids, std::string* err) const {

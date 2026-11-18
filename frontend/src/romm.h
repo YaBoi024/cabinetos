@@ -35,9 +35,10 @@
 //
 // THE DATA IT HANDS BACK IS IN romm_types.h (a platform, a game and the
 // rest), so a header that needs only the types does not take the client. The
-// client's own code is in five files by job: romm_http.cpp (every request),
-// romm_pairing.cpp, romm_library.cpp, romm_playdata.cpp and romm_codes.cpp,
-// with what they share in romm_internal.h.
+// client's own code is in six files by job: romm_http.cpp (every request),
+// romm_pairing.cpp, romm_library.cpp, romm_playdata.cpp, romm_snapshots.cpp
+// (save channels and snapshots) and romm_codes.cpp, with what they share in
+// romm_internal.h.
 
 #pragma once
 
@@ -211,7 +212,8 @@ public:
     // platforms need none.
     bool fetchFirmware(int platformId, std::vector<Firmware>* out, std::string* err);
 
-    // A game's own files (`GET /api/roms/{id}`), and the server path that
+    // A game's own files (`GET /api/roms/{id}`), the one its save channels
+    // belong to marked (RomFile::channelFile), and the server path that
     // fetches one of them as it is, for fetchToFile.
     bool fetchRomFiles(int romId, std::vector<RomFile>* out, std::string* err);
     static std::string romFilePath(int romId, const RomFile& f);
@@ -247,6 +249,23 @@ public:
     // order and stops at the first id that is not theirs (404), so the ones
     // before it are gone.
     bool deleteStates(const std::vector<int>& ids, std::string* err) const;
+
+    // SAVE CHANNELS AND SNAPSHOTS (RomM 5.5, #346; the words are in
+    // romm_types.h). Both in romm_snapshots.cpp, as the person the token is
+    // and from the device it is bound to, which RomM records as holding what
+    // it pushes.
+    //
+    // This person's channels on these files (`GET /api/channels`, a
+    // `rom_file_id` for each, a hundred to a call), each with its current
+    // snapshot. Empty is an answer: no game of these was saved in a channel.
+    // False when a call fails; RomM refuses the whole call (404) when one of
+    // the files is gone or hidden from this person.
+    bool fetchChannels(const std::vector<int>& romFileIds, std::vector<Channel>* out,
+                       std::string* err) const;
+    // One push (`POST /api/snapshots`): the manifest, and the bytes `push`
+    // carries. True when RomM answered, whatever it answered (`*answer`);
+    // false when no answer came.
+    bool pushSnapshot(const SnapshotPush& push, PushAnswer* answer, std::string* err) const;
 
     // MAKES A GAME ONE OF THIS PERSON'S FAVOURITES, OR NOT (#267). On RomM 5
     // a favourite is a member of their collection flagged `is_favorite`, so
@@ -304,10 +323,22 @@ private:
     void fillWiiUCode(Game& g) const;
     bool fetchFiltered(const char* filter, int limit, std::vector<Game>* out,
                        std::string* err);
-    bool postMultipart(const std::string& path, const char* partName,
-                       const std::string& fileName, const std::vector<uint8_t>& data,
-                       std::string* err, const std::string& shotName = "",
-                       const std::vector<uint8_t>& shot = {}) const;
+    // One part of a multipart/form-data body: a file, or a plain field when
+    // `fileName` is empty (a push's manifest). `data` is held by the caller
+    // until the request returns.
+    struct Part {
+        std::string name;
+        std::string fileName;
+        const char* type = "application/octet-stream";
+        const void* data = nullptr;
+        size_t size = 0;
+    };
+    // Every part in one POST (romm_http.cpp). True only for a 2xx; `*reply`
+    // and `*status` are what came back either way, status 0 when nothing
+    // did.
+    bool postMultipart(const std::string& path, const std::vector<Part>& parts,
+                       std::string* err, std::string* reply = nullptr,
+                       long* status = nullptr) const;
     // `*status` is the answer's HTTP status, 0 when none came.
     bool get(const std::string& path, std::string* body, std::string* err,
              long* status = nullptr) const;
@@ -367,6 +398,26 @@ void noteTransport(void* curlHandle, int curlCode);
 // heartbeat puts this console's back. System update writes it down
 // (updateflow.cpp).
 std::string heardServerVersion();
+// WHETHER THAT SERVER HAS SAVE CHANNELS (#346): its heartbeat carries RomM's
+// `SAVE_SYNC` block, which RomM 5.5 added (5.4.1's has none; Argosy reads
+// the same block). Heard with the version, from the same heartbeat; false
+// before the first.
+bool heardServerChannels();
+
+// RomM'S CONTENT HASH of a save's or a state's bytes, the name a snapshot
+// gives each (RomM 5.5, `hash_save_content`): the MD5 of the bytes in lower
+// case hex; for a zip, the MD5 of one line per file in it, sorted by name,
+// "<name>:<that file's MD5>", joined by "\n", folders left out. A name the
+// zip marks as UTF-8 is read as UTF-8, as RomM reads it; one it does not mark
+// is RomM's only when it is ASCII (RomM reads it as CP437). A zip libarchive
+// cannot read is hashed as bytes. A hash that is not RomM's makes RomM refuse
+// the push (romm_snapshots.cpp).
+std::string contentHash(const std::vector<uint8_t>& bytes);
+
+// `--romm-snapshots-test`: the snapshot client's reading of RomM's answers,
+// recorded from the write-test RomM 5.5.0-alpha.2, and its content hash
+// against RomM's own (romm_snapshots_test.cpp). No network. 0 when it passes.
+int snapshotsTest();
 
 // True for addresses that are obviously on a local network, which decides
 // whether http or https is tried first. A hostname with no dots is local by

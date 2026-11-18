@@ -3,7 +3,8 @@
 // each on its own CURL handle, with the console-wide flag that says whether
 // the server is away. One does not: setFavorite makes a person's first
 // Favorites collection on a handle of its own (romm_playdata.cpp). The client's other files (romm_pairing.cpp,
-// romm_library.cpp, romm_playdata.cpp, romm_codes.cpp) ask through these.
+// romm_library.cpp, romm_playdata.cpp, romm_snapshots.cpp, romm_codes.cpp)
+// ask through these.
 // Moved out of romm.cpp in the restructure (#398).
 
 #include "romm.h"
@@ -272,45 +273,33 @@ bool Client::sendJson(const char* method, const std::string& path, const std::st
     return true;
 }
 
-namespace {
-// One multipart/form-data body: the file part, and a state's picture as a
-// second part when there is one. Hand-built because the whole client is: no
-// HTTP library, and this is thirty lines. The picture part is Cabinet's to the
-// byte: `screenshotFile`, image/png (RommClient.swift, uploadState).
-std::string multipartBody(const std::string& boundary, const char* partName,
-                          const std::string& fileName, const std::vector<uint8_t>& data,
-                          const std::string& shotName, const std::vector<uint8_t>& shot) {
-    std::string b;
-    b.reserve(data.size() + shot.size() + fileName.size() + shotName.size() + 512);
-    b += "--" + boundary + "\r\n";
-    b += "Content-Disposition: form-data; name=\"";
-    b += partName;
-    b += "\"; filename=\"" + fileName + "\"\r\n";
-    b += "Content-Type: application/octet-stream\r\n\r\n";
-    b.append(reinterpret_cast<const char*>(data.data()), data.size());
-    b += "\r\n";
-    if (!shotName.empty() && !shot.empty()) {
-        b += "--" + boundary + "\r\n";
-        b += "Content-Disposition: form-data; name=\"screenshotFile\"; filename=\"" +
-             shotName + "\"\r\n";
-        b += "Content-Type: image/png\r\n\r\n";
-        b.append(reinterpret_cast<const char*>(shot.data()), shot.size());
-        b += "\r\n";
-    }
-    b += "--" + boundary + "--\r\n";
-    return b;
-}
-}  // namespace
-
-bool Client::postMultipart(const std::string& path, const char* partName,
-                           const std::string& fileName, const std::vector<uint8_t>& data,
-                           std::string* err, const std::string& shotName,
-                           const std::vector<uint8_t>& shot) const {
+bool Client::postMultipart(const std::string& path, const std::vector<Part>& parts,
+                           std::string* err, std::string* replyOut, long* statusOut) const {
+    if (statusOut) *statusOut = 0;
+    if (replyOut) replyOut->clear();
     CURL* c = curl_easy_init();
     if (!c) { if (err) *err = "curl init failed"; return false; }
 
+    // The body, its parts in the order given. Hand-built because the whole
+    // client is: no HTTP library, and this is twenty lines. A part with no
+    // file name is a plain field, as a push's manifest is (RomM reads it as
+    // text).
     const std::string boundary = "CabinetOSBoundary7f3a91c4";
-    const std::string body = multipartBody(boundary, partName, fileName, data, shotName, shot);
+    std::string body;
+    size_t size = 64;
+    for (const Part& p : parts) size += p.size + p.name.size() + p.fileName.size() + 160;
+    body.reserve(size);
+    for (const Part& p : parts) {
+        body += "--" + boundary + "\r\n";
+        body += "Content-Disposition: form-data; name=\"" + p.name + "\"";
+        if (!p.fileName.empty()) body += "; filename=\"" + p.fileName + "\"";
+        body += "\r\nContent-Type: ";
+        body += p.type;
+        body += "\r\n\r\n";
+        if (p.size) body.append(static_cast<const char*>(p.data), p.size);
+        body += "\r\n";
+    }
+    body += "--" + boundary + "--\r\n";
 
     curl_slist* hdrs = curl_slist_append(
         nullptr, ("Content-Type: multipart/form-data; boundary=" + boundary).c_str());
@@ -339,6 +328,8 @@ bool Client::postMultipart(const std::string& path, const char* partName,
     curl_easy_cleanup(c);
 
     if (rc != CURLE_OK) { if (err) *err = curl_easy_strerror(rc); return false; }
+    if (statusOut) *statusOut = status;
+    if (replyOut) *replyOut = reply;
     // ONLY A 2xx IS AN UPLOAD. This request does not follow redirects, so an
     // address that answers a POST with 301, 302, 307 or 308 (http behind an
     // https proxy, a path prefix, a sign-in page) received nothing; counting

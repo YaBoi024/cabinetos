@@ -319,6 +319,9 @@ struct App {
     // that gets checked against a real server rather than assumed.
     int romProbeId = 0;
     const char* romProbeExts = "gb|gbc|dmg";
+    // Lists one game's save channels as RomM 5.5 gives them to the console's
+    // person, reading only (#346, `--romm-channels <id>`).
+    int channelsProbeId = 0;
     // Where the built cores are. Where games and saves go is storage.h's
     // answer, not a constant here — see --storage-root.
     //

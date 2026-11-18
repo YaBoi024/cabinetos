@@ -375,6 +375,11 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             // The client's thread rule under load, against a stand-in server
             // (romm_racetest.cpp). Exits.
             return romm::raceTest(argv[i + 1], SDL_atoi(argv[i + 2]));
+        } else if (SDL_strcmp(argv[i], "--romm-snapshots-test") == 0) {
+            return romm::snapshotsTest();
+        } else if (SDL_strcmp(argv[i], "--romm-channels") == 0 && i + 1 < argc) {
+            channelsProbeId = SDL_atoi(argv[++i]);
+            rommProbeMode = true;
         } else if (SDL_strcmp(argv[i], "--rom") == 0 && i + 1 < argc) {
             romPath = argv[++i];
         } else if (SDL_strcmp(argv[i], "--evict-test") == 0) {
