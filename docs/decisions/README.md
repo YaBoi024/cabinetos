@@ -143,6 +143,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [portable-for-others-as-an-alpha](2026-11-04-portable-for-others-as-an-alpha.md): anyone may try the portable install from its wiki page, which calls it an alpha and lists what has and has not been tried.
 - [portable-secure-boot](2026-11-04-portable-secure-boot.md): with Secure Boot on, a portable drive brings up shim's key screen by itself and the tester enrols the key once per PC; nobody is asked to change Secure Boot, and everybody is told to save their BitLocker key first.
 - [wifi-scans-and-power-saving](2026-11-08-wifi-scans-and-power-saving.md): Wi-Fi scans only when the signal drops below -70 dBm, then every 6 minutes, in place of NetworkManager's every 5 minutes on a home with two access points; Wi-Fi power saving is off.
+- [romm-version-needed](2026-11-17-romm-version-needed.md): the console needs the RomM the wiki names, or newer; an update that needs a newer one waits, Download greyed out, until the server is updated.
 
 ### Building and checking
 

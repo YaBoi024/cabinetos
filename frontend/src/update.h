@@ -30,6 +30,7 @@ struct Status {
     bool download = false;     // written by the download, not the check
     std::string version;       // 2026.09.28
     int64_t size = 0;          // Available: bytes a download will fetch
+    std::string romm;          // Available: the RomM it needs, "5.5"; empty, none named
     int64_t done = 0;          // Downloading
     int64_t total = 0;
     int64_t since = 0;         // Installing: when it began, epoch seconds
@@ -67,5 +68,20 @@ std::string channel();
 
 // Bazzite's version underneath, 44.20260916. Empty if it cannot be read.
 std::string baseVersion();
+
+// WHETHER THE SERVER'S RomM IS NEW ENOUGH for an image that needs `needed`
+// (its cabinetos.romm-needed label, "5.5"; empty, it names none). `server` is
+// what RomM's heartbeat says ("5.5.0-alpha.2"). The numbers are compared one
+// by one, a missing one counting as 0, and anything after a "-" or "+" is not
+// read, so RomM's own alpha of 5.5 counts as 5.5: the save channels build
+// goes on testing for people running it (#346). Unknown when `server` is no
+// version: empty, never heard, or "development", which a RomM built from its
+// source says.
+enum class Romm { NewEnough, TooOld, Unknown };
+Romm rommFor(const std::string& server, const std::string& needed);
+
+// --update-romm-test: rommFor on RomM's versions, and the status file's
+// romm= line.
+int test();
 
 }  // namespace update

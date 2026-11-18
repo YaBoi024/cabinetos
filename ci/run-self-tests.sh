@@ -70,6 +70,7 @@ TESTS=(
     --gone-games-test
     --gpu-choice-test
     --tailscale-switch-test
+    --update-romm-test
     --game-events-test
     --dualsense-test
 )

@@ -3,10 +3,13 @@
 #include "unit.h"
 
 #include <json-c/json.h>
-#include <climits>
+#include <unistd.h>
 
+#include <algorithm>
+#include <climits>
 #include <cstdio>
 #include <cstdlib>
+#include <vector>
 
 namespace update {
 
@@ -62,6 +65,7 @@ Status read() {
         else if (k == "op") st.download = (v == "download");
         else if (k == "version") st.version = v;
         else if (k == "size") st.size = n;
+        else if (k == "romm") st.romm = v;
         else if (k == "done") st.done = n;
         else if (k == "total") st.total = n;
         else if (k == "since") st.since = n;
@@ -122,6 +126,116 @@ std::string baseVersion() {
         out = json_object_get_string(v);
     if (o) json_object_put(o);
     return out;
+}
+
+namespace {
+
+// "5.5.0-alpha.2" as 5, 5, 0. False for anything that is not numbers joined
+// by dots before an optional "-" or "+": "", "development", "5.", "v5.5".
+bool versionParts(const std::string& v, std::vector<long>* parts) {
+    parts->clear();
+    const std::string head = v.substr(0, v.find_first_of("-+"));
+    size_t pos = 0;
+    while (true) {
+        size_t end = pos;
+        while (end < head.size() && head[end] >= '0' && head[end] <= '9') ++end;
+        if (end == pos || end - pos > 9) return false;
+        parts->push_back(std::strtol(head.substr(pos, end - pos).c_str(), nullptr, 10));
+        if (end == head.size()) return true;
+        if (head[end] != '.') return false;
+        pos = end + 1;
+    }
+}
+
+}  // namespace
+
+Romm rommFor(const std::string& server, const std::string& needed) {
+    std::vector<long> have, need;
+    if (needed.empty()) return Romm::NewEnough;
+    // A label this program cannot read is a build's mistake, never a reason
+    // to download: the Justfile refuses to build one.
+    if (!versionParts(needed, &need)) return Romm::Unknown;
+    if (!versionParts(server, &have)) return Romm::Unknown;
+    const size_t n = std::max(have.size(), need.size());
+    for (size_t i = 0; i < n; ++i) {
+        const long h = i < have.size() ? have[i] : 0;
+        const long w = i < need.size() ? need[i] : 0;
+        if (h != w) return h > w ? Romm::NewEnough : Romm::TooOld;
+    }
+    return Romm::NewEnough;
+}
+
+int test() {
+    int failures = 0;
+    auto check = [&](const char* server, const char* needed, Romm want) {
+        const Romm got = rommFor(server, needed);
+        auto name = [](Romm r) {
+            return r == Romm::NewEnough ? "new enough" : r == Romm::TooOld ? "too old" : "unknown";
+        };
+        const bool ok = got == want;
+        std::printf("  %s  RomM \"%s\" for an image needing \"%s\": %s\n", ok ? "ok  " : "FAIL",
+                    server, needed, name(got));
+        if (!ok) ++failures;
+    };
+    // The cases the save channels build meets (#346): the newest stable
+    // RomM before channels, RomM's alpha of 5.5, its release, and a server
+    // whose version the console has not heard.
+    check("5.4.1", "5.5", Romm::TooOld);
+    check("5.5.0-alpha.2", "5.5", Romm::NewEnough);
+    check("5.5.0", "5.5", Romm::NewEnough);
+    check("", "5.5", Romm::Unknown);
+    check("development", "5.5", Romm::Unknown);
+    // Every part counts, as a number and not as text, and a missing part
+    // is 0.
+    check("5.10.0", "5.9", Romm::NewEnough);
+    check("5.4.9", "5.5", Romm::TooOld);
+    check("6.0.0", "5.5", Romm::NewEnough);
+    check("5.5", "5.5.1", Romm::TooOld);
+    check("5.5.1+build.3", "5.5.1", Romm::NewEnough);
+    check("5.1.0", "5.1", Romm::NewEnough);
+    check("5.3.1", "5.1", Romm::NewEnough);
+    check("5.0.9", "5.1", Romm::TooOld);
+    // Not a version: unknown, never new enough by accident.
+    check("v5.5.0", "5.5", Romm::Unknown);
+    check("5.", "5.5", Romm::Unknown);
+    check("5..5", "5.5", Romm::Unknown);
+    check("<version>", "5.5", Romm::Unknown);
+    // An image that names none holds nothing back, whatever the server.
+    check("", "", Romm::NewEnough);
+    check("4.0.0", "", Romm::NewEnough);
+    // A label this program cannot read holds it back: unknown.
+    check("5.5.0", "5.5x", Romm::Unknown);
+
+    // The status file's line, as cabinetos-update writes it.
+    char dir[] = "/tmp/cabinetos-update-test-XXXXXX";
+    if (!mkdtemp(dir)) {
+        std::fprintf(stderr, "[update] could not make a scratch folder\n");
+        return 1;
+    }
+    const std::string was = g_dir;
+    setDir(dir);
+    auto statusSays = [&](const char* body, const char* romm, const char* what) {
+        const std::string path = std::string(dir) + "/status";
+        if (FILE* f = std::fopen(path.c_str(), "wb")) {
+            std::fputs(body, f);
+            std::fclose(f);
+        }
+        const bool ok = read().romm == romm;
+        std::printf("  %s  %s\n", ok ? "ok  " : "FAIL", what);
+        if (!ok) ++failures;
+        std::remove(path.c_str());
+    };
+    statusSays("op=check\nstate=available\nversion=2026.11.20\nsize=1\nromm=5.5\nat=1\n", "5.5",
+               "an update that needs RomM 5.5 says so");
+    statusSays("op=check\nstate=available\nversion=2026.11.20\nsize=1\nromm=\nat=1\n", "",
+               "an update that names none says nothing");
+    statusSays("op=check\nstate=available\nversion=2026.11.20\nsize=1\nat=1\n", "",
+               "a status with no romm line says nothing");
+    setDir(was);
+    rmdir(dir);
+
+    std::printf("%s\n", failures ? "FAILED" : "all passed");
+    return failures ? 1 : 0;
 }
 
 }  // namespace update

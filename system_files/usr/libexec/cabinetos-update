@@ -20,6 +20,8 @@
 #   op=check | download         which of the two wrote it
 #   version=2026.09.28          the image's org.opencontainers.image.version
 #   size=<bytes>                what a download will fetch (available)
+#   romm=5.5                    the RomM the new image needs (available and a
+#                               download's failed), empty when it names none
 #   done=<bytes> total=<bytes>  downloading
 #   since=<epoch> written=<bytes>  installing
 #   reason=<short text>         failed
@@ -90,6 +92,8 @@ reason_of() {
     line=$(grep -i 'error' "${log}" | tail -1)
     [[ -n "${line}" ]] || line=$(tail -1 "${log}")
     line="${line##*: }"
+    # skopeo's own failures are a log line, msg="...", ending in its quote.
+    line="${line%\"}"
     echo "${line:0:60}"
 }
 
@@ -116,6 +120,17 @@ bytes_needed() {
             | [$m.layers[]
                | select((.digest | sub(":"; "_3A_")) as $r | $have | index($r) | not)
                | .size] | add // 0'
+}
+
+# THE RomM VERSION THE IMAGE AT $1 NEEDS, its cabinetos.romm-needed label
+# (the Justfile's): "5.5", or nothing for an image built before there was
+# one. The label is in the image's configuration, not its manifest, so this
+# is a second skopeo inspect; without --raw, skopeo follows a multi-arch
+# index to this machine's image itself. Whether the console's server has it
+# is the console's to say, not root's: root never talks to RomM.
+romm_needed() {
+    skopeo inspect --config "docker://$1" \
+        | jq -r '.config.Labels["cabinetos.romm-needed"] // empty'
 }
 
 do_check() {
@@ -148,7 +163,19 @@ do_check() {
     version=$(sed -n 's/^ *Version: *//p' <<<"${out}" | head -1)
     ref=$(booted_ref)
     size=$(bytes_needed "${ref}") || size=0
-    say state=available "version=${version}" "size=${size}"
+    # NOT KNOWING WHAT IT NEEDS IS NOT OFFERING IT. A label that cannot be
+    # read fails the check, rather than offer a download the console would
+    # have held back (#346).
+    local romm
+    log=$(mktemp)
+    if ! romm=$(romm_needed "${ref}" 2>"${log}"); then
+        say state=failed "reason=$(reason_of "${log}")"
+        cat "${log}" >&2
+        rm -f "${log}"
+        return 1
+    fi
+    rm -f "${log}"
+    say state=available "version=${version}" "size=${size}" "romm=${romm}"
 }
 
 # ---------------------------------------------------------------------------
@@ -204,7 +231,10 @@ activity() {
 }
 
 do_download() {
-    local ref version size
+    local ref version size romm shown
+    # What the answer on screen said the update needs, before this run
+    # replaces it: the check's, or the download's that failed.
+    shown=$(sed -n 's/^romm=//p' "${STATUS}" 2>/dev/null | head -1)
     ref=$(booted_ref)
     if [[ -z "${ref}" ]]; then
         say state=failed "reason=Not a bootc system"
@@ -231,6 +261,23 @@ do_download() {
     fi
     version=$(sed -n 's/^ *Version: *//p' "${log}" | head -1)
     size=$(bytes_needed "${ref}") || size=0
+    if ! romm=$(romm_needed "${ref}" 2>"${log}"); then
+        say state=failed "reason=$(reason_of "${log}")"
+        cat "${log}" >&2
+        rm -f "${log}"
+        return 1
+    fi
+    # A NEWER IMAGE THAT NEEDS ANOTHER RomM IS NOT FETCHED UNSEEN. This run
+    # fetches whatever is newest, which can be an image published after the
+    # check on screen, and the console held back only what that check found.
+    # So it stops and says what it found instead, and the console decides
+    # again (#346).
+    if [[ "${romm}" != "${shown}" ]]; then
+        echo "the update found needs RomM ${romm:-(none named)}, not ${shown:-(none named)}: not fetched" >&2
+        say state=available "version=${version}" "size=${size}" "romm=${romm}"
+        rm -f "${log}"
+        return 0
+    fi
     : >"${log}"
 
     # --progress-fd has to be a pipe; bootc refuses a file.
@@ -273,12 +320,12 @@ do_download() {
     cat "${log}"
 
     if (( stalled )); then
-        say state=failed "version=${version}" "reason=Stalled"
+        say state=failed "version=${version}" "romm=${romm}" "reason=Stalled"
         rm -f "${log}"
         return 1
     fi
     if (( rc != 0 )); then
-        say state=failed "version=${version}" "reason=$(reason_of "${log}")"
+        say state=failed "version=${version}" "romm=${romm}" "reason=$(reason_of "${log}")"
         rm -f "${log}"
         return 1
     fi
@@ -287,7 +334,7 @@ do_download() {
     local staged
     staged=$(staged_version)
     if [[ -z "${staged}" ]]; then
-        say state=failed "version=${version}" "reason=Nothing was staged"
+        say state=failed "version=${version}" "romm=${romm}" "reason=Nothing was staged"
         return 1
     fi
     say state=ready "version=${staged}"
