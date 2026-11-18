@@ -48,9 +48,10 @@ RomM: keep test launches under a minute, or have his go.
    console remembers about each game's save (the channels as last seen,
    the snapshot it holds, one owed marker per game). Step 4, starting a
    game, is next. Each step is a fresh
-   Opus session that keeps to CLAUDE.md's seven rules and its piece's files, reuses, removals, docs and
-   tests in the plan; before steps 4 and 5 (starting and leaving a game)
-   he is asked about Fable. Step 11 is #353's cartridge clocks and Saturn
+   session that keeps to CLAUDE.md's seven rules and its piece's files, reuses, removals, docs and
+   tests in the plan: Fable for steps 4 and 5 (starting and leaving a
+   game, the two that can lose a save; his choice, 2026-11-18), Opus for
+   the rest. Step 11 is #353's cartridge clocks and Saturn
    cartridge; its arcade high scores wait.
 2. **LinkUp: two server tidy-ups, no issue.** The internet test, step 6 of
    #654, passed twice: his console and his friend's, two servers linking up
