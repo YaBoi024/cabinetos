@@ -12,6 +12,7 @@
 #include <json-c/json.h>
 
 #include "fileio.h"
+#include "romm.h"
 
 namespace savemirror {
 namespace {
@@ -19,6 +20,9 @@ namespace {
 std::mutex gLock;
 uint64_t gSeq = 0;
 std::map<int, uint64_t> gForgotAt;   // rom id -> gSeq when last forgotten
+
+const char kHeld[] = "held.json";
+const char kSnapshotPrefix[] = "snapshot-";
 
 std::string dirFor(const storage::User& u, int romId) {
     return storage::userDir(u) + "/server-saves/" + std::to_string(romId);
@@ -28,12 +32,50 @@ std::string bytesName(const romm::Asset& a) {
     return std::to_string(a.id) + "-" + storage::safeSegment(a.updatedAt) + ".bin";
 }
 
+// Empty for a save RomM gave no hash.
+std::string snapshotName(const romm::SnapshotFile& f) {
+    if (f.contentHash.empty()) return "";
+    return kSnapshotPrefix + storage::safeSegment(f.contentHash) + ".bin";
+}
+
+bool isSnapshotBytes(const std::string& name) {
+    return name.compare(0, sizeof kSnapshotPrefix - 1, kSnapshotPrefix) == 0;
+}
+
+bool endsWithBin(const std::string& name) {
+    return name.size() > 4 && name.compare(name.size() - 4, 4, ".bin") == 0;
+}
+
+// Deletes the kept bytes `mine` says are its own and `keep` does not list.
+template <typename Mine>
+void dropBytes(const std::string& dir, const std::set<std::string>& keep, Mine mine) {
+    if (DIR* d = ::opendir(dir.c_str())) {
+        while (dirent* e = ::readdir(d)) {
+            const std::string name = e->d_name;
+            if (endsWithBin(name) && mine(name) && !keep.count(name))
+                ::unlink((dir + "/" + name).c_str());
+        }
+        ::closedir(d);
+    }
+}
+
+bool writeJson(const std::string& path, json_object* o) {
+    const std::string text = json_object_to_json_string_ext(o, JSON_C_TO_STRING_PRETTY);
+    json_object_put(o);
+    const bool ok = cab::writeBytes(path, text);
+    return ok;
+}
+
+bool sizedFile(const std::string& path) {
+    struct stat st;
+    return ::stat(path.c_str(), &st) == 0 && st.st_size > 0;
+}
+
 }  // namespace
 
 void putList(const storage::User& u, int romId, const std::vector<romm::Asset>& rows) {
     if (!u.valid() || romId <= 0) return;
     const std::string dir = dirFor(u, romId);
-    storage::makeDirs(dir);
     json_object* arr = json_object_new_array();
     std::set<std::string> keep;
     for (const romm::Asset& a : rows) {
@@ -46,21 +88,9 @@ void putList(const storage::User& u, int romId, const std::vector<romm::Asset>& 
         json_object_array_add(arr, o);
         keep.insert(bytesName(a));
     }
-    const std::string path = dir + "/saves.json";
-    const std::string tmp = path + ".part";
-    if (json_object_to_file_ext(tmp.c_str(), arr, JSON_C_TO_STRING_PRETTY) == 0)
-        ::rename(tmp.c_str(), path.c_str());
-    json_object_put(arr);
+    writeJson(dir + "/saves.json", arr);
     // Bytes of a row that is gone, or of an older version of one.
-    if (DIR* d = ::opendir(dir.c_str())) {
-        while (dirent* e = ::readdir(d)) {
-            const std::string name = e->d_name;
-            if (name.size() > 4 && name.compare(name.size() - 4, 4, ".bin") == 0 &&
-                !keep.count(name))
-                ::unlink((dir + "/" + name).c_str());
-        }
-        ::closedir(d);
-    }
+    dropBytes(dir, keep, [](const std::string& name) { return !isSnapshotBytes(name); });
 }
 
 bool getList(const storage::User& u, int romId, std::vector<romm::Asset>* rows) {
@@ -90,12 +120,7 @@ bool getList(const storage::User& u, int romId, std::vector<romm::Asset>* rows) 
 void putBytes(const storage::User& u, int romId, const romm::Asset& row,
               const std::vector<uint8_t>& bytes) {
     if (!u.valid() || bytes.empty()) return;
-    const std::string dir = dirFor(u, romId);
-    storage::makeDirs(dir);
-    const std::string path = dir + "/" + bytesName(row);
-    const std::string tmp = path + ".part";
-    if (cab::writeBytes(tmp, bytes)) ::rename(tmp.c_str(), path.c_str());
-    else ::unlink(tmp.c_str());
+    cab::writeBytes(dirFor(u, romId) + "/" + bytesName(row), bytes);
 }
 
 std::vector<uint8_t> getBytes(const storage::User& u, int romId, const romm::Asset& row) {
@@ -104,9 +129,75 @@ std::vector<uint8_t> getBytes(const storage::User& u, int romId, const romm::Ass
 }
 
 bool hasBytes(const storage::User& u, int romId, const romm::Asset& row) {
-    struct stat st;
-    return u.valid() &&
-           ::stat((dirFor(u, romId) + "/" + bytesName(row)).c_str(), &st) == 0 && st.st_size > 0;
+    return u.valid() && sizedFile(dirFor(u, romId) + "/" + bytesName(row));
+}
+
+void putChannels(const storage::User& u, int romId, const std::vector<romm::Channel>& channels) {
+    if (!u.valid() || romId <= 0) return;
+    const std::string dir = dirFor(u, romId);
+    if (!cab::writeBytes(dir + "/channels.json", romm::channelsJson(channels))) return;
+    std::set<std::string> keep;
+    for (const romm::Channel& c : channels)
+        if (c.currentId != 0 && c.current.hasSave) keep.insert(snapshotName(c.current.save));
+    dropBytes(dir, keep, isSnapshotBytes);
+}
+
+bool getChannels(const storage::User& u, int romId, std::vector<romm::Channel>* channels) {
+    channels->clear();
+    if (!u.valid()) return false;
+    const std::vector<uint8_t> text = cab::readBytes(dirFor(u, romId) + "/channels.json");
+    if (text.empty()) return false;
+    if (romm::readChannels(std::string(text.begin(), text.end()), channels, nullptr)) return true;
+    channels->clear();
+    return false;
+}
+
+void putSnapshotSave(const storage::User& u, int romId, const romm::SnapshotFile& save,
+                     const std::vector<uint8_t>& bytes) {
+    const std::string name = snapshotName(save);
+    if (!u.valid() || romId <= 0 || name.empty() || bytes.empty()) return;
+    cab::writeBytes(dirFor(u, romId) + "/" + name, bytes);
+}
+
+std::vector<uint8_t> getSnapshotSave(const storage::User& u, int romId,
+                                     const romm::SnapshotFile& save) {
+    const std::string name = snapshotName(save);
+    if (!u.valid() || name.empty()) return {};
+    return cab::readBytes(dirFor(u, romId) + "/" + name);
+}
+
+bool hasSnapshotSave(const storage::User& u, int romId, const romm::SnapshotFile& save) {
+    const std::string name = snapshotName(save);
+    return u.valid() && !name.empty() && sizedFile(dirFor(u, romId) + "/" + name);
+}
+
+void putHeld(const storage::User& u, int romId, const Held& held) {
+    if (!u.valid() || romId <= 0 || held.snapshotId <= 0) return;
+    json_object* o = json_object_new_object();
+    json_object_object_add(o, "channel_id", json_object_new_string(held.channelId.c_str()));
+    json_object_object_add(o, "snapshot_id", json_object_new_int(held.snapshotId));
+    json_object_object_add(o, "digest", json_object_new_string(held.digest.c_str()));
+    json_object_object_add(o, "save_hash", json_object_new_string(held.saveHash.c_str()));
+    json_object_object_add(o, "at", json_object_new_int64(held.at));
+    if (!writeJson(dirFor(u, romId) + "/" + kHeld, o))
+        std::fprintf(stderr, "[save] could not note the snapshot held of game %d\n", romId);
+}
+
+bool getHeld(const storage::User& u, int romId, Held* held) {
+    *held = Held{};
+    if (!u.valid()) return false;
+    json_object* o = json_object_from_file((dirFor(u, romId) + "/" + kHeld).c_str());
+    if (!o) return false;
+    json_object* v = nullptr;
+    if (json_object_object_get_ex(o, "channel_id", &v)) held->channelId = json_object_get_string(v);
+    if (json_object_object_get_ex(o, "snapshot_id", &v)) held->snapshotId = json_object_get_int(v);
+    if (json_object_object_get_ex(o, "digest", &v)) held->digest = json_object_get_string(v);
+    if (json_object_object_get_ex(o, "save_hash", &v)) held->saveHash = json_object_get_string(v);
+    if (json_object_object_get_ex(o, "at", &v)) held->at = json_object_get_int64(v);
+    json_object_put(o);
+    if (held->snapshotId > 0) return true;
+    *held = Held{};
+    return false;
 }
 
 uint64_t mark() {
@@ -129,11 +220,18 @@ void forget(const storage::User& u, int romId) {
     const std::string dir = dirFor(u, romId);
     if (DIR* d = ::opendir(dir.c_str())) {
         while (dirent* e = ::readdir(d)) {
-            if (e->d_name[0] == '.') continue;
+            if (e->d_name[0] == '.' || std::string(e->d_name) == kHeld) continue;
             ::unlink((dir + "/" + e->d_name).c_str());
         }
         ::closedir(d);
     }
+    ::rmdir(dir.c_str());
+}
+
+void forgetHeld(const storage::User& u, int romId) {
+    if (!u.valid()) return;
+    const std::string dir = dirFor(u, romId);
+    cab::removeFile(dir + "/" + kHeld);
     ::rmdir(dir.c_str());
 }
 

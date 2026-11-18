@@ -1,7 +1,9 @@
 // Save channels and snapshots on RomM 5.5 (#346): a game's channels listed
 // (fetchChannels), a snapshot pushed into one (pushSnapshot), what RomM
-// answers a push read (readPushAnswer), and RomM's content hash, the name a
-// snapshot gives each save and state (contentHash). The words are in
+// answers a push read (readPushAnswer), RomM's content hash, the name a
+// snapshot gives each save and state (contentHash), and a game's channels
+// written in RomM's own form for the copy the console keeps of them
+// (channelsJson, read back by readChannels; savemirror.h). The words are in
 // romm_types.h. Its own file because it is a job of its own: the old save
 // and state requests stay in romm_playdata.cpp until the console stops
 // making them.
@@ -230,6 +232,87 @@ bool readChannel(json_object* o, Channel* c) {
     return !c->id.empty();
 }
 
+// THE THREE READERS ABOVE, BACKWARDS (channelsJson): every field each reads,
+// under RomM's name, so a channel kept on the console reads back as it came.
+void addStr(json_object* o, const char* key, const std::string& v) {
+    json_object_object_add(o, key, json_object_new_string(v.c_str()));
+}
+
+json_object* fileJson(const SnapshotFile& f) {
+    json_object* o = json_object_new_object();
+    json_object_object_add(o, "id", json_object_new_int(f.id));
+    addStr(o, "file_name", f.fileName);
+    json_object_object_add(o, "file_size_bytes", json_object_new_int64(f.sizeBytes));
+    addStr(o, "content_hash", f.contentHash);
+    if (!f.picturePath.empty()) {
+        json_object* shot = json_object_new_object();
+        addStr(shot, "download_path", f.picturePath);
+        json_object_object_add(o, "screenshot", shot);
+    }
+    addStr(o, "shape", f.shape);
+    addStr(o, "format", f.format);
+    addStr(o, "emulator", f.emulator);
+    addStr(o, "core", f.core);
+    return o;
+}
+
+json_object* deviceJson(const std::string& id, const std::string& client) {
+    json_object* d = json_object_new_object();
+    addStr(d, "id", id);
+    addStr(d, "client", client);
+    return d;
+}
+
+json_object* snapshotJson(const Snapshot& s) {
+    json_object* o = json_object_new_object();
+    json_object_object_add(o, "id", json_object_new_int(s.id));
+    addStr(o, "digest", s.digest);
+    addStr(o, "kind", s.kind);
+    json_object_object_add(o, "parent_snapshot_id",
+                           s.parentId ? json_object_new_int(s.parentId) : nullptr);
+    addStr(o, "channel_id", s.channelId);
+    json_object_object_add(o, "is_hardcore", json_object_new_boolean(s.hardcore));
+    addStr(o, "created_at", s.createdAt);
+    json_object* device = deviceJson(s.deviceId, s.deviceClient);
+    json_object_object_add(device, "is_own", json_object_new_boolean(s.deviceOwn));
+    json_object_object_add(o, "device", device);
+    json_object* held = json_object_new_array();
+    for (const SnapshotHolder& h : s.heldBy) {
+        json_object* one = json_object_new_object();
+        json_object_object_add(one, "device", deviceJson(h.deviceId, h.client));
+        addStr(one, "synced_at", h.syncedAt);
+        json_object_array_add(held, one);
+    }
+    json_object_object_add(o, "held_by", held);
+    if (s.hasSave) json_object_object_add(o, "save", fileJson(s.save));
+    json_object* bank = json_object_new_object();
+    for (const SnapshotState& st : s.states) {
+        json_object* slots = jobj(bank, st.core.c_str());
+        if (!slots) {
+            slots = json_object_new_object();
+            json_object_object_add(bank, st.core.c_str(), slots);
+        }
+        json_object_object_add(slots, st.slot.c_str(), fileJson(st.file));
+    }
+    json_object_object_add(o, "states", bank);
+    return o;
+}
+
+json_object* channelJson(const Channel& c) {
+    json_object* o = json_object_new_object();
+    addStr(o, "id", c.id);
+    addStr(o, "label", c.label);
+    json_object_object_add(o, "is_hardcore", json_object_new_boolean(c.hardcore));
+    json_object_object_add(o, "rom_id", json_object_new_int(c.romId));
+    json_object_object_add(o, "rom_file_id", json_object_new_int(c.romFileId));
+    json_object_object_add(o, "snapshot_count", json_object_new_int(c.snapshotCount));
+    addStr(o, "updated_at", c.updatedAt);
+    json_object_object_add(o, "current_snapshot_id",
+                           c.currentId ? json_object_new_int(c.currentId) : nullptr);
+    if (c.currentId != 0) json_object_object_add(o, "current", snapshotJson(c.current));
+    return o;
+}
+
 // A push's states, a core at a time, as the manifest names them.
 std::vector<std::pair<std::string, std::vector<const PushState*>>>
 statesByCore(const SnapshotPush& push) {
@@ -267,6 +350,14 @@ bool readChannels(const std::string& body, std::vector<Channel>* out, std::strin
     }
     json_object_put(root);
     return true;
+}
+
+std::string channelsJson(const std::vector<Channel>& channels) {
+    json_object* list = json_object_new_array();
+    for (const Channel& c : channels) json_object_array_add(list, channelJson(c));
+    std::string text = json_object_to_json_string_ext(list, JSON_C_TO_STRING_PRETTY);
+    json_object_put(list);
+    return text;
 }
 
 bool Client::fetchChannels(const std::vector<int>& romFileIds, std::vector<Channel>* out,

@@ -414,6 +414,15 @@ bool heardServerChannels();
 // the push (romm_snapshots.cpp).
 std::string contentHash(const std::vector<uint8_t>& bytes);
 
+// A LIST OF CHANNELS IN RomM'S OWN FORM, as `GET /api/channels` answers it
+// (romm_snapshots.cpp). readChannels reads RomM's answer; channelsJson writes
+// every field it reads, under RomM's names, so the copy the console keeps of
+// a game's channels (savemirror.h) reads back through the same reader and
+// there is one spelling of a channel. readChannels adds to `*out`, and is
+// false when the text is not a list.
+bool readChannels(const std::string& body, std::vector<Channel>* out, std::string* err);
+std::string channelsJson(const std::vector<Channel>& channels);
+
 // `--romm-snapshots-test`: the snapshot client's reading of RomM's answers,
 // recorded from the write-test RomM 5.5.0-alpha.2, and its content hash
 // against RomM's own (romm_snapshots_test.cpp). No network. 0 when it passes.

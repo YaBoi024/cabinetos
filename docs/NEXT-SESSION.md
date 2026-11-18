@@ -43,9 +43,11 @@ RomM: keep test launches under a minute, or have his go.
    went out alone in 2026.11.18 (PR #721), since only a version already on
    a console can hold back the next one. Steps 2 to 11 go on one draft pull
    request, #722, "Save channels: the console's saves move to RomM's
-   channels (#346, steps 2 to 11)", cut from main. Step 2, the RomM client
-   learning channels and snapshots, is built there; step 3, what the
-   console remembers about each game's save, is next. Each step is a fresh
+   channels (#346, steps 2 to 11)", cut from main. Steps 2 and 3 are built
+   there: the RomM client learning channels and snapshots, and what the
+   console remembers about each game's save (the channels as last seen,
+   the snapshot it holds, one owed marker per game). Step 4, starting a
+   game, is next. Each step is a fresh
    Opus session that keeps to CLAUDE.md's seven rules and its piece's files, reuses, removals, docs and
    tests in the plan; before steps 4 and 5 (starting and leaving a game)
    he is asked about Fable. Step 11 is #353's cartridge clocks and Saturn

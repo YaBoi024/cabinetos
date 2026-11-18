@@ -41,10 +41,9 @@ struct Heartbeat {
 };
 bool readHeartbeat(const std::string& body, Heartbeat* out);
 
-// RomM's answers about channels (romm_snapshots.cpp): a list of channels,
-// and what a push's status and body say. readPushAnswer fills `*out` from
-// any answer; a body it cannot read is Refused, its first words kept.
-bool readChannels(const std::string& body, std::vector<Channel>* out, std::string* err);
+// What a push's status and body say (romm_snapshots.cpp). readPushAnswer
+// fills `*out` from any answer; a body it cannot read is Refused, its first
+// words kept. A list of channels is read by readChannels, in romm.h.
 void readPushAnswer(long status, const std::string& body, PushAnswer* out);
 // The manifest part a push sends, as JSON text.
 std::string pushManifest(const SnapshotPush& push);

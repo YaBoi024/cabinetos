@@ -28,6 +28,7 @@
 #include "netblock.h"
 #include "samenames.h"
 #include "screenview.h"
+#include "selftests.h"
 #include "storage.h"
 #include "tilt.h"
 #include "update.h"
@@ -329,6 +330,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             return ui::keyboardTest();
         } else if (SDL_strcmp(argv[i], "--gone-games-test") == 0) {
             return gone::test();
+        } else if (SDL_strcmp(argv[i], "--save-notes-test") == 0) {
+            return saveNotesTest();
         } else if (SDL_strcmp(argv[i], "--game-events-test") == 0) {
             return gameevents::test();
         } else if (SDL_strcmp(argv[i], "--battery-test") == 0) {

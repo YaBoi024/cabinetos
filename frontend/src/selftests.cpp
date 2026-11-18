@@ -24,6 +24,7 @@
 #include "prefs.h"
 #include "romfile.h"
 #include "romm.h"
+#include "savemirror.h"
 #include "server.h"
 #include "storage.h"
 #include "unsettled.h"
@@ -698,5 +699,336 @@ int filesTest() {
 
     storage::removeEntry(root);
     std::printf("\nfiles: %d failure%s\n", failures, failures == 1 ? "" : "s");
+    return failures == 0 ? 0 : 1;
+}
+
+namespace {
+
+bool sameFile(const romm::SnapshotFile& a, const romm::SnapshotFile& b) {
+    return a.id == b.id && a.fileName == b.fileName && a.sizeBytes == b.sizeBytes &&
+           a.contentHash == b.contentHash && a.picturePath == b.picturePath &&
+           a.shape == b.shape && a.format == b.format && a.emulator == b.emulator &&
+           a.core == b.core;
+}
+
+bool sameSnapshot(const romm::Snapshot& a, const romm::Snapshot& b) {
+    if (a.id != b.id || a.digest != b.digest || a.kind != b.kind || a.parentId != b.parentId ||
+        a.channelId != b.channelId || a.hardcore != b.hardcore || a.createdAt != b.createdAt ||
+        a.deviceOwn != b.deviceOwn || a.deviceId != b.deviceId ||
+        a.deviceClient != b.deviceClient || a.hasSave != b.hasSave ||
+        (a.hasSave && !sameFile(a.save, b.save)) || a.heldBy.size() != b.heldBy.size() ||
+        a.states.size() != b.states.size())
+        return false;
+    for (size_t i = 0; i < a.heldBy.size(); ++i)
+        if (a.heldBy[i].deviceId != b.heldBy[i].deviceId ||
+            a.heldBy[i].client != b.heldBy[i].client ||
+            a.heldBy[i].syncedAt != b.heldBy[i].syncedAt)
+            return false;
+    for (size_t i = 0; i < a.states.size(); ++i)
+        if (a.states[i].core != b.states[i].core || a.states[i].slot != b.states[i].slot ||
+            !sameFile(a.states[i].file, b.states[i].file))
+            return false;
+    return true;
+}
+
+bool sameChannel(const romm::Channel& a, const romm::Channel& b) {
+    return a.id == b.id && a.label == b.label && a.hardcore == b.hardcore &&
+           a.romId == b.romId && a.romFileId == b.romFileId &&
+           a.snapshotCount == b.snapshotCount && a.updatedAt == b.updatedAt &&
+           a.currentId == b.currentId && (a.currentId == 0 || sameSnapshot(a.current, b.current));
+}
+
+bool samePush(const cache::OwedPush& a, const cache::OwedPush& b) {
+    if (a.romId != b.romId || a.madeAt != b.madeAt || a.romFileId != b.romFileId ||
+        a.channelId != b.channelId || a.label != b.label ||
+        a.expectedCurrentId != b.expectedCurrentId || a.parentId != b.parentId ||
+        a.couldNotUseNewest != b.couldNotUseNewest || a.emulator != b.emulator ||
+        a.core != b.core || a.hasSave != b.hasSave || a.saveName != b.saveName ||
+        a.savePath != b.savePath || a.saveShape != b.saveShape ||
+        a.states.size() != b.states.size())
+        return false;
+    for (size_t i = 0; i < a.states.size(); ++i) {
+        const cache::OwedPush::State &x = a.states[i], &y = b.states[i];
+        if (x.core != y.core || x.slot != y.slot || x.fileName != y.fileName ||
+            x.path != y.path || x.pictureName != y.pictureName || x.picturePath != y.picturePath)
+            return false;
+    }
+    return true;
+}
+
+romm::SnapshotFile noteFile(int id, const std::string& name, const std::string& hash) {
+    romm::SnapshotFile f;
+    f.id = id;
+    f.fileName = name;
+    f.sizeBytes = 1000 + id;
+    f.contentHash = hash;
+    f.picturePath = "/api/raw/assets/users/notes/" + std::to_string(id) + ".png";
+    f.shape = "SINGLE";
+    f.format = "native";
+    f.emulator = "gambatte-native";
+    f.core = "gambatte";
+    return f;
+}
+
+}  // namespace
+
+// `--save-notes-test` (#346): what the console remembers about each game's
+// save (savemirror.h, pending.h), in a scratch root. RomM's channels as last
+// seen read back with every field, an empty one and a hardcore one among
+// them; each current's save kept by its hash and dropped once no channel
+// holds it, RomM's old rows and their bytes beside them each left by the
+// other; forgetting RomM's copy leaves the snapshot this console holds, and
+// a game gone takes it. A game's owed push read back whole; a newer one
+// replaces it; a push that lands clears only the one it sent; a cut write's
+// temporary is no marker. And the markers today's version writes, one per
+// file, read back beside a game's push as the upload queue sends them
+// (Uploader::resendOwedFor makes its job of these fields).
+int saveNotesTest() {
+    int failures = 0;
+    auto check = [&](bool ok, const char* what) {
+        std::printf("  %s  %s\n", ok ? "ok  " : "FAIL", what);
+        if (!ok) ++failures;
+    };
+    auto exists = [](const std::string& p) {
+        struct stat st{};
+        return ::stat(p.c_str(), &st) == 0;
+    };
+    char root[] = "/tmp/cabinetos-save-notes-XXXXXX";
+    if (!mkdtemp(root)) {
+        std::fprintf(stderr, "[save notes] could not make a scratch root\n");
+        return 1;
+    }
+    setenv("CABINETOS_DRIVES", (std::string(root) + "/drives").c_str(), 1);
+    storage::setRoot(root);
+    std::string serr;
+    if (!storage::ensureTree(&serr)) {
+        std::fprintf(stderr, "[save notes] scratch root unusable: %s\n", serr.c_str());
+        return 1;
+    }
+    std::printf("scratch root  %s\n\n", root);
+    storage::User u;
+    u.id = 1;
+    u.name = "notes-test";
+    const int game = 705;
+    const std::string folder = storage::userDir(u) + "/server-saves/705";
+
+    // 1. RomM's channels for a game, as last seen.
+    romm::Channel run;
+    run.id = "01937a3c-0000-7000-8000-00000000000a";
+    run.label = "default";
+    run.romId = game;
+    run.romFileId = 4410;
+    run.snapshotCount = 3;
+    run.updatedAt = "2026-11-18T22:42:48.649000+00:00";
+    run.currentId = 12;
+    run.current.id = 12;
+    run.current.digest = "sha256:5d1c0ffee";
+    run.current.kind = "channel";
+    run.current.parentId = 11;
+    run.current.channelId = run.id;
+    run.current.createdAt = "2026-11-18T22:42:48.649000+00:00";
+    run.current.deviceOwn = true;
+    run.current.deviceId = "01937a3c-0000-7000-8000-0000000000d1";
+    run.current.deviceClient = "cabinetos";
+    run.current.heldBy.push_back({run.current.deviceId, "cabinetos", "2026-11-18T22:42:49Z"});
+    run.current.hasSave = true;
+    run.current.save = noteFile(31, "Game [2026-11-18_22-42-48-649].srm",
+                                "0123456789abcdef0123456789abcdef");
+    run.current.states.push_back({"gambatte", "1", noteFile(41, "Game.state1", "41")});
+    run.current.states.push_back({"gambatte", "2", noteFile(42, "Game.state2", "42")});
+    run.current.states.push_back({"mgba", "auto", noteFile(43, "Game.auto", "43")});
+    romm::Channel hard;
+    hard.id = "01937a3c-0000-7000-8000-00000000000b";
+    hard.label = "Phone";
+    hard.hardcore = true;
+    hard.romId = game;
+    hard.romFileId = 4410;
+    hard.snapshotCount = 1;
+    hard.updatedAt = "2026-11-17T08:00:00+00:00";
+    hard.currentId = 20;
+    hard.current.id = 20;
+    hard.current.digest = "sha256:aaaa";
+    hard.current.kind = "channel";
+    hard.current.channelId = hard.id;
+    hard.current.hardcore = true;
+    hard.current.createdAt = "2026-11-17T08:00:00+00:00";
+    hard.current.hasSave = true;
+    hard.current.save = noteFile(50, "Game.srm", "fedcba9876543210fedcba9876543210");
+    romm::Channel empty;
+    empty.id = "01937a3c-0000-7000-8000-00000000000c";
+    empty.label = "softcore";
+    empty.romId = game;
+    empty.romFileId = 4410;
+    std::vector<romm::Channel> got;
+    check(!savemirror::getChannels(u, game, &got) && got.empty(),
+          "a game whose channels were never seen has none");
+    savemirror::putChannels(u, game, {run, hard, empty});
+    check(savemirror::getChannels(u, game, &got) && got.size() == 3 &&
+              sameChannel(got[0], run) && sameChannel(got[1], hard) && sameChannel(got[2], empty),
+          "three channels read back with every field: one with its states, a hardcore one "
+          "and an empty one");
+
+    // 2. Each current's save, by its hash, beside RomM's old rows.
+    const std::vector<uint8_t> runSave(2048, 0x5a), hardSave(512, 0xa5), oldSave(64, 0x33);
+    savemirror::putSnapshotSave(u, game, run.current.save, runSave);
+    savemirror::putSnapshotSave(u, game, hard.current.save, hardSave);
+    check(savemirror::getSnapshotSave(u, game, run.current.save) == runSave &&
+              savemirror::getSnapshotSave(u, game, hard.current.save) == hardSave,
+          "each current's save reads back as it was kept");
+    romm::SnapshotFile other = run.current.save;
+    other.contentHash = "99999999999999999999999999999999";
+    romm::SnapshotFile unhashed = run.current.save;
+    unhashed.contentHash.clear();
+    savemirror::putSnapshotSave(u, game, unhashed, runSave);
+    check(savemirror::getSnapshotSave(u, game, other).empty() &&
+              !savemirror::hasSnapshotSave(u, game, unhashed),
+          "another hash under the same id is not those bytes, and a save with no hash is "
+          "not kept");
+    romm::Asset row;
+    row.id = 5;
+    row.romId = game;
+    row.fileName = "Game (Cabinet).srm";
+    row.sizeBytes = 64;
+    row.emulator = "gambatte-native";
+    row.updatedAt = "2026-11-01T10:00:00+00:00";
+    savemirror::putList(u, game, {row});
+    savemirror::putBytes(u, game, row, oldSave);
+    savemirror::putChannels(u, game, {run, empty});
+    check(savemirror::hasSnapshotSave(u, game, run.current.save) &&
+              !savemirror::hasSnapshotSave(u, game, hard.current.save),
+          "a save no listed channel holds any more is dropped, the one still held kept");
+    savemirror::putList(u, game, {row});
+    std::vector<romm::Asset> rows;
+    check(savemirror::getList(u, game, &rows) && rows.size() == 1 && rows[0].id == 5 &&
+              savemirror::getBytes(u, game, row) == oldSave &&
+              savemirror::hasSnapshotSave(u, game, run.current.save),
+          "RomM's old rows and their bytes stay beside the channels, each left by the other");
+    cab::writeBytes(folder + "/channels.json", std::string("{\"detail\":\"cut\"}"));
+    check(!savemirror::getChannels(u, game, &got) && got.empty(),
+          "channels that are not a list read as none");
+    savemirror::putChannels(u, game, {run, empty});
+
+    // 3. The snapshot this console holds.
+    savemirror::Held held;
+    check(!savemirror::getHeld(u, game, &held), "a game this console never held has no note");
+    savemirror::Held had;
+    had.channelId = run.id;
+    had.snapshotId = 12;
+    had.digest = run.current.digest;
+    had.saveHash = run.current.save.contentHash;
+    had.at = 1763505768;
+    savemirror::putHeld(u, game, had);
+    savemirror::Held none;
+    savemirror::putHeld(u, game, none);
+    check(savemirror::getHeld(u, game, &held) && held.channelId == had.channelId &&
+              held.snapshotId == 12 && held.digest == had.digest &&
+              held.saveHash == had.saveHash && held.at == had.at,
+          "the snapshot held reads back whole, and a note of no snapshot writes nothing");
+    const uint64_t before = savemirror::mark();
+    savemirror::forget(u, game);
+    check(!savemirror::getChannels(u, game, &got) && !savemirror::getList(u, game, &rows) &&
+              !savemirror::hasSnapshotSave(u, game, run.current.save) &&
+              !savemirror::hasBytes(u, game, row) && savemirror::forgottenSince(game, before),
+          "forgetting RomM's copy takes the channels, the rows and every byte kept");
+    check(savemirror::getHeld(u, game, &held) && held.snapshotId == 12,
+          "and leaves the snapshot this console holds");
+    savemirror::forgetHeld(u, game);
+    check(!savemirror::getHeld(u, game, &held) && !exists(folder),
+          "a game gone takes that too, and its folder");
+
+    // 4. A game's owed push.
+    check(!cache::isPushOwed(u, game) && cache::owedPushes(u).empty(),
+          "a game with nothing owed has no push owed");
+    cache::OwedPush push;
+    push.romId = game;
+    push.madeAt = 1763505768;
+    push.romFileId = 4410;
+    push.channelId = run.id;
+    push.label = "default";
+    push.expectedCurrentId = 12;
+    push.parentId = 11;
+    push.couldNotUseNewest = true;
+    push.emulator = "gambatte-native";
+    push.core = "gambatte";
+    push.hasSave = true;
+    push.saveName = "Game (Cabinet).srm";
+    push.savePath = std::string(root) + "/saves/Game (Cabinet).srm";
+    push.saveShape = "SINGLE";
+    push.states.push_back({"gambatte", "1", "Game (Cabinet).state1", root + std::string("/1.state"),
+                           "Game (Cabinet).state1.png", root + std::string("/1.png")});
+    push.states.push_back({"gambatte", "2", "Game (Cabinet).state2", root + std::string("/2.state"),
+                           "", ""});
+    const std::string first = cache::markPushOwed(u, push, 4096);
+    cache::OwedPush back;
+    check(!first.empty() && cache::owedPush(u, game, &back) && back.stamp == first &&
+              samePush(back, push),
+          "a game's owed push reads back with every field, a state with no picture among them");
+    check(cache::isPushOwed(u, game) && cache::owedPushes(u).size() == 1 &&
+              cache::pendingCount(u) == 1 && cache::pendingBytes() == 4096 &&
+              cache::owed(u).empty(),
+          "it is owed, counted once with its bytes, and is no file owed");
+    cache::OwedPush newer = push;
+    newer.hasSave = false;
+    newer.saveName.clear();
+    newer.savePath.clear();
+    newer.saveShape.clear();
+    newer.couldNotUseNewest = false;
+    newer.channelId.clear();
+    newer.label = "softcore";
+    newer.expectedCurrentId = 0;
+    newer.parentId = 0;
+    newer.states.resize(1);
+    const std::string second = cache::markPushOwed(u, newer, 1024);
+    check(!second.empty() && second != first && cache::owedPush(u, game, &back) &&
+              back.stamp == second && samePush(back, newer) && cache::pendingCount(u) == 1,
+          "a newer one, states only, into a channel yet to be made, replaces it whole");
+    cache::clearPushOwed(u, game, first);
+    check(cache::isPushOwed(u, game), "a push of the older one landing leaves the newer owed");
+    cache::clearPushOwed(u, game, second);
+    check(!cache::isPushOwed(u, game) && cache::pendingCount(u) == 0,
+          "and the push of the newer one landing clears it");
+    cab::writeBytes(storage::pendingDir(u) + "/706.push.placing", std::string("12\n"));
+    check(cache::pendingCount(u) == 0 && cache::owedPushes(u).empty(),
+          "a cut write's temporary is no push owed");
+
+    // 5. The markers today's version writes, one per file, beside a push:
+    // the bytes it writes, not written through markPending, so a change to
+    // either is seen here.
+    const std::string pend = storage::pendingDir(u);
+    cab::writeBytes(pend + "/8-Game__Cabinet_.srm.pending",
+                    std::string("2048\nkind save\nrom 8\nemulator gambatte-native\n"
+                                "name Game (Cabinet).srm\nlocal /saves/Game (Cabinet).srm\n"));
+    cab::writeBytes(pend + "/8-Game__Cabinet_.state1.pending",
+                    std::string("512\nkind state\nrom 8\nemulator gambatte\n"
+                                "name Game (Cabinet).state1\nlocal /states/1.state\n"
+                                "shotname Game (Cabinet).state1.png\nshot /states/1.png\n"));
+    push.romId = 8;
+    const std::string beside = cache::markPushOwed(u, push, 256);
+    const std::vector<cache::Owed> owed = cache::owed(u);
+    const cache::Owed* save = nullptr;
+    const cache::Owed* state = nullptr;
+    for (const cache::Owed& o : owed) (o.isState ? state : save) = &o;
+    check(owed.size() == 2 && save && state, "today's two markers read back beside the push");
+    check(save && save->romId == 8 && !save->isState && !save->isScreenshot &&
+              save->emulator == "gambatte-native" && save->fileName == "Game (Cabinet).srm" &&
+              save->localPath == "/saves/Game (Cabinet).srm" && save->shotName.empty(),
+          "a save's as the upload queue sends it: its game, tag, name and file");
+    check(state && state->romId == 8 && state->isState && state->emulator == "gambatte" &&
+              state->fileName == "Game (Cabinet).state1" && state->localPath == "/states/1.state" &&
+              state->shotName == "Game (Cabinet).state1.png" && state->shotPath == "/states/1.png",
+          "a state's with its picture");
+    check(cache::isPending(u, 8, "Game (Cabinet).srm") && cache::pendingCount(u) == 3 &&
+              cache::pendingBytes() == 2048 + 512 + 256,
+          "each still owed, counted and its bytes held back with the push's");
+    cache::clearPending(u, 8, "Game (Cabinet).srm");
+    check(!cache::isPending(u, 8, "Game (Cabinet).srm") && cache::isPushOwed(u, 8) &&
+              cache::owed(u).size() == 1,
+          "a file sent clears its own marker and leaves the push owed");
+    cache::clearPushOwed(u, 8, beside);
+    check(!cache::isPushOwed(u, 8) && cache::owed(u).size() == 1,
+          "and the push landing leaves the file still owed");
+
+    storage::removeEntry(root);
+    std::printf("\nsave notes: %d failure%s\n", failures, failures == 1 ? "" : "s");
     return failures == 0 ? 0 : 1;
 }

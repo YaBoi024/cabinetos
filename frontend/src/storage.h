@@ -29,7 +29,8 @@
 //   │   ├── keeps/                           which games this person kept
 //   │   ├── pending/                         what has not reached RomM yet
 //   │   ├── controls/<romId> - <name>.json   an arcade game's buttons moved (controls.h)
-//   │   └── server-saves/<romId>/            RomM's saves as last seen, for play offline
+//   │   └── server-saves/<romId>/            RomM's saves as last seen, for play offline,
+//   │                                        and the snapshot the console holds (savemirror.h)
 //   ├── config/
 //   ├── logs/
 //   └── reports/

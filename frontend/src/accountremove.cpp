@@ -17,8 +17,9 @@
 // do the same for the rest, and each try can take curl's whole timeout.
 // States are not rotated to three here (the uploader's rotate): a person being
 // removed may keep a fourth on RomM, which their next save elsewhere tidies.
-// Returns how much is still owed afterwards: refused, unanswered, or a marker
-// from before 2026-09-26 that cannot be sent at all.
+// Returns how much is still owed afterwards: refused, unanswered, a marker
+// from before 2026-09-26 that cannot be sent at all, or a game's owed
+// snapshot (cache::OwedPush), which this does not send: it sends files.
 static int sendEverythingOwed(const romm::Client& c, const storage::User& who,
                               const std::atomic<bool>* stop) {
     for (const cache::Owed& o : cache::owed(who)) {
