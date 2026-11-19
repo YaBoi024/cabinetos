@@ -34,7 +34,7 @@
 // Mii Channel's for a Wii game (wiimii.h).
 struct SaveFetch {
     int romId = 0;
-    std::string title;       // the Mii Channel's, for the name its zip is owed under
+    std::string title;       // the Mii Channel's, which names its zip on this console
     bool asked = false;      // the worker asked: a token, and a tag the saves travel under
     // RomM, or its copy offline, answered for everything the pick goes by.
     // False leaves the pick at the console's own save.

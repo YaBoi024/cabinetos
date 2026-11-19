@@ -493,8 +493,9 @@ code.
 
 - **A RESTORE CAN UNDO A SAVE THAT IS STILL ON ITS WAY UP.** Found through
   Xbox, true of every folder save: a save queued after a power cut, the game
-  started again at once, and the server's older zip came down over it. The
-  restore now skips while `cache::isPending` says the console owes that zip.
+  started again at once, and the server's older zip came down over it. A
+  start now takes nothing from RomM while a save of the game is still owed
+  (`savepick.cpp`, from the markers in `pending.h`).
   **Test a recovery with an immediate relaunch, not only a clean one.**
 
 
