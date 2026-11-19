@@ -58,10 +58,12 @@ RomM: keep test launches under a minute, or have his go.
    owed from before the update is not sent until step 7 or the game's next
    save, and states from before the update stay outside the snapshots
    until step 7; until step 8 a save another emulator made is not used, and
-   a push names the console's tag but no core. Next, before step 7: the
-   save's own picture, taken the moment the game saves and sent with it, as
-   RomM's web player and Argosy do (MMagTech, 2026-11-19), a step of its own
-   on #722.
+   a push names the console's tag but no core. Next, before step 7, two
+   steps of their own on #722, both MMagTech's of 2026-11-19: step 6's
+   second pass, where the TV shows its three newest states from anywhere on
+   RomM, not only the snapshot on top's, as RomM's web player chooses; then
+   the save's own picture, taken the moment the game saves and sent with
+   it, as RomM's web player and Argosy do.
    Each step is a fresh
    session that keeps to CLAUDE.md's seven rules and its piece's files, reuses, removals, docs and
    tests in the plan: Fable for steps 4 and 5 (starting and leaving a
