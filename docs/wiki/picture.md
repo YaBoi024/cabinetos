@@ -11,34 +11,54 @@ its own shape, with a soft glow in the bars at the sides.
 ## Picture level
 
 Settings, Display and Sound, **Picture**: **Performance**, **Balanced** or
-**Quality**. One setting for every system; it sets how sharply the 3D systems
-render. The console starts on the level its graphics chip suits.
+**Quality**, for every game on the console. Performance draws each system at its
+own resolution, Balanced at about 1080p, Quality at about 4K.
+
+A single game can have its own level: **Picture** in its
+[pause menu](pause-menu.md). **Console** there means the game follows Settings.
+A game's own level takes effect from its next start and stays when the
+console's level changes. With a PIN set, only the owner sees either setting.
+
+The console starts on the level its graphics chip suits, judged from an AMD
+chip's size and speed. NVIDIA and Intel chips, and machines without Vulkan,
+start on Performance; **Picture** raises them.
 
 | System | Performance | Balanced | Quality |
 |---|---|---|---|
-| PSP | 480x272 (original) | 1920x1088 | 3840x2176 |
-| PS2 | 1x | 3x | 4x |
-| GameCube | 1x | 3x | 6x |
-| Wii | 1x | 3x | 5x |
-| Nintendo 64 | 1x | 2x | 4x |
-| Dreamcast | 640x480 | 1440x1080 | 2880x2160 |
-| Nintendo DS | 1x (original) | 4x | 6x |
-| Nintendo 3DS | 1x (original) | 3x | 6x |
-| Switch | 1x | 1x | 2x |
-| PS3 | 100% | 150% | 150% |
-| Xbox | 1x | 2x | 4x |
-| PS Vita | 1x (original) | 2x | 4x |
+| Nintendo 64 | 1x, 320x240 | 2x, 640x480 | 4x, 1280x960 |
+| Nintendo DS, each screen | 1x, 256x192 | 4x, 1024x768 | 6x, 1536x1152 |
+| Nintendo 3DS, top screen | 1x, 400x240 | 3x, 1200x720 | 6x, 2400x1440 |
+| GameCube | 1x, 640x528 | 3x, 1920x1584 | 6x, 3840x3168 |
+| Wii | 1x, 640x528 | 3x, 1920x1584 | 5x, 3200x2640 |
+| Switch, docked | 1x, 1920x1080 | 1x, 1920x1080 | 2x, 3840x2160 |
+| PS2 | 1x, 640x448 | 3x, 1920x1344 | 4x, 2560x1792 |
+| PS3 | 1x, 1280x720 | 1.5x, 1920x1080 | 1.5x, 1920x1080 |
+| PSP | 1x, 480x272 | 4x, 1920x1088 | 8x, 3840x2176 |
+| PS Vita | 1x, 960x544 | 2x, 1920x1088 | 4x, 3840x2176 |
+| Dreamcast, Naomi and Atomiswave | 1x, 640x480 | 2.25x, 1440x1080 | 4.5x, 2880x2160 |
+| Model 2 | 1x, 496x384 | 3x, 1488x1152 | 6x, 2976x2304 |
+| Model 3, at most the TV's | 720p | 1080p | 4K |
+| Xbox | 1x, 640x480 | 2x, 1280x960 | 4x, 2560x1920 |
+
+Sizes are for each system's usual picture. A game drawn at another size scales
+by the same amount.
+
+These systems look the same at every level, so their pause menu has no
+**Picture**: Xbox 360 at 720p, Wii U at the game's own resolution, 3DO at
+640x480, Vectrex and the vector arcade games drawn sharp, and PlayStation,
+Saturn, the 2D systems and the other arcade boards at their own resolution.
+
+On GameCube, Wii, Switch and PS Vita, Balanced and Quality also build shaders in
+the background. At Performance they are built when first needed, which can
+stutter for a moment.
 
 On the Nintendo DS, Balanced and Quality use melonDS's OpenGL renderer, which
 draws the 3D larger; the 2D stays at the DS's own pixels. A DS game that looks
-wrong with it plays as before at Performance.
+wrong with it can be set to Performance in its pause menu. A machine without
+desktop OpenGL keeps every DS game at Performance, with no **Picture** row.
 
 On the Nintendo 3DS the two screens are side by side, and the levels are sized
 for that: Balanced just above a 1080p TV, Quality just above a 4K TV.
-
-A single game can have its own level: **Picture** in the
-[pause menu](pause-menu.md), from the next start. With a PIN set, only the owner
-sees either setting.
 
 ## PS2 widescreen
 
