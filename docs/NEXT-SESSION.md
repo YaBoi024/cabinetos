@@ -54,16 +54,17 @@ RomM: keep test launches under a minute, or have his go.
    as one snapshot once the game has closed, into the channel it started
    from, put on top of another device's only when it was made later, and
    never into a hardcore channel; and save states, which go up inside that
-   snapshot, the console's three newest in slots 1 to 3. A save file still
+   snapshot in slots 1 to 3: the TV shows and a push names the three newest
+   of its own states wherever they are on RomM, as RomM's web player
+   chooses, and states made alone go into the snapshot on top, beside
+   another device's newer save (step 6 and its second pass). A save file still
    owed from before the update is not sent until step 7 or the game's next
    save, and states from before the update stay outside the snapshots
    until step 7; until step 8 a save another emulator made is not used, and
-   a push names the console's tag but no core. Next, before step 7, two
-   steps of their own on #722, both MMagTech's of 2026-11-19: step 6's
-   second pass, where the TV shows its three newest states from anywhere on
-   RomM, not only the snapshot on top's, as RomM's web player chooses; then
-   the save's own picture, taken the moment the game saves and sent with
-   it, as RomM's web player and Argosy do.
+   a push names the console's tag but no core. Next, before step 7, a step
+   of its own on #722, MMagTech's of 2026-11-19: the save's own picture,
+   taken the moment the game saves and sent with it, as RomM's web player
+   and Argosy do.
    Each step is a fresh
    session that keeps to CLAUDE.md's seven rules and its piece's files, reuses, removals, docs and
    tests in the plan: Fable for steps 4 and 5 (starting and leaving a

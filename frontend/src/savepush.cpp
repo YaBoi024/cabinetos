@@ -910,7 +910,7 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
                  "state(s) named)\n",
                  romId, held.id, beside ? "is kept beside the current of" : "is the current of",
                  push.label.c_str(), owed.hasSave ? owed.saveName.c_str() : "its states alone",
-                 bytes.size(), push.states.size());
+                 bytes.size(), namedHashes.size());
     // This console's copies of states it no longer offers: kept are the ones
     // this push named and the ones in a push owed since (the head of
     // savepush.h).
