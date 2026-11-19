@@ -30,6 +30,7 @@ constexpr GalleryNotice kNoticeGallery[] = {
     {"No saved state for this game", Tone::Info},
     {"Couldn't reach RomM", Tone::Problem},
     {"Couldn't load that state", Tone::Problem},
+    {"Continuing from another device", Tone::Info},
     {"That state is on Disc 3", Tone::Problem},
     {"Download removed", Tone::Done},
     {"Freeing space\xE2\x80\xA6", Tone::Busy},

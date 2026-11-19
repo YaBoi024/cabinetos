@@ -40,6 +40,7 @@ folder the program was started in. The one chosen is printed at start-up as
 ├── wii-remote-miis/                     the Wii bridge's Miis
 ├── users/<id> - <name>/
 │   ├── saves/<platform>/<romId>/<core>/
+│   ├── saves/<platform>/<romId>/replaced/   the save a start last replaced with a newer one, kept aside
 │   ├── states/<platform>/<romId>/<core>/
 │   ├── screenshots/<romId>/
 │   ├── keeps/                           which games this person kept

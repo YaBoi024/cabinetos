@@ -97,8 +97,14 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
         refuseLaunch("Couldn't start this game");
         return;
     }
+    // The save the start continues from (savepick.h), a save of this
+    // console's that it replaces kept aside first; the notes the start
+    // leaves are taken once the session is made, below.
+    StartNotes startNotes;
+    startNotes.asideDir = storage::replacedSaveDir(user, launchJob.platformFsSlug, launchJob.romId);
     if (!root.empty() && tag && launchJob.saves.asked)
-        restoreDirSave(launchJob.saves, tag, root, launchJob.title);
+        restoreDirSave(launchJob.saves, tag, root, launchJob.title, std::string(), &startNotes);
+    const SaveFetch startedFrom = std::move(launchJob.saves);
     launchJob.saves = SaveFetch{};
     // AND ONTO WHERE THE EMULATOR READS THEM, when that is not a folder
     // (Xbox: its hard drive). The note says whose they are, should the
@@ -143,6 +149,10 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     session.standaloneCore = emu.core;
     session.entryPath = launchJob.entryPath;
     if (tag) session.saveTag = tag;
+    // Where its save came from, and the pill when that was another device
+    // (saves.h, noteStart), drawn over the game as any pill is.
+    if (noteStart(startedFrom, startNotes, user, &session))
+        menuNotice.say(kContinuingElsewhere, Tone::Info);
     // No save states: the pause menu is Resume, Screenshot and Exit to
     // Home (open question 25; Switch fails its rule).
     session.snapshots = catalog::snapshotsAllowed(launchJob.coreName.c_str());

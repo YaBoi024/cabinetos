@@ -123,10 +123,11 @@ struct LaunchJob {
     bool coreChanged = false;
     std::string title;
     std::string message;
-    // THE GAME'S SAVES AS RomM HOLDS THEM, fetched by the worker once the game
-    // is on the disk (#481, LAUNCH-17; saves.h, SaveFetch), and for a Wii game
-    // the Mii Channel's. The stages behind the curtain restore from these and
-    // ask the server nothing. Released once the game is up.
+    // THE GAME'S SAVE AS RomM HOLDS IT, fetched by the worker once the game
+    // is on the disk (#481, LAUNCH-17; saves.h, SaveFetch): which save the
+    // start continues from and its bytes; and for a Wii game the Mii
+    // Channel's. The stages behind the curtain restore from these and ask the
+    // server nothing. Released once the game is up.
     SaveFetch saves;
     SaveFetch miiSaves;
 

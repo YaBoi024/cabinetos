@@ -64,6 +64,7 @@ bool parseGame(json_object* o, Game* g) {
     g->fsName = jstr(o, "fs_name");
     g->sortKey = jstr(o, "name_sort_key");
     g->sizeBytes = jint(o, "fs_size_bytes");
+    g->channelFileId = static_cast<int>(jint(o, "channel_file_id"));
     // A FOLDER BY EITHER OF RomM's NAMES FOR ONE (#400). Since RomM 5.0
     // `has_multiple_files` counts only the files at the top of the folder,
     // so one game file with `manual/` or `soundtrack/` beside it, which

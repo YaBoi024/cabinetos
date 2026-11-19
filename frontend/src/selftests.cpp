@@ -25,6 +25,8 @@
 #include "romfile.h"
 #include "romm.h"
 #include "savemirror.h"
+#include "savepick.h"
+#include "saves.h"
 #include "server.h"
 #include "storage.h"
 #include "unsettled.h"
@@ -917,13 +919,16 @@ int saveNotesTest() {
     had.digest = run.current.digest;
     had.saveHash = run.current.save.contentHash;
     had.at = 1763505768;
+    had.hashesHad = {"fedcba9876543210fedcba9876543210", had.saveHash};
     savemirror::putHeld(u, game, had);
     savemirror::Held none;
     savemirror::putHeld(u, game, none);
     check(savemirror::getHeld(u, game, &held) && held.channelId == had.channelId &&
               held.snapshotId == 12 && held.digest == had.digest &&
-              held.saveHash == had.saveHash && held.at == had.at,
-          "the snapshot held reads back whole, and a note of no snapshot writes nothing");
+              held.saveHash == had.saveHash && held.at == had.at &&
+              held.hashesHad == had.hashesHad,
+          "the snapshot held reads back whole, with every save's hash this console has had, "
+          "and a note of no snapshot writes nothing");
     const uint64_t before = savemirror::mark();
     savemirror::forget(u, game);
     check(!savemirror::getChannels(u, game, &got) && !savemirror::getList(u, game, &rows) &&
@@ -1031,4 +1036,282 @@ int saveNotesTest() {
     storage::removeEntry(root);
     std::printf("\nsave notes: %d failure%s\n", failures, failures == 1 ? "" : "s");
     return failures == 0 ? 0 : 1;
+}
+
+// `--save-pick-test` (#346): which save a start continues from. The rule's
+// own table first (savepick::test, no disk), then the restores that write the
+// picked save, in a scratch root with no core: a core's save file and a save
+// folder each taken from a channel's snapshot and from RomM's saves from
+// before channels, the save they replace kept aside first and only then, one
+// copy a game; a save that is what the console already has changing nothing;
+// an empty one and one this console still owes never replacing a real one;
+// and the notes a start leaves, in the session and of the snapshot held.
+int savePickTest() {
+    std::printf("which save a start continues from\n\n");
+    int failures = savepick::test();
+    auto check = [&](bool ok, const char* what) {
+        std::printf("  %s  %s\n", ok ? "ok  " : "FAIL", what);
+        if (!ok) ++failures;
+    };
+    auto exists = [](const std::string& p) {
+        struct stat st{};
+        return ::stat(p.c_str(), &st) == 0;
+    };
+    char root[] = "/tmp/cabinetos-save-pick-XXXXXX";
+    if (!mkdtemp(root)) {
+        std::fprintf(stderr, "[save pick] could not make a scratch root\n");
+        return 1;
+    }
+    setenv("CABINETOS_DRIVES", (std::string(root) + "/drives").c_str(), 1);
+    storage::setRoot(root);
+    std::string serr;
+    if (!storage::ensureTree(&serr)) {
+        std::fprintf(stderr, "[save pick] scratch root unusable: %s\n", serr.c_str());
+        return 1;
+    }
+    std::printf("\nthe restores, in %s\n", root);
+    storage::User u;
+    u.id = 1;
+    u.name = "pick-test";
+    storage::setCurrentUser(u);
+    const char* tag = "fbneo-native";
+    const int game = 705;
+    const std::string saveDir = storage::savesDir(u, "FBNEO", game, "fbneo");
+    const std::string aside = storage::replacedSaveDir(u, "FBNEO", game);
+    auto bytesOf = [](const char* text, size_t size) {
+        std::vector<uint8_t> b(size, 0x00);
+        for (size_t i = 0; text[i] && i < size; ++i) b[i] = static_cast<uint8_t>(text[i]);
+        return b;
+    };
+    const std::vector<uint8_t> own = bytesOf("this console's own save", 64);
+    const std::vector<uint8_t> theirs = bytesOf("a save another device made", 64);
+    const std::vector<uint8_t> blank(64, 0xFF);
+
+    // A fetch whose pick is a channel's snapshot holding `save`.
+    auto fromChannel = [&](int snapshotId, const std::vector<uint8_t>& save, bool elsewhere) {
+        SaveFetch f;
+        f.romId = game;
+        f.asked = f.listed = true;
+        f.channelFileId = 4410;
+        f.mark = savemirror::mark();
+        f.pick.from = savepick::Pick::From::Channel;
+        f.pick.madeElsewhere = elsewhere;
+        f.pick.channel.id = "01937a3c-0000-7000-8000-00000000000a";
+        f.pick.channel.label = "default";
+        f.pick.channel.currentId = snapshotId;
+        f.pick.channel.current.id = snapshotId;
+        f.pick.channel.current.digest = "sha256:" + std::to_string(snapshotId);
+        f.pick.channel.current.hasSave = true;
+        f.pick.channel.current.save.id = snapshotId * 10;
+        f.pick.channel.current.save.fileName = "kof98.fs";
+        f.pick.channel.current.save.contentHash = romm::contentHash(save);
+        f.pick.channel.current.save.emulator = tag;
+        f.picked = save;
+        return f;
+    };
+    auto notesFor = [&]() {
+        StartNotes n;
+        n.asideDir = aside;
+        return n;
+    };
+
+    // 1. A core's save file (FinalBurn Neo's, one file).
+    catalog::SaveFile spec;
+    spec.path = "fbneo/kof98.fs";
+    spec.untouched = catalog::Untouched::Uniform;
+    spec.coreRowName = "fbneo";
+    const std::string file = saveDir + "/fbneo/kof98.fs";
+    {
+        StartNotes n = notesFor();
+        const SaveFetch f = fromChannel(21, theirs, true);
+        const std::vector<cab::FileSaveState> st =
+            restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
+        GameSession sess;
+        const bool pill = noteStart(f, n, u, &sess);
+        savemirror::Held held;
+        check(cab::readBytes(file) == theirs && st.size() == 1 && st[0].atLaunch == theirs &&
+                  n.fromChannel && n.changedOwn && n.keptAside.empty() && !exists(aside),
+              "a console with no save takes the snapshot's, and keeps nothing aside");
+        check(pill && sess.startChannelId == f.pick.channel.id && sess.startSnapshotId == 21 &&
+                  sess.channelFileId == 4410 && !sess.couldNotUseNewest &&
+                  savemirror::getHeld(u, game, &held) && held.snapshotId == 21 &&
+                  held.saveHash == romm::contentHash(theirs) && held.hashesHad.size() == 1,
+              "the start says so, the session knows its channel and snapshot, and the "
+              "console holds the snapshot");
+    }
+    {
+        StartNotes n = notesFor();
+        const SaveFetch f = fromChannel(21, theirs, true);
+        restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
+        GameSession sess;
+        check(n.fromChannel && !n.changedOwn && n.keptAside.empty() && !exists(aside) &&
+                  !noteStart(f, n, u, &sess) && sess.startSnapshotId == 21,
+              "started again from the same save: nothing replaced, nothing aside, no pill");
+    }
+    cab::writeBytes(file, own);
+    {
+        StartNotes n = notesFor();
+        const SaveFetch f = fromChannel(22, theirs, true);
+        restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
+        check(cab::readBytes(file) == theirs && n.changedOwn && n.keptAside.size() == 1 &&
+                  cab::readBytes(aside + "/fbneo/kof98.fs") == own,
+              "a newer save over this console's own: its own is kept aside first, under its "
+              "name in the save folder");
+    }
+    {
+        // The next start that replaces one: the one copy is the newest.
+        cab::writeBytes(aside + "/left-by-an-earlier-start.bin", own);
+        const std::vector<uint8_t> third = bytesOf("a third save", 64);
+        StartNotes n = notesFor();
+        const SaveFetch f = fromChannel(23, third, true);
+        restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
+        check(cab::readBytes(file) == third && cab::readBytes(aside + "/fbneo/kof98.fs") == theirs &&
+                  !exists(aside + "/left-by-an-earlier-start.bin"),
+              "the next replacement takes the place of the last copy kept");
+    }
+    cab::writeBytes(file, own);
+    {
+        StartNotes n = notesFor();
+        SaveFetch f = fromChannel(24, blank, true);
+        restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
+        GameSession sess;
+        noteStart(f, n, u, &sess);
+        check(cab::readBytes(file) == own && !n.fromChannel && sess.startChannelId.empty() &&
+                  sess.couldNotUseNewest,
+              "a snapshot whose save holds nothing never replaces a real one, and the session "
+              "knows the newest was not used");
+        f = fromChannel(25, {}, true);
+        restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
+        check(cab::readBytes(file) == own && !n.fromChannel,
+              "nor one whose bytes did not come");
+    }
+    {
+        // RomM's saves from before channels, by the old rule, with the same
+        // care for the save they replace.
+        SaveFetch f;
+        f.romId = game;
+        f.asked = f.listed = true;
+        f.mark = savemirror::mark();
+        f.pick.from = savepick::Pick::From::OldRows;
+        romm::Asset row;
+        row.id = 9;
+        row.romId = game;
+        row.fileName = "kof98 (Cabinet fbneo).srm";
+        row.emulator = tag;
+        row.updatedAt = "2026-11-18T20:00:00+00:00";
+        f.rows = {row};
+        f.bytes[9] = theirs;
+        StartNotes n = notesFor();
+        restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
+        GameSession sess;
+        check(cab::readBytes(file) == theirs && !n.fromChannel && n.keptAside.size() == 1 &&
+                  cab::readBytes(aside + "/fbneo/kof98.fs") == own &&
+                  !noteStart(f, n, u, &sess) && sess.startChannelId.empty(),
+              "a save from before channels over this console's own: kept aside too, no pill, "
+              "no channel in the session");
+        // And while this console's own is still owed, it wins.
+        cab::writeBytes(file, own);
+        cache::Owed owed;
+        owed.romId = game;
+        owed.emulator = tag;
+        owed.fileName = row.fileName;
+        owed.localPath = file;
+        cache::markPending(u, owed, static_cast<int64_t>(own.size()));
+        StartNotes kept = notesFor();
+        restoreFileSaves({spec}, "kof98", saveDir, tag, f, &kept);
+        check(cab::readBytes(file) == own && kept.keptAside.empty(),
+              "a save this console has not sent yet stands");
+        cache::clearPending(u, game, row.fileName);
+    }
+    {
+        // A fetch that went stale: a save of this game landed after it.
+        cab::writeBytes(file, own);
+        const SaveFetch f = fromChannel(26, theirs, true);
+        savemirror::forget(u, game);
+        StartNotes n = notesFor();
+        restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
+        GameSession sess;
+        check(cab::readBytes(file) == own && !n.fromChannel && !noteStart(f, n, u, &sess) &&
+                  !sess.couldNotUseNewest,
+              "a save of this console's that reached RomM after the fetch: its own stands");
+    }
+    {
+        // Two files in one snapshot: a zip, each under its path.
+        catalog::SaveFile internal, cart;
+        internal.path = "Lunar.brm";
+        internal.untouched = catalog::Untouched::Blank;
+        cart.path = "4Mbit_cart.brm";
+        cart.region = "cart";
+        cart.untouched = catalog::Untouched::Blank;
+        const std::string dir = storage::savesDir(u, "Sega CD", 801, "genesis_plus_gx");
+        cab::writeBytes(dir + "/Lunar.brm", theirs);
+        cab::writeBytes(dir + "/4Mbit_cart.brm", own);
+        std::vector<uint8_t> zip;
+        std::string zerr;
+        cab::zipTree(dir, {"Lunar.brm", "4Mbit_cart.brm"}, &zip, &zerr);
+        cab::removeFile(dir + "/Lunar.brm");
+        cab::writeBytes(dir + "/4Mbit_cart.brm", theirs);
+        SaveFetch f = fromChannel(31, zip, true);
+        f.romId = 801;
+        StartNotes n;
+        n.asideDir = storage::replacedSaveDir(u, "Sega CD", 801);
+        restoreFileSaves({internal, cart}, "Lunar", dir, "gpgx-native", f, &n);
+        check(cab::readBytes(dir + "/Lunar.brm") == theirs &&
+                  cab::readBytes(dir + "/4Mbit_cart.brm") == own && n.fromChannel &&
+                  n.keptAside.size() == 1 &&
+                  cab::readBytes(n.asideDir + "/4Mbit_cart.brm") == theirs,
+              "a snapshot's zip of two save files: each to its own file, the one replaced "
+              "kept aside");
+        // One file as it is goes to the first of the core's files only.
+        f = fromChannel(32, own, true);
+        f.romId = 801;
+        StartNotes single;
+        restoreFileSaves({internal, cart}, "Lunar", dir, "gpgx-native", f, &single);
+        check(cab::readBytes(dir + "/Lunar.brm") == own &&
+                  cab::readBytes(dir + "/4Mbit_cart.brm") == own,
+              "a snapshot's one file: the first of the core's files, the other left");
+    }
+
+    // 2. A save folder (PSP's memory stick).
+    {
+        const std::string psp = storage::savesDir(u, "PSP", 900, "ppsspp") + "/PSP/SAVEDATA";
+        const std::string pspAside = storage::replacedSaveDir(u, "PSP", 900);
+        cab::writeBytes(psp + "/ULUS10002/PARAM.SFO", theirs);
+        cab::writeBytes(psp + "/ULUS10002/DATA.BIN", theirs);
+        std::vector<uint8_t> zip;
+        std::string zerr;
+        cab::zipTree(psp, {"ULUS10002/PARAM.SFO", "ULUS10002/DATA.BIN"}, &zip, &zerr);
+        SaveFetch f = fromChannel(41, zip, true);
+        f.romId = 900;
+        StartNotes same;
+        same.asideDir = pspAside;
+        restoreDirSave(f, "ppsspp-native", psp, "Lumines", std::string(), &same);
+        check(same.fromChannel && !same.changedOwn && same.keptAside.empty() && !exists(pspAside),
+              "a save folder that already holds exactly the snapshot's save: nothing changes");
+        cab::writeBytes(psp + "/ULUS10002/DATA.BIN", own);
+        cab::writeBytes(psp + "/ULUS99999/OTHER.BIN", own);
+        StartNotes n;
+        n.asideDir = pspAside;
+        restoreDirSave(f, "ppsspp-native", psp, "Lumines", std::string(), &n);
+        std::vector<cab::ZipFile> kept;
+        const bool read = cab::readZip(cab::readBytes(pspAside + "/Lumines.zip"), &kept, &zerr);
+        bool keptOwn = false, keptOther = false;
+        for (const cab::ZipFile& z : kept) {
+            if (z.relPath == "ULUS10002/DATA.BIN" && z.bytes == own) keptOwn = true;
+            if (z.relPath.rfind("ULUS99999", 0) == 0) keptOther = true;
+        }
+        check(cab::readBytes(psp + "/ULUS10002/DATA.BIN") == theirs && n.fromChannel &&
+                  n.changedOwn && read && kept.size() == 2 && keptOwn && !keptOther &&
+                  cab::readBytes(psp + "/ULUS99999/OTHER.BIN") == own,
+              "a save folder with other bytes: the files the snapshot replaces are kept aside "
+              "as a zip, and a folder it does not name is left");
+        f.picked = bytesOf("not a zip", 32);
+        StartNotes bad;
+        cab::writeBytes(psp + "/ULUS10002/DATA.BIN", own);
+        restoreDirSave(f, "ppsspp-native", psp, "Lumines", std::string(), &bad);
+        check(cab::readBytes(psp + "/ULUS10002/DATA.BIN") == own && !bad.fromChannel,
+              "a snapshot's save that is no zip is never unpacked over a save folder");
+    }
+    std::printf("\n%s\n", failures ? "FAILED" : "passed");
+    return failures ? 1 : 0;
 }

@@ -5,12 +5,18 @@
 
 #pragma once
 
+#include <cstdint>
 #include <ctime>
 #include <string>
 
 #include "romm.h"
 
 std::string isoUtc(time_t t);
+// A time as RomM writes one ("2026-11-18T22:42:48.649000+00:00", with or
+// without the fraction), in microseconds since 1970. RomM's times are UTC, so
+// what follows the seconds is read only for the fraction. 0 when it is not a
+// time.
+int64_t isoMicros(const std::string& iso);
 void rememberFacts(int romId, const romm::Client::Facts& f);
 bool knownFacts(int romId, romm::Client::Facts* f);
 std::string stateWhen(const std::string& iso);

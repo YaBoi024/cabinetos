@@ -738,8 +738,8 @@ std::string gameRecordJson(const romm::Game& g) {
     // RomM's lists carries none, so the record keeps what a launch learned
     // (rememberArchive) rather than lose it at every press.
     romm::Game kept;
-    const romm::Game& from =
-        !g.members.empty() || !romm::gameFromJson(cache::gameRecord(g.id), &kept) ? g : kept;
+    const bool haveKept = romm::gameFromJson(cache::gameRecord(g.id), &kept);
+    const romm::Game& from = !g.members.empty() || !haveKept ? g : kept;
     if (!from.members.empty()) {
         json_object* a = json_object_new_object();
         json_object_object_add(a, "file", json_object_new_string(from.membersFile.c_str()));
@@ -757,6 +757,11 @@ std::string gameRecordJson(const romm::Game& g) {
         json_object_object_add(a, "members", list);
         json_object_object_add(o, "archive_members", a);
     }
+    // The file RomM keys the game's save channels to (romm_types.h), under
+    // RomM's own name. Only the game's own entry carries it, so the record
+    // keeps what a launch or the game's page learned (rememberChannelFile).
+    if (const int file = g.channelFileId != 0 ? g.channelFileId : kept.channelFileId)
+        json_object_object_add(o, "channel_file_id", json_object_new_int(file));
     const std::string out = json_object_to_json_string_ext(o, JSON_C_TO_STRING_PRETTY);
     json_object_put(o);
     return out;
@@ -781,6 +786,20 @@ std::vector<romm::ArchiveMember> rememberedArchive(int romId, const std::string&
         g.membersSize != size)
         return {};
     return g.members;
+}
+
+void rememberChannelFile(int romId, int romFileId) {
+    romm::Game g;
+    if (romFileId <= 0 || !romm::gameFromJson(cache::gameRecord(romId), &g) ||
+        g.channelFileId == romFileId)
+        return;
+    g.channelFileId = romFileId;
+    cache::rememberGame(romId, gameRecordJson(g));
+}
+
+int rememberedChannelFile(int romId) {
+    romm::Game g;
+    return romm::gameFromJson(cache::gameRecord(romId), &g) ? g.channelFileId : 0;
 }
 
 // ---- The kept badges on the store's cards (#398) --------------------------

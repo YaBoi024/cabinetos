@@ -15,7 +15,7 @@ a new file, a moved job, a renamed part, or a change to who calls whom.
 
 | Folder or file | What is in it | Where it ends up |
 |---|---|---|
-| `frontend/` | The console's one program, in C++20: `src/` (370 files, one folder; the Makefile compiles these and rcheevos), `data/` (shaders, controller lists, and `vectrex-overlays.json`, which Vectrex game takes which screen sheet), `third_party/rcheevos/` (RetroAchievements, vendored), `covers/` (the stand-in library's covers), `tools/fake-nmcli/` (a stand-in network tool for trying first run) | `/usr/bin/cabinetos-frontend` |
+| `frontend/` | The console's one program, in C++20: `src/` (372 files, one folder; the Makefile compiles these and rcheevos), `data/` (shaders, controller lists, and `vectrex-overlays.json`, which Vectrex game takes which screen sheet), `third_party/rcheevos/` (RetroAchievements, vendored), `covers/` (the stand-in library's covers), `tools/fake-nmcli/` (a stand-in network tool for trying first run) | `/usr/bin/cabinetos-frontend` |
 | `frontend/ps2/` | The PlayStation 2 host around PCSX2, compiled by `cores/build-pcsx2.sh` into `cabinetos-ps2.so`, not by the frontend's Makefile (so a pull request to `main` never compiles it) | `/usr/lib/cabinetos/cores/` |
 | `wiibridge/` | `cabinetos-wii-bridge`, a stand-in for each real Wii Remote; GPL, its own program | `/usr/libexec/cabinetos-wii-bridge` |
 | `linkup/` | `cabinetos-linkup`, LinkUp's own program, so a firewall can tell it from the frontend and off can mean off (#654): `conductor.cpp` (what it does: the frontend's commands, the server's events, one game with a friend), `noise.cpp` (Noise and the slow hash on OpenSSL; `noise-test.cpp` holds it to `noise-vectors.txt` and `proof-vectors.txt`, and `friend_sound.cpp` to a host's clock), `server_link.cpp` and `pairing.cpp` (every request to the LinkUp server), `keys.cpp` (what it keeps, in `/var/lib/cabinetos/linkup`), `box.cpp` (what two consoles seal for each other), `rtc.cpp` (webrtcbin, its ports, the links it gathers on: the cable when one is connected, never a tunnel; and its data channels), `capture.cpp`, `stream_host.cpp`, `stream_friend.cpp`, `friend_sound.cpp` (the friend's sound: a queue of its own, played through PipeWire at the host's pace), `bitrate.cpp`, `portmap.cpp`, `local_socket.cpp`, `hexutil.h` and `jsonutil.h` (hex, base64 and a few words over json-c), and `probe.cpp` (a console on the command line, for `tools/linkup-interop.sh`, not in the image). What it says to a server is `PROTOCOL.md` in MMagTech/cabinet-linkup, whose one tested release is pinned in `ci/linkup-server.txt` | `/usr/libexec/cabinetos-linkup` |
@@ -58,7 +58,7 @@ is in the file named for its feature, and
 | The libretro host | `core.h`, `core.cpp`, `core_state.h`, `core_*.cpp` (discs, hardware rendering, input, memory, options, picture, PS2), `netblock.cpp` (no emulator in the program reaches the network: the program's own `socket`, name lookups and `pthread_create`, exported for every library, refuse an emulator library's; `core.cpp` and `ps2.cpp` tell it what they load), `vkhost.cpp`, `vkhost_state.h`, `vkbridge.cpp`, `libretro.h` and `libretro_vulkan.h` (the libretro API, the RetroArch team's), and the console's three option tables: `coreoptions.cpp` (set on purpose for every game), `quality.cpp` (Picture quality) and `sysopts.cpp` (a system's pause-menu options); `screenfx.cpp` (screen looks) |
 | PlayStation 2 | `ps2.cpp`, `ps2window.cpp`, `overlaywin.cpp`, and `frontend/ps2/` (its `CabinetPS2Bios.cpp` chooses each game's BIOS by the game's region) |
 | Emulators run as programs | `standalone.h`, `standalone.cpp`, `standalone_play.cpp` (also what the console draws over the game in play: the dim, and the pointer for a game touched through the console, the Vita's), `standalone_eden.cpp`, `standalone_xemu.cpp`, `standalone_rpcs3.cpp`, `standalone_xenia.cpp`, `standalone_cemu.cpp`, `standalone_vita3k.cpp`, `standalone_sm2emu.cpp` (Sega Model 2: sm2-emu's settings, written whole in the person's folder for the game, with a game's buttons on a fight stick where the stick's rules put them), `standalone_supermodel.cpp` (Sega Model 3: Supermodel's settings, written whole in its home, which is its working folder, with the person's NVRAM folder for the game linked in, and its buttons laid out the same way), `vpad.cpp` (the virtual controllers: the plain uinput ones, and beside each one for RPCS3 a motion device that carries the player's tilt, #683; which kind an emulator gets is a switch on its row), `vdualsense.cpp` (the stand-in DualSense Eden, Cemu and Vita3K are given in place of the plain controller, #669: a `/dev/uhid` device with Sony's id, which the kernel's own PlayStation driver turns into a gamepad, a motion device and a touchpad sharing one uniq, so the emulator's SDL pairs the player's tilt by itself, and for a pad without sensors one whose motion device the emulator cannot open; its report thread, the driver's three questions answered, rumble back, and `--dualsense-test`), `vtouch.cpp` (the virtual touch screen the pointer touches with, and gamescope passing touch through), `xtitles.cpp`, `xboxhdd.cpp`, `x360profile.cpp`, `dolphinprep.cpp` |
-| Saves and states | `savetable.cpp` (what each core writes, where, and its two tags on RomM: `emulatorTag` for states, `saveTag` for saves; which systems have states and rewind, `snapshotsAllowed` and `rewindAllowed`), `saves.cpp` (sending and restoring all three kinds of save: `syncSave`, `syncDirSave`, `syncFileSaves`), `dirsave.cpp` and `filesave.cpp` (their helpers), `states.cpp`, `statefile.cpp` (a state file's layout: the core's bytes alone, or RetroArch's RASTATE blocks with the achievement progress), `savemirror.cpp` (RomM's saves and save channels as last seen, and the snapshot the console holds of each game), `uploader.cpp` (the queue), `pending.cpp` (the markers), `offline_sync.cpp`, `playtime.cpp`, `favorites.cpp`; the requests themselves are in `romm_playdata.cpp`, and RomM 5.5's save channels and snapshots in `romm_snapshots.cpp` |
+| Saves and states | `savetable.cpp` (what each core writes, where, and its two tags on RomM: `emulatorTag` for states, `saveTag` for saves; which systems have states and rewind, `snapshotsAllowed` and `rewindAllowed`), `saves.cpp` (sending and restoring all three kinds of save: `syncSave`, `syncDirSave`, `syncFileSaves`; and, for a start, fetching what RomM holds of the game's save, writing the one the start continues from, keeping a save it replaces aside first, and the notes the start leaves), `savepick.cpp` (which save a start continues from, the one rule: RomM's save channels and its saves from before them weighed together, a save not yet sent winning, and whether the start says "Continuing from another device", #346), `dirsave.cpp` and `filesave.cpp` (their helpers), `states.cpp`, `statefile.cpp` (a state file's layout: the core's bytes alone, or RetroArch's RASTATE blocks with the achievement progress), `savemirror.cpp` (RomM's saves and save channels as last seen, and the snapshot the console holds of each game), `uploader.cpp` (the queue), `pending.cpp` (the markers), `offline_sync.cpp`, `playtime.cpp`, `favorites.cpp`; the requests themselves are in `romm_playdata.cpp`, and RomM 5.5's save channels and snapshots in `romm_snapshots.cpp` |
 | Storage | `storage.h` (where everything lives), `storage_internal.h`, `locations.cpp`, `cache.cpp`, `drives.cpp`, `drives_fs.cpp`, `udisks.cpp`, `users.cpp`, `accounts.cpp`, `accountremove.cpp`, `fileio.cpp` (every file the console replaces goes through its `writeBytes`: a temporary, fsync, a rename; `syncDrive` waits for one drive, and `keepsSizeWithBytes` says which drives need no care after a power cut, #559), `unsettled.cpp` (the files a launch marked complete that their drive may not have yet, listed on the console's own drive and deleted at that game's next start after a power cut, #559), `prefs.cpp`, `gonegames.cpp` (a game RomM no longer has leaves the drive at a start with the server there, with its record, covers, saves, states and screenshots, #625) |
 | Controllers | `players.cpp` (which pad is which player; it refuses to seat the console's own stand-in controllers, told by their name, since the stand-in DualSense carries a real pad's id), `tilt.cpp` (a seated pad's motion sensors, its accelerometer and gyroscope, turned on for a player's seat when a game asks and read in SDL's own units; it knows no core or emulator, and `core_input.cpp` answers libretro's sensor interface from it, for mGBA and Azahar, and `vpad.cpp` writes it into each PS3 player's motion device and each Switch, Wii U and Vita player's stand-in DualSense; a LinkUp friend's seat on the host is a pad with the friend's sensors, read the same way (`linkup_pad.cpp`); its test pads serve `--motion-device-test` and `--dualsense-test` too), `fightstick.cpp` (the table of known fight sticks, and an arcade game's buttons laid out on one), `controls.cpp` (Controls: an arcade game's buttons moved per game, kind of controller and person, kept in `users/<id> - <name>/controls/`; `play.cpp`'s readGameInput reads each pad through it, `launch.cpp`'s startPlaying reads the game's file, and for sm2-emu and Supermodel `standalone_play.cpp`'s startStandalone reads it before `standalone_sm2emu.cpp` and `standalone_supermodel.cpp` write each player's buttons from it into the program's settings), `controlsflow.cpp` (its panel over the pause menu, and the press it listens for, which `controllers.cpp` hands it before anything else sees it), `controllers.cpp`, `bluetooth.cpp`, `btagent.h`, `battery.cpp`, `batteryrow.cpp`, `shortcuts.cpp`, `wiiremote.cpp` (starts the Wii bridge), `wiipair.cpp`, `wiipanel.cpp`, `wiimii.cpp`, `wii.cpp`, `wiiu.cpp` |
 | The machine | `net.cpp`, `wifi.cpp`, `power.cpp`, `power_menu.cpp`, `powerprofile.cpp`, `volume.cpp`, `sound.cpp`, `gpu.cpp`, `cpus.cpp`, `idle.cpp`, `proc.cpp` (running a program with no shell), `unit.cpp` (asking systemd for a root job), `timezone.cpp` (the time zone first run asks on a console with none: its regions and cities from the tz database, and setting one through `cabinetos-timezone@.service`), `update.cpp` (System update, the console's side), `files.cpp` (File access, the console's side), `server.cpp` and `serveraddress.cpp` (the RomM server this console belongs to) |
@@ -67,7 +67,7 @@ is in the file named for its feature, and
 | LinkUp (#654) | `linkupscreen.cpp` (its top-bar screen, and what a console shows in a session with no game to show), `linkup.cpp` (the App's side: the top bar, inviting, answering an invite, the next game, the panels over a game), `linkupflow.cpp` (the Settings rows), `linkupsession.cpp` (the live side: the program's answers, a session with a friend, the friend's seat and picture, `--linkup-script`), `linkup_link.cpp` (the local socket to the program, the only way the frontend reaches it), `linkup_wire.h` (what the two programs say, which both include), `linkup_pad.cpp` (the friend's controller at both ends: what the friend's console sends, its presses, sticks and tilt, and the host's seat for it, a virtual pad with the motion sensors the friend's controller has; what counts as a press for the idle rule; `--linkup-pad-test`), `linkuprules.cpp` (the rules and words, with no SDL), `linkupgallery.cpp` (`--linkup-gallery`: every screen with made-up friends). All the network is `linkup/` |
 | Game events (#716) | `gameevents.h` (its face and its rules), `gameevents.cpp` (the messages, the knock on each network, and the one thread that sends them in order), `gameevents_wire.cpp` (one message on the wire: the name looked up, every address it gives held to the home rule, the POST pinned to those addresses, no redirect, no proxy), `gameevents_internal.h` (what those two and the test share), `gameevents_test.cpp` (`--game-events-test`), and `gameeventsflow.cpp` (the Settings row and the App's side of each message). Who calls it: `launch.cpp` and `standalone_play.cpp` beside `playClock.begin` (started), `play.cpp` and `standalone_play.cpp` beside `playtime::close` (ended, which Sleep, Restart and Power off reach too), `frame.cpp` once a frame (the pause menu over a game) and for Done's check, `achievements_ui.cpp` as each pop-up is taken, `linkupsession.cpp` on a LinkUp friend's console (the host's `starting` and `quit`, and the session's end), `power_menu.cpp` (Sleep waits for what is waiting), `startup.cpp` (the exit) and `main.cpp` (the start) |
 | Remote Play, Tailscale, Steam, the report | `remoteplay.cpp`, `sunshinelog.cpp`, `tailscale.cpp` (the `tailscale` command, and the rule for when tailscaled runs, which `cabinetos-saved-services` follows at boot), `steam.cpp`, `report.cpp`, `samenames.cpp` |
-| Test instruments | `probes.cpp` (runs the probes and calls most self-tests; `--same-names-test`, `--linkup-test`, `--linkup-pad-test`, `--arcade-tile-test`, `--fightstick-test`, `--tilt-test`, `--motion-device-test`, `--dualsense-test`, `--arcade-settings-test`, `--arcade-match-test`, `--arcade-changes`, `--screen-view-test`, `--controls-test`, `--netblock-test`, `--idle-test`, `--keyboard-test`, `--gone-games-test`, `--save-notes-test`, `--game-events-test`, `--romm-race-test` and `--romm-snapshots-test` run from `cli.cpp`), `selftests.cpp`, `coretests.cpp`, `testhooks.cpp`, `discrig.cpp`, `optcheck.cpp` (the option-table check CI runs). Most self-tests live in their feature's own file (`players::test` in `players.cpp`, `tilt::test` in `tilt.cpp`, `vpad::motionTest` in `vpad.cpp`, `vdualsense::test` in `vdualsense.cpp`, `linkuppad::test` in `linkup_pad.cpp`, `gameevents::test` in `gameevents_test.cpp`, `romm::snapshotsTest` in `romm_snapshots_test.cpp`, and so on). They ship in the program and run only from a flag |
+| Test instruments | `probes.cpp` (runs the probes and calls most self-tests; `--same-names-test`, `--linkup-test`, `--linkup-pad-test`, `--arcade-tile-test`, `--fightstick-test`, `--tilt-test`, `--motion-device-test`, `--dualsense-test`, `--arcade-settings-test`, `--arcade-match-test`, `--arcade-changes`, `--screen-view-test`, `--controls-test`, `--netblock-test`, `--idle-test`, `--keyboard-test`, `--gone-games-test`, `--save-notes-test`, `--save-pick-test`, `--game-events-test`, `--romm-race-test` and `--romm-snapshots-test` run from `cli.cpp`), `selftests.cpp`, `coretests.cpp`, `testhooks.cpp`, `discrig.cpp`, `optcheck.cpp` (the option-table check CI runs). Most self-tests live in their feature's own file (`players::test` in `players.cpp`, `tilt::test` in `tilt.cpp`, `vpad::motionTest` in `vpad.cpp`, `vdualsense::test` in `vdualsense.cpp`, `linkuppad::test` in `linkup_pad.cpp`, `gameevents::test` in `gameevents_test.cpp`, `romm::snapshotsTest` in `romm_snapshots_test.cpp`, `savepick::test` in `savepick.cpp`, the table `--save-pick-test` runs before `selftests.cpp`'s restores, and so on). They ship in the program and run only from a flag |
 
 ### Where it starts
 
@@ -255,10 +255,14 @@ is in the file named for its feature, and
    skips the unpacking and its room check (`alreadyUnpacked`, #530).
    With the game on the disk, a 3DS file Azahar cannot play (an encrypted
    dump, a CIA) ends the job with its reason (`ncch.cpp`); otherwise it
-   fetches the game's saves from RomM, the rows
-   and the bytes a restore may pick (`fetchLaunchSaves`; `saves.cpp`,
-   `fetchSaves`), and the Mii Channel's for a Wii game, then marks the job
-   Ready.
+   fetches what RomM holds of the game's save (`fetchLaunchSaves`;
+   `saves.cpp`, `fetchSaves`): its save channels (RomM 5.5, #346), asked by
+   the file the game's record remembers they are keyed to, and its saves
+   from before channels, both at once; then the save the start continues
+   from, by the one rule in `savepick.cpp` (the newest this console can use,
+   whichever device made it; a save this console has not sent yet wins),
+   and that save's bytes. The same for the Mii Channel of a Wii game. Then
+   it marks the job Ready.
 3. Each frame, `pumpLaunch` (`launch.cpp`) reads the job. A stop (Stop on
    the page's filling row, `pressStopDownload` in `downloadsflow.cpp`;
    Escape on a keyboard, `input.cpp`; Eject of the drive it is going to,
@@ -282,12 +286,21 @@ is in the file named for its feature, and
    folder save is written from the fetch and the starting disc chosen
    (`prepareSaveDirAndDiscs`); then the file saves (most saves) are written
    and Dolphin's settings and the Miis, all before the load
-   (`restoreBeforeLoad`).
+   (`restoreBeforeLoad`). Each restore writes the save the worker picked;
+   a save of this console's that it replaces with another is copied to
+   `saves/<platform>/<romId>/replaced/` first, one copy a game
+   (`keepAside` in `saves.cpp`).
 6. The core loads the game (`loadLaunchedGame`); `setUpLoadedGame` sets up
-   the session; then the battery save is written into the core, the options
-   the core was given are logged, sound and pacing open, and play starts
-   (`startPlaying`). The restore order and its rules are one comment on
-   `pumpLaunch`.
+   the session; then the battery save is written into the core, and the
+   start leaves its notes (`noteStart` in `saves.cpp`): the channel and
+   snapshot it continued from, in the session, for the push when the game
+   is left; and that snapshot as the one this console holds
+   (`savemirror::Held`). Then the options the core was given are logged,
+   sound and pacing open, and play starts (`startPlaying`), with the pill
+   "Continuing from another device" when the console's own note, or RomM's
+   when it has none, says the save was made somewhere else. An emulator run
+   as a program does the same in `startStandalone`. The restore order and
+   its rules are one comment on `pumpLaunch`.
 
 ### Leaving a game
 
@@ -367,21 +380,33 @@ the frontend asks for it over the local socket (`linkup_wire.h`, `linkupsession.
    (`gonegames.h`). States: the newest three per game and
    emulator tag are kept on RomM.
 3. Each core's saves, where it writes them and the tag they carry on RomM are
-   one table, `savetable.cpp`. A launch restores the newest row under its
-   tag, except that this console's own copy wins while it is still owed to
-   RomM, and is used when RomM has none (`saves.cpp`). The rows and bytes
-   are fetched on the launch worker (`fetchSaves`) and written on the frame
-   thread; a save of the game that lands on RomM between the two makes the
-   fetch stale, and the console's copy stands.
-4. Offline, the console uses its copy of RomM's rows as last seen
-   (`savemirror.h`), so a launch decides as it would online. What offline
-   will need is fetched while online, and the server is tried in the
-   background while it is away (`offline_sync.h`); what is owed waits as
-   markers on disk. `savemirror.h` also has a place for a person's save
-   channels of a game (#346), in RomM's own form with the bytes of each
-   current's save, and for one note of the console's own: the snapshot it
-   holds of the game, which forgetting RomM's copy leaves. RomM keeps that
-   note per device, and every CabinetOS console is one device there.
+   one table, `savetable.cpp`. Which save a launch restores is one rule,
+   `savepick.cpp`: the newest RomM holds for this person that this console
+   can use, among the current snapshots of the game's save channels and
+   the saves from before channels under the core's tag (RomM lists a
+   snapshot's save among a game's saves too, with its channel named, and
+   that one is never taken for an old one); this console's own copy wins
+   while it is still owed to RomM, and is used when RomM has none. Until the
+   console asks RomM to convert them, another emulator's save is not used,
+   and the session notes when the newest was one. What RomM holds and the
+   picked save's bytes are fetched on the launch worker (`fetchSaves`) and
+   written on the frame thread (`saves.cpp`); a save of the game that lands
+   on RomM between the two makes the fetch stale, and the console's copy
+   stands. The game's page reads its "Saved" line through the same rule
+   (`listSaves`).
+4. Offline, the console uses its copy of RomM's saves and save channels as
+   last seen (`savemirror.h`), so a launch decides as it would online. What
+   offline will need is fetched while online: every game on the drive's
+   saves, its channels, and the bytes of the save the same rule picks
+   (`offline_sync.cpp`); the server is tried in the background while it is
+   away, and what is owed waits as markers on disk. `savemirror.h` also
+   keeps one note of the console's own, which forgetting RomM's copy
+   leaves: the snapshot it holds of the game, written by a start from one,
+   with the content hash of every save of the game it has held. RomM keeps
+   a note of what each device holds too, but every CabinetOS console is one
+   device there, so only the console's own note can tell a save another
+   console made, or tell one of its own that RomM's website put back on top
+   (a new snapshot with the same save inside).
 
 ### System update
 
@@ -730,4 +755,4 @@ The area named is the one in `ci/base-watch.txt` whose checks a change asks for.
 | The hand-over to Steam and back | `cabinetos-session` (`steam_step`) repeats what upstream's `gamescope-session-plus` wrapper sets up before the session, and starts the session itself | Not checked against upstream's wrapper; the tile is a `tv:` check when the `steam` package moves (`ci/base-watch.txt`, Steam) |
 | Steam's own files | Steam's `config/config.vdf` (Bluetooth on before its first start, `cabinetos-session`), both `libraryfolders.vdf` (`cabinetos-steam-libraries`), the `steamwebhelper` and `zenity` processes that say its first download ended (`cabinetos-steam-download`), the files it leaves outside its folder (`steam.cpp`, Remove) | Not checked, and cannot be ahead: Steam updates itself. A change shows in Steam |
 | Achievements, and offline play's unlocks | rcheevos, our copy at a pinned commit (`frontend/third_party/rcheevos/VERSION`): its low-level `rc_api_*` beside its client, `rc_libretro`'s table of core names, and the form of its requests, which the offline layer reads and answers (`achievements.cpp`, `ra_list.cpp`); RetroAchievements' server answering `"Success":true`; and its MD5 (`src/rhash/md5.h`), which RomM's content hash is worked out with (`romm_snapshots.cpp`) | Not checked. The copy moves only when we move it; the server moves on its own |
-| Save channels on RomM (#346) | RomM's channel and snapshot API as 5.5.0-alpha.2 has it, which RomM's documentation does not describe yet: `GET /api/channels` by `rom_file_id`, `POST /api/snapshots` (a `manifest` part, `save` and `state:<core>:<slot>` parts) and its answers (201, 200, 400 `missing`, 409 `branch` or `hardcore_downgrade`), the fields of a channel and a snapshot, `channel_file_id` on a game's own entry, the heartbeat's `SAVE_SYNC` block as the sign a server has channels, and the content hash a snapshot names each save and state by: the MD5 of its bytes, or of a zip's names and their files' MD5s (`romm_snapshots.cpp`, `romm_pairing.cpp`, `romm_library.cpp`) | `--romm-snapshots-test` in CI, against answers recorded from RomM 5.5.0-alpha.2. A newer RomM is read against these by hand at its release, and the whole row against RomM's documentation once it covers channels |
+| Save channels on RomM (#346) | RomM's channel and snapshot API as 5.5.0-alpha.2 has it, which RomM's documentation does not describe yet: `GET /api/channels` by `rom_file_id`, `POST /api/snapshots` (a `manifest` part, `save` and `state:<core>:<slot>` parts) and its answers (201, 200, 400 `missing`, 409 `branch` or `hardcore_downgrade`), the fields of a channel and a snapshot, `channel_file_id` on a game's own entry, the heartbeat's `SAVE_SYNC` block as the sign a server has channels, and the content hash a snapshot names each save and state by: the MD5 of its bytes, or of a zip's names and their files' MD5s (`romm_snapshots.cpp`, `romm_pairing.cpp`, `romm_library.cpp`). For the save a start continues from (`savepick.cpp`, `saves.cpp`): `GET /api/saves` listing a snapshot's save among a game's saves with its `channel_id`, where a save from before channels has none; a snapshot's `device` (the client that made it) and `held_by`; and the website's "Restore as current" making a new snapshot that carries the older one's save (`restoreManifest` in its `utils/snapshots.ts`), which is why the pill goes by the save's hash | `--romm-snapshots-test` in CI, against answers recorded from RomM 5.5.0-alpha.2, and `--save-pick-test` for the rule built on them. The saves list and a restore made the website's way were seen on the write-test RomM on 2026-11-18. A newer RomM is read against these by hand at its release, and the whole row against RomM's documentation once it covers channels |

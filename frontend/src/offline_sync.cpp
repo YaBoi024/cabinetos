@@ -22,6 +22,7 @@
 #include "library.h"
 #include "romm.h"
 #include "savemirror.h"
+#include "savepick.h"
 #include "storage.h"
 
 // STOPPED AT EXIT (#406). Both threads were detached and endless or long,
@@ -32,6 +33,72 @@ static std::atomic<bool> gStop{false};
 static std::mutex gThreads;
 static std::thread gBackfill;    // under gThreads
 static std::thread gReconnect;   // under gThreads
+
+// The file RomM keys a game's save channels to, asked of RomM and kept in the
+// game's record (library.h). 0 when RomM names none or did not answer.
+static int askChannelFile(romm::Client& c, int romId) {
+    std::vector<romm::RomFile> files;
+    std::string err;
+    if (!c.fetchRomFiles(romId, &files, &err)) return 0;
+    for (const romm::RomFile& f : files) {
+        if (!f.channelFile) continue;
+        rememberChannelFile(romId, f.id);
+        return f.id;
+    }
+    return 0;
+}
+
+// RomM'S SAVE CHANNELS FOR THE GAMES ON THE DRIVE (#346), a hundred games to
+// a call, by the file each game's record remembers its channels are keyed to;
+// a game whose record has none yet is asked about once. A game RomM lists no
+// channel for is in the answer with none; a game left out is one RomM could
+// not be asked about. RomM refuses a whole call when one file in it is gone
+// or hidden, so then each game is asked alone, and one whose file no longer
+// answers is asked for its file again. Nothing on a RomM before 5.5.
+static std::map<int, std::vector<romm::Channel>> channelsOfGames(romm::Client& c,
+                                                                 const std::vector<int>& romIds) {
+    std::map<int, std::vector<romm::Channel>> out;
+    if (!romm::heardServerChannels()) return out;
+    std::map<int, int> romOfFile;
+    std::vector<int> files;
+    for (int romId : romIds) {
+        if (gStop.load()) return out;
+        int file = rememberedChannelFile(romId);
+        if (file == 0) file = askChannelFile(c, romId);
+        if (file == 0) continue;
+        romOfFile[file] = romId;
+        files.push_back(file);
+    }
+    std::vector<romm::Channel> all;
+    std::string err;
+    bool gone = false;
+    if (files.empty()) return out;
+    if (c.fetchChannels(files, &all, &err, &gone)) {
+        for (int file : files) out[romOfFile[file]];
+        for (romm::Channel& ch : all) {
+            const auto f = romOfFile.find(ch.romFileId);
+            const auto game = out.find(f != romOfFile.end() ? f->second : ch.romId);
+            if (game != out.end()) game->second.push_back(std::move(ch));
+        }
+        return out;
+    }
+    if (!gone) {
+        std::fprintf(stderr, "[offline] save channels not fetched: %s\n", err.c_str());
+        return out;
+    }
+    for (int file : files) {
+        if (gStop.load()) break;
+        const int romId = romOfFile[file];
+        std::vector<romm::Channel> one;
+        if (!c.fetchChannels({file}, &one, &err, &gone)) {
+            if (!gone) continue;
+            const int now = askChannelFile(c, romId);
+            if (now == 0 || now == file || !c.fetchChannels({now}, &one, &err)) continue;
+        }
+        out[romId] = std::move(one);
+    }
+    return out;
+}
 
 // WHAT OFFLINE WILL NEED, FETCHED WHILE ONLINE (#88). A game on the drive
 // with no record cannot be shown offline, and one whose covers were never
@@ -96,11 +163,14 @@ void backfillDrive(const std::string& address) {
             if (const catalog::Coverage cov = catalog::coverageFor(g); cov.core)
                 if (const char* tag = catalog::saveTag(cov.core)) saveTagOf[g.id] = tag;
         }
-        // THE NEWEST SAVES, one call for every game (savemirror.h): the rows
-        // for each game, and the bytes of the newest row of each kind (by
-        // extension: a card per region, a battery, a zip) under the tag a
-        // launch restores from. Bytes already kept at that version are not
-        // fetched again.
+        // THE SAVE A START WOULD CONTINUE FROM, for every game (savemirror.h):
+        // RomM's saves from before channels in one call, its save channels
+        // in a call per hundred games, and the bytes of the save the
+        // launch's own rule picks from them (savepick.h): a channel's
+        // snapshot, or of the old rows the newest under the tag a launch
+        // restores from, of any kind and in each region. Picked as if nothing
+        // were owed, since what is owed now will have gone up by the time
+        // these are read. Bytes already kept are not fetched again.
         std::vector<int> ids;
         for (const auto& kv : saveTagOf) ids.push_back(kv.first);
         std::vector<romm::Asset> rows;
@@ -111,24 +181,39 @@ void backfillDrive(const std::string& address) {
             for (int id : ids) byGame[id];   // a game with none is listed as none
             for (int id : skipped) byGame.erase(id);   // and one not asked, not at all
             for (romm::Asset& a : rows) byGame[a.romId].push_back(std::move(a));
+            std::vector<int> listed;
+            for (const auto& kv : byGame) listed.push_back(kv.first);
+            const std::map<int, std::vector<romm::Channel>> channelsOf =
+                channelsOfGames(c, listed);
             for (const auto& [romId, list] : byGame) {
                 if (gStop.load()) break;
                 if (savemirror::forgottenSince(romId, asked)) continue;   // an upload landed
                 savemirror::putList(who, romId, list);
-                std::map<std::string, const romm::Asset*> newest;   // extension -> row
-                for (const romm::Asset& a : list) {
-                    if (a.emulator != saveTagOf[romId]) continue;
-                    const size_t dot = a.fileName.rfind('.');
-                    const std::string ext = dot == std::string::npos ? "" : a.fileName.substr(dot);
-                    const romm::Asset*& n = newest[ext];
-                    if (!n || a.updatedAt > n->updatedAt) n = &a;
+                savepick::Facts facts;
+                facts.tag = saveTagOf[romId];
+                if (const auto ch = channelsOf.find(romId); ch != channelsOf.end()) {
+                    savemirror::putChannels(who, romId, ch->second);
+                    facts.channels = ch->second;
                 }
-                for (const auto& [ext, a] : newest) {
-                    if (savemirror::hasBytes(who, romId, *a)) continue;
-                    std::vector<uint8_t> bytes = c.fetchAsset("saves", a->id);
+                if (const romm::Asset* newest = savepick::newestOldRow(list, facts.tag))
+                    facts.oldRowAt = newest->updatedAt;
+                facts.haveHeld = savemirror::getHeld(who, romId, &facts.held);
+                const savepick::Pick pick = savepick::pick(facts);
+                if (pick.from == savepick::Pick::From::Channel) {
+                    const romm::SnapshotFile& save = pick.channel.current.save;
+                    if (savemirror::hasSnapshotSave(who, romId, save)) continue;
+                    std::vector<uint8_t> bytes = c.fetchAsset("saves", save.id);
                     if (bytes.empty()) continue;
-                    savemirror::putBytes(who, romId, *a, bytes);
+                    savemirror::putSnapshotSave(who, romId, save, bytes);
                     ++saves;
+                } else if (pick.from == savepick::Pick::From::OldRows) {
+                    for (const romm::Asset* a : savepick::oldRowsAStartMayTake(list, facts.tag)) {
+                        if (savemirror::hasBytes(who, romId, *a)) continue;
+                        std::vector<uint8_t> bytes = c.fetchAsset("saves", a->id);
+                        if (bytes.empty()) continue;
+                        savemirror::putBytes(who, romId, *a, bytes);
+                        ++saves;
+                    }
                 }
             }
         } else if (!ids.empty() && !gStop.load()) {

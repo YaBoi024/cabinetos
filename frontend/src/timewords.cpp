@@ -15,6 +15,29 @@ std::string isoUtc(time_t t) {
     return buf;
 }
 
+int64_t isoMicros(const std::string& iso) {
+    int Y, M, D, h, m, sec, read = 0;
+    if (std::sscanf(iso.c_str(), "%d-%d-%dT%d:%d:%d%n", &Y, &M, &D, &h, &m, &sec, &read) != 6)
+        return 0;
+    struct tm utc = {};
+    utc.tm_year = Y - 1900;
+    utc.tm_mon = M - 1;
+    utc.tm_mday = D;
+    utc.tm_hour = h;
+    utc.tm_min = m;
+    utc.tm_sec = sec;
+    int64_t micros = static_cast<int64_t>(timegm(&utc)) * 1000000;
+    size_t at = static_cast<size_t>(read);
+    if (at < iso.size() && iso[at] == '.') {
+        int64_t unit = 100000;
+        for (++at; at < iso.size() && iso[at] >= '0' && iso[at] <= '9' && unit > 0; ++at) {
+            micros += (iso[at] - '0') * unit;
+            unit /= 10;
+        }
+    }
+    return micros;
+}
+
 // A GAME'S YEAR, MAKER AND PLAYERS, kept for the page offline (#88), beside
 // the game's record: `games/<romId>.facts.json`.
 void rememberFacts(int romId, const romm::Client::Facts& f) {
@@ -45,16 +68,9 @@ bool knownFacts(int romId, romm::Client::Facts* f) {
 // "Yesterday, 8:13 PM", "Sep 23, 8:13 PM", with the year only when it is not
 // this one. From RomM's `updated_at`, which is UTC, into this console's time.
 std::string stateWhen(const std::string& iso) {
-    int Y, M, D, h, m, sec;
-    if (std::sscanf(iso.c_str(), "%d-%d-%dT%d:%d:%d", &Y, &M, &D, &h, &m, &sec) != 6) return "";
-    struct tm utc = {};
-    utc.tm_year = Y - 1900;
-    utc.tm_mon = M - 1;
-    utc.tm_mday = D;
-    utc.tm_hour = h;
-    utc.tm_min = m;
-    utc.tm_sec = sec;
-    const time_t t = timegm(&utc);
+    const int64_t micros = isoMicros(iso);
+    if (micros == 0) return "";
+    const time_t t = static_cast<time_t>(micros / 1000000);
     struct tm at, now;
     localtime_r(&t, &at);
     const time_t n = time(nullptr);

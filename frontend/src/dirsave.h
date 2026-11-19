@@ -80,6 +80,17 @@ bool zipTree(const std::string& root, const std::vector<std::string>& relPaths,
 bool unzipTree(const std::vector<uint8_t>& data, const std::string& root,
                std::string* err);
 
+// One file of an archive, read into memory.
+struct ZipFile {
+    std::string relPath;
+    std::vector<uint8_t> bytes;
+};
+// Every file `data` holds, read into memory and written nowhere: for a save
+// that is checked against what is on the disk before it is unpacked over it,
+// and one that holds a core's files by name (saves.cpp). False, with a
+// reason, when it cannot be read or a name is one unzipTree refuses.
+bool readZip(const std::vector<uint8_t>& data, std::vector<ZipFile>* out, std::string* err);
+
 // Whether an archive member's name may be written under the folder it is
 // unpacked into. An archive is data that arrived over a network, so its own
 // names decide nothing about where bytes land: anything absolute or with a

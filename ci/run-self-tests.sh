@@ -69,6 +69,7 @@ TESTS=(
     --vectrex-sheets-test
     --gone-games-test
     --save-notes-test
+    --save-pick-test
     --gpu-choice-test
     --tailscale-switch-test
     --update-romm-test

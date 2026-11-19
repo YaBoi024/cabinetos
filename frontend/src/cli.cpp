@@ -332,6 +332,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             return gone::test();
         } else if (SDL_strcmp(argv[i], "--save-notes-test") == 0) {
             return saveNotesTest();
+        } else if (SDL_strcmp(argv[i], "--save-pick-test") == 0) {
+            return savePickTest();
         } else if (SDL_strcmp(argv[i], "--game-events-test") == 0) {
             return gameevents::test();
         } else if (SDL_strcmp(argv[i], "--battery-test") == 0) {

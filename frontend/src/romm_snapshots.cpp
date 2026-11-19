@@ -361,15 +361,21 @@ std::string channelsJson(const std::vector<Channel>& channels) {
 }
 
 bool Client::fetchChannels(const std::vector<int>& romFileIds, std::vector<Channel>* out,
-                           std::string* err) const {
+                           std::string* err, bool* notFound) const {
     out->clear();
+    if (notFound) *notFound = false;
     constexpr size_t kPerCall = 100;
     for (size_t at = 0; at < romFileIds.size(); at += kPerCall) {
         std::string q;
         for (size_t i = at; i < romFileIds.size() && i < at + kPerCall; ++i)
             q += (q.empty() ? "?rom_file_id=" : "&rom_file_id=") + std::to_string(romFileIds[i]);
         std::string body;
-        if (!get("/api/channels" + q, &body, err) || !readChannels(body, out, err)) return false;
+        long status = 0;
+        if (!get("/api/channels" + q, &body, err, &status)) {
+            if (notFound) *notFound = status == 404;
+            return false;
+        }
+        if (!readChannels(body, out, err)) return false;
     }
     return true;
 }

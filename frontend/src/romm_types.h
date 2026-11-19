@@ -161,6 +161,13 @@ struct Game {
     std::string membersFile;
     int64_t membersSize = 0;
     std::vector<ArchiveMember> members;
+    // THE FILE THIS GAME'S SAVE CHANNELS ARE KEYED TO (RomM 5.5, #346):
+    // RomM's `channel_file_id`, which only the game's own entry carries
+    // (RomFile::channelFile). 0 from RomM's lists and from a RomM before
+    // 5.5. Kept in the game's record once a launch or the game's page has
+    // learned it (rememberChannelFile), so a start asks for the channels
+    // without asking for the game first.
+    int channelFileId = 0;
 };
 
 // RomM's four fields as one line, in RomM's order on its folder structure
@@ -232,6 +239,12 @@ struct Asset {
     // A state's picture on RomM (its `screenshot.download_path`), for the
     // launch screen. Empty for a save, or a state sent without one.
     std::string picturePath;
+    // A SAVE IN A SNAPSHOT IS LISTED AMONG A GAME'S SAVES TOO (RomM 5.5,
+    // #346), with the save channel it belongs to here (`channel_id`), whether
+    // it is that channel's current or an older snapshot's. Empty for a save
+    // from before channels, the kind the console uploads one file at a time,
+    // and on a RomM before 5.5.
+    std::string channelId;
 };
 
 // Who the token belongs to.
@@ -328,11 +341,16 @@ struct SnapshotState {
     SnapshotFile file;
 };
 
+// What every CabinetOS console calls itself when it pairs (beginPairing), so
+// all of a person's consoles are one device on RomM, and what RomM gives back
+// as the `client` of that device.
+inline constexpr char kConsoleClient[] = "cabinetos";
+
 // A device RomM says holds a snapshot (`held_by`): the snapshot it last took
 // or pushed in that channel. Only this person's own devices are listed.
 struct SnapshotHolder {
     std::string deviceId;
-    std::string client;   // "cabinetos" for every CabinetOS console
+    std::string client;   // kConsoleClient for every CabinetOS console
     std::string syncedAt;
 };
 

@@ -79,6 +79,11 @@ struct Held {
     std::string digest;     // the snapshot's, "sha256:<hex>"
     std::string saveHash;   // its save's content hash; empty when it has none
     int64_t at = 0;         // when this console took it, seconds since 1970
+    // The content hash of every save of this game this console has held,
+    // oldest first, `saveHash` last. What tells a save another device made
+    // from one of this console's own that RomM's website put back on top
+    // (savepick.h).
+    std::vector<std::string> hashesHad;
 };
 void putHeld(const storage::User& u, int romId, const Held& held);
 // False when this console holds none of this game (never, or since a

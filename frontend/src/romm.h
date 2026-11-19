@@ -259,9 +259,10 @@ public:
     // `rom_file_id` for each, a hundred to a call), each with its current
     // snapshot. Empty is an answer: no game of these was saved in a channel.
     // False when a call fails; RomM refuses the whole call (404) when one of
-    // the files is gone or hidden from this person.
+    // the files is gone or hidden from this person, which `*notFound` says,
+    // read off the answer's status as fetchGame's is.
     bool fetchChannels(const std::vector<int>& romFileIds, std::vector<Channel>* out,
-                       std::string* err) const;
+                       std::string* err, bool* notFound = nullptr) const;
     // One push (`POST /api/snapshots`): the manifest, and the bytes `push`
     // carries. True when RomM answered, whatever it answered (`*answer`);
     // false when no answer came.

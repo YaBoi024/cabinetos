@@ -503,6 +503,9 @@ struct LaunchContext {
     std::vector<int> discOrder{};
     std::string romForCore{};
     std::vector<cab::FileSaveState> restored{};
+    // What the restores did with the save the start continues from, for the
+    // notes the start leaves (saves.h, noteStart).
+    StartNotes startNotes{};
 };
 
 // Picks up a finished job. Loading the game happens HERE, on the frame
@@ -518,25 +521,34 @@ struct LaunchContext {
 // folder save and the file saves are written BEFORE the core loads the game,
 // because a core reads them once while the machine is built; the battery
 // save AFTER it, because the core is handed the bytes; and in every one a
-// copy this console still owes the server wins over the server's. The
-// server's rows and bytes were fetched by the worker before the job was
-// Ready (launch_routes.cpp, fetchLaunchSaves; launchJob.saves), so no stage
-// here waits on the network.
+// copy this console still owes the server wins over the server's. WHICH SAVE
+// each writes is one rule, decided once by the worker with RomM's save
+// channels and its saves from before them in hand (savepick.h): the newest
+// this console can use, whichever device made it. The worker fetched it
+// before the job was Ready (launch_routes.cpp, fetchLaunchSaves;
+// launchJob.saves), so no stage here waits on the network. A save of this
+// console's that a restore replaces is kept aside first (saves.cpp,
+// keepAside), and once the last restore has run the start leaves its notes
+// (noteStart) and says so when it continued from another device's save.
 void App::pumpLaunch() {
     if (!takeFinishedJob()) return;
     if (!loadPickedCore()) return;
     LaunchContext c{.core = cab::Core::shared(), .user = storage::currentUser()};
+    c.startNotes.asideDir =
+        storage::replacedSaveDir(c.user, launchJob.platformFsSlug, launchJob.romId);
     prepareSaveDirAndDiscs(c);
     restoreBeforeLoad(c);
     if (!loadLaunchedGame(c)) return;
     setUpLoadedGame(c);
-    restoreBatterySave(c.core, session, c.saveDir, c.user, launchJob.saves);
+    restoreBatterySave(c.core, session, c.saveDir, c.user, launchJob.saves, &c.startNotes);
+    const bool elsewhere = noteStart(launchJob.saves, c.startNotes, c.user, &session);
     // The fetched saves are written; a card can be megabytes, so not kept.
     launchJob.saves = SaveFetch{};
     launchJob.miiSaves = SaveFetch{};
     reportLoadedOptions(c.core);
     openSoundAndPace(c.core);
     startPlaying(c.core);
+    if (elsewhere) menuNotice.say(kContinuingElsewhere, Tone::Info);
 }
 
 // Stages 1 to 3: a failed job is undone and a Ready one taken (a launch once
@@ -724,7 +736,7 @@ void App::prepareSaveDirAndDiscs(LaunchContext& c) {
     }
     if (c.dirSub && c.launchTag && launchJob.saves.asked)
         restoreDirSave(launchJob.saves, c.launchTag, c.saveDir + "/" + c.dirSub,
-                       launchJob.title, oldGameCubeCard);
+                       launchJob.title, oldGameCubeCard, &c.startNotes);
 
     // AND THE SAVES THE CORE WRITES AS A FILE, which is most of the ones
     // on a real server and none of the ones this console used to handle.
@@ -846,7 +858,7 @@ void App::restoreBeforeLoad(LaunchContext& c) {
                        : launchJob.romPath;
 
     c.restored = restoreFileSaves(saveSpecs, launchJob.fsStem, c.saveDir, c.launchTag,
-                                  launchJob.saves);
+                                  launchJob.saves, &c.startNotes);
 }
 
 // Stage 6: the load. False when the core refused the game, which is said

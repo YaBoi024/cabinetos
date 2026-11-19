@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <map>
 #include <mutex>
@@ -59,11 +60,21 @@ void dropBytes(const std::string& dir, const std::set<std::string>& keep, Mine m
     }
 }
 
+// A LIST THAT HAS NOT CHANGED IS NOT WRITTEN AGAIN. Every start asks RomM for
+// the game's saves and its channels and keeps what it answered; most starts
+// it answers what it did last time, and writing that again costs the start a
+// sync to the drive for each list (cab::writeBytes) and tells it nothing.
+bool writeIfChanged(const std::string& path, const std::string& text) {
+    const std::vector<uint8_t> was = cab::readBytes(path);
+    if (was.size() == text.size() && std::equal(was.begin(), was.end(), text.begin()))
+        return true;
+    return cab::writeBytes(path, text);
+}
+
 bool writeJson(const std::string& path, json_object* o) {
     const std::string text = json_object_to_json_string_ext(o, JSON_C_TO_STRING_PRETTY);
     json_object_put(o);
-    const bool ok = cab::writeBytes(path, text);
-    return ok;
+    return writeIfChanged(path, text);
 }
 
 bool sizedFile(const std::string& path) {
@@ -85,6 +96,7 @@ void putList(const storage::User& u, int romId, const std::vector<romm::Asset>& 
         json_object_object_add(o, "file_size_bytes", json_object_new_int64(a.sizeBytes));
         json_object_object_add(o, "emulator", json_object_new_string(a.emulator.c_str()));
         json_object_object_add(o, "updated_at", json_object_new_string(a.updatedAt.c_str()));
+        json_object_object_add(o, "channel_id", json_object_new_string(a.channelId.c_str()));
         json_object_array_add(arr, o);
         keep.insert(bytesName(a));
     }
@@ -109,6 +121,7 @@ bool getList(const storage::User& u, int romId, std::vector<romm::Asset>* rows) 
             if (json_object_object_get_ex(o, "file_size_bytes", &v)) a.sizeBytes = json_object_get_int64(v);
             if (json_object_object_get_ex(o, "emulator", &v)) a.emulator = json_object_get_string(v);
             if (json_object_object_get_ex(o, "updated_at", &v)) a.updatedAt = json_object_get_string(v);
+            if (json_object_object_get_ex(o, "channel_id", &v)) a.channelId = json_object_get_string(v);
             a.romId = romId;
             if (a.id != 0) rows->push_back(std::move(a));
         }
@@ -135,7 +148,7 @@ bool hasBytes(const storage::User& u, int romId, const romm::Asset& row) {
 void putChannels(const storage::User& u, int romId, const std::vector<romm::Channel>& channels) {
     if (!u.valid() || romId <= 0) return;
     const std::string dir = dirFor(u, romId);
-    if (!cab::writeBytes(dir + "/channels.json", romm::channelsJson(channels))) return;
+    if (!writeIfChanged(dir + "/channels.json", romm::channelsJson(channels))) return;
     std::set<std::string> keep;
     for (const romm::Channel& c : channels)
         if (c.currentId != 0 && c.current.hasSave) keep.insert(snapshotName(c.current.save));
@@ -179,6 +192,10 @@ void putHeld(const storage::User& u, int romId, const Held& held) {
     json_object_object_add(o, "digest", json_object_new_string(held.digest.c_str()));
     json_object_object_add(o, "save_hash", json_object_new_string(held.saveHash.c_str()));
     json_object_object_add(o, "at", json_object_new_int64(held.at));
+    json_object* had = json_object_new_array();
+    for (const std::string& h : held.hashesHad)
+        json_object_array_add(had, json_object_new_string(h.c_str()));
+    json_object_object_add(o, "save_hashes_had", had);
     if (!writeJson(dirFor(u, romId) + "/" + kHeld, o))
         std::fprintf(stderr, "[save] could not note the snapshot held of game %d\n", romId);
 }
@@ -194,6 +211,11 @@ bool getHeld(const storage::User& u, int romId, Held* held) {
     if (json_object_object_get_ex(o, "digest", &v)) held->digest = json_object_get_string(v);
     if (json_object_object_get_ex(o, "save_hash", &v)) held->saveHash = json_object_get_string(v);
     if (json_object_object_get_ex(o, "at", &v)) held->at = json_object_get_int64(v);
+    if (json_object_object_get_ex(o, "save_hashes_had", &v) &&
+        json_object_is_type(v, json_type_array))
+        for (size_t i = 0; i < json_object_array_length(v); ++i)
+            if (const char* h = json_object_get_string(json_object_array_get_idx(v, i)))
+                held->hashesHad.push_back(h);
     json_object_put(o);
     if (held->snapshotId > 0) return true;
     *held = Held{};

@@ -14,6 +14,7 @@
 #include "cache.h"
 #include "catalog.h"
 #include "favorites.h"
+#include "library.h"
 #include "manual.h"
 #include "saves.h"
 #include "storage.h"
@@ -36,6 +37,10 @@ void App::startDetailStates() {
         std::vector<romm::Asset> all;
         std::vector<screens::StateChoice> out;
         std::string err, saveWhen;
+        // The file RomM keys the game's save channels to, for the save line
+        // below: as RomM just said with the game's files, else as the game's
+        // record remembers it.
+        int channelFile = rememberedChannelFile(romId);
         // YEAR, MAKER, PLAYERS, under the cover. Whatever RomM has.
         screens::DetailScreen::Facts facts;
         {
@@ -44,6 +49,12 @@ void App::startDetailStates() {
             // Offline (#88): as last seen, kept beside the game's record.
             const bool fresh = !romm::serverAway() && liveClient.fetchFacts(romId, &f, &ferr);
             if (fresh) rememberFacts(romId, f);
+            if (fresh)
+                for (const romm::RomFile& file : f.files)
+                    if (file.channelFile && file.id != channelFile) {
+                        channelFile = file.id;
+                        rememberChannelFile(romId, channelFile);
+                    }
             if (fresh || knownFacts(romId, &f)) {
                 if (f.year > 0) facts.year = std::to_string(f.year);
                 facts.maker = f.maker;
@@ -91,14 +102,19 @@ void App::startDetailStates() {
             else have = playtime::known(who, romId, &ms);
             if (have) facts.played = playtime::describe(ms + playtime::owedMs(who, romId));
         }
-        // THE GAME'S OWN SAVE, the newest under the tag it travels by, as
-        // the launch reads it. "Saved today, 8:17 PM". RomM's, or its copy
-        // offline (savesFor); or this console's own when that is newer and
-        // still waiting to upload (#88).
+        // THE GAME'S OWN SAVE, the one a start would continue from, by the
+        // launch's own rule (savepick.h). "Saved today, 8:17 PM". RomM's, in
+        // a save channel or from before them, or its copy offline
+        // (listSaves); or this console's own when that is newer and still
+        // waiting to upload (#88).
         std::string savedAt;
-        if (!saveTag.empty() && savesFor(liveClient, who, romId, &all, &err))
-            for (const romm::Asset& a : all)
-                if (a.emulator == saveTag && a.updatedAt > savedAt) savedAt = a.updatedAt;
+        if (!saveTag.empty()) {
+            SaveFetch onRomm;
+            listSaves(liveClient, who, romId, channelFile, saveTag.c_str(), &onRomm);
+            if (onRomm.listed) savedAt = savepick::pickedAt(onRomm.pick, onRomm.oldRowAt);
+            if (onRomm.channelFileId != channelFile)
+                rememberChannelFile(romId, onRomm.channelFileId);
+        }
         const std::vector<cache::Owed> owedHere = cache::owed(who);
         auto owedNamed = [&](const std::string& name, bool state) {
             for (const cache::Owed& o : owedHere)

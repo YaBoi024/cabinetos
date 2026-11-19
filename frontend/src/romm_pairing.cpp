@@ -203,7 +203,7 @@ bool Client::beginPairing(Pairing* out, std::string* err) {
     json_object_object_add(req, "client_device_identifier",
                            json_object_new_string("cabinetos"));
     json_object_object_add(req, "name", json_object_new_string("CabinetOS"));
-    json_object_object_add(req, "client", json_object_new_string("cabinetos"));
+    json_object_object_add(req, "client", json_object_new_string(kConsoleClient));
     json_object_object_add(req, "platform", json_object_new_string("linux"));
     json_object* scopes = json_object_new_array();
     for (const char* s : kScopes) json_object_array_add(scopes, json_object_new_string(s));

@@ -38,6 +38,7 @@ bool parseAssets(const std::string& body, std::vector<Asset>* out, std::string* 
         a.sizeBytes = jint(o, "file_size_bytes");
         a.emulator = jstr(o, "emulator");
         a.updatedAt = jstr(o, "updated_at");
+        a.channelId = jstr(o, "channel_id");
         json_object* shot = nullptr;
         if (json_object_object_get_ex(o, "screenshot", &shot) &&
             json_object_get_type(shot) == json_type_object)

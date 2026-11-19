@@ -10,6 +10,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
+#include <utility>
 
 namespace cab {
 namespace {
@@ -154,6 +155,46 @@ bool zipTree(const std::string& root, const std::vector<std::string>& relPaths,
     }
     archive_write_free(a);
     out->assign(buf.begin(), buf.begin() + static_cast<long>(used));
+    return true;
+}
+
+bool readZip(const std::vector<uint8_t>& data, std::vector<ZipFile>* out, std::string* err) {
+    out->clear();
+    struct archive* a = archive_read_new();
+    if (!a) { if (err) *err = "archive_read_new failed"; return false; }
+    archive_read_support_filter_all(a);
+    archive_read_support_format_all(a);
+    if (archive_read_open_memory(a, const_cast<uint8_t*>(data.data()), data.size()) !=
+        ARCHIVE_OK) {
+        if (err) *err = archive_error_string(a) ? archive_error_string(a) : "cannot open";
+        archive_read_free(a);
+        return false;
+    }
+    struct archive_entry* entry = nullptr;
+    while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
+        if (archive_entry_filetype(entry) != AE_IFREG) continue;
+        const char* name = archive_entry_pathname(entry);
+        if (!name || !safeRelPath(name)) {
+            if (err) *err = std::string("refusing entry ") + (name ? name : "(unnamed)");
+            archive_read_free(a);
+            return false;
+        }
+        ZipFile f;
+        f.relPath = name;
+        char chunk[64 * 1024];
+        for (;;) {
+            const ssize_t n = archive_read_data(a, chunk, sizeof chunk);
+            if (n == 0) break;
+            if (n < 0) {
+                if (err) *err = archive_error_string(a) ? archive_error_string(a) : "read";
+                archive_read_free(a);
+                return false;
+            }
+            f.bytes.insert(f.bytes.end(), chunk, chunk + n);
+        }
+        out->push_back(std::move(f));
+    }
+    archive_read_free(a);
     return true;
 }
 
