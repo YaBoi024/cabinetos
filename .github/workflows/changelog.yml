@@ -47,7 +47,10 @@ jobs:
             echo "The changelog is updated."
             exit 0
           fi
-          if printf '%s' "${BODY}" | grep -qiE '^Changelog: *none'; then
+          # Read as a here-string, not through a pipe: grep -q stops at the
+          # first match, and with pipefail a long body's printf then fails
+          # on the closed pipe and the line reads as no match.
+          if grep -qiE '^Changelog: *none' <<< "${BODY}"; then
             echo "The PR body says \"Changelog: none\": nothing a player can notice."
             exit 0
           fi
