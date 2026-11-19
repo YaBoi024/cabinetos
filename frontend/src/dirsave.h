@@ -35,6 +35,7 @@
 #include <locale.h>
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -98,6 +99,14 @@ bool unzipTree(const std::vector<uint8_t>& data, const std::string& root,
 // reason, when it cannot be read or a name is one unzipTree refuses.
 bool readZip(const std::vector<uint8_t>& data, std::vector<ZipFile>* out, std::string* err);
 
+// Whether the zip marks each of its names as UTF-8 (general purpose bit 11),
+// keyed by the name's bytes, read from its central directory: where Python's
+// zipfile, and so RomM, reads every name and its mark. libarchive gives a
+// name and never says whether it was marked (the content hash,
+// romm_snapshots.cpp). False when there is no central directory to read, or
+// one name is in it both marked and not.
+bool zipNameMarks(const std::vector<uint8_t>& zip, std::map<std::string, bool>* marked);
+
 // Whether an archive member's name may be written under the folder it is
 // unpacked into. An archive is data that arrived over a network, so its own
 // names decide nothing about where bytes land: anything absolute or with a
@@ -106,13 +115,15 @@ bool readZip(const std::vector<uint8_t>& data, std::vector<ZipFile>* out, std::s
 // archive (romfile.cpp, prepareFile) both go by it.
 bool safeRelPath(const std::string& p);
 
-// A ZIP'S NAMES AS UTF-8, FOR THIS THREAD WHILE ONE OF THESE STANDS. The
-// program runs in the C locale (it never calls setlocale), where libarchive
-// cannot give a name a zip marks as UTF-8, the mark Python's zipfile and so
-// RomM reads names by, and does not set that mark on a name it writes. With
-// glibc's own C.UTF-8 it does both: zipTree and zipFiles write under one,
-// readZip and unzipTree read under one, and RomM's content hash of a zip is
-// read under one (romm_snapshots.cpp).
+// A ZIP'S NAMES READ AS THEIR BYTES, FOR THIS THREAD WHILE ONE OF THESE
+// STANDS. The program runs in the C locale (it never calls setlocale), where
+// libarchive cannot give a name a zip marks as UTF-8, the mark Python's
+// zipfile and so RomM reads names by. With glibc's own C.UTF-8 it gives a
+// name the zip marks rightly, and one it leaves unmarked, as the bytes the
+// zip holds: readZip and unzipTree read
+// under one, and RomM's content hash of a zip is read under one
+// (romm_snapshots.cpp). zipTree and zipFiles choose the locale for each name
+// they write, which is what decides the mark (dirsave.cpp).
 class Utf8Names {
 public:
     Utf8Names();

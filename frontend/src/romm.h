@@ -407,11 +407,11 @@ bool heardServerChannels();
 // RomM'S CONTENT HASH of a save's or a state's bytes, the name a snapshot
 // gives each (RomM 5.5, `hash_save_content`): the MD5 of the bytes in lower
 // case hex; for a zip, the MD5 of one line per file in it, sorted by name,
-// "<name>:<that file's MD5>", joined by "\n", folders left out. A name the
-// zip marks as UTF-8 is read as UTF-8, as RomM reads it; one it does not mark
-// is RomM's only when it is ASCII (RomM reads it as CP437). A zip libarchive
-// cannot read is hashed as bytes. A hash that is not RomM's makes RomM refuse
-// the push (romm_snapshots.cpp).
+// "<name>:<that file's MD5>", joined by "\n", folders left out. Each name is
+// read as RomM reads it: as UTF-8 when the zip marks it so, as CP437 when it
+// does not. A zip libarchive cannot read, or whose names it reads otherwise
+// than the zip's central directory holds them, is hashed as bytes. A hash
+// that is not RomM's makes RomM refuse the push (romm_snapshots.cpp).
 std::string contentHash(const std::vector<uint8_t>& bytes);
 
 // A LIST OF CHANNELS IN RomM'S OWN FORM, as `GET /api/channels` answers it

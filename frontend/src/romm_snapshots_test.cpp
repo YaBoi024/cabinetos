@@ -27,6 +27,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -176,9 +177,7 @@ int snapshotsTest() {
     {
         // Two of those files zipped the console's way (zipTree), hashed against
         // RomM's rule worked by hand for them: the hash is of names and
-        // contents, not of how a zip packs them. ASCII names only: zipTree does
-        // not mark a name as UTF-8, so RomM would read one outside ASCII as
-        // CP437, and the hashes would differ.
+        // contents, not of how a zip packs them.
         char tmpl[] = "/tmp/cabinetos-snapshots-XXXXXX";
         const char* dir = ::mkdtemp(tmpl);
         bool written = dir != nullptr;
@@ -201,6 +200,44 @@ int snapshotsTest() {
         for (const auto& [name, bytes] : files) ::unlink((root + "/" + name).c_str());
         ::rmdir((root + "/SAVEDATA").c_str());
         if (dir) ::rmdir(dir);
+    }
+    {
+        // NAMES THAT ARE NOT UTF-8, zipped the console's way (zipFiles): two
+        // Shift-JIS names (one in a folder), one of every byte from 0x80 up,
+        // two whose order as CP437 text is the reverse of their bytes' (0xB0
+        // is U+2591, 0xE0 U+03B1), one marked UTF-8 and one ASCII. The value
+        // is RomM's own `hash_zip_contents` run on this zip, as libarchive
+        // writes it, by Python's zipfile: 3.9 on the Mac and 3.14 in the
+        // write-test RomM's own container, which agree (2026-11-18).
+        std::string every = "hi";
+        for (int b = 0x80; b <= 0xFF; ++b) every += static_cast<char>(b);
+        every += ".bin";
+        const std::vector<cab::ZipFile> files = {
+            {"\x82\xA0\x82\xA2.gci", bytesOf(31, 700)},
+            {every, bytesOf(37, 300)},
+            {"\xB0.sav", bytesOf(41, 64)},
+            {"\xE0.sav", bytesOf(43, 64)},
+            {"caf\xC3\xA9.bin", bytesOf(47, 200)},
+            {"MemoryCard/\x93\xFA\x96\x7B.gci", bytesOf(53, 128)},
+            {"plain.bin", bytesOf(59, 100)},
+        };
+        std::vector<uint8_t> zipped;
+        std::string err;
+        const bool zippedOk = cab::zipFiles(files, &zipped, &err);
+        std::map<std::string, bool> marks;
+        const bool read = zippedOk && cab::zipNameMarks(zipped, &marks);
+        check(read && marks.size() == 7 && !marks["\x82\xA0\x82\xA2.gci"] && !marks[every] &&
+                  !marks["MemoryCard/\x93\xFA\x96\x7B.gci"] && marks["caf\xC3\xA9.bin"] &&
+                  !marks["plain.bin"],
+              "a name that is not UTF-8 goes into the console's zip unmarked, as its bytes; "
+              "one outside ASCII that is UTF-8 goes in marked");
+        check(zippedOk && contentHash(zipped) == "97ab67b798fe4a9821eb13dbbe2ec5f7",
+              "and the zip hashes by RomM's rule: an unmarked name read as CP437, sorted as "
+              "that text");
+        std::map<std::string, bool> pythons;
+        check(cab::zipNameMarks(fromHex(kZipHex), &pythons) && pythons.size() == 4 &&
+                  pythons["Ma\xC3\xAFs/ic\xC3\xB4ne.png"] && !pythons["SAVEDATA/DATA.BIN"],
+              "the marks of a zip Python's zipfile wrote are read from its central directory");
     }
     {
         const std::vector<uint8_t> notZip = {'P', 'K', 3, 4, 'n', 'o', 't', ' ', 'a', ' ', 'z', 'i', 'p'};

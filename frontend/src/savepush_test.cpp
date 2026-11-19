@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <deque>
+#include <map>
 
 #include "cache.h"
 #include "dirsave.h"
@@ -310,6 +311,53 @@ int test() {
         cache::clearPushOwed(u, game, p.stamp);
     }
     {
+        // DREAMCAST'S CARD, the one save kept in the system folder, where
+        // Flycast alone looks (the console's own entry, catalog::saveFiles):
+        // a start puts the person's copy there; leaving copies the card back
+        // to the person's folder and takes it out of the system folder; that
+        // copy is what goes up; and a start on another console puts RomM's
+        // card back in the system folder.
+        const std::vector<catalog::SaveFile> specs =
+            catalog::saveFiles("dc", "flycast", "Ikaruga (Japan).chd", false);
+        GameSession s;
+        s.romId = ++game;
+        s.title = "Ikaruga";
+        s.fsStem = "Ikaruga (Japan)";
+        s.saveTag = "flycast-native";
+        s.saveDir = storage::savesDir(u, "dc", game, "flycast");
+        const std::string card = storage::biosDir() + "/dc/vmu_save_A1.bin";
+        const std::string mine = s.saveDir + "/" + saveRowName(s.fsStem, "srm");
+        cab::writeBytes(mine, older);
+        s.fileSaves = restoreFileSaves(specs, s.fsStem, s.saveDir, "flycast-native", SaveFetch{});
+        check(specs.size() == 1 && specs[0].inSystemDir && s.fileSaves.size() == 1 &&
+                  cab::readBytes(card) == older,
+              "Dreamcast: a start puts the person's card in the system folder");
+        cab::writeBytes(card, one);   // the game saved to its card
+        syncFileSaves(s);
+        check(s.saveChanged && cab::readBytes(mine) == one && cab::readBytes(card).empty(),
+              "leaving copies the card to the person's folder and takes it out of the system "
+              "folder");
+        const bool marked = mark(s, u) && cache::owedPush(u, game, &p);
+        check(marked && p.savePath == mine && cab::readBytes(p.savePath) == one &&
+                  p.saveName == "Ikaruga (Japan).bin" && p.saveShape == "SINGLE",
+              "and that copy is what goes up, as one file");
+        const std::string other = storage::savesDir(u, "dc", game + 5000, "flycast");
+        SaveFetch fetched;
+        fetched.romId = game + 5000;
+        fetched.asked = fetched.listed = true;
+        fetched.mark = savemirror::mark();
+        fetched.pick.from = savepick::Pick::From::Channel;
+        fetched.pick.channel.current.save.fileName = p.saveName;
+        fetched.picked = cab::readBytes(p.savePath);
+        restoreFileSaves(specs, s.fsStem, other, "flycast-native", fetched);
+        check(cab::readBytes(card) == one &&
+                  cab::readBytes(other + "/" + saveRowName(s.fsStem, "srm")) == one,
+              "a start on another console puts RomM's card in the system folder, and keeps "
+              "the person's copy beside the game");
+        cab::removeFile(card);
+        cache::clearPushOwed(u, game, p.stamp);
+    }
+    {
         // A save folder (PSP's memory stick), gathered by syncDirSave.
         GameSession s;
         s.romId = ++game;
@@ -375,6 +423,46 @@ int test() {
         check(changed == 2 && (readBad ? back.size() == 2 : !zerr.empty()),
               "a zip whose marked name is not UTF-8 is read whole or refused with a reason, "
               "never taken for a shorter archive");
+    }
+    {
+        // A save folder file named in Shift-JIS (日本.gci, in a folder) goes
+        // into the zip unmarked, as its bytes; RomM reads that name as CP437
+        // ("ô·û{"), and the console reads it back, and unpacks it, as the
+        // same bytes.
+        std::vector<uint8_t> zip;
+        std::string zerr;
+        const std::string sjis = "MemoryCard/\x93\xFA\x96\x7B.gci";
+        const bool zipped = cab::zipFiles({{sjis, one}, {"plain.bin", two}}, &zip, &zerr);
+        std::map<std::string, bool> marks;
+        const bool unmarked = zipped && cab::zipNameMarks(zip, &marks) && marks.size() == 2 &&
+                              marks.count(sjis) == 1 && !marks[sjis];
+        const std::string lines = "MemoryCard/\xC3\xB4\xC2\xB7\xC3\xBB{.gci:" +
+                                  romm::contentHash(one) + "\n" + "plain.bin:" +
+                                  romm::contentHash(two);
+        check(unmarked && romm::contentHash(zip) ==
+                              romm::contentHash(std::vector<uint8_t>(lines.begin(), lines.end())),
+              "a name that is not UTF-8 goes into the zip unmarked, as its bytes, and hashes "
+              "as RomM reads it, as CP437");
+        std::vector<cab::ZipFile> back;
+        const std::string into = std::string(root) + "/unzipped-sjis";
+        const bool read = cab::readZip(zip, &back, &zerr);
+        const bool unpacked = cab::unzipTree(zip, into, &zerr);
+        check(read && back.size() == 2 && back[0].relPath == sjis && back[0].bytes == one &&
+                  unpacked && cab::readBytes(into + "/" + sjis) == one &&
+                  cab::readBytes(into + "/plain.bin") == two,
+              "and comes back out of readZip and unzipTree as the same bytes");
+        // Marked only when Python's strict decoder, RomM's, would read it:
+        // an overlong "/", a surrogate and a code point past U+10FFFF stay
+        // unmarked; a four-byte character is marked.
+        const std::vector<cab::ZipFile> odd = {{"\xC0\xAF.sav", one},
+                                               {"\xED\xA0\x80.sav", one},
+                                               {"\xF4\x90\x80\x80.sav", one},
+                                               {"\xF0\x9F\x8E\xAE.sav", one}};
+        marks.clear();
+        check(cab::zipFiles(odd, &zip, &zerr) && cab::zipNameMarks(zip, &marks) &&
+                  marks.size() == 4 && !marks["\xC0\xAF.sav"] && !marks["\xED\xA0\x80.sav"] &&
+                  !marks["\xF4\x90\x80\x80.sav"] && marks["\xF0\x9F\x8E\xAE.sav"],
+              "a name is marked UTF-8 only when it is UTF-8 by the rule RomM reads it by");
     }
     {
         // A save file of the game still owed from before save channels is

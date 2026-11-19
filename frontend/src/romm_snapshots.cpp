@@ -44,6 +44,7 @@
 
 #include <algorithm>
 #include <climits>
+#include <map>
 #include <utility>
 
 namespace romm {
@@ -83,12 +84,59 @@ std::string md5Of(const std::vector<uint8_t>& bytes) {
     return m.hex();
 }
 
+// Python's CP437, for the bytes from 0x80 up (those below are ASCII): what
+// RomM's zipfile makes of a name a zip does not mark as UTF-8.
+constexpr uint16_t kCp437High[128] = {
+    0x00C7, 0x00FC, 0x00E9, 0x00E2, 0x00E4, 0x00E0, 0x00E5, 0x00E7,
+    0x00EA, 0x00EB, 0x00E8, 0x00EF, 0x00EE, 0x00EC, 0x00C4, 0x00C5,
+    0x00C9, 0x00E6, 0x00C6, 0x00F4, 0x00F6, 0x00F2, 0x00FB, 0x00F9,
+    0x00FF, 0x00D6, 0x00DC, 0x00A2, 0x00A3, 0x00A5, 0x20A7, 0x0192,
+    0x00E1, 0x00ED, 0x00F3, 0x00FA, 0x00F1, 0x00D1, 0x00AA, 0x00BA,
+    0x00BF, 0x2310, 0x00AC, 0x00BD, 0x00BC, 0x00A1, 0x00AB, 0x00BB,
+    0x2591, 0x2592, 0x2593, 0x2502, 0x2524, 0x2561, 0x2562, 0x2556,
+    0x2555, 0x2563, 0x2551, 0x2557, 0x255D, 0x255C, 0x255B, 0x2510,
+    0x2514, 0x2534, 0x252C, 0x251C, 0x2500, 0x253C, 0x255E, 0x255F,
+    0x255A, 0x2554, 0x2569, 0x2566, 0x2560, 0x2550, 0x256C, 0x2567,
+    0x2568, 0x2564, 0x2565, 0x2559, 0x2558, 0x2552, 0x2553, 0x256B,
+    0x256A, 0x2518, 0x250C, 0x2588, 0x2584, 0x258C, 0x2590, 0x2580,
+    0x03B1, 0x00DF, 0x0393, 0x03C0, 0x03A3, 0x03C3, 0x00B5, 0x03C4,
+    0x03A6, 0x0398, 0x03A9, 0x03B4, 0x221E, 0x03C6, 0x03B5, 0x2229,
+    0x2261, 0x00B1, 0x2265, 0x2264, 0x2320, 0x2321, 0x00F7, 0x2248,
+    0x00B0, 0x2219, 0x00B7, 0x221A, 0x207F, 0x00B2, 0x25A0, 0x00A0,
+};
+
+// A name's bytes read as CP437, written as UTF-8.
+std::string fromCp437(const std::string& bytes) {
+    std::string out;
+    for (const char ch : bytes) {
+        const auto b = static_cast<unsigned char>(ch);
+        if (b < 0x80) {
+            out += ch;
+            continue;
+        }
+        const uint16_t cp = kCp437High[b - 0x80];
+        if (cp < 0x800) {
+            out += static_cast<char>(0xC0 | cp >> 6);
+        } else {
+            out += static_cast<char>(0xE0 | cp >> 12);
+            out += static_cast<char>(0x80 | (cp >> 6 & 0x3F));
+        }
+        out += static_cast<char>(0x80 | (cp & 0x3F));
+    }
+    return out;
+}
+
 // RomM's `hash_zip_contents`: each file's MD5 under its name, sorted by
-// name. False when libarchive cannot read the zip. Its names are read as UTF-8
-// (cab::Utf8Names): a name the zip marks as UTF-8 comes out as RomM reads it,
-// and one it does not mark as its bytes, which is RomM's text only when it is
-// ASCII (RomM reads such a name as CP437).
+// name. False when libarchive cannot read the zip, or reads a name its
+// central directory does not hold. A name is what RomM's zipfile makes of
+// it: the zip's bytes as UTF-8 when the zip marks the name so, and as CP437
+// when it does not (a Shift-JIS name, say), whatever libarchive would make
+// of them. libarchive gives each name as the bytes the zip holds
+// (cab::Utf8Names), and the central directory says which were marked
+// (cab::zipNameMarks).
 bool zipHash(const std::vector<uint8_t>& bytes, std::string* out) {
+    std::map<std::string, bool> marks;
+    if (!cab::zipNameMarks(bytes, &marks)) return false;
     const cab::Utf8Names names;
     struct archive* a = archive_read_new();
     if (!a) return false;
@@ -101,9 +149,13 @@ bool zipHash(const std::vector<uint8_t>& bytes, std::string* out) {
     struct archive_entry* e = nullptr;
     int rc = ARCHIVE_OK;
     while ((rc = archive_read_next_header(a, &e)) == ARCHIVE_OK) {
-        const char* utf8 = archive_entry_pathname_utf8(e);
         const char* raw = archive_entry_pathname(e);
-        const std::string name = utf8 ? utf8 : raw ? raw : "";
+        const auto mark = marks.find(raw ? raw : "");
+        if (mark == marks.end()) {
+            archive_read_free(a);
+            return false;
+        }
+        const std::string name = mark->second ? mark->first : fromCp437(mark->first);
         // A folder is a name ending in "/" in a zip, which RomM leaves out.
         if (name.empty() || name.back() == '/' || archive_entry_filetype(e) == AE_IFDIR) {
             archive_read_data_skip(a);

@@ -110,29 +110,68 @@ namespace {
 // bytes plus generous room for each entry's header and the central directory
 // at the end. Zip only ever shrinks these files, so that cannot be too small.
 //
-// A NAME OUTSIDE ASCII IS MARKED UTF-8 (#346). RomM names a zip's files when
-// it hashes one (romm::contentHash), and reads a name the zip does not mark
-// as CP437, so an unmarked name with an accent in it hashed to another value
-// there than here, and RomM refused the push. libarchive sets the mark when the
-// names it is given are UTF-8, which they are while Utf8Names stands; a name
-// that is not valid UTF-8 goes in as its bytes, unmarked.
+// Whether `s` is UTF-8 as Python's strict decoder takes it, which is how RomM
+// reads a name a zip marks as UTF-8: no overlong form, no surrogate, nothing
+// past U+10FFFF. ui::nextCodepoint (text.h) passes all of those, as drawing a
+// name should; marking one of them would make the zip one RomM cannot read.
+bool isUtf8(const std::string& s) {
+    size_t i = 0;
+    while (i < s.size()) {
+        const auto b = static_cast<unsigned char>(s[i]);
+        if (b < 0x80) { ++i; continue; }
+        int more = 0;
+        unsigned char lo = 0x80, hi = 0xBF;   // the byte after the lead
+        if (b >= 0xC2 && b <= 0xDF) more = 1;
+        else if (b == 0xE0) { more = 2; lo = 0xA0; }
+        else if (b == 0xED) { more = 2; hi = 0x9F; }
+        else if (b >= 0xE1 && b <= 0xEF) more = 2;
+        else if (b == 0xF0) { more = 3; lo = 0x90; }
+        else if (b == 0xF4) { more = 3; hi = 0x8F; }
+        else if (b >= 0xF1 && b <= 0xF3) more = 3;
+        else return false;
+        if (i + static_cast<size_t>(more) >= s.size()) return false;
+        for (int k = 1; k <= more; ++k) {
+            const auto c = static_cast<unsigned char>(s[i + static_cast<size_t>(k)]);
+            if (k == 1 ? (c < lo || c > hi) : (c < 0x80 || c > 0xBF)) return false;
+        }
+        i += static_cast<size_t>(more) + 1;
+    }
+    return true;
+}
+
+// EACH NAME GOES IN AS ITS BYTES, MARKED UTF-8 ONLY WHEN IT IS (#346). RomM
+// names a zip's files when it hashes one (romm::contentHash) and when it
+// restores one: a name the zip marks it reads as UTF-8, any other as CP437.
+// So a name outside ASCII that is UTF-8 is marked, or RomM would hash it as
+// other text and refuse the push; and a name that is not UTF-8 (a GameCube
+// save named in Shift-JIS) is left unmarked, as its bytes, which RomM reads
+// as CP437 and another console unpacks as the same bytes. libarchive marks
+// a name outside ASCII exactly when the thread's locale is UTF-8, and with
+// no `hdrcharset` it converts no name, so each name is written in the locale
+// that marks it rightly. Asked to convert every name to UTF-8
+// (`hdrcharset=UTF-8`), libarchive marks a Shift-JIS name too, and writes
+// it with each byte it cannot read replaced and a 0x5C as "/"
+// (docs/lessons/emulators.md).
 struct ZipOut {
-    Utf8Names names;
+    locale_t utf8 = newlocale(LC_CTYPE_MASK, "C.UTF-8", static_cast<locale_t>(nullptr));
+    locale_t plain = newlocale(LC_CTYPE_MASK, "C", static_cast<locale_t>(nullptr));
     struct archive* a = nullptr;
     std::vector<uint8_t> buf;
     size_t used = 0;
 
     ~ZipOut() {
         if (a) archive_write_free(a);
+        if (utf8) freelocale(utf8);
+        if (plain) freelocale(plain);
     }
     static std::string why(struct archive* a, const char* fallback) {
         return archive_error_string(a) ? archive_error_string(a) : fallback;
     }
     bool open(size_t room, std::string* err) {
+        if (!utf8 || !plain) { if (err) *err = "no locale for a zip's names"; return false; }
         a = archive_write_new();
         if (!a) { if (err) *err = "archive_write_new failed"; return false; }
         archive_write_set_format_zip(a);
-        archive_write_set_options(a, "zip:hdrcharset=UTF-8");
         buf.assign(room, 0);
         if (archive_write_open_memory(a, buf.data(), buf.size(), &used) != ARCHIVE_OK) {
             if (err) *err = why(a, "cannot open");
@@ -146,9 +185,10 @@ struct ZipOut {
         archive_entry_set_size(e, static_cast<int64_t>(data.size()));
         archive_entry_set_filetype(e, AE_IFREG);
         archive_entry_set_perm(e, 0644);
-        // A warning is a name libarchive could not read as UTF-8: it goes in
-        // as its bytes.
-        if (archive_write_header(a, e) < ARCHIVE_WARN) {
+        const locale_t was = uselocale(isUtf8(name) ? utf8 : plain);
+        const int header = archive_write_header(a, e);
+        uselocale(was);
+        if (header != ARCHIVE_OK) {
             if (err) *err = why(a, "header");
             archive_entry_free(e);
             return false;
@@ -342,6 +382,60 @@ bool unzipTree(const std::vector<uint8_t>& data, const std::string& root,
     if (files == 0) {
         if (err) *err = "archive held no files";
         return false;
+    }
+    return true;
+}
+
+namespace {
+
+uint32_t le16(const std::vector<uint8_t>& d, size_t at) {
+    return static_cast<uint32_t>(d[at]) | static_cast<uint32_t>(d[at + 1]) << 8;
+}
+uint32_t le32(const std::vector<uint8_t>& d, size_t at) {
+    return le16(d, at) | le16(d, at + 2) << 16;
+}
+uint64_t le64(const std::vector<uint8_t>& d, size_t at) {
+    return static_cast<uint64_t>(le32(d, at)) | static_cast<uint64_t>(le32(d, at + 4)) << 32;
+}
+
+}  // namespace
+
+bool zipNameMarks(const std::vector<uint8_t>& zip, std::map<std::string, bool>* marked) {
+    marked->clear();
+    // The end record: the last "PK\5\6" whose 22 bytes fit, within the 64 KiB
+    // a comment after it may take, as Python's zipfile looks for it.
+    constexpr size_t kEnd = 22;
+    if (zip.size() < kEnd) return false;
+    const size_t lowest = zip.size() > kEnd + 0xFFFF ? zip.size() - kEnd - 0xFFFF : 0;
+    size_t end = zip.size() - kEnd + 1;
+    do {
+        if (end-- == lowest) return false;
+    } while (le32(zip, end) != 0x06054B50);
+    // The central directory ends where the end record starts, or where the
+    // zip64 end record (56 bytes, before its 20-byte locator) does, and is
+    // as long as the end record says: zipfile's own reckoning, which holds
+    // for a zip with bytes in front of it too.
+    uint64_t size = le32(zip, end + 12);
+    size_t tail = end;
+    if (end >= 76 && le32(zip, end - 20) == 0x07064B50) {
+        tail = end - 76;
+        if (le32(zip, tail) != 0x06064B50) return false;
+        size = le64(zip, tail + 40);
+    }
+    if (size > tail) return false;
+    size_t at = tail - static_cast<size_t>(size);
+    while (at < tail) {
+        if (at + 46 > tail || le32(zip, at) != 0x02014B50) return false;
+        const size_t nameLen = le16(zip, at + 28);
+        const size_t next = at + 46 + nameLen + le16(zip, at + 30) + le16(zip, at + 32);
+        if (next > tail) return false;
+        std::string name(reinterpret_cast<const char*>(zip.data() + at + 46), nameLen);
+        // zipfile ends a name at a NUL, as a C string does.
+        name.resize(std::strlen(name.c_str()));
+        const bool utf8 = (le16(zip, at + 8) & 0x0800) != 0;   // general purpose bit 11
+        const auto [it, added] = marked->emplace(name, utf8);
+        if (!added && it->second != utf8) return false;
+        at = next;
     }
     return true;
 }

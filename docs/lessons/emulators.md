@@ -527,8 +527,19 @@ code.
   hash them as the console does (#346). Found by restoring the pushed save
   on a second console, not by the push, which RomM had accepted. **A save
   that went up is proven by bringing it down somewhere else.** Zips are read
-  and written under `cab::Utf8Names`, and an entry libarchive cannot step to
-  is said, never taken for the end (`dirsave.cpp`).
+  under `cab::Utf8Names`, and an entry libarchive cannot step to is said,
+  never taken for the end (`dirsave.cpp`).
+
+- **ASKED TO WRITE EVERY ZIP NAME AS UTF-8, LIBARCHIVE GARBLED ONE THAT WAS
+  NOT.** With `hdrcharset=UTF-8` a Shift-JIS file name (a Japanese GameCube
+  save's, say) went in marked UTF-8 with each byte it could not read
+  replaced and a 0x5C written as "/", so the name was lost on the way to
+  RomM, which then refused the push on its hash. Found by writing such a
+  name through the console's own zip code and reading it with Python's
+  zipfile, before any game had one. A name now goes in as its bytes, marked
+  only when it is UTF-8 by Python's strict rule; RomM reads an unmarked one
+  as CP437, and the console's hash does the same (`romm_snapshots.cpp`). A
+  library's "convert to X" option is checked with input that is not X.
 
 - **A GAME CAN BIND ITS SAVE TO THE PROFILE ID.** Forza Horizon 2 called its
   save "tampered" under any other ID. One ID on every console, for good, as
