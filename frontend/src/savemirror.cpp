@@ -198,20 +198,6 @@ void putHeld(const storage::User& u, int romId, const Held& held) {
     for (const std::string& h : held.hashesHad)
         json_object_array_add(had, json_object_new_string(h.c_str()));
     json_object_object_add(o, "save_hashes_had", had);
-    json_object* states = json_object_new_array();
-    for (const romm::SnapshotState& st : held.states) {
-        json_object* s = json_object_new_object();
-        json_object_object_add(s, "core", json_object_new_string(st.core.c_str()));
-        json_object_object_add(s, "slot", json_object_new_string(st.slot.c_str()));
-        json_object_object_add(s, "id", json_object_new_int(st.file.id));
-        json_object_object_add(s, "file_name", json_object_new_string(st.file.fileName.c_str()));
-        json_object_object_add(s, "file_size_bytes", json_object_new_int64(st.file.sizeBytes));
-        json_object_object_add(s, "content_hash",
-                               json_object_new_string(st.file.contentHash.c_str()));
-        json_object_object_add(s, "picture", json_object_new_string(st.file.picturePath.c_str()));
-        json_object_array_add(states, s);
-    }
-    json_object_object_add(o, "states", states);
     if (!writeJson(dirFor(u, romId) + "/" + kHeld, o))
         std::fprintf(stderr, "[save] could not note the snapshot held of game %d\n", romId);
 }
@@ -234,27 +220,6 @@ bool getHeld(const storage::User& u, int romId, Held* held) {
         for (size_t i = 0; i < json_object_array_length(v); ++i)
             if (const char* h = json_object_get_string(json_object_array_get_idx(v, i)))
                 held->hashesHad.push_back(h);
-    if (json_object_object_get_ex(o, "states", &v) && json_object_is_type(v, json_type_array))
-        for (size_t i = 0; i < json_object_array_length(v); ++i) {
-            json_object* s = json_object_array_get_idx(v, i);
-            auto str = [s](const char* k) {
-                json_object* f = nullptr;
-                const char* t = json_object_object_get_ex(s, k, &f) ? json_object_get_string(f)
-                                                                     : nullptr;
-                return std::string(t ? t : "");
-            };
-            romm::SnapshotState st;
-            st.core = str("core");
-            st.slot = str("slot");
-            json_object* f = nullptr;
-            if (json_object_object_get_ex(s, "id", &f)) st.file.id = json_object_get_int(f);
-            if (json_object_object_get_ex(s, "file_size_bytes", &f))
-                st.file.sizeBytes = json_object_get_int64(f);
-            st.file.fileName = str("file_name");
-            st.file.contentHash = str("content_hash");
-            st.file.picturePath = str("picture");
-            if (!st.core.empty() && !st.slot.empty()) held->states.push_back(std::move(st));
-        }
     json_object_put(o);
     if (held->snapshotId > 0) return true;
     *held = Held{};

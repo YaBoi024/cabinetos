@@ -1,5 +1,6 @@
 // Save channels and snapshots on RomM 5.5 (#346): a game's channels listed
-// (fetchChannels), a snapshot pushed into one (pushSnapshot), what RomM
+// (fetchChannels), one channel's history (fetchChannelHistory), a snapshot
+// pushed into one (pushSnapshot), what RomM
 // answers a push read (readPushAnswer), RomM's content hash, the name a
 // snapshot gives each save and state (contentHash), and a game's channels
 // written in RomM's own form for the copy the console keeps of them
@@ -43,6 +44,7 @@
 #include <json-c/json.h>
 
 #include <algorithm>
+#include <cctype>
 #include <climits>
 #include <map>
 #include <utility>
@@ -415,6 +417,34 @@ bool Client::fetchChannels(const std::vector<int>& romFileIds, std::vector<Chann
         }
         if (!readChannels(body, out, err)) return false;
     }
+    return true;
+}
+
+bool Client::fetchChannelHistory(const std::string& channelId, std::vector<Snapshot>* out,
+                                 std::string* err) const {
+    out->clear();
+    // RomM's ids are UUIDs: anything else is not put in the address.
+    const bool plain = !channelId.empty() &&
+                       std::all_of(channelId.begin(), channelId.end(), [](char c) {
+                           return std::isxdigit(static_cast<unsigned char>(c)) || c == '-';
+                       });
+    if (!plain) {
+        if (err) *err = "not a channel's id";
+        return false;
+    }
+    std::string body;
+    if (!get("/api/snapshots?channel_id=" + channelId + "&limit=100", &body, err)) return false;
+    json_object* root = json_tokener_parse(body.c_str());
+    if (!root || json_object_get_type(root) != json_type_array) {
+        if (root) json_object_put(root);
+        if (err) *err = "the channel's history did not come back as a list";
+        return false;
+    }
+    for (size_t i = 0; i < json_object_array_length(root); ++i) {
+        Snapshot s;
+        if (readSnapshot(json_object_array_get_idx(root, i), &s)) out->push_back(std::move(s));
+    }
+    json_object_put(root);
     return true;
 }
 

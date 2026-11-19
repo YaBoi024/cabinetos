@@ -98,9 +98,9 @@ bool continuingElsewhere(const Pick& pick, bool sameAsOwn);
 
 // The note of the snapshot this console holds, after it took `taken` in
 // `channelId` from RomM, at a start or as RomM's answer to a push: `before`
-// (pass an empty one for none) with the snapshot and its states, and its
-// save's hash added to the hashes this console has had. Its save is dated by RomM's time for the
-// snapshot, and it is no longer beside a current; a push says otherwise
+// (pass an empty one for none) with the snapshot, and its save's hash added
+// to the hashes this console has had. Its save is dated by RomM's time for
+// the snapshot, and it is no longer beside a current; a push says otherwise
 // itself (savepush.cpp).
 savemirror::Held heldAfter(const savemirror::Held& before, const std::string& channelId,
                            const romm::Snapshot& taken, int64_t now);

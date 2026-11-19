@@ -235,6 +235,11 @@ struct Asset {
     // Which core wrote it. The reason states can be offered or greyed out
     // rather than failing in front of someone (docs/history/CABINET.md).
     std::string emulator;
+    // A STATE'S NAME IN ITS SNAPSHOT'S BANK (RomM 5.5, `core`): the core a
+    // push filed it under, which for a CabinetOS console is its state tag
+    // (savepush.h). Empty for a state from before channels, which has only
+    // `emulator`, and for a save.
+    std::string core;
     std::string updatedAt;
     // When RomM first stored these bytes (`created_at`). For a save in a
     // snapshot, when that save first reached RomM, however many snapshots

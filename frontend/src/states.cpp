@@ -285,35 +285,25 @@ void beginLoadLatestState(StateLoad& load, GameSession& sess,
             done();
             return;
         }
-        // THE NEWEST THE GAME OFFERS (savepush::offeredStates): one made here
-        // and still owed in its push, or one in the snapshot the console
-        // holds, off this console when it has the file. With no snapshot
-        // held, RomM's states from before channels are asked for as before,
-        // and only this core's: a state from another emulator does not fail
-        // cleanly, it boots something that looks like the game and is not.
-        bool holds = false;
+        // THE NEWEST THE GAME OFFERS (savepush::offeredStates): the newest
+        // under the console's own name on RomM, wherever it is there, or one
+        // made here and still owed; off this console when it has the file,
+        // else down from RomM by its id. Only this core's: a state from
+        // another emulator does not fail cleanly, it boots something that
+        // looks like the game and is not. With RomM away or not answering,
+        // this console's own files.
+        std::vector<romm::Asset> rows;
+        std::string err;
+        const bool listed = !romm::serverAway() && client.fetchStates(romId, &rows, &err);
         const std::vector<savepush::OfferedState> offered =
-            savepush::offeredStates(who, romId, tag, stateDir, &holds);
+            savepush::offeredStates(who, romId, tag, stateDir, listed ? &rows : nullptr);
         const savepush::OfferedState* top = offered.empty() ? nullptr : &offered.front();
-        const romm::Asset* row = nullptr;
-        std::vector<romm::Asset> states;
-        if (!holds) {
-            std::string err;
-            if (client.fetchStates(romId, &states, &err)) {
-                for (const romm::Asset& a : states)
-                    if (a.emulator == tag && (!row || a.updatedAt > row->updatedAt)) row = &a;
-            } else if (!top) {
-                // RomM could not be asked, which is Cabinet's offline case by
-                // another name.
-                load.note = err;
-                load.serverFailed = true;
-                load.tryLocal = true;
-                done();
-                return;
-            }
-        }
-        if (row && (!top || isoMicros(row->updatedAt) / 1000 > top->madeMs)) {
-            fromRomm(row->id, row->fileName);
+        if (!top && !listed) {
+            // RomM could not be asked and this console has none, which is
+            // Cabinet's offline case by another name.
+            load.note = err.empty() ? "RomM is away" : err;
+            load.serverFailed = true;
+            load.tryLocal = true;
         } else if (top && !top->path.empty()) {
             load.data = cab::readBytes(top->path);
             load.note = top->path;
@@ -334,9 +324,9 @@ void beginLoadLatestState(StateLoad& load, GameSession& sess,
 // `TVPlayerView.loadLatestState`: "offline falls back to the newest local
 // state, online the server stays the source of truth"). States live on RomM
 // so that "latest" means latest across every device a person owns, and the
-// game offers what the snapshot the console holds says (savepush.h), with
-// what this console made since. This file is read only when that cannot be
-// had.
+// game offers the newest of its own on RomM, wherever it is there, with what
+// this console made since (savepush.h). This file is read only when that
+// cannot be had.
 static std::string newestLocalState(const GameSession& sess) {
     DIR* d = ::opendir(sess.stateDir.c_str());
     if (!d) return {};

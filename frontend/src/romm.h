@@ -227,6 +227,11 @@ public:
     // server is not there).
     bool fetchSavesFor(const std::vector<int>& romIds, std::vector<Asset>* out,
                        std::string* err, std::vector<int>* skipped = nullptr);
+    // EVERY STATE OF THE GAME THIS PERSON HAS ON RomM, one row each: the
+    // ones some snapshot holds (a channel's current, its history, a branch),
+    // with their channel and bank name (Asset::core), and the ones from
+    // before channels. RomM's rows carry no content hash
+    // (fetchChannelHistory does).
     bool fetchStates(int romId, std::vector<Asset>* out, std::string* err);
 
     // `/api/saves/{id}/content` or `/api/states/{id}/content`. Small enough to
@@ -248,6 +253,12 @@ public:
     // read off the answer's status as fetchGame's is.
     bool fetchChannels(const std::vector<int>& romFileIds, std::vector<Channel>* out,
                        std::string* err, bool* notFound = nullptr) const;
+    // ONE CHANNEL'S HISTORY, newest first (`GET /api/snapshots`, its first
+    // page of a hundred): every snapshot in it, branches too, each with its
+    // states and their content hashes, which the game's list of states
+    // (fetchStates) does not carry. False when the call fails.
+    bool fetchChannelHistory(const std::string& channelId, std::vector<Snapshot>* out,
+                             std::string* err) const;
     // One push (`POST /api/snapshots`): the manifest, and the bytes `push`
     // carries. True when RomM answered, whatever it answered (`*answer`);
     // false when no answer came.

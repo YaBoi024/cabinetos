@@ -16,17 +16,27 @@
 // AND THE STATES (#346, step 6; decisions 1 and 8 of 2026-11-15). A state is
 // written on this console with its picture when it is made, and marked owed
 // in the game's push at once (markState), so a power cut cannot strand it; it
-// goes up inside the snapshot when the game is left. The push names this
-// console's three newest (kStatesKept) under the console's own name, the
-// core's state tag (catalog::emulatorTag): the ones made since, then the ones
-// in the snapshot it builds on, in slots "1", "2" and "3", newest first,
-// RetroArch's and RomM's numbered slots (MMagTech, 2026-11-19: not "auto",
-// which other apps keep for a state made by itself on quitting). Only that
-// core is named, so every other app's states in the bank are carried as they
-// are. A state RomM already holds is named by its content hash and its bytes
-// are not sent again. The console deletes no state on RomM: RomM's own
-// history keeps the older ones. A push with no save of its own carries the
-// save of the snapshot it builds on.
+// goes up inside the snapshot when the game is left. THE GAME OFFERS THE THREE
+// NEWEST OF ITS OWN STATES, WHEREVER THEY ARE ON RomM (MMagTech, 2026-11-19,
+// as RomM's own web player chooses): of RomM's list of the game's states,
+// every snapshot's (a channel's current, its history, a branch) and the ones
+// from before channels, the ones under the console's own name, the core's
+// state tag (catalog::emulatorTag), with the ones made here and still owed
+// (offeredStates). A push names those same three (kStatesKept), so the
+// snapshot on top holds what the TV shows, in slots "1", "2" and "3", newest
+// first, RetroArch's and RomM's numbered slots (MMagTech, 2026-11-19: not
+// "auto", which other apps keep for a state made by itself on quitting). A
+// state made since is always among them, so none made on this console is let
+// go before RomM has it. Only that core is named, so every other app's states
+// in the bank are carried as they are. A state RomM already holds is named by
+// its content hash and its bytes are not sent again; RomM's list carries no
+// hash, so it is read off this console's copy, else the channels' currents,
+// else the history of the channel the state was pushed into. One no snapshot
+// holds (from before channels) goes up from this console's copy, or is left
+// out. The console deletes no state on RomM: RomM's own history keeps the
+// older ones. A push with no save of its own carries the save of the snapshot
+// it builds on; a push with a save and no new state names none, so RomM
+// carries the bank as it is.
 //
 // WHERE IT GOES (decisions 3 and 9 of 2026-11-15). Into the channel the save
 // it was made from is in, naming that snapshot as the current it builds on:
@@ -46,9 +56,17 @@
 // a push carries no time of its own. A SESSION THAT COULD NOT USE THE NEWEST
 // SAVE (GameSession::couldNotUseNewest) IS ALWAYS LEFT AS RomM KEPT IT: the
 // newer save stays on top for the device that made it, and this console goes
-// on from its own (savepick.h). SO IS A PUSH OF STATES ALONE: its save is the
-// one it was built on, older than the current it missed, and an older save
-// never goes over a newer one.
+// on from its own (savepick.h).
+//
+// A PUSH OF STATES ALONE GOES ONTO THE CHANNEL'S CURRENT AS RomM LISTS IT
+// when it is sent (MMagTech, 2026-11-19): states made while another device's
+// newer save went on top go into that snapshot, beside that save, which the
+// push carries; when RomM says the channel moved on meanwhile, they go again
+// onto the current it names. Not for a session that could not use the newest
+// save, nor onto a save of another emulator's (answer 3 of 2026-11-17): then
+// they are aimed as a save is, and stay where RomM keeps them, beside. The
+// note of the snapshot held keeps the save this console last had, so its next
+// start still says "Continuing from another device" (savepick.h).
 //
 // A PUSH OF STATES ALONE NEEDS A SNAPSHOT TO BUILD ON when the game has a
 // save anywhere else: one this console owes from before save channels, or
@@ -72,10 +90,9 @@
 // (savepick.h); states alone owed do not hold a start back.
 //
 // THIS CONSOLE'S COPIES OF ITS STATES. Once RomM holds a push that named
-// states, a state file of the game in neither the snapshot now held nor a
-// push still owed is deleted with its picture, as the three per game always
-// were: the game offers only those (offeredStates), and RomM keeps the
-// others in the game's history.
+// states, a state file of the game that push did not name and no push still
+// owes is deleted with its picture, as the three per game always were: RomM
+// keeps the others in the game's history.
 
 #pragma once
 
@@ -150,13 +167,15 @@ void leave(GameSession& sess, const storage::User& user, Uploader& up);
 int adoptOldStates(const storage::User& who);
 
 // THE STATES THIS CONSOLE OFFERS FOR A GAME, newest first, at most
-// kStatesKept: the ones its owed push carries, then the ones under `tag`
-// (the console's own name) in the snapshot it holds (savemirror::Held). A
-// state comes off this console when its file is in `stateDir` (by name), or
-// down from RomM by its id when it is picked. `*holds` false: the console
-// holds no snapshot of the game, and RomM's states from before channels are
-// the rest (states.cpp and detail.cpp ask RomM for them). Reads the disk
-// only; the game's page and Load latest state go by it.
+// kStatesKept (the head of this file): of `rows`, RomM's list of the game's
+// states (Client::fetchStates), the ones filed under `tag` (the console's own
+// name), with the ones its owed push carries; one per name, RomM's own time
+// taken off it. Null `rows` (RomM away or not answering, or a core whose
+// states never leave the console): this console's own files, the owed ones
+// and every state in `stateDir`. A state comes off this console when its
+// file is in `stateDir` (by name), else down from RomM by its id when it is
+// picked. Reads the disk only; the game's page, Load latest state and Resume
+// go by it.
 struct OfferedState {
     int id = 0;             // RomM's; 0 for one only on this console
     std::string fileName;
@@ -166,7 +185,7 @@ struct OfferedState {
 };
 std::vector<OfferedState> offeredStates(const storage::User& who, int romId,
                                         const std::string& tag, const std::string& stateDir,
-                                        bool* holds);
+                                        const std::vector<romm::Asset>* rows);
 
 // --- The upload queue's half ---------------------------------------------------
 
@@ -174,7 +193,8 @@ std::vector<OfferedState> offeredStates(const storage::User& who, int romId,
 // server has save channels (romm::heardServerChannels); the file a game's
 // channels are keyed to (false when RomM could not be asked, 0 when it names
 // none); this person's channels on that file (`*gone` when RomM no longer
-// knows the file); one push; and a game's saves, for the console's copy.
+// knows the file); one push; a game's saves, for the console's copy; and for
+// the states a push names, the game's states and a channel's history.
 struct Server {
     std::function<bool()> hasChannels;
     std::function<bool(int romId, int* fileId, std::string* err)> channelFile;
@@ -183,6 +203,9 @@ struct Server {
     std::function<bool(const romm::SnapshotPush& push, romm::PushAnswer* answer,
                        std::string* err)> push;
     std::function<bool(int romId, std::vector<romm::Asset>* rows, std::string* err)> saves;
+    std::function<bool(int romId, std::vector<romm::Asset>* rows, std::string* err)> states;
+    std::function<bool(const std::string& channelId, std::vector<romm::Snapshot>* out,
+                       std::string* err)> history;
 };
 // The real one: RomM, as whoever `client` is signed in as.
 Server serverOf(romm::Client& client);

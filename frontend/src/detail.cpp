@@ -3,7 +3,6 @@
 
 #include "app.h"
 
-#include <dirent.h>
 #include <sys/stat.h>
 
 #include <algorithm>
@@ -35,7 +34,6 @@ void App::startDetailStates() {
     detailStates.busy = true;
     const storage::User who = storage::currentUser();
     detailStates.worker = std::thread([this, romId, tag, saveTag, stateDir, slug, who]() {
-        std::vector<romm::Asset> all;
         std::vector<screens::StateChoice> out;
         std::string err, saveWhen;
         // The file RomM keys the game's save channels to, for the save line
@@ -134,62 +132,24 @@ void App::startDetailStates() {
             if (!w.empty()) saveWhen = "Saved " + w;
         }
         // THE NEWEST THREE STATES, as the game offers them
-        // (savepush::offeredStates): the ones made here and still owed, then
-        // the ones in the snapshot this console holds, under the console's
-        // own name. With no snapshot held, RomM's states from before
-        // channels are the rest, as before. With RomM away, or for a core
-        // whose states never leave the console, only what is on this
-        // console: every state file of the game here.
-        struct Shown { int id; std::string picture, path, name; int64_t ms; };
-        std::vector<Shown> shown;
-        auto listed = [&shown](const std::string& name) {
-            for (const Shown& x : shown)
-                if (x.name == name) return true;
-            return false;
-        };
-        const bool away = romm::serverAway();
-        if (!tag.empty()) {
-            bool holds = false;
-            for (const savepush::OfferedState& o :
-                 savepush::offeredStates(who, romId, tag, stateDir, &holds))
-                if (!away || !o.path.empty())
-                    shown.push_back({o.id, o.picture, o.path, o.fileName, o.madeMs});
-            all.clear();
-            if (!holds && !away && liveClient.fetchStates(romId, &all, &err)) {
-                for (const romm::Asset& a : all)
-                    if (a.emulator == tag && !listed(a.fileName))
-                        shown.push_back({a.id, a.picturePath, "", a.fileName,
-                                         isoMicros(a.updatedAt) / 1000});
-            } else if (!err.empty()) {
-                std::fprintf(stderr, "[detail] states and saves: %s\n", err.c_str());
-            }
-        }
-        if (DIR* d = (away || tag.empty()) && !stateDir.empty() ? ::opendir(stateDir.c_str())
-                                                                 : nullptr) {
-            while (dirent* e = ::readdir(d)) {
-                const std::string name = e->d_name;
-                if (name.size() < 7 || name.compare(name.size() - 6, 6, ".state") != 0) continue;
-                if (listed(name)) continue;
-                const std::string full = stateDir + "/" + name;
-                struct stat st;
-                if (::stat(full.c_str(), &st) != 0 || !S_ISREG(st.st_mode)) continue;
-                const std::string png = full.substr(0, full.size() - 6) + ".png";
-                shown.push_back({0, ::access(png.c_str(), R_OK) == 0 ? png : std::string(), full,
-                                 name, static_cast<int64_t>(st.st_mtime) * 1000});
-            }
-            ::closedir(d);
-        }
-        std::stable_sort(shown.begin(), shown.end(),
-                         [](const Shown& a, const Shown& b) { return a.ms > b.ms; });
+        // (savepush::offeredStates): the three newest under the console's
+        // own name on RomM, wherever they are there, with the ones made here
+        // and still owed. With RomM away or not answering, or for a core
+        // whose states never leave the console, this console's own files.
+        std::vector<romm::Asset> rows;
+        err.clear();
+        const bool listed = !tag.empty() && !romm::serverAway() &&
+                            liveClient.fetchStates(romId, &rows, &err);
+        if (!err.empty()) std::fprintf(stderr, "[detail] states: %s\n", err.c_str());
         std::vector<std::string> localPaths;
-        for (size_t i = 0; i < shown.size() && i < 3; ++i) {
-            int id = shown[i].id;
-            if (!shown[i].path.empty()) {
-                localPaths.push_back(shown[i].path);
+        for (const savepush::OfferedState& o :
+             savepush::offeredStates(who, romId, tag, stateDir, listed ? &rows : nullptr)) {
+            int id = o.id;
+            if (!o.path.empty()) {
+                localPaths.push_back(o.path);
                 id = -static_cast<int>(localPaths.size());
             }
-            out.push_back({id, shown[i].picture,
-                           shown[i].ms ? stateWhen(isoOfMs(shown[i].ms)) : std::string()});
+            out.push_back({id, o.picture, o.madeMs ? stateWhen(isoOfMs(o.madeMs)) : std::string()});
         }
         std::lock_guard<std::mutex> lk(detailStates.m);
         detailStates.romId = romId;

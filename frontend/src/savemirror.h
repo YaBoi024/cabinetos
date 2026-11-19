@@ -93,11 +93,6 @@ struct Held {
     // from one of this console's own that RomM's website put back on top
     // (savepick.h).
     std::vector<std::string> hashesHad;
-    // THE STATES IN THE SNAPSHOT (#346, step 6), every core's, as RomM listed
-    // them: the ones under the console's own name are what the game offers
-    // (savepush::offeredStates), and what the next push of the game builds
-    // its states from (savepush.h).
-    std::vector<romm::SnapshotState> states;
 };
 void putHeld(const storage::User& u, int romId, const Held& held);
 // False when this console holds none of this game (never, or since a

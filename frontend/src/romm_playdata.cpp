@@ -38,6 +38,7 @@ bool parseAssets(const std::string& body, std::vector<Asset>* out, std::string* 
         a.fileName = jstr(o, "file_name");
         a.sizeBytes = jint(o, "file_size_bytes");
         a.emulator = jstr(o, "emulator");
+        a.core = jstr(o, "core");
         a.updatedAt = jstr(o, "updated_at");
         a.createdAt = jstr(o, "created_at");
         a.channelId = jstr(o, "channel_id");

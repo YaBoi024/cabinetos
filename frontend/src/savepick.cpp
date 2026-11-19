@@ -119,7 +119,6 @@ savemirror::Held heldAfter(const savemirror::Held& before, const std::string& ch
     h.at = now;
     h.madeAt = isoMicros(savedAt(taken)) / 1000000;
     h.beside = false;
-    h.states = taken.states;
     had(h.saveHash);
     if (h.hashesHad.size() > kHashesKept)
         h.hashesHad.erase(h.hashesHad.begin(),
