@@ -16,6 +16,7 @@
 #include "favorites.h"
 #include "library.h"
 #include "manual.h"
+#include "savepush.h"
 #include "saves.h"
 #include "storage.h"
 #include "timewords.h"
@@ -115,22 +116,15 @@ void App::startDetailStates() {
             if (onRomm.channelFileId != channelFile)
                 rememberChannelFile(romId, onRomm.channelFileId);
         }
-        const std::vector<cache::Owed> owedHere = cache::owed(who);
-        auto owedNamed = [&](const std::string& name, bool state) {
-            for (const cache::Owed& o : owedHere)
-                if (o.romId == romId && o.isState == state && !o.isScreenshot &&
-                    o.fileName == name)
-                    return true;
-            return false;
-        };
-        for (const cache::Owed& o : owedHere) {
+        for (const cache::Owed& o : cache::owed(who)) {
             if (o.romId != romId || o.isState || o.isScreenshot) continue;
             struct stat st;
             if (::stat(o.localPath.c_str(), &st) == 0 && isoUtc(st.st_mtime) > savedAt)
                 savedAt = isoUtc(st.st_mtime);
         }
-        // And its snapshot still owed (savepush.h), dated when it was made.
-        if (cache::OwedPush push; cache::owedPush(who, romId, &push) &&
+        // And its snapshot still owed with a save (savepush.h), dated when
+        // the save was made.
+        if (cache::OwedPush push; cache::owedPush(who, romId, &push) && push.hasSave &&
                                   isoUtc(static_cast<time_t>(push.madeAt)) > savedAt)
             savedAt = isoUtc(static_cast<time_t>(push.madeAt));
         if (!savedAt.empty()) {
@@ -139,42 +133,54 @@ void App::startDetailStates() {
                 w[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(w[0])));
             if (!w.empty()) saveWhen = "Saved " + w;
         }
-        // THE NEWEST THREE STATES. RomM's, and with them this console's
-        // own (#88): all of them when RomM could not be asked (offline,
-        // or a system whose states never leave the console), and only the
-        // ones still waiting to upload when it could. One file name is one
-        // state, shown once.
-        struct Shown { int id; std::string picture, at, name, path; };
+        // THE NEWEST THREE STATES, as the game offers them
+        // (savepush::offeredStates): the ones made here and still owed, then
+        // the ones in the snapshot this console holds, under the console's
+        // own name. With no snapshot held, RomM's states from before
+        // channels are the rest, as before. With RomM away, or for a core
+        // whose states never leave the console, only what is on this
+        // console: every state file of the game here.
+        struct Shown { int id; std::string picture, path, name; int64_t ms; };
         std::vector<Shown> shown;
-        bool askedRomm = false;
-        all.clear();
-        if (!tag.empty() && !romm::serverAway() && liveClient.fetchStates(romId, &all, &err)) {
-            askedRomm = true;
-            for (const romm::Asset& a : all)
-                if (a.emulator == tag)
-                    shown.push_back({a.id, a.picturePath, a.updatedAt, a.fileName, ""});
-        } else if (!err.empty()) {
-            std::fprintf(stderr, "[detail] states and saves: %s\n", err.c_str());
+        auto listed = [&shown](const std::string& name) {
+            for (const Shown& x : shown)
+                if (x.name == name) return true;
+            return false;
+        };
+        const bool away = romm::serverAway();
+        if (!tag.empty()) {
+            bool holds = false;
+            for (const savepush::OfferedState& o :
+                 savepush::offeredStates(who, romId, tag, stateDir, &holds))
+                if (!away || !o.path.empty())
+                    shown.push_back({o.id, o.picture, o.path, o.fileName, o.madeMs});
+            all.clear();
+            if (!holds && !away && liveClient.fetchStates(romId, &all, &err)) {
+                for (const romm::Asset& a : all)
+                    if (a.emulator == tag && !listed(a.fileName))
+                        shown.push_back({a.id, a.picturePath, "", a.fileName,
+                                         isoMicros(a.updatedAt) / 1000});
+            } else if (!err.empty()) {
+                std::fprintf(stderr, "[detail] states and saves: %s\n", err.c_str());
+            }
         }
-        if (DIR* d = stateDir.empty() ? nullptr : ::opendir(stateDir.c_str())) {
+        if (DIR* d = (away || tag.empty()) && !stateDir.empty() ? ::opendir(stateDir.c_str())
+                                                                 : nullptr) {
             while (dirent* e = ::readdir(d)) {
                 const std::string name = e->d_name;
                 if (name.size() < 7 || name.compare(name.size() - 6, 6, ".state") != 0) continue;
-                if (askedRomm && !owedNamed(name, true)) continue;
-                bool dup = false;
-                for (const Shown& x : shown) dup = dup || x.name == name;
-                if (dup) continue;
+                if (listed(name)) continue;
                 const std::string full = stateDir + "/" + name;
                 struct stat st;
                 if (::stat(full.c_str(), &st) != 0 || !S_ISREG(st.st_mode)) continue;
                 const std::string png = full.substr(0, full.size() - 6) + ".png";
-                shown.push_back({0, ::access(png.c_str(), R_OK) == 0 ? png : std::string(),
-                                 isoUtc(st.st_mtime), name, full});
+                shown.push_back({0, ::access(png.c_str(), R_OK) == 0 ? png : std::string(), full,
+                                 name, static_cast<int64_t>(st.st_mtime) * 1000});
             }
             ::closedir(d);
         }
-        std::sort(shown.begin(), shown.end(),
-                  [](const Shown& a, const Shown& b) { return a.at > b.at; });
+        std::stable_sort(shown.begin(), shown.end(),
+                         [](const Shown& a, const Shown& b) { return a.ms > b.ms; });
         std::vector<std::string> localPaths;
         for (size_t i = 0; i < shown.size() && i < 3; ++i) {
             int id = shown[i].id;
@@ -182,7 +188,8 @@ void App::startDetailStates() {
                 localPaths.push_back(shown[i].path);
                 id = -static_cast<int>(localPaths.size());
             }
-            out.push_back({id, shown[i].picture, stateWhen(shown[i].at)});
+            out.push_back({id, shown[i].picture,
+                           shown[i].ms ? stateWhen(isoOfMs(shown[i].ms)) : std::string()});
         }
         std::lock_guard<std::mutex> lk(detailStates.m);
         detailStates.romId = romId;

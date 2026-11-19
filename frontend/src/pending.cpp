@@ -100,8 +100,8 @@ bool readPush(const std::string& path, OwedPush* p) {
         else if (k == "savename") p->saveName = v;
         else if (k == "savepath") p->savePath = v;
         else if (k == "saveshape") p->saveShape = v;
-        else if (k == "state") p->states.push_back({v, "", "", "", "", ""});
-        else if (st && k == "slot") st->slot = v;
+        else if (k == "state") p->states.push_back({v, "", "", "", "", 0});
+        else if (st && k == "statemade") st->madeMs = std::atoll(v.c_str());
         else if (st && k == "statename") st->fileName = v;
         else if (st && k == "statepath") st->path = v;
         else if (st && k == "picname") st->pictureName = v;
@@ -227,7 +227,7 @@ std::string markPushOwed(const storage::User& u, const OwedPush& p, int64_t byte
     }
     for (const OwedPush::State& st : p.states) {
         text += "state " + st.core + "\n";
-        put("slot", st.slot);
+        putId("statemade", st.madeMs);
         put("statename", st.fileName);
         put("statepath", st.path);
         put("picname", st.pictureName);
@@ -277,6 +277,14 @@ bool isPushOwed(const storage::User& u, int romId) {
     if (!u.valid()) return false;
     struct stat st;
     return ::stat(pushPath(u, romId).c_str(), &st) == 0;
+}
+
+bool saveOwed(const storage::User& u, int romId) {
+    OwedPush p;
+    if (owedPush(u, romId, &p) && p.hasSave) return true;
+    for (const Owed& o : owed(u))
+        if (o.romId == romId && !o.isState && !o.isScreenshot) return true;
+    return false;
 }
 
 void clearPushOwed(const storage::User& u, int romId, const std::string& stamp) {

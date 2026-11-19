@@ -1,6 +1,7 @@
-// The person's play on RomM: saves and states (listed, fetched, uploaded,
-// deleted), screenshots, favourites (setFavorite) and time played (play
-// sessions). Moved out of romm.cpp in the restructure (#398).
+// The person's play on RomM: saves and states (listed and fetched; they go up
+// inside a snapshot, romm_snapshots.cpp), screenshots, favourites
+// (setFavorite) and time played (play sessions). Moved out of romm.cpp in the
+// restructure (#398).
 
 #include "romm.h"
 
@@ -38,6 +39,7 @@ bool parseAssets(const std::string& body, std::vector<Asset>* out, std::string* 
         a.sizeBytes = jint(o, "file_size_bytes");
         a.emulator = jstr(o, "emulator");
         a.updatedAt = jstr(o, "updated_at");
+        a.createdAt = jstr(o, "created_at");
         a.channelId = jstr(o, "channel_id");
         json_object* shot = nullptr;
         if (json_object_object_get_ex(o, "screenshot", &shot) &&
@@ -119,45 +121,12 @@ std::vector<uint8_t> Client::fetchAsset(const char* kind, int assetId) const {
     return fetchBytes(std::string("/api/") + kind + "/" + std::to_string(assetId) + "/content");
 }
 
-bool Client::uploadState(int romId, const std::string& emulator, const std::string& fileName,
-                         const std::vector<uint8_t>& data, std::string* err,
-                         const std::string& shotName, const std::vector<uint8_t>& shot) const {
-    // Deliberately NOT overwrite: a history of states is the point of states.
-    const std::string path = "/api/states?rom_id=" + std::to_string(romId) +
-                             "&emulator=" + emulator;
-    std::vector<Part> parts{{"stateFile", fileName, "application/octet-stream", data.data(),
-                             data.size()}};
-    // The picture is Cabinet's to the byte: `screenshotFile`, image/png
-    // (RommClient.swift, uploadState).
-    if (!shotName.empty() && !shot.empty())
-        parts.push_back({"screenshotFile", shotName, "image/png", shot.data(), shot.size()});
-    return postMultipart(path, parts, err);
-}
-
 bool Client::uploadScreenshot(int romId, const std::string& fileName,
                               const std::vector<uint8_t>& png, std::string* err) const {
     return postMultipart("/api/screenshots?rom_id=" + std::to_string(romId),
                          {{"screenshotFile", fileName, "application/octet-stream", png.data(),
                            png.size()}},
                          err);
-}
-
-bool Client::deleteStates(const std::vector<int>& ids, std::string* err) const {
-    if (ids.empty()) return true;
-    std::string json = "{\"states\":[";
-    for (size_t i = 0; i < ids.size(); ++i) {
-        if (i) json += ",";
-        json += std::to_string(ids[i]);
-    }
-    json += "]}";
-    std::string body;
-    long status = 0;
-    if (!postJson("/api/states/delete", json, &body, &status, err)) return false;
-    if (status < 200 || status >= 300) {
-        if (err) *err = "HTTP " + std::to_string(status) + " deleting states";
-        return false;
-    }
-    return true;
 }
 
 bool Client::setFavorite(int romId, bool on, bool* forbidden, std::string* err,

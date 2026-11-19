@@ -178,7 +178,6 @@ void App::runFrameLoop() {
         tickLinkUp(dt);
         retryOwedUploads(dt);
         followServer(dt);
-        sayStateUploaded();
         tickLaunchBusy(dt);
         tickPauseMenu(dt);
         {

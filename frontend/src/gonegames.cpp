@@ -483,8 +483,8 @@ int test() {
         p.savePath = storage::savesDir(u, platform, id, "fbneo") + "/push.srm";
         put(p.savePath);
         const std::string states = storage::statesDir(u, platform, id, "fbneo");
-        p.states.push_back({"fbneo", "1", "push.state", states + "/push.state",
-                            "push.png", states + "/push.png"});
+        p.states.push_back({"fbneo", "push.state", states + "/push.state", "push.png",
+                            states + "/push.png", 1763560512345});
         put(p.states[0].path);
         put(p.states[0].picturePath);
         cache::markPushOwed(u, p, 4096);

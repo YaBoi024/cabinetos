@@ -1,10 +1,14 @@
 // `--save-push-test` (#346): leaving a game, with no server and no core. In a
 // scratch root: what a session left, for each kind of save, as the marker a
-// push is owed by; where each push is aimed; and every answer RomM gives a
-// push, settled against a stand-in for RomM that answers as scripted and
-// keeps what it was sent. Its own file, as `--romm-snapshots-test` and
+// push is owed by; where each push is aimed; every answer RomM gives a push,
+// settled against a stand-in for RomM that answers as scripted and keeps what
+// it was sent; and the states a push carries (step 6): marked when made,
+// offered back, named in their slots, and this console's copies kept or let
+// go. Its own file, as `--romm-snapshots-test` and
 // `--game-events-test` have theirs: the cases would otherwise fill
 // savepush.cpp.
+
+#include <sys/stat.h>
 
 #include <cstdio>
 #include <cstdlib>
@@ -20,6 +24,7 @@
 #include "savepush.h"
 #include "saves.h"
 #include "storage.h"
+#include "uploader.h"
 
 namespace savepush {
 namespace {
@@ -119,6 +124,7 @@ struct Stand {
     std::vector<romm::SnapshotPush> pushes;
     int fileAsks = 0, channelAsks = 0;
     std::function<void()> duringPush;
+    std::vector<romm::Asset> rows;   // the game's saves RomM lists
 
     Server server() {
         Server s;
@@ -155,8 +161,8 @@ struct Stand {
             answers.pop_front();
             return true;
         };
-        s.saves = [](int, std::vector<romm::Asset>* rows, std::string*) {
-            rows->clear();
+        s.saves = [this](int, std::vector<romm::Asset>* out, std::string*) {
+            *out = rows;
             return true;
         };
         return s;
@@ -863,6 +869,360 @@ int test() {
                   romm.pushes[0].save.bytes == two && !cache::isPushOwed(u, g2),
               "and goes up next on the older one, which RomM now has as the current: never "
               "beside it");
+    }
+
+    // ---- States (#346, step 6) --------------------------------------------------
+    std::printf("\nstates, inside the snapshot\n");
+    // A state Save state wrote, with its picture, in the session's states
+    // folder, named as states.cpp names one; `ms` its time.
+    const int64_t base = 1763560000123;   // 2025-11-19 13:46:40.123 UTC
+    auto stateName = [](int64_t ms) {
+        const time_t t = static_cast<time_t>(ms / 1000);
+        struct tm g;
+        gmtime_r(&t, &g);
+        char stamp[48];
+        const size_t n = std::strftime(stamp, sizeof stamp, "%Y-%m-%d %H-%M-%S", &g);
+        std::snprintf(stamp + n, sizeof stamp - n, "-%03lld", static_cast<long long>(ms % 1000));
+        return std::string("Game (USA) [") + stamp + "].state";
+    };
+    // And as RomM stores it: its own time added before the extension, with
+    // an underscore between the day and the time (its `apply_datetime_tag`).
+    auto rommName = [&](int64_t ms) {
+        const std::string own = stateName(ms);
+        return own.substr(0, own.size() - 6) + " [2025-11-19_15-00-00-000].state";
+    };
+    auto session = [&](int romId) {
+        GameSession s = battery(romId, one);
+        s.saveChanged = false;
+        s.stateTag = kTag;
+        s.stateDir = storage::statesDir(u, "gb", romId, "gambatte");
+        storage::makeDirs(s.stateDir);
+        return s;
+    };
+    auto makeState = [&](const GameSession& s, int64_t ms, const std::string& text,
+                    bool picture = true) {
+        StateMade m;
+        m.fileName = stateName(ms);
+        m.path = s.stateDir + "/" + m.fileName;
+        m.madeMs = ms;
+        cab::writeBytes(m.path, bytesOf(text.c_str(), 128));
+        if (picture) {
+            m.pictureName = m.fileName.substr(0, m.fileName.size() - 6) + ".png";
+            m.picturePath = s.stateDir + "/" + m.pictureName;
+            cab::writeBytes(m.picturePath, bytesOf(("picture of " + text).c_str(), 32));
+        }
+        return m;
+    };
+    auto stateHash = [&](const std::string& text) {
+        return romm::contentHash(bytesOf(text.c_str(), 128));
+    };
+    // A state in a snapshot's bank, as RomM lists it.
+    auto inBank = [&](const char* core, const char* slot, int id, int64_t ms,
+                      const std::string& text) {
+        romm::SnapshotState st;
+        st.core = core;
+        st.slot = slot;
+        st.file.id = id;
+        st.file.fileName = rommName(ms);
+        st.file.sizeBytes = 128;
+        st.file.contentHash = stateHash(text);
+        st.file.picturePath = "picture-" + std::to_string(id) + ".png";
+        return st;
+    };
+    auto withStates = [](romm::Snapshot s, std::vector<romm::SnapshotState> states) {
+        s.states = std::move(states);
+        return s;
+    };
+    {
+        GameSession s = session(++game);
+        const StateMade first = makeState(s, base + 1000, "first state");
+        check(markState(s, u, first) && cache::owedPush(u, game, &p) && !p.hasSave &&
+                  p.states.size() == 1 && p.states[0].core == kTag &&
+                  p.states[0].fileName == first.fileName && p.states[0].path == first.path &&
+                  p.states[0].pictureName == first.pictureName &&
+                  p.states[0].picturePath == first.picturePath &&
+                  p.states[0].madeMs == base + 1000 && p.label == kDefaultChannel &&
+                  p.romFileId == kFile && !cache::saveOwed(u, game),
+              "Save state: owed at once in the game's push, states alone, under the console's "
+              "own name, with its picture; no save owed, so a start is not held back");
+        for (int k = 2; k <= 4; ++k)
+            markState(s, u, makeState(s, base + k * 1000, "state " + std::to_string(k)));
+        check(cache::owedPush(u, game, &p) && p.states.size() == kStatesKept &&
+                  p.states[0].madeMs == base + 4000 && p.states[2].madeMs == base + 2000,
+              "four made: the newest three owed, newest first");
+        s.saveAtLaunch.clear();
+        cab::writeBytes(s.saveDir + "/" + saveRowName(s.fsStem, "srm"), two);
+        s.saveChanged = true;
+        check(mark(s, u) && cache::owedPush(u, game, &p) && p.hasSave &&
+                  p.states.size() == kStatesKept && p.states[0].madeMs == base + 4000 &&
+                  cache::saveOwed(u, game),
+              "the save changed at the leave: its push carries the states marked before it");
+        const StateMade fifth = makeState(s, base + 5000, "state 5");
+        check(markState(s, u, fifth) && cache::owedPush(u, game, &p) && p.hasSave &&
+                  cab::readBytes(p.savePath) == two && !p.states.empty() &&
+                  p.states[0].fileName == fifth.fileName,
+              "a state made after it keeps the push's save and where it goes");
+        Uploader up;
+        GameSession left = session(game);
+        leave(left, u, up);
+        check(up.pending() == 1, "leaving a game that owes states queues its push, though the "
+                                 "save did not change");
+        cache::clearPushOwed(u, game, p.stamp);
+    }
+    {
+        GameSession s = session(++game);
+        hold(game, kChannel, 300);
+        s.startChannelId = kChannel;
+        s.startSnapshotId = 300;
+        check(markState(s, u, makeState(s, base, "held")) && cache::owedPush(u, game, &p) &&
+                  p.channelId == kChannel && p.expectedCurrentId == 300 && !p.hasSave,
+              "states alone are aimed as a save would be: on the snapshot the console holds");
+        cache::clearPushOwed(u, game, p.stamp);
+        s.stateTag.clear();
+        check(!markState(s, u, makeState(s, base, "untagged")) && !cache::isPushOwed(u, game),
+              "a core with no state tag marks nothing: its states stay on the console");
+    }
+    {
+        // What the game offers: owed first, then the snapshot held, under
+        // the console's own name only, off the console when the file is here.
+        GameSession s = session(++game);
+        const romm::Snapshot top =
+            withStates(snapshot(310, kChannel, hashOlder, romTime(-60)),
+                       {inBank(kTag, "1", 901, base + 3000, "bank newest"),
+                        inBank(kTag, "2", 902, base + 2000, "bank middle"),
+                        inBank(kTag, "3", 903, base + 1000, "bank oldest"),
+                        inBank("mgba", "auto", 904, base + 9000, "another app's")});
+        savemirror::putHeld(u, game, savepick::heldAfter(savemirror::Held{}, kChannel, top, now));
+        bool holds = false;
+        std::vector<OfferedState> offered = offeredStates(u, game, kTag, s.stateDir, &holds);
+        check(holds && offered.size() == 3 && offered[0].id == 901 && offered[0].path.empty() &&
+                  offered[0].picture == "picture-901.png" &&
+                  offered[0].madeMs == base + 3000 && offered[2].id == 903,
+              "the snapshot held: its three under the console's name, newest first by the time "
+              "the console put in each name and not RomM's, each by its id and RomM's picture; "
+              "another app's state is not offered");
+        const std::string middle = s.stateDir + "/" + stateName(base + 2000);
+        cab::writeBytes(middle, bytesOf("bank middle", 128));
+        cab::writeBytes(middle.substr(0, middle.size() - 6) + ".png", bytesOf("its picture", 32));
+        const StateMade mine = makeState(s, base + 4000, "made since");
+        markState(s, u, mine);
+        offered = offeredStates(u, game, kTag, s.stateDir, &holds);
+        check(offered.size() == 3 && offered[0].fileName == mine.fileName &&
+                  offered[0].id == 0 && offered[0].path == mine.path &&
+                  offered[0].picture == mine.picturePath && offered[1].id == 901 &&
+                  offered[2].id == 902 && offered[2].path == middle &&
+                  offered[2].picture == middle.substr(0, middle.size() - 6) + ".png",
+              "one made since comes first, off this console; one this console has the file of "
+              "comes off it too, found by the name it gave it, without RomM's time; the oldest "
+              "drops out of the three");
+        savemirror::forgetHeld(u, game);
+        offered = offeredStates(u, game, kTag, s.stateDir, &holds);
+        check(!holds && offered.size() == 1 && offered[0].fileName == mine.fileName,
+              "no snapshot held: only what is owed, and the caller asks RomM for the rest");
+        cache::owedPush(u, game, &p);
+        cache::clearPushOwed(u, game, p.stamp);
+    }
+    {   // States alone, on the snapshot held: the three newest named, no save.
+        GameSession s = session(++game);
+        const romm::Snapshot current =
+            withStates(snapshot(320, kChannel, hashOlder, romTime(-60)),
+                       {inBank(kTag, "1", 911, base + 2000, "kept a"),
+                        inBank(kTag, "2", 912, base + 1000, "kept b"),
+                        inBank(kTag, "3", 913, base + 500, "kept c"),
+                        inBank("mgba", "auto", 914, base + 9000, "another app's")});
+        savemirror::putHeld(u, game,
+                            savepick::heldAfter(savemirror::Held{}, kChannel, current, now - 60));
+        savemirror::Held before;
+        savemirror::getHeld(u, game, &before);
+        s.startChannelId = kChannel;
+        s.startSnapshotId = 320;
+        // This console's own copy of "kept b", and one of a state no longer offered.
+        const std::string keptB = s.stateDir + "/" + stateName(base + 1000);
+        cab::writeBytes(keptB, bytesOf("kept b", 128));
+        const std::string stale = s.stateDir + "/" + stateName(base - 5000);
+        cab::writeBytes(stale, bytesOf("long gone", 128));
+        cab::writeBytes(stale.substr(0, stale.size() - 6) + ".png", bytesOf("its picture", 32));
+        const StateMade mine = makeState(s, base + 3000, "made in play");
+        markState(s, u, mine);
+        Stand romm;
+        romm.channels = {channel(kChannel, kDefaultChannel, current)};
+        const romm::Snapshot landed =
+            withStates(snapshot(321, kChannel, hashOlder, romTime(1)),
+                       {inBank(kTag, "1", 915, base + 3000, "made in play"),
+                        inBank(kTag, "2", 911, base + 2000, "kept a"),
+                        inBank(kTag, "3", 912, base + 1000, "kept b"),
+                        inBank("mgba", "auto", 914, base + 9000, "another app's")});
+        romm.answers = {made(landed)};
+        const Sent sent = send(romm.server(), u, game, &why);
+        const romm::SnapshotPush sp = romm.pushes.empty() ? romm::SnapshotPush{} : romm.pushes[0];
+        check(sent == Sent::Landed && romm.pushes.size() == 1 && !sp.hasSave &&
+                  sp.channelId == kChannel && sp.expectedCurrentId == 320 &&
+                  sp.states.size() == 3 && sp.states[0].core == kTag &&
+                  sp.states[0].slot == "1" && sp.states[0].file.hash == stateHash("made in play") &&
+                  sp.states[0].file.bytes == bytesOf("made in play", 128) &&
+                  sp.states[0].file.pictureName == mine.pictureName &&
+                  !sp.states[0].file.picture.empty() && sp.states[1].slot == "2" &&
+                  sp.states[1].file.hash == stateHash("kept a") &&
+                  sp.states[1].file.bytes.empty() &&
+                  sp.states[2].slot == "3" && sp.states[2].file.hash == stateHash("kept b") &&
+                  sp.states[2].file.bytes.empty(),
+              "states alone: no save named, so the snapshot's is carried; the console's own "
+              "name only, the new one in slot 1 with its bytes and picture, the two newest "
+              "kept ones by hash and no bytes, the oldest dropped");
+        check(!cache::isPushOwed(u, game) && savemirror::getHeld(u, game, &held) &&
+                  held.snapshotId == 321 && held.states.size() == 4 &&
+                  held.madeAt == before.madeAt && held.saveHash == hashOlder,
+              "it landed: not owed, the snapshot held with its states, and its save dated as "
+              "before, since states alone did not change it");
+        auto there = [](const std::string& path) {
+            struct stat st;
+            return ::stat(path.c_str(), &st) == 0;
+        };
+        check(there(mine.path) && there(mine.picturePath) && there(keptB) && !there(stale) &&
+                  !there(stale.substr(0, stale.size() - 6) + ".png"),
+              "this console's copies: the ones in the snapshot stay, one no longer among the "
+              "three goes with its picture");
+        savemirror::Held reread;
+        check(savemirror::getHeld(u, game, &reread) && reread.states.size() == 4 &&
+                  reread.states[0].core == kTag && reread.states[0].slot == "1" &&
+                  reread.states[0].file.id == 915 &&
+                  reread.states[0].file.contentHash == stateHash("made in play") &&
+                  reread.states[0].file.fileName == rommName(base + 3000) &&
+                  reread.states[0].file.picturePath == "picture-915.png",
+              "the note of the snapshot held keeps each state's core, slot, id, name, hash "
+              "and picture");
+    }
+    {   // States alone and the channel moved on: never on top.
+        GameSession s = session(++game);
+        hold(game, kChannel, 330);
+        s.startChannelId = kChannel;
+        s.startSnapshotId = 330;
+        markState(s, u, makeState(s, base + 1000, "beside"));
+        Stand romm;
+        const romm::Snapshot theirs = snapshot(331, kChannel, "ffff", romTime(-86400));
+        romm.answers = {movedOn(snapshot(332, kChannel, hashOlder, romTime(0)), &theirs)};
+        check(send(romm.server(), u, game, &why) == Sent::Beside && romm.pushes.size() == 1 &&
+                  !cache::isPushOwed(u, game) && savemirror::getHeld(u, game, &held) &&
+                  held.snapshotId == 332 && held.beside,
+              "states alone, the channel moved on: left beside as RomM kept it, though newer "
+              "than the current; they carry no newer save");
+    }
+    {   // A save and states, moved on, made later: on top, the bank carried.
+        GameSession s = session(++game);
+        hold(game, kChannel, 340);
+        markState(s, u, makeState(s, base + 1000, "with a save"));
+        s.saveAtLaunch.clear();
+        s.saveChanged = true;
+        mark(s, u);
+        Stand romm;
+        const romm::Snapshot theirs = snapshot(341, kChannel, "ffff", romTime(-600));
+        romm.answers = {movedOn(snapshot(342, kChannel, hashOne, romTime(0)), &theirs),
+                        made(snapshot(343, kChannel, hashOne, romTime(1)))};
+        check(send(romm.server(), u, game, &why) == Sent::Landed && romm.pushes.size() == 2 &&
+                  romm.pushes[0].hasSave && romm.pushes[0].states.size() == 1 &&
+                  !romm.pushes[1].hasSave && romm.pushes[1].states.empty() &&
+                  romm.pushes[1].parentId == 342,
+              "a save and a state, the channel moved on, made later: the second push names "
+              "neither, so RomM carries both from the one it kept");
+    }
+    {   // States alone with nothing to build on.
+        GameSession s = session(++game);
+        markState(s, u, makeState(s, base, "waiting"));
+        Stand romm;
+        romm::Asset old;
+        old.id = 77;
+        old.emulator = kTag;
+        old.fileName = "Game (USA) (Cabinet).srm";
+        romm.rows = {old};
+        check(send(romm.server(), u, game, &why) == Sent::NotSent && romm.pushes.empty() &&
+                  cache::isPushOwed(u, game),
+              "states alone, nothing held, and RomM has the game's save from before channels: "
+              "they wait, owed, rather than make a snapshot with no save");
+        romm.rows.clear();
+        cache::Owed oldSave;
+        oldSave.romId = game;
+        oldSave.emulator = kTag;
+        oldSave.fileName = "Game (USA) (Cabinet).srm";
+        oldSave.localPath = s.saveDir + "/Game (USA) (Cabinet).srm";
+        cache::markPending(u, oldSave, 64);
+        check(send(romm.server(), u, game, &why) == Sent::NotSent && romm.pushes.empty(),
+              "and so while this console owes a save of it from before channels");
+        cache::clearPending(u, game, oldSave.fileName);
+        romm.answers = {made(snapshot(350, kChannel, "", romTime(1)))};
+        check(send(romm.server(), u, game, &why) == Sent::Landed && romm.pushes.size() == 1 &&
+                  !romm.pushes[0].hasSave && romm.pushes[0].label == kDefaultChannel &&
+                  romm.pushes[0].states.size() == 1,
+              "a game with no save anywhere: its states go in a snapshot with none");
+    }
+    {   // RomM lacks a kept state's bytes.
+        GameSession s = session(++game);
+        const romm::Snapshot current =
+            withStates(snapshot(360, kChannel, hashOlder, romTime(-60)),
+                       {inBank(kTag, "1", 921, base + 2000, "nowhere"),
+                        inBank(kTag, "2", 922, base + 1000, "mine on disk")});
+        savemirror::putHeld(u, game,
+                            savepick::heldAfter(savemirror::Held{}, kChannel, current, now));
+        cab::writeBytes(s.stateDir + "/" + stateName(base + 1000), bytesOf("mine on disk", 128));
+        markState(s, u, makeState(s, base + 3000, "new one"));
+        Stand romm;
+        romm.channels = {channel(kChannel, kDefaultChannel, current)};
+        romm::PushAnswer lacks = answerOf(romm::PushAnswer::Kind::BytesMissing, 400);
+        lacks.missing = {std::string("state:") + kTag + ":2", std::string("state:") + kTag + ":3"};
+        romm.answers = {lacks, made(snapshot(361, kChannel, hashOlder, romTime(1)))};
+        const Sent sent = send(romm.server(), u, game, &why);
+        const romm::SnapshotPush again =
+            romm.pushes.size() == 2 ? romm.pushes[1] : romm::SnapshotPush{};
+        check(sent == Sent::Landed && romm.pushes.size() == 2 && again.states.size() == 2 &&
+                  again.states[0].slot == "1" && !again.states[0].file.bytes.empty() &&
+                  again.states[1].slot == "2" &&
+                  again.states[1].file.bytes == bytesOf("mine on disk", 128),
+              "RomM lacks two kept states' bytes: the one it has no copy of leaves the bank, "
+              "the one after goes up from this console's copy, and the slots close up");
+    }
+    {   // Moved on to a current that changed only its states.
+        GameSession s = battery(++game, one);
+        hold(game, kChannel, 380);
+        mark(s, u);
+        Stand romm;
+        // Their current was pushed after this console's save was made, but
+        // its save first reached RomM an hour before.
+        const romm::Snapshot theirs = snapshot(381, kChannel, "ffff", romTime(600));
+        romm::Asset row;
+        row.id = theirs.save.id;
+        row.createdAt = romTime(-3600);
+        romm.rows = {row};
+        romm.answers = {movedOn(snapshot(382, kChannel, hashOne, romTime(601)), &theirs),
+                        made(snapshot(383, kChannel, hashOne, romTime(602)))};
+        check(send(romm.server(), u, game, &why) == Sent::Landed && romm.pushes.size() == 2 &&
+                  romm.pushes[1].parentId == 382,
+              "the channel moved on to a snapshot that changed only its states: its save is "
+              "dated by its own row, older than this console's, so this one goes on top");
+    }
+    {   // A state's marker from before save channels.
+        GameSession s = session(++game);
+        hold(game, kChannel, 370);
+        const StateMade oldOne = makeState(s, base + 1000, "from before");
+        cache::Owed o;
+        o.romId = game;
+        o.isState = true;
+        o.emulator = kTag;
+        o.fileName = oldOne.fileName;
+        o.localPath = oldOne.path;
+        o.shotName = oldOne.pictureName;
+        o.shotPath = oldOne.picturePath;
+        cache::markPending(u, o, 128);
+        check(adoptOldStates(u) == 1 && cache::owed(u).empty() && cache::owedPush(u, game, &p) &&
+                  !p.hasSave && p.states.size() == 1 && p.states[0].fileName == oldOne.fileName &&
+                  p.states[0].picturePath == oldOne.picturePath &&
+                  p.states[0].madeMs == base + 1000 && p.channelId == kChannel &&
+                  p.expectedCurrentId == 370,
+              "a state's marker from before save channels becomes a state of its game's push, "
+              "on the snapshot held, and the old marker goes");
+        cab::removeFile(oldOne.path);
+        Stand romm;
+        check(send(romm.server(), u, game, &why) == Sent::NothingOwed && romm.pushes.empty() &&
+                  !cache::isPushOwed(u, game),
+              "its file deleted by hand: nothing left to send, nothing owed");
     }
 
     storage::removeEntry(root);

@@ -2,8 +2,8 @@
 // under load (#398, batch i). One client, as the app's own is, called by
 // eight readers at once, each making every kind of request the app's workers
 // make (a page of games, a game, a cover, a download to a file, a range
-// read, a save upload, a state deletion, a favourite with its own POST, a
-// game's save channels and a snapshot pushed with a state, #346) and
+// read, a game's states, a favourite with its own POST, a game's save
+// channels and a snapshot pushed with a state, #346) and
 // reading the address and the token back, while this thread, standing in for
 // the frame thread, writes the client the three ways the app does: the
 // address (setAddress, under two names and with a dead port between, as a
@@ -14,7 +14,7 @@
 // restructure's suite's stand-in, now tools/racemock.py) answers these requests from
 // memory: the heartbeat, with a save channels block; any /api/roms page with
 // one game, id 1, `race.sfc` on platform 1, and that game by id; its cover;
-// its content, whole or by a range; a save upload; a state deletion;
+// its content, whole or by a range; the game's states, none;
 // /api/collections, empty and with a favourites collection (id 7, user 1)
 // in turn, the POST that makes one and its roms; /api/users/me (id 1); a
 // pairing's token; /api/channels for file 1, one channel; and a snapshot
@@ -177,9 +177,11 @@ int raceTest(const std::string& address, int seconds) {
                 case 4:   // empty on any failure, and silent
                     note(client.fetchHead(game, 64).size() == 64 ? 0 : 1, "");
                     break;
-                case 5:
-                    result(client.deleteStates({1}, &e), e, "a state deletion");
+                case 5: {
+                    std::vector<Asset> states;
+                    result(client.fetchStates(game.id, &states, &e), e, "a game's states");
                     break;
+                }
                 case 6: {
                     std::vector<Channel> channels;
                     const bool got = client.fetchChannels({1}, &channels, &e);

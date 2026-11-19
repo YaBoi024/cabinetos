@@ -16,7 +16,7 @@ namespace {
 // the last few; this is far past them.
 constexpr size_t kHashesKept = 256;
 
-int64_t madeAt(const romm::Channel& c) { return isoMicros(c.current.createdAt); }
+int64_t madeAt(const romm::Channel& c) { return isoMicros(savedAt(c.current)); }
 
 // A channel whose current holds a save with something in it. An empty
 // channel, or a snapshot of states alone, is no save to start from.
@@ -117,8 +117,9 @@ savemirror::Held heldAfter(const savemirror::Held& before, const std::string& ch
     h.digest = taken.digest;
     h.saveHash = taken.hasSave ? taken.save.contentHash : std::string();
     h.at = now;
-    h.madeAt = isoMicros(taken.createdAt) / 1000000;
+    h.madeAt = isoMicros(savedAt(taken)) / 1000000;
     h.beside = false;
+    h.states = taken.states;
     had(h.saveHash);
     if (h.hashesHad.size() > kHashesKept)
         h.hashesHad.erase(h.hashesHad.begin(),
@@ -129,11 +130,21 @@ savemirror::Held heldAfter(const savemirror::Held& before, const std::string& ch
 
 std::string pickedAt(const Pick& pick, const std::string& oldRowAt) {
     switch (pick.from) {
-        case Pick::From::Channel: return pick.channel.current.createdAt;
+        case Pick::From::Channel: return savedAt(pick.channel.current);
         case Pick::From::OldRows: return oldRowAt;
         case Pick::From::Own: break;
     }
     return std::string();
+}
+
+std::string savedAt(const romm::Snapshot& s) { return s.saveAt.empty() ? s.createdAt : s.saveAt; }
+
+void dateSaves(std::vector<romm::Channel>* channels, const std::vector<romm::Asset>& rows) {
+    for (romm::Channel& c : *channels) {
+        if (c.currentId == 0 || !c.current.hasSave) continue;
+        for (const romm::Asset& r : rows)
+            if (r.id == c.current.save.id && !r.createdAt.empty()) c.current.saveAt = r.createdAt;
+    }
 }
 
 // Judged by the extension this console and the reference implementation both
@@ -408,6 +419,38 @@ int test() {
               "another emulator's save newest: the newest this console can use");
         f.channels[0].current.createdAt = t1;
         check(!pick(f).couldNotUseNewest, "another emulator's save, older: nothing to say");
+    }
+
+    {   // 10. A current that changed only its states carries an older save
+        //     (#346, step 6): its save is dated by its own row, not by when
+        //     the snapshot was pushed.
+        Facts f;
+        f.tag = kTag;
+        f.haveHeld = true;
+        f.held = holding("bbbb", {"aaaa"});
+        f.held.beside = true;
+        f.held.madeAt = isoMicros(t2) / 1000000;
+        f.channels = {channelWith("default", 12, t3, kTag, "aaaa", console, {console})};
+        romm::Asset row;
+        row.id = f.channels[0].current.save.id;
+        row.createdAt = t1;
+        romm::Asset other = row;
+        other.id = 999;
+        other.createdAt = t3;
+        dateSaves(&f.channels, {other, row});
+        check(f.channels[0].current.saveAt == t1 && pick(f).from == From::Own,
+              "a current pushed after this console's own save kept beside it, its save first "
+              "stored before: dated by the save's own row, and its own stands");
+        f.held.beside = false;
+        check(pick(f).from == From::Channel && pickedAt(pick(f), f.oldRowAt) == t1,
+              "and the game's page says when the save was stored, not when its states were");
+        f.oldRowAt = t2;
+        check(pick(f).from == From::OldRows,
+              "a save from before channels newer than the channel's save, though older than "
+              "its snapshot: the old one");
+        f.oldRowAt.clear();
+        dateSaves(&f.channels, {});
+        check(f.channels[0].current.saveAt == t1, "a row not listed leaves the date as it was");
     }
 
     std::printf("\nthe pill\n");

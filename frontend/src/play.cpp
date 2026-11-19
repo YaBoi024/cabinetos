@@ -436,7 +436,7 @@ bool App::readGameInput(cab::Core& core) {
                         } else if (save) {
                             std::fprintf(stderr, "[shortcuts] player %d: save state\n",
                                          p + 1);
-                            saveStateNow(session, uploader, menuNotice);
+                            saveStateNow(session, menuNotice);
                         } else if (load) {
                             std::fprintf(stderr, "[shortcuts] player %d: load newest\n",
                                          p + 1);

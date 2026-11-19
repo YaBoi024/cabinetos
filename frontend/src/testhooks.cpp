@@ -427,7 +427,7 @@ void App::stateHooks() {
         if (++sinceStart == 150) {
             std::fprintf(stderr, "[sync-test] --- saving ---\n");
             const uint64_t t0 = SDL_GetTicksNS();
-            saveStateNow(session, uploader, menuNotice);
+            saveStateNow(session, menuNotice);
             // Forced: at a title screen with no input the battery has not
             // changed, and "nothing to send" is the correct behaviour but
             // proves nothing about whether sending works. Gathered now, it

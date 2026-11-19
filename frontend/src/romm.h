@@ -233,21 +233,7 @@ public:
     // hold: a state is hundreds of kilobytes, a memory card is 128.
     std::vector<uint8_t> fetchAsset(const char* kind, int assetId) const;
 
-    // Posts multipart. `emulator` is the tag that decides whether a state is
-    // offered later, so it must identify the BUILD and not just the core. A
-    // state may carry its picture, as Cabinet's did (#99): a second part,
-    // `screenshotFile`, image/png, named like the state. Empty for none. A
-    // save goes up inside a snapshot (pushSnapshot, below).
-    bool uploadState(int romId, const std::string& emulator, const std::string& fileName,
-                     const std::vector<uint8_t>& data, std::string* err,
-                     const std::string& shotName = "",
-                     const std::vector<uint8_t>& shot = {}) const;
-
-    // Removes states, and each one's picture with it (RomM 5.1,
-    // `POST /api/states/delete`). Only the signed-in user's. RomM deletes in
-    // order and stops at the first id that is not theirs (404), so the ones
-    // before it are gone.
-    bool deleteStates(const std::vector<int>& ids, std::string* err) const;
+    // A state and a save go up inside a snapshot (pushSnapshot, below).
 
     // SAVE CHANNELS AND SNAPSHOTS (RomM 5.5, #346; the words are in
     // romm_types.h). Both in romm_snapshots.cpp, as the person the token is

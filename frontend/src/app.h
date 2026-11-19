@@ -2393,7 +2393,6 @@ struct App {
     void playFromState(const screens::Result& res);
     void loadPendingStates();
     void drawStateHold(float sc);
-    void sayStateUploaded();
     // favorites.cpp
     void toggleFavorite(const screens::Result& res);
     // ps2window.cpp

@@ -98,8 +98,8 @@ bool continuingElsewhere(const Pick& pick, bool sameAsOwn);
 
 // The note of the snapshot this console holds, after it took `taken` in
 // `channelId` from RomM, at a start or as RomM's answer to a push: `before`
-// (pass an empty one for none) with the snapshot and its save's hash added to
-// the hashes this console has had. Its save is dated by RomM's time for the
+// (pass an empty one for none) with the snapshot and its states, and its
+// save's hash added to the hashes this console has had. Its save is dated by RomM's time for the
 // snapshot, and it is no longer beside a current; a push says otherwise
 // itself (savepush.cpp).
 savemirror::Held heldAfter(const savemirror::Held& before, const std::string& channelId,
@@ -108,6 +108,16 @@ savemirror::Held heldAfter(const savemirror::Held& before, const std::string& ch
 // When a save a start would continue from was stored, as RomM wrote it; empty
 // for a start from the console's own. `oldRowAt` is Facts'.
 std::string pickedAt(const Pick& pick, const std::string& oldRowAt);
+
+// WHEN A SNAPSHOT'S SAVE WAS MADE, as RomM can say it: when the save first
+// reached RomM (romm::Snapshot::saveAt), else when the snapshot did. A
+// snapshot that changed only its states (#346, step 6) carries the save of
+// the one before it, so its own time is not its save's; every "made later"
+// of the rule goes by this.
+std::string savedAt(const romm::Snapshot& s);
+// Each channel's current dated by its save's own row in `rows`, the game's
+// saves as RomM listed them (the row whose id is the save's).
+void dateSaves(std::vector<romm::Channel>* channels, const std::vector<romm::Asset>& rows);
 
 // --- RomM's saves from before channels ---------------------------------------
 //

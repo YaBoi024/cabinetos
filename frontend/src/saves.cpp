@@ -158,11 +158,10 @@ void listSaves(romm::Client& client, const storage::User& user, int romId, int c
         return;
     }
     facts.tag = tag;
+    savepick::dateSaves(&facts.channels, out->rows);
     if (const romm::Asset* newest = savepick::newestOldRow(out->rows, tag))
         facts.oldRowAt = newest->updatedAt;
-    facts.owed = cache::isPushOwed(user, romId);
-    for (const cache::Owed& o : cache::owed(user))
-        if (o.romId == romId && !o.isState && !o.isScreenshot) facts.owed = true;
+    facts.owed = cache::saveOwed(user, romId);
     facts.haveHeld = savemirror::getHeld(user, romId, &facts.held);
     out->oldRowAt = facts.oldRowAt;
     out->pick = savepick::pick(facts);

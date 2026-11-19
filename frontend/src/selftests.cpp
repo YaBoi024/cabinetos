@@ -751,7 +751,7 @@ bool samePush(const cache::OwedPush& a, const cache::OwedPush& b) {
         return false;
     for (size_t i = 0; i < a.states.size(); ++i) {
         const cache::OwedPush::State &x = a.states[i], &y = b.states[i];
-        if (x.core != y.core || x.slot != y.slot || x.fileName != y.fileName ||
+        if (x.core != y.core || x.madeMs != y.madeMs || x.fileName != y.fileName ||
             x.path != y.path || x.pictureName != y.pictureName || x.picturePath != y.picturePath)
             return false;
     }
@@ -961,10 +961,11 @@ int saveNotesTest() {
     push.saveName = "Game (Cabinet).srm";
     push.savePath = std::string(root) + "/saves/Game (Cabinet).srm";
     push.saveShape = "SINGLE";
-    push.states.push_back({"gambatte", "1", "Game (Cabinet).state1", root + std::string("/1.state"),
-                           "Game (Cabinet).state1.png", root + std::string("/1.png")});
-    push.states.push_back({"gambatte", "2", "Game (Cabinet).state2", root + std::string("/2.state"),
-                           "", ""});
+    push.states.push_back({"gambatte", "Game (Cabinet).state1", root + std::string("/1.state"),
+                           "Game (Cabinet).state1.png", root + std::string("/1.png"),
+                           1763560512345});
+    push.states.push_back({"gambatte", "Game (Cabinet).state2", root + std::string("/2.state"),
+                           "", "", 1763560400000});
     const std::string first = cache::markPushOwed(u, push, 4096);
     cache::OwedPush back;
     check(!first.empty() && cache::owedPush(u, game, &back) && back.stamp == first &&

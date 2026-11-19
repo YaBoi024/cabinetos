@@ -14,9 +14,11 @@
 #include "app.h"
 #include "imagecodec.h"
 #include "proc.h"
+#include "savepush.h"
 #include "screenparts.h"
 #include "statefile.h"
 #include "storage.h"
+#include "timewords.h"
 
 // A SAVE STATE GOES IN ON ITS OWN DISC (#162 item 9). The disc is in the
 // state's name ("(Disc 2)"), so a state from any device carries it; it is
@@ -63,7 +65,7 @@ std::string stateRefusedText() {
                             : std::string("Couldn't load that state");
 }
 
-void saveStateNow(GameSession& sess, Uploader& up, MenuNotice& notice) {
+void saveStateNow(GameSession& sess, MenuNotice& notice) {
     cab::Core& core = cab::Core::shared();
     if (sess.discInserting) {
         notice.say("Not while the disc is changing", Tone::Info);
@@ -107,7 +109,7 @@ void saveStateNow(GameSession& sess, Uploader& up, MenuNotice& notice) {
     const size_t n = std::strftime(stamp, sizeof stamp, "%Y-%m-%d %H-%M-%S", &utc);
     std::snprintf(stamp + n, sizeof stamp - n, "-%03ld", ts.tv_nsec / 1000000L);
     // RomM's own rewrite of the name, so the state on the drive and on RomM
-    // have one name, and rotation finds what it sent (#484, ROMM-02).
+    // have one name (#484, ROMM-02).
     std::string base =
         rommKeptStem(sess.fsStem.empty() ? sanitisedStem(sess.title) : sess.fsStem);
     // AND ITS DISC, on a game with several (#162): "Panzer Dragoon (Disc 2)
@@ -119,7 +121,7 @@ void saveStateNow(GameSession& sess, Uploader& up, MenuNotice& notice) {
     storage::makeDirs(sess.stateDir);
     const std::string path = sess.stateDir + "/" + name;
     if (!cab::writeBytes(path, st)) {
-        std::fprintf(stderr, "[state] could not write locally, not uploading\n");
+        std::fprintf(stderr, "[state] could not write locally\n");
         notice.say("Couldn't save the state", Tone::Problem);
         return;
     }
@@ -146,24 +148,24 @@ void saveStateNow(GameSession& sess, Uploader& up, MenuNotice& notice) {
     }
 
     if (sess.stateTag.empty()) {
-        std::fprintf(stderr, "[state] no settled tag for this core — not uploaded\n");
+        std::fprintf(stderr, "[state] no settled tag for this core: it stays on this console\n");
         // SAVED, and honest about the half that did not happen. A state this
         // console cannot tag is one no other device will be offered, which is
         // worth knowing before somebody relies on it being there.
         notice.say("Saved on this console only", Tone::Info);
         return;
     }
-    // NOT "saved" YET. The bytes are on the disk, which is the guarantee that
-    // matters, but the sentence a person reads should not claim the server has
-    // it before the server has it. The frame loop finishes this sentence when
-    // the uploader reports back — see Uploader::stateOutcome.
-    notice.say("Saving\xE2\x80\xA6", Tone::Busy);
-    Uploader::Job job{sess.romId, sess.stateTag, name, std::move(st), true};
-    job.localPath = path;
-    job.shotName = shotName;
-    job.shot = std::move(png);
-    job.shotPath = shotPath;
-    up.push(std::move(job));
+    // OWED AT ONCE, in the game's push (savepush.h, markState), so a power
+    // cut cannot strand it: it goes up inside the snapshot when the game is
+    // left, and Load latest state finds it here until then. "State saved"
+    // and nothing about RomM (decision 8 of 2026-11-15): reaching RomM is
+    // taken for granted, and offline it waits on the console like a save.
+    if (!savepush::markState(sess, storage::currentUser(),
+                             {name, path, shotPath.empty() ? std::string() : shotName, shotPath,
+                              static_cast<int64_t>(ts.tv_sec) * 1000 + ts.tv_nsec / 1000000}))
+        std::fprintf(stderr, "[state] could not mark %s owed; it stays on this console\n",
+                     name.c_str());
+    notice.say("State saved", Tone::Done);
 }
 
 // A SCREENSHOT (#79): the shortcut button and Y. The game's own frame, as a
@@ -188,8 +190,8 @@ void screenshotNow(GameSession& sess, Uploader& up, MenuNotice& notice) {
     char stamp[48];
     const size_t n = std::strftime(stamp, sizeof stamp, "%Y-%m-%d %H-%M-%S", &utc);
     std::snprintf(stamp + n, sizeof stamp - n, "-%03ld", ts.tv_nsec / 1000000L);
-    // RomM's own rewrite of the name, so the state on the drive and on RomM
-    // have one name, and rotation finds what it sent (#484, ROMM-02).
+    // RomM's own rewrite of the name, so the screenshot on the drive and on
+    // RomM have one name (#484, ROMM-02).
     std::string base =
         rommKeptStem(sess.fsStem.empty() ? sanitisedStem(sess.title) : sess.fsStem);
     const std::string name = base + " [" + stamp + "].png";
@@ -254,73 +256,87 @@ void beginLoadLatestState(StateLoad& load, GameSession& sess,
     load.serverFailed = false;
     const int romId = sess.romId;
     const std::string tag = sess.stateTag;
-    load.worker = std::thread([&load, &client, romId, tag, wantId]() {
-        std::vector<romm::Asset> states;
-        std::string err;
-        if (!client.fetchStates(romId, &states, &err)) {
-            // The server could not be reached or would not answer, which is
-            // Cabinet's offline case by another name. The newest state on this
-            // machine is what is left, and it is better than a refusal.
-            load.note = err;
-            load.serverFailed = true;
-            load.tryLocal = true;
-            load.ready = true;
-            load.running = false;
-            return;
-        }
-        const romm::Asset* best = nullptr;
-        int skipped = 0;
-        for (const auto& a : states) {
-            // A state from another emulator is SKIPPED, never attempted.
-            // Loading one does not fail cleanly: it boots something that looks
-            // like the game and is not.
-            if (a.emulator != tag) { ++skipped; continue; }
-            if (wantId) {
-                if (a.id == wantId) best = &a;
-                continue;
-            }
-            if (!best || a.updatedAt > best->updatedAt) best = &a;
-        }
-        if (!best) {
-            load.note = "none for " + tag + " (" + std::to_string(skipped) +
-                        " for other emulators)";
-            load.tryLocal = true;
-        } else {
-            load.data = client.fetchAsset("states", best->id);
-            load.note = best->fileName;
-        }
+    const std::string stateDir = sess.stateDir;
+    const storage::User who = storage::currentUser();
+    load.worker = std::thread([&load, &client, romId, tag, wantId, stateDir, who]() {
         // READY BEFORE NOT RUNNING (#484, PLAY-16): loadPendingStates ends a
         // launch-screen wait when both read false, so in the other order a
         // frame between the two stores ran the game one frame before the
         // state was applied.
-        load.ready = true;
-        load.running = false;
+        auto done = [&load] {
+            load.ready = true;
+            load.running = false;
+        };
+        // RomM's bytes of a state, by its id. None (RomM away, or the state
+        // gone): this machine's own newest is what is left, and it is better
+        // than a refusal.
+        auto fromRomm = [&](int id, const std::string& name) {
+            load.data = client.fetchAsset("states", id);
+            load.note = name;
+            if (load.data.empty()) {
+                load.note = name + " did not come down from RomM";
+                load.serverFailed = true;
+                load.tryLocal = true;
+            }
+        };
+        // A STATE PICKED ON THE LAUNCH SCREEN, by its id on RomM.
+        if (wantId) {
+            fromRomm(wantId, "state " + std::to_string(wantId));
+            done();
+            return;
+        }
+        // THE NEWEST THE GAME OFFERS (savepush::offeredStates): one made here
+        // and still owed in its push, or one in the snapshot the console
+        // holds, off this console when it has the file. With no snapshot
+        // held, RomM's states from before channels are asked for as before,
+        // and only this core's: a state from another emulator does not fail
+        // cleanly, it boots something that looks like the game and is not.
+        bool holds = false;
+        const std::vector<savepush::OfferedState> offered =
+            savepush::offeredStates(who, romId, tag, stateDir, &holds);
+        const savepush::OfferedState* top = offered.empty() ? nullptr : &offered.front();
+        const romm::Asset* row = nullptr;
+        std::vector<romm::Asset> states;
+        if (!holds) {
+            std::string err;
+            if (client.fetchStates(romId, &states, &err)) {
+                for (const romm::Asset& a : states)
+                    if (a.emulator == tag && (!row || a.updatedAt > row->updatedAt)) row = &a;
+            } else if (!top) {
+                // RomM could not be asked, which is Cabinet's offline case by
+                // another name.
+                load.note = err;
+                load.serverFailed = true;
+                load.tryLocal = true;
+                done();
+                return;
+            }
+        }
+        if (row && (!top || isoMicros(row->updatedAt) / 1000 > top->madeMs)) {
+            fromRomm(row->id, row->fileName);
+        } else if (top && !top->path.empty()) {
+            load.data = cab::readBytes(top->path);
+            load.note = top->path;
+            if (load.data.empty()) load.tryLocal = true;
+        } else if (top) {
+            fromRomm(top->id, top->fileName);
+        } else {
+            load.note = "none for " + tag;
+            load.tryLocal = true;
+        }
+        done();
     });
 }
 
 // The newest .state file this console wrote for this game, or empty.
 //
-// THE FALLBACK, NOT THE FIRST CHOICE — settled against the reference 2026-09-21.
-//
-// MMagTech: *"i just did save on a couple of games and it looked like nothing
-// happened even tried loading after saving."* Two faults with one symptom.
-// Nothing LOOKED like it happened because neither button said anything — see
-// MenuNotice. And loading after saving genuinely did nothing, because the
-// upload queued moments earlier had not landed and the server was asked.
-//
-// The first fix here was to read this file FIRST. That was wrong, and reading
-// Cabinet settled it — `TVPlayerView.loadLatestState`, whose own comment is
-// *"offline falls back to the newest local state, online the server stays the
-// source of truth"*. It is right, and the reason is that states live on RomM so
-// that "latest" can mean latest across every device a person owns. A console
-// that preferred its own copy would quietly stop being one of those devices.
-//
-// Cabinet got away with it because its Save AWAITED the upload and only then
-// said "Saved to RomM.", so by the time you could press Load the server had it.
-// This console queues on a worker instead — right for a machine that must not
-// stall its frame loop — so the race was real here and not there. It is closed
-// where it belongs, in Save's own reporting, rather than by changing what
-// "latest" means.
+// THE FALLBACK, NOT THE FIRST CHOICE (settled 2026-09-21, from Cabinet's
+// `TVPlayerView.loadLatestState`: "offline falls back to the newest local
+// state, online the server stays the source of truth"). States live on RomM
+// so that "latest" means latest across every device a person owns, and the
+// game offers what the snapshot the console holds says (savepush.h), with
+// what this console made since. This file is read only when that cannot be
+// had.
 static std::string newestLocalState(const GameSession& sess) {
     DIR* d = ::opendir(sess.stateDir.c_str());
     if (!d) return {};
@@ -413,8 +429,8 @@ void App::playFromState(const screens::Result& res) {
 }
 
 // ---- The states in play (#398) --------------------------------------------
-// A standalone emulator's screenshot, the states picked before a game, the
-// hold after a load and the upload's answer. Members of the App (app.h),
+// A standalone emulator's screenshot, the states picked before a game and
+// the hold after a load. Members of the App (app.h),
 // moved out of main.cpp in batch (f).
 
 // A SCREENSHOT OF A GAME THIS WINDOW DID NOT DRAW: gamescope's own, of the
@@ -540,15 +556,4 @@ void App::drawStateHold(float sc) {
         drawPressPrompt(renderer, text, sc, "Press", "to continue",
                         ui::kCanvasHeight * 0.82f, 1.0f);
     }
-}
-
-// What became of the last state saved, said once the uploader knows.
-void App::sayStateUploaded() {
-    // The uploader's outcome (uploader.cpp): 1 on RomM, 2 RomM away and the
-    // state waiting for it, 3 RomM there and refusing it (#477), still here.
-    if (const int outcome = uploader.stateOutcome.exchange(0); outcome != 0)
-        menuNotice.say(outcome == 1   ? "Saved to RomM"
-                       : outcome == 2 ? "Saved. Will upload when RomM is back"
-                                      : "Saved on this console. RomM refused it",
-                       outcome == 1 ? Tone::Done : outcome == 2 ? Tone::Info : Tone::Problem);
 }

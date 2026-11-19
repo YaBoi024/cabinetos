@@ -38,6 +38,40 @@ int64_t isoMicros(const std::string& iso) {
     return micros;
 }
 
+std::string isoOfMs(int64_t ms) {
+    const time_t t = static_cast<time_t>(ms / 1000);
+    struct tm g;
+    gmtime_r(&t, &g);
+    char buf[48];
+    const size_t n = std::strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%S", &g);
+    std::snprintf(buf + n, sizeof buf - n, ".%03lld000+00:00",
+                  static_cast<long long>(ms % 1000));
+    return buf;
+}
+
+int64_t stateNameMs(const std::string& fileName) {
+    // The console's own, the first: RomM adds one of its own after it, with
+    // an underscore between the day and the time, which this does not read.
+    int Y = 0, M = 0, D = 0, h = 0, m = 0, s = 0, ms = 0;
+    size_t open = fileName.find('[');
+    for (; open != std::string::npos; open = fileName.find('[', open + 1)) {
+        int read = 0;
+        if (std::sscanf(fileName.c_str() + open, "[%4d-%2d-%2d %2d-%2d-%2d-%3d]%n", &Y, &M, &D,
+                        &h, &m, &s, &ms, &read) == 7 &&
+            read > 0 && fileName[open + 11] == ' ')
+            break;
+    }
+    if (open == std::string::npos) return 0;
+    struct tm utc = {};
+    utc.tm_year = Y - 1900;
+    utc.tm_mon = M - 1;
+    utc.tm_mday = D;
+    utc.tm_hour = h;
+    utc.tm_min = m;
+    utc.tm_sec = s;
+    return static_cast<int64_t>(timegm(&utc)) * 1000 + ms;
+}
+
 // A GAME'S YEAR, MAKER AND PLAYERS, kept for the page offline (#88), beside
 // the game's record: `games/<romId>.facts.json`.
 void rememberFacts(int romId, const romm::Client::Facts& f) {

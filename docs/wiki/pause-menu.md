@@ -26,7 +26,7 @@ Remote Play stream starts or ends.
 | Item | What it does |
 |---|---|
 | **Resume** | Back to the game. |
-| **Save state** | Saves this exact moment, with a picture, to the console and to RomM. |
+| **Save state** | Saves this exact moment, with a picture, on the console. It goes to RomM when you leave the game. |
 | **Load latest state** | Goes back to your newest save state for this game. The game waits on *Press (A) to continue*. |
 | **Screenshot** | Saves a picture of the game (without the menu) to your RomM gallery. |
 | **Change disc** | Lists the game's discs, the one in the drive marked. **Insert** puts that disc in and the game carries on; **Insert and restart** starts the game again on that disc. Play then carries on from the last disc you used. See [Games on several discs](discs.md). |

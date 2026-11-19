@@ -100,6 +100,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.answer([CHANNEL])
             else:
                 self.unknown()
+        elif path == '/api/states':
+            self.answer([])
         elif path == '/api/roms':
             self.answer({'items': [GAME], 'total': 1})
         elif path == '/api/roms/1':
@@ -129,9 +131,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed():
             return
         path = self.path.split('?')[0]
-        if path == '/api/states/delete':
-            self.answer({})
-        elif path == '/api/collections':
+        if path == '/api/collections':
             self.answer({'id': 7})
         elif path == '/api/collections/7/roms':
             self.answer({})

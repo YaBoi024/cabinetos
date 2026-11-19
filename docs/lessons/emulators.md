@@ -541,6 +541,16 @@ code.
   as CP437, and the console's hash does the same (`romm_snapshots.cpp`). A
   library's "convert to X" option is checked with input that is not X.
 
+- **A SNAPSHOT'S TIME IS NOT ITS SAVE'S.** Once a state could go up by
+  itself, the game's page said "Saved today, 8:13 AM" for a save made at
+  8:01: it dated the save by the snapshot that carried it, and a snapshot
+  that changes only its states carries the save before it. The same date
+  decided which of two devices' saves was made later. Found on a capture
+  of the game's page after a states-only push, not by the tests, which had
+  given every snapshot a new save. **Date a thing by its own record:** a
+  save by its row's `created_at`, a state by the time in its own name
+  (`savepick::dateSaves`, `stateNameMs`), never by the box it travels in.
+
 - **A GAME CAN BIND ITS SAVE TO THE PROFILE ID.** Forza Horizon 2 called its
   save "tampered" under any other ID. One ID on every console, for good, as
   the Xbox EEPROM is.

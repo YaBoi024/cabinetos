@@ -236,6 +236,10 @@ struct Asset {
     // rather than failing in front of someone (docs/history/CABINET.md).
     std::string emulator;
     std::string updatedAt;
+    // When RomM first stored these bytes (`created_at`). For a save in a
+    // snapshot, when that save first reached RomM, however many snapshots
+    // carried it since; its `updated_at` moves with each of them.
+    std::string createdAt;
     // A state's picture on RomM (its `screenshot.download_path`), for the
     // launch screen. Empty for a save, or a state sent without one.
     std::string picturePath;
@@ -362,6 +366,11 @@ struct Snapshot {
     std::string channelId;   // empty for an archival one
     bool hardcore = false;
     std::string createdAt;   // ISO 8601, UTC
+    // WHEN ITS SAVE FIRST REACHED RomM: the `created_at` of the save's own row
+    // among the game's saves (savepick::dateSaves fills it; empty until then).
+    // `createdAt` is when the snapshot was pushed, which for one that changed
+    // only its states is later than its save (#346, step 6).
+    std::string saveAt;
     // The device that pushed it. RomM names it only when it is this
     // person's own (`is_own`); another person's device is never named.
     bool deviceOwn = false;

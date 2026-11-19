@@ -194,6 +194,7 @@ void backfillDrive(const std::string& address) {
                 if (const auto ch = channelsOf.find(romId); ch != channelsOf.end()) {
                     savemirror::putChannels(who, romId, ch->second);
                     facts.channels = ch->second;
+                    savepick::dateSaves(&facts.channels, list);
                 }
                 if (const romm::Asset* newest = savepick::newestOldRow(list, facts.tag))
                     facts.oldRowAt = newest->updatedAt;

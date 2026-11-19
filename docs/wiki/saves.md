@@ -31,14 +31,17 @@ from RomM. When you leave the game, it sends the save back if it changed.
 ![Continue from, on a game page](../media/game.webp)
 
 - **Save state** in the [pause menu](pause-menu.md) saves the moment, with a
-  picture of the game, to the console and to RomM.
+  picture of the game, on the console, and says *State saved*. It goes up to
+  RomM with the game's save when you leave the game, so your other consoles
+  have it the next time they start the game.
 - **Load latest state** goes back to your newest one. The game waits on *Press
   (A) to continue* so you are ready.
 - A game's page shows your three newest states under **Continue from**, each
   with its picture and time. Press one to play from there.
 - **Resume**, the first game on Home, starts from the newest state too.
-- The console keeps **three states per game per person**. Saving a fourth
-  deletes the oldest, on the console and on RomM.
+- The console offers **your three newest states per game**. Saving a fourth
+  sets the oldest aside: RomM keeps it in the game's save history, and the
+  console deletes no state on RomM.
 - There is no autosave: leaving a game keeps its save, not a state.
 - A 3DS state may not load after an update changes the emulator; the console
   says *Couldn't load that state*.

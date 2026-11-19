@@ -1,7 +1,8 @@
-// What this console still owes RomM: a marker on the disk for each save,
-// state and screenshot not yet uploaded, and one per game for a snapshot not
-// yet pushed, so it survives a crash or a power cut. cache.h includes this;
-// moved out of it in the restructure (#398).
+// What this console still owes RomM: a marker on the disk for each screenshot
+// not yet uploaded (and each save and state a console left from before save
+// channels), and one per game for a snapshot not yet pushed, so it survives a
+// crash or a power cut. cache.h includes this; moved out of it in the
+// restructure (#398).
 
 #pragma once
 
@@ -60,8 +61,11 @@ void clearPending(const storage::User& u, int romId, const std::string& fileName
 // into the channel the session started from (the words are RomM's, in
 // romm_types.h). The same rule as the markers above: written before the push
 // is tried, removed when RomM has it, so a crash or a power cut leaves it
-// owed. A newer one replaces it whole, so what goes is always the newest.
-// Kept beside the markers above, one per file, which a screenshot keeps.
+// owed. A newer one replaces it, carrying the states the older one held, so
+// what goes is always the newest. Kept beside the markers above, one per
+// file, which a screenshot keeps; a save's or a state's from before save
+// channels is read, and a state's becomes a state of its game's push
+// (savepush::adoptOldStates).
 //
 // In `pending/` as `<romId>.push`: the byte count on the first line, where
 // pendingBytes() reads it, then "key value" lines as above. A state's lines
@@ -97,15 +101,17 @@ struct OwedPush {
     std::string saveName;
     std::string savePath;
     std::string saveShape;
-    // The states it carries, each in the bank's slot RomM files it under,
-    // with its picture.
+    // The states made on this console that it carries (#346, step 6), newest
+    // first: each under the core's name the bank files it under, the name it
+    // travels under, its file, its picture, and when it was made. The push
+    // gives each its slot (savepush.h).
     struct State {
         std::string core;
-        std::string slot;
         std::string fileName;
         std::string path;
         std::string pictureName;
         std::string picturePath;
+        int64_t madeMs = 0;   // milliseconds since 1970
     };
     std::vector<State> states;
 };
@@ -126,6 +132,10 @@ std::vector<OwedPush> owedPushes(const storage::User& u);
 // same holds for a save's own marker from before save channels (owed).
 bool owedPush(const storage::User& u, int romId, OwedPush* push);
 bool isPushOwed(const storage::User& u, int romId);
+// THIS CONSOLE OWES RomM A SAVE of the game: a push with a save, or a save's
+// own marker from before save channels. What keeps a start from taking
+// RomM's (savepick.h); a push of states alone leaves the save as RomM has it.
+bool saveOwed(const storage::User& u, int romId);
 // Removes the marker if it still has this stamp.
 void clearPushOwed(const storage::User& u, int romId, const std::string& stamp);
 // The name an owed push goes by where an owed file goes by its own: gone
