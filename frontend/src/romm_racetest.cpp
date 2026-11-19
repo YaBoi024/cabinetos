@@ -157,7 +157,7 @@ int raceTest(const std::string& address, int seconds) {
             const std::string file = dir + "/download-" + std::to_string(r);
             for (int n = r; std::chrono::steady_clock::now() < until; ++n) {
                 std::string e;
-                switch (n % 10) {
+                switch (n % 9) {
                 case 0: {
                     std::vector<Game> page;
                     result(client.fetchRoms("platform_ids=1", 1, &page, &e), e, "a page of games");
@@ -178,21 +178,16 @@ int raceTest(const std::string& address, int seconds) {
                     note(client.fetchHead(game, 64).size() == 64 ? 0 : 1, "");
                     break;
                 case 5:
-                    result(client.uploadSave(game.id, "race", "race.srm",
-                                             std::vector<uint8_t>(64, 0x5a), &e),
-                           e, "a save upload");
-                    break;
-                case 6:
                     result(client.deleteStates({1}, &e), e, "a state deletion");
                     break;
-                case 7: {
+                case 6: {
                     std::vector<Channel> channels;
                     const bool got = client.fetchChannels({1}, &channels, &e);
                     if (got && channels.size() != 1) e = "the channels came back short";
                     result(got && channels.size() == 1, e, "a game's channels");
                     break;
                 }
-                case 8: {
+                case 7: {
                     PushAnswer answer;
                     const bool sent = client.pushSnapshot(push, &answer, &e);
                     if (sent && answer.kind != PushAnswer::Kind::Made)

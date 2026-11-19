@@ -43,16 +43,21 @@ RomM: keep test launches under a minute, or have his go.
    went out alone in 2026.11.18 (PR #721), since only a version already on
    a console can hold back the next one. Steps 2 to 11 go on one draft pull
    request, #722, "Save channels: the console's saves move to RomM's
-   channels (#346, steps 2 to 11)", cut from main. Steps 2 to 4 are built
+   channels (#346, steps 2 to 11)", cut from main. Steps 2 to 5 are built
    there: the RomM client learning channels and snapshots; what the
    console remembers about each game's save (the channels as last seen,
-   the snapshot it holds, one owed marker per game); and starting a game,
+   the snapshot it holds, one owed marker per game); starting a game,
    which continues from the newest save RomM holds that the console can
    use, in a save channel or from before them, says "Continuing from
    another device" when that save was made elsewhere, and keeps a save of
-   its own aside before replacing it. Until step 5 the console still sends
-   its own saves the old way, one file at a time, and until step 8 a save
-   another emulator made is not used. Step 5, leaving a game, is next.
+   its own aside before replacing it; and leaving a game, whose save goes
+   up as one snapshot once the game has closed, into the channel it
+   started from, put on top of another device's only when it was made
+   later, and never into a hardcore channel. States still go up the old
+   way, one at a time, until step 6; a save file still owed from before
+   the update is not sent until step 7 or the game's next save; and until
+   step 8 a save another emulator made is not used, and a push names the
+   console's tag but no core. Step 6, states inside the snapshot, is next.
    Each step is a fresh
    session that keeps to CLAUDE.md's seven rules and its piece's files, reuses, removals, docs and
    tests in the plan: Fable for steps 4 and 5 (starting and leaving a

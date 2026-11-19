@@ -7,7 +7,7 @@
 // the bytes of the rows a launch would restore. Offline, a launch reads this
 // exactly as it reads the server online (savesFor, in saves.cpp), so the one
 // rule stays the rule: the console's own copy wins only while its upload is
-// still owed (cache::isPending); otherwise the server's newest does.
+// still owed (pending.h); otherwise the server's newest does (savepick.h).
 //
 // WHY IT CAN NEVER BE OLDER THAN A SAVE THE CONSOLE SENT: an upload that lands
 // forgets this game's copy before anything else, and only then asks the
@@ -79,6 +79,15 @@ struct Held {
     std::string digest;     // the snapshot's, "sha256:<hex>"
     std::string saveHash;   // its save's content hash; empty when it has none
     int64_t at = 0;         // when this console took it, seconds since 1970
+    // When its save was made, seconds since 1970: for one this console
+    // pushed, when the console wrote the save; for one it started from, when
+    // RomM took it (the snapshot's `created_at`).
+    int64_t madeAt = 0;
+    // A push of this console's that RomM kept beside its channel's current,
+    // as a branch, and that stayed there (savepush.h). The console's own save
+    // is then newer than anything the channels list shows of it, and a start
+    // takes nothing from RomM that was made before it (savepick.h).
+    bool beside = false;
     // The content hash of every save of this game this console has held,
     // oldest first, `saveHash` last. What tells a save another device made
     // from one of this console's own that RomM's website put back on top

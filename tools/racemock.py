@@ -129,9 +129,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed():
             return
         path = self.path.split('?')[0]
-        if path == '/api/saves':
-            self.answer({'id': 1})
-        elif path == '/api/states/delete':
+        if path == '/api/states/delete':
             self.answer({})
         elif path == '/api/collections':
             self.answer({'id': 7})

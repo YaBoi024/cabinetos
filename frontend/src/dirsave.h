@@ -32,6 +32,8 @@
 
 #pragma once
 
+#include <locale.h>
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -61,12 +63,22 @@ struct DirEntry {
 // never saved is the normal case, not a fault.
 std::vector<DirEntry> listTree(const std::string& root);
 
+// One file of an archive, in memory.
+struct ZipFile {
+    std::string relPath;
+    std::vector<uint8_t> bytes;
+};
+
 // Zips the named files, which must be paths relative to `root`. Returns false
 // with a reason when libarchive refuses; an empty selection returns false too,
 // because "nothing to send" is a decision the caller should make rather than an
 // empty archive nobody can tell apart from a failure.
 bool zipTree(const std::string& root, const std::vector<std::string>& relPaths,
              std::vector<uint8_t>* out, std::string* err);
+// The same from memory, each file under the name given: a save of several
+// files, each under the path its core reads it from, whatever name the core
+// left it under (savepush.h). False for none.
+bool zipFiles(const std::vector<ZipFile>& files, std::vector<uint8_t>* out, std::string* err);
 
 // Unpacks into `root`, creating directories as needed. Existing files are
 // overwritten; files NOT in the archive are left alone, deliberately — a save
@@ -80,11 +92,6 @@ bool zipTree(const std::string& root, const std::vector<std::string>& relPaths,
 bool unzipTree(const std::vector<uint8_t>& data, const std::string& root,
                std::string* err);
 
-// One file of an archive, read into memory.
-struct ZipFile {
-    std::string relPath;
-    std::vector<uint8_t> bytes;
-};
 // Every file `data` holds, read into memory and written nowhere: for a save
 // that is checked against what is on the disk before it is unpacked over it,
 // and one that holds a core's files by name (saves.cpp). False, with a
@@ -98,6 +105,25 @@ bool readZip(const std::vector<uint8_t>& data, std::vector<ZipFile>* out, std::s
 // rewritten path is a guess at what somebody meant. unzipTree and a game's
 // archive (romfile.cpp, prepareFile) both go by it.
 bool safeRelPath(const std::string& p);
+
+// A ZIP'S NAMES AS UTF-8, FOR THIS THREAD WHILE ONE OF THESE STANDS. The
+// program runs in the C locale (it never calls setlocale), where libarchive
+// cannot give a name a zip marks as UTF-8, the mark Python's zipfile and so
+// RomM reads names by, and does not set that mark on a name it writes. With
+// glibc's own C.UTF-8 it does both: zipTree and zipFiles write under one,
+// readZip and unzipTree read under one, and RomM's content hash of a zip is
+// read under one (romm_snapshots.cpp).
+class Utf8Names {
+public:
+    Utf8Names();
+    ~Utf8Names();
+    Utf8Names(const Utf8Names&) = delete;
+    Utf8Names& operator=(const Utf8Names&) = delete;
+
+private:
+    locale_t utf8_;
+    locale_t was_;
+};
 
 // Whether these bytes are a zip. Sniffed, never inferred from the name: the
 // reference implementation's PSP saves are an Apple archive wearing an `.srm`

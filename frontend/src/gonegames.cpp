@@ -35,8 +35,6 @@ bool gAsked = false;           // RomM answered this start
 std::set<int> gGone;           // what it said
 std::set<std::string> gSaid;   // what was said to be left, so each is said once
 
-bool inUse(int romId) { return romId == gPlaying.load() || romId == gLaunching.load(); }
-
 // Says once a run why a game, or a person's files of it, were left.
 void sayLeft(const std::string& what, const std::string& line) {
     std::lock_guard<std::mutex> lk(gMu);
@@ -173,6 +171,8 @@ void setInUse(int playing, int launching) {
     gPlaying = playing;
     gLaunching = launching;
 }
+
+bool inUse(int romId) { return romId == gPlaying.load() || romId == gLaunching.load(); }
 
 void setQueue(Queue q) {
     std::lock_guard<std::mutex> lk(gMu);

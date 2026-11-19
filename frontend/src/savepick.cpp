@@ -61,11 +61,20 @@ Pick pick(const Facts& f) {
                                   newest->current.save.emulator +
                                   "), is another emulator's and is not used"
                             : std::string();
+    if (f.owed) {
+        p.why = "a save of this game has not reached RomM yet; this console's stands" + unusable;
+        return p;
+    }
+    // A save made before one of this console's own that RomM kept beside a
+    // channel's current is never started from (the head of savepick.h).
+    const int64_t ownAt = f.haveHeld && f.held.beside ? f.held.madeAt * 1000000 : 0;
+    const char* older = "; RomM kept this console's own save beside a channel's current, and "
+                        "the newest it could use was made before it";
     // A channel's save against the saves from before channels: the one RomM
     // took later. On a tie the channel's, which is the old save copied in.
     if (usable && (!oldRows || madeAt(*usable) >= oldAt)) {
-        if (f.owed) {
-            p.why = "a save of this game has not reached RomM yet; this console's stands";
+        if (madeAt(*usable) < ownAt) {
+            p.why = "this console's own save stands" + std::string(older) + unusable;
             return p;
         }
         p.from = Pick::From::Channel;
@@ -77,6 +86,10 @@ Pick pick(const Facts& f) {
         return p;
     }
     if (oldRows) {
+        if (oldAt < ownAt) {
+            p.why = "this console's own save stands" + std::string(older) + unusable;
+            return p;
+        }
         p.from = Pick::From::OldRows;
         p.why = "the newest save on RomM this console can use is from before channels" + unusable;
         return p;
@@ -104,6 +117,8 @@ savemirror::Held heldAfter(const savemirror::Held& before, const std::string& ch
     h.digest = taken.digest;
     h.saveHash = taken.hasSave ? taken.save.contentHash : std::string();
     h.at = now;
+    h.madeAt = isoMicros(taken.createdAt) / 1000000;
+    h.beside = false;
     had(h.saveHash);
     if (h.hashesHad.size() > kHashesKept)
         h.hashesHad.erase(h.hashesHad.begin(),
@@ -292,9 +307,46 @@ int test() {
         check(pick(f).from == From::Own, "a local save still owed: this console's stands");
         f.channels.clear();
         f.oldRowAt = t2;
-        check(pick(f).from == From::OldRows,
-              "a local save still owed, RomM's from before channels: the old rule, which "
-              "keeps the owed file");
+        check(pick(f).from == From::Own,
+              "a local save still owed, RomM's from before channels: this console's stands");
+        f.channels = {channelWith("default", 40, t3, kPhoneTag, "ffff", "argosy", {"argosy"})};
+        check(pick(f).from == From::Own && pick(f).couldNotUseNewest,
+              "a local save still owed, another emulator's the newest: this console's stands, "
+              "and the session still knows the newest could not be used");
+    }
+    {   // 5b. A save of this console's own that RomM kept beside a channel's
+        //     current (savepush.h): nothing made before it is started from.
+        Facts f;
+        f.tag = kTag;
+        f.haveHeld = true;
+        f.held = holding("bbbb", {"aaaa"});
+        f.held.beside = true;
+        f.held.madeAt = isoMicros(t2) / 1000000;
+        f.channels = {channelWith("default", 12, t1, kTag, "aaaa", console, {console})};
+        check(pick(f).from == From::Own,
+              "a save of its own kept beside the current, an older one still listed: its own "
+              "stands");
+        f.channels.clear();
+        f.oldRowAt = t1;
+        check(pick(f).from == From::Own,
+              "a save of its own kept beside the current, an older one from before channels: "
+              "its own stands");
+        f.oldRowAt.clear();
+        f.channels = {channelWith("default", 13, t3, kTag, "cccc", console, {console})};
+        const Pick newer = pick(f);
+        check(newer.from == From::Channel && newer.channel.current.id == 13 && newer.madeElsewhere,
+              "a save of its own kept beside the current, the current made later: the current, "
+              "with the pill");
+        f.channels = {channelWith("default", 40, t3, kPhoneTag, "ffff", "argosy", {"argosy"}),
+                      channelWith("softcore", 12, t1, kTag, "aaaa", console, {console})};
+        const Pick stays = pick(f);
+        check(stays.from == From::Own && stays.couldNotUseNewest,
+              "a save of its own kept beside a newest it could not use: its own stands, never "
+              "the older one it could use");
+        f.held.beside = false;
+        check(pick(f).from == From::Channel && pick(f).channel.current.id == 12,
+              "the same lists for a console whose save is not beside anything: the newest it "
+              "can use, as before");
     }
     {   // 6. An empty save on RomM is no save to start from.
         Facts f;
@@ -401,8 +453,14 @@ int test() {
         const romm::Channel c = channelWith("default", 13, t3, kTag, "bbbb", console);
         savemirror::Held h = heldAfter(savemirror::Held{}, c.id, c.current, 1700);
         check(h.channelId == c.id && h.snapshotId == 13 && h.digest == "sha256:bbbb" &&
-                  h.saveHash == "bbbb" && h.at == 1700 && h.hashesHad.size() == 1,
-              "the first: the snapshot, its save's hash, and when");
+                  h.saveHash == "bbbb" && h.at == 1700 && h.hashesHad.size() == 1 &&
+                  h.madeAt == isoMicros(t3) / 1000000 && !h.beside,
+              "the first: the snapshot, its save's hash, when it was taken, and when RomM "
+              "took its save");
+        savemirror::Held wasBeside = h;
+        wasBeside.beside = true;
+        check(!heldAfter(wasBeside, c.id, c.current, 1750).beside,
+              "a snapshot taken from RomM is no longer beside a current");
         const romm::Channel next = channelWith("default", 14, t3, kTag, "cccc", console);
         h = heldAfter(h, next.id, next.current, 1800);
         h = heldAfter(h, c.id, c.current, 1900);

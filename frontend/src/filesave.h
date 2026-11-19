@@ -65,6 +65,11 @@ struct FileSaveState {
     // change travels, erasing one included, because losing history is worse
     // than an empty row.
     bool hadOne = false;
+    // The file on this console that holds `atLaunch`, for the snapshot pushed
+    // when the game is left (savepush.h): the one the core wrote, or this
+    // person's copy of a card the core keeps in the system directory. Empty
+    // when there is no file.
+    std::string kept;
 };
 
 // Whether these bytes are a save somebody made, or the empty thing a core

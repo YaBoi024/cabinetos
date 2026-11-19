@@ -3,6 +3,7 @@
 #include <archive.h>
 #include <archive_entry.h>
 #include <dirent.h>
+#include <locale.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -92,167 +93,252 @@ bool looksLikeZip(const std::vector<uint8_t>& d) {
     return d.size() >= 4 && d[0] == 'P' && d[1] == 'K' && d[2] == 0x03 && d[3] == 0x04;
 }
 
+Utf8Names::Utf8Names()
+    : utf8_(newlocale(LC_CTYPE_MASK, "C.UTF-8", static_cast<locale_t>(nullptr))),
+      was_(utf8_ ? uselocale(utf8_) : static_cast<locale_t>(nullptr)) {}
+
+Utf8Names::~Utf8Names() {
+    if (!utf8_) return;
+    uselocale(was_);
+    freelocale(utf8_);
+}
+
+namespace {
+
+// One zip being written into memory. archive_write_open_memory is a single
+// fixed buffer, so `room` is sized before anything is written: the stored
+// bytes plus generous room for each entry's header and the central directory
+// at the end. Zip only ever shrinks these files, so that cannot be too small.
+//
+// A NAME OUTSIDE ASCII IS MARKED UTF-8 (#346). RomM names a zip's files when
+// it hashes one (romm::contentHash), and reads a name the zip does not mark
+// as CP437, so an unmarked name with an accent in it hashed to another value
+// there than here, and RomM refused the push. libarchive sets the mark when the
+// names it is given are UTF-8, which they are while Utf8Names stands; a name
+// that is not valid UTF-8 goes in as its bytes, unmarked.
+struct ZipOut {
+    Utf8Names names;
+    struct archive* a = nullptr;
+    std::vector<uint8_t> buf;
+    size_t used = 0;
+
+    ~ZipOut() {
+        if (a) archive_write_free(a);
+    }
+    static std::string why(struct archive* a, const char* fallback) {
+        return archive_error_string(a) ? archive_error_string(a) : fallback;
+    }
+    bool open(size_t room, std::string* err) {
+        a = archive_write_new();
+        if (!a) { if (err) *err = "archive_write_new failed"; return false; }
+        archive_write_set_format_zip(a);
+        archive_write_set_options(a, "zip:hdrcharset=UTF-8");
+        buf.assign(room, 0);
+        if (archive_write_open_memory(a, buf.data(), buf.size(), &used) != ARCHIVE_OK) {
+            if (err) *err = why(a, "cannot open");
+            return false;
+        }
+        return true;
+    }
+    bool add(const std::string& name, const std::vector<uint8_t>& data, std::string* err) {
+        struct archive_entry* e = archive_entry_new();
+        archive_entry_set_pathname(e, name.c_str());
+        archive_entry_set_size(e, static_cast<int64_t>(data.size()));
+        archive_entry_set_filetype(e, AE_IFREG);
+        archive_entry_set_perm(e, 0644);
+        // A warning is a name libarchive could not read as UTF-8: it goes in
+        // as its bytes.
+        if (archive_write_header(a, e) < ARCHIVE_WARN) {
+            if (err) *err = why(a, "header");
+            archive_entry_free(e);
+            return false;
+        }
+        if (!data.empty() && archive_write_data(a, data.data(), data.size()) < 0) {
+            if (err) *err = why(a, "write");
+            archive_entry_free(e);
+            return false;
+        }
+        archive_entry_free(e);
+        return true;
+    }
+    bool close(std::vector<uint8_t>* out, std::string* err) {
+        if (archive_write_close(a) != ARCHIVE_OK) {
+            if (err) *err = why(a, "close");
+            return false;
+        }
+        out->assign(buf.begin(), buf.begin() + static_cast<long>(used));
+        return true;
+    }
+};
+
+size_t roomFor(const std::string& name, size_t bytes) { return bytes + name.size() * 2 + 512; }
+
+}  // namespace
+
 bool zipTree(const std::string& root, const std::vector<std::string>& relPaths,
              std::vector<uint8_t>* out, std::string* err) {
     if (relPaths.empty()) {
         if (err) *err = "nothing to archive";
         return false;
     }
-    // Sized before anything is written, because archive_write_open_memory is a
-    // single fixed buffer: the stored bytes plus generous room for each entry's
-    // header and the central directory at the end. Zip only ever shrinks these
-    // files, so this cannot be too small.
     size_t total = 4096;
     for (const std::string& rel : relPaths) {
         struct stat st;
-        if (::stat((root + "/" + rel).c_str(), &st) == 0)
-            total += static_cast<size_t>(st.st_size);
-        total += rel.size() * 2 + 512;
+        total += roomFor(rel, ::stat((root + "/" + rel).c_str(), &st) == 0
+                                  ? static_cast<size_t>(st.st_size) : 0);
     }
-
-    struct archive* a = archive_write_new();
-    if (!a) { if (err) *err = "archive_write_new failed"; return false; }
-    archive_write_set_format_zip(a);
-    std::vector<uint8_t> buf(total, 0);
-    size_t used = 0;
-    if (archive_write_open_memory(a, buf.data(), buf.size(), &used) != ARCHIVE_OK) {
-        if (err) *err = archive_error_string(a) ? archive_error_string(a) : "cannot open";
-        archive_write_free(a);
-        return false;
-    }
-
+    ZipOut zip;
+    if (!zip.open(total, err)) return false;
     for (const std::string& rel : relPaths) {
         std::vector<uint8_t> data;
         if (!readFile(root + "/" + rel, &data)) {
             if (err) *err = "cannot read " + rel;
-            archive_write_free(a);
             return false;
         }
-        struct archive_entry* e = archive_entry_new();
-        archive_entry_set_pathname(e, rel.c_str());
-        archive_entry_set_size(e, static_cast<int64_t>(data.size()));
-        archive_entry_set_filetype(e, AE_IFREG);
-        archive_entry_set_perm(e, 0644);
-        if (archive_write_header(a, e) != ARCHIVE_OK) {
-            if (err) *err = archive_error_string(a) ? archive_error_string(a) : "header";
-            archive_entry_free(e);
-            archive_write_free(a);
-            return false;
-        }
-        if (!data.empty() &&
-            archive_write_data(a, data.data(), data.size()) < 0) {
-            if (err) *err = archive_error_string(a) ? archive_error_string(a) : "write";
-            archive_entry_free(e);
-            archive_write_free(a);
-            return false;
-        }
-        archive_entry_free(e);
+        if (!zip.add(rel, data, err)) return false;
     }
-    if (archive_write_close(a) != ARCHIVE_OK) {
-        if (err) *err = archive_error_string(a) ? archive_error_string(a) : "close";
-        archive_write_free(a);
+    return zip.close(out, err);
+}
+
+bool zipFiles(const std::vector<ZipFile>& files, std::vector<uint8_t>* out, std::string* err) {
+    if (files.empty()) {
+        if (err) *err = "nothing to archive";
         return false;
     }
-    archive_write_free(a);
-    out->assign(buf.begin(), buf.begin() + static_cast<long>(used));
-    return true;
+    size_t total = 4096;
+    for (const ZipFile& f : files) total += roomFor(f.relPath, f.bytes.size());
+    ZipOut zip;
+    if (!zip.open(total, err)) return false;
+    for (const ZipFile& f : files)
+        if (!zip.add(f.relPath, f.bytes, err)) return false;
+    return zip.close(out, err);
 }
+
+namespace {
+
+// One archive being read from memory, its names as UTF-8 (Utf8Names): a name
+// a zip marks as UTF-8, as this console's own zips and Python's do, cannot
+// be read in the C locale the program runs in, and the entry carrying it
+// read as the end of the archive, so a save folder with an accent in a file
+// name came back as "no files". `next` steps to the next entry: false at the
+// end, and false with `failed` set when libarchive could not go on, which is
+// said and never taken for the end. A name libarchive only warned about is
+// still an entry.
+struct ZipIn {
+    Utf8Names names;
+    struct archive* a = nullptr;
+    bool failed = false;
+
+    ~ZipIn() {
+        if (a) archive_read_free(a);
+    }
+    std::string why(const char* fallback) const {
+        return archive_error_string(a) ? archive_error_string(a) : fallback;
+    }
+    bool open(const std::vector<uint8_t>& data, std::string* err) {
+        a = archive_read_new();
+        if (!a) { if (err) *err = "archive_read_new failed"; return false; }
+        archive_read_support_filter_all(a);
+        archive_read_support_format_all(a);
+        if (archive_read_open_memory(a, const_cast<uint8_t*>(data.data()), data.size()) !=
+            ARCHIVE_OK) {
+            if (err) *err = why("cannot open");
+            return false;
+        }
+        return true;
+    }
+    bool next(struct archive_entry** entry, std::string* err) {
+        const int rc = archive_read_next_header(a, entry);
+        if (rc == ARCHIVE_OK || rc == ARCHIVE_WARN) return true;
+        if (rc != ARCHIVE_EOF) {
+            failed = true;
+            if (err) *err = why("cannot read the next entry");
+        }
+        return false;
+    }
+    // The entry's name when it is a file that may be written under a folder;
+    // null for a folder or anything else that is no file. False, with a
+    // reason, for a name unzipTree refuses.
+    bool fileName(struct archive_entry* entry, const char** name, std::string* err) {
+        *name = nullptr;
+        if (archive_entry_filetype(entry) != AE_IFREG) return true;
+        const char* n = archive_entry_pathname(entry);
+        if (!n || !safeRelPath(n)) {
+            if (err) *err = std::string("refusing entry ") + (n ? n : "(unnamed)");
+            return false;
+        }
+        *name = n;
+        return true;
+    }
+};
+
+}  // namespace
 
 bool readZip(const std::vector<uint8_t>& data, std::vector<ZipFile>* out, std::string* err) {
     out->clear();
-    struct archive* a = archive_read_new();
-    if (!a) { if (err) *err = "archive_read_new failed"; return false; }
-    archive_read_support_filter_all(a);
-    archive_read_support_format_all(a);
-    if (archive_read_open_memory(a, const_cast<uint8_t*>(data.data()), data.size()) !=
-        ARCHIVE_OK) {
-        if (err) *err = archive_error_string(a) ? archive_error_string(a) : "cannot open";
-        archive_read_free(a);
-        return false;
-    }
+    ZipIn zip;
+    if (!zip.open(data, err)) return false;
     struct archive_entry* entry = nullptr;
-    while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
-        if (archive_entry_filetype(entry) != AE_IFREG) continue;
-        const char* name = archive_entry_pathname(entry);
-        if (!name || !safeRelPath(name)) {
-            if (err) *err = std::string("refusing entry ") + (name ? name : "(unnamed)");
-            archive_read_free(a);
-            return false;
-        }
+    while (zip.next(&entry, err)) {
+        const char* name = nullptr;
+        if (!zip.fileName(entry, &name, err)) return false;
+        if (!name) continue;
         ZipFile f;
         f.relPath = name;
         char chunk[64 * 1024];
         for (;;) {
-            const ssize_t n = archive_read_data(a, chunk, sizeof chunk);
+            const ssize_t n = archive_read_data(zip.a, chunk, sizeof chunk);
             if (n == 0) break;
             if (n < 0) {
-                if (err) *err = archive_error_string(a) ? archive_error_string(a) : "read";
-                archive_read_free(a);
+                if (err) *err = zip.why("read");
                 return false;
             }
             f.bytes.insert(f.bytes.end(), chunk, chunk + n);
         }
         out->push_back(std::move(f));
     }
-    archive_read_free(a);
-    return true;
+    return !zip.failed;
 }
 
 bool unzipTree(const std::vector<uint8_t>& data, const std::string& root,
                std::string* err) {
-    struct archive* a = archive_read_new();
-    if (!a) { if (err) *err = "archive_read_new failed"; return false; }
-    archive_read_support_filter_all(a);
-    archive_read_support_format_all(a);
-    if (archive_read_open_memory(a, const_cast<uint8_t*>(data.data()), data.size()) !=
-        ARCHIVE_OK) {
-        if (err) *err = archive_error_string(a) ? archive_error_string(a) : "cannot open";
-        archive_read_free(a);
-        return false;
-    }
+    ZipIn zip;
+    if (!zip.open(data, err)) return false;
     int files = 0;
     struct archive_entry* entry = nullptr;
-    while (archive_read_next_header(a, &entry) == ARCHIVE_OK) {
-        if (archive_entry_filetype(entry) != AE_IFREG) continue;
-        const char* name = archive_entry_pathname(entry);
-        if (!name || !safeRelPath(name)) {
-            if (err) *err = std::string("refusing entry ") + (name ? name : "(unnamed)");
-            archive_read_free(a);
-            return false;
-        }
+    while (zip.next(&entry, err)) {
+        const char* name = nullptr;
+        if (!zip.fileName(entry, &name, err)) return false;
+        if (!name) continue;
         const std::string dest = root + "/" + name;
         if (!makeParents(dest)) {
             if (err) *err = "cannot create directories for " + std::string(name);
-            archive_read_free(a);
             return false;
         }
         FILE* f = std::fopen(dest.c_str(), "wb");
         if (!f) {
             if (err) *err = "cannot write " + dest;
-            archive_read_free(a);
             return false;
         }
         char chunk[64 * 1024];
         for (;;) {
-            const ssize_t n = archive_read_data(a, chunk, sizeof chunk);
+            const ssize_t n = archive_read_data(zip.a, chunk, sizeof chunk);
             if (n == 0) break;
             if (n < 0) {
-                if (err) *err = archive_error_string(a) ? archive_error_string(a) : "read";
+                if (err) *err = zip.why("read");
                 std::fclose(f);
-                archive_read_free(a);
                 return false;
             }
             if (std::fwrite(chunk, 1, static_cast<size_t>(n), f) != static_cast<size_t>(n)) {
                 if (err) *err = "short write to " + dest;
                 std::fclose(f);
-                archive_read_free(a);
                 return false;
             }
         }
         std::fclose(f);
         ++files;
     }
-    archive_read_free(a);
+    if (zip.failed) return false;
     if (files == 0) {
         if (err) *err = "archive held no files";
         return false;

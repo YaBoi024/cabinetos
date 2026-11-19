@@ -233,12 +233,11 @@ public:
     // hold: a state is hundreds of kilobytes, a memory card is 128.
     std::vector<uint8_t> fetchAsset(const char* kind, int assetId) const;
 
-    // Both post multipart. `emulator` is the tag that decides whether a state
-    // is offered later, so it must identify the BUILD and not just the core.
-    bool uploadSave(int romId, const std::string& emulator, const std::string& fileName,
-                    const std::vector<uint8_t>& data, std::string* err) const;
-    // A state may carry its picture, as Cabinet's did (#99): a second part,
-    // `screenshotFile`, image/png, named like the state. Empty for none.
+    // Posts multipart. `emulator` is the tag that decides whether a state is
+    // offered later, so it must identify the BUILD and not just the core. A
+    // state may carry its picture, as Cabinet's did (#99): a second part,
+    // `screenshotFile`, image/png, named like the state. Empty for none. A
+    // save goes up inside a snapshot (pushSnapshot, below).
     bool uploadState(int romId, const std::string& emulator, const std::string& fileName,
                      const std::vector<uint8_t>& data, std::string* err,
                      const std::string& shotName = "",

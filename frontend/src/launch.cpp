@@ -540,7 +540,7 @@ void App::pumpLaunch() {
     restoreBeforeLoad(c);
     if (!loadLaunchedGame(c)) return;
     setUpLoadedGame(c);
-    restoreBatterySave(c.core, session, c.saveDir, c.user, launchJob.saves, &c.startNotes);
+    restoreBatterySave(c.core, session, c.saveDir, launchJob.saves, &c.startNotes);
     const bool elsewhere = noteStart(launchJob.saves, c.startNotes, c.user, &session);
     // The fetched saves are written; a card can be megabytes, so not kept.
     launchJob.saves = SaveFetch{};

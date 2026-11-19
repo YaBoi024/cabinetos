@@ -41,7 +41,6 @@
 #include <archive.h>
 #include <archive_entry.h>
 #include <json-c/json.h>
-#include <locale.h>
 
 #include <algorithm>
 #include <climits>
@@ -84,26 +83,13 @@ std::string md5Of(const std::vector<uint8_t>& bytes) {
     return m.hex();
 }
 
-// NAMES READ AS UTF-8. The program runs in the C locale (it never calls
-// setlocale), where libarchive cannot give a name a zip marks as UTF-8 (the
-// mark Python's zipfile, and so RomM, reads it by) and stops at it. For this
-// thread, while it lives, the locale is glibc's own C.UTF-8. A name the zip
-// does not mark comes out as its bytes either way; RomM reads such a name as
-// CP437, which is the same text only when it is ASCII.
-struct Utf8Names {
-    locale_t utf8 = newlocale(LC_CTYPE_MASK, "C.UTF-8", static_cast<locale_t>(nullptr));
-    locale_t was = utf8 ? uselocale(utf8) : static_cast<locale_t>(nullptr);
-    ~Utf8Names() {
-        if (!utf8) return;
-        uselocale(was);
-        freelocale(utf8);
-    }
-};
-
 // RomM's `hash_zip_contents`: each file's MD5 under its name, sorted by
-// name. False when libarchive cannot read the zip.
+// name. False when libarchive cannot read the zip. Its names are read as UTF-8
+// (cab::Utf8Names): a name the zip marks as UTF-8 comes out as RomM reads it,
+// and one it does not mark as its bytes, which is RomM's text only when it is
+// ASCII (RomM reads such a name as CP437).
 bool zipHash(const std::vector<uint8_t>& bytes, std::string* out) {
-    const Utf8Names names;
+    const cab::Utf8Names names;
     struct archive* a = archive_read_new();
     if (!a) return false;
     archive_read_support_format_zip(a);

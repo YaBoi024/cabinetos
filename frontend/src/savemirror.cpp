@@ -192,6 +192,8 @@ void putHeld(const storage::User& u, int romId, const Held& held) {
     json_object_object_add(o, "digest", json_object_new_string(held.digest.c_str()));
     json_object_object_add(o, "save_hash", json_object_new_string(held.saveHash.c_str()));
     json_object_object_add(o, "at", json_object_new_int64(held.at));
+    json_object_object_add(o, "made_at", json_object_new_int64(held.madeAt));
+    json_object_object_add(o, "beside", json_object_new_boolean(held.beside));
     json_object* had = json_object_new_array();
     for (const std::string& h : held.hashesHad)
         json_object_array_add(had, json_object_new_string(h.c_str()));
@@ -211,6 +213,8 @@ bool getHeld(const storage::User& u, int romId, Held* held) {
     if (json_object_object_get_ex(o, "digest", &v)) held->digest = json_object_get_string(v);
     if (json_object_object_get_ex(o, "save_hash", &v)) held->saveHash = json_object_get_string(v);
     if (json_object_object_get_ex(o, "at", &v)) held->at = json_object_get_int64(v);
+    if (json_object_object_get_ex(o, "made_at", &v)) held->madeAt = json_object_get_int64(v);
+    if (json_object_object_get_ex(o, "beside", &v)) held->beside = json_object_get_boolean(v);
     if (json_object_object_get_ex(o, "save_hashes_had", &v) &&
         json_object_is_type(v, json_type_array))
         for (size_t i = 0; i < json_object_array_length(v); ++i)

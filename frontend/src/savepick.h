@@ -9,10 +9,17 @@
 // THE RULE. The game starts from the newest save RomM holds for this person
 // that this console can use, in any of their channels or among the saves from
 // before channels (RomM's old rows, under the console's tag as before). A
-// save this console has not sent yet still wins. When the newest save on RomM
-// is one the console cannot use, it starts from the newest it can, or its own,
-// and the session says so (`couldNotUseNewest`), so what it saves is kept
-// RomM's way beside the newer one.
+// save this console has not sent yet still wins, whatever RomM holds. When
+// the newest save on RomM is one the console cannot use, it starts from the
+// newest it can, or its own, and the session says so (`couldNotUseNewest`),
+// so what it saves is kept RomM's way beside the newer one.
+//
+// AND NEVER FROM A SAVE MADE BEFORE ONE OF ITS OWN THAT RomM KEPT BESIDE A
+// CHANNEL'S CURRENT. A push RomM keeps as a branch (savepush.h) is on RomM
+// but is no channel's current, so nothing listed shows it: without this, a
+// console whose save could not go on top would start next from an older save
+// of its own that is still listed, over the newer one on its drive. The note
+// of the snapshot held says when that save was made (savemirror::Held).
 //
 // WHICH SAVES IT CAN USE, until the console asks RomM to convert another
 // emulator's (#346, step 8): the ones filed under the tag this core's saves
@@ -56,8 +63,9 @@ struct Facts {
     // stored (its `updated_at`); empty when there is none or they are not
     // known.
     std::string oldRowAt;
-    // This console still owes RomM a save of the game, so its own copy is
-    // newer than anything RomM holds (pending.h).
+    // This console still owes RomM a save of the game, as a snapshot or as a
+    // file from before channels, so its own copy is newer than anything RomM
+    // holds (pending.h).
     bool owed = false;
     // The snapshot this console holds of the game; `haveHeld` false when it
     // holds none.
@@ -88,9 +96,12 @@ Pick pick(const Facts& facts);
 // elsewhere, and never when it was what this console already had.
 bool continuingElsewhere(const Pick& pick, bool sameAsOwn);
 
-// The note of the snapshot this console holds, after a start from `taken` in
-// `channelId`: `before` (pass an empty one for none) with the snapshot and its
-// save's hash added to the hashes this console has had.
+// The note of the snapshot this console holds, after it took `taken` in
+// `channelId` from RomM, at a start or as RomM's answer to a push: `before`
+// (pass an empty one for none) with the snapshot and its save's hash added to
+// the hashes this console has had. Its save is dated by RomM's time for the
+// snapshot, and it is no longer beside a current; a push says otherwise
+// itself (savepush.cpp).
 savemirror::Held heldAfter(const savemirror::Held& before, const std::string& channelId,
                            const romm::Snapshot& taken, int64_t now);
 

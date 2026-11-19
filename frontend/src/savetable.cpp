@@ -417,7 +417,6 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
         SaveFile f;
         f.untouched = Untouched::Uniform;
         if (core == "mame2003_plus") {
-            f.coreRowName = "mame2003Plus";
             // ONE DIRECTORY DEEPER THAN THE REFERENCE IMPLEMENTATION SAYS, and
             // this was measured rather than carried across. Cabinet wrote
             // `nvram/<stem>.nv` straight under the save directory; MAME
@@ -437,7 +436,6 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
             return {f};
         }
         if (core == "fbneo_libretro") {
-            f.coreRowName = "fbneo";
             f.path = "fbneo/" + stem + ".fs";
             return {f};
         }
@@ -455,7 +453,6 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
         // a board's `.eeprom` and Atomiswave's `.nvmem2` stay on the console
         // with the other arcade extras until RomM's save channels (#353).
         if (core == "flycast") {
-            f.coreRowName = "flycast";
             f.path = "reicast/" + fileName + ".nvmem";
             return {f};
         }
@@ -529,17 +526,14 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
     // in the save directory (core_ps2.cpp, startPs2Game), which is already
     // per game. Never a shared `Mcd001.ps2`, the arrangement Cabinet for Mac
     // rejected in as many words ("a shared card belongs to no rom in
-    // particular").
-    //
-    // NAMED THE MAC'S WAY on the server, because the whole point is that the
-    // card travels — see SaveFile::macRowName.
+    // particular"). A card from before save channels is on RomM under the
+    // Mac's name for it, `cabinet-<rom id>.ps2`, which the region reads.
     if (slug == "ps2") {
         SaveFile f;
         f.path = stem + ".ps2";
         f.captureSuffix = ".ps2";
         f.region = "ps2";
         f.untouched = Untouched::Ps2Format;
-        f.macRowName = true;
         return {f};
     }
 

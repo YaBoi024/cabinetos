@@ -10,6 +10,7 @@
 #include <utility>
 
 #include "power.h"
+#include "savepush.h"
 #include "saves.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
@@ -300,8 +301,9 @@ void App::handleEvent(const SDL_Event& e) {
                 break;
             }
             // F5 writes a state, F8 restores the newest one THIS build can
-            // load, F6 pushes the game's own save. Quitting syncs the
-            // save by itself; F6 is for testing without quitting.
+            // load, F6 gathers the game's battery or save folder and pushes
+            // it as a snapshot now. Quitting does both by itself; F6 is for
+            // testing without quitting.
             // Not while a state picked on the game's page is still on its way
             // (#484, PLAY-33): a save then is of the game's first frames, and
             // the next Resume would start there. The shortcut path refuses
@@ -310,7 +312,10 @@ void App::handleEvent(const SDL_Event& e) {
                 saveStateNow(session, uploader, menuNotice);
             if (playing && session.snapshots && !stateHoldWaiting && e.key.key == SDLK_F8)
                 beginLoadLatestState(stateLoad, session, liveClient, menuNotice);
-            if (playing && e.key.key == SDLK_F6) syncSave(session, uploader);
+            if (playing && e.key.key == SDLK_F6) {
+                syncSave(session);
+                savepush::leave(session, storage::currentUser(), uploader);
+            }
             if (owner != InputOwner::UI) break;
             // THROUGH `navigate`, NOT STRAIGHT AT A SCREEN. Every key on
             // every screen arrives at one place, so the bar can be

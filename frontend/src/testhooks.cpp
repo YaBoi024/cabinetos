@@ -430,9 +430,10 @@ void App::stateHooks() {
             saveStateNow(session, uploader, menuNotice);
             // Forced: at a title screen with no input the battery has not
             // changed, and "nothing to send" is the correct behaviour but
-            // proves nothing about whether sending works.
+            // proves nothing about whether sending works. Gathered now, it
+            // goes up with the quit's snapshot (savepush.h).
             session.saveAtLaunch.clear();
-            syncSave(session, uploader);
+            syncSave(session);
             // The same forcing for the saves the core writes as files, and
             // it is the only way to see that half send anything: those are
             // captured after the unload rather than here, and a headless

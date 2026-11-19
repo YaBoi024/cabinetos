@@ -108,8 +108,8 @@ struct LaunchJob {
     // RomM's `md5_hash`, for the Vectrex sheets (vectrexsheets.h).
     std::string md5;
     // The server's own file name for this game, with its extension removed —
-    // `Ikaruga (Japan)`, `lethalen`. It is what a save's row on RomM is named
-    // after; see saveRowName.
+    // `Ikaruga (Japan)`, `lethalen`. This console's copy of a save and the
+    // save a snapshot carries are named after it (GameSession::fsStem).
     std::string fsStem;
     std::string corePath;
     // AN ARCADE GAME (catalog::Coverage::arcade): its emulator was named at

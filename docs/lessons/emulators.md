@@ -517,6 +517,18 @@ code.
   rest. Found by downloading RomM's zip and listing it, not by reading the
   upload log, which said "uploaded". **Check what the server holds.**
 
+- **A ZIP NAME WITH AN ACCENT CAME BACK AS AN EMPTY ARCHIVE.** The program
+  runs in the C locale, and libarchive there cannot read a name a zip marks
+  as UTF-8: `archive_read_next_header` answers a warning, the loop that
+  waited for `ARCHIVE_OK` took it for the end, and a save folder holding
+  `Pokémon.gci` restored as "archive held no files" with no error. It only
+  showed once the console's own zips marked such names, which RomM needs to
+  hash them as the console does (#346). Found by restoring the pushed save
+  on a second console, not by the push, which RomM had accepted. **A save
+  that went up is proven by bringing it down somewhere else.** Zips are read
+  and written under `cab::Utf8Names`, and an entry libarchive cannot step to
+  is said, never taken for the end (`dirsave.cpp`).
+
 - **A GAME CAN BIND ITS SAVE TO THE PROFILE ID.** Forza Horizon 2 called its
   save "tampered" under any other ID. One ID on every console, for good, as
   the Xbox EEPROM is.

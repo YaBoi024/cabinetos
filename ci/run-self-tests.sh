@@ -70,6 +70,7 @@ TESTS=(
     --gone-games-test
     --save-notes-test
     --save-pick-test
+    --save-push-test
     --gpu-choice-test
     --tailscale-switch-test
     --update-romm-test

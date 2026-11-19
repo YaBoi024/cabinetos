@@ -39,8 +39,9 @@ struct GameSession {
     // Controls, holding Start), or empty for any other game.
     std::string arcadeCore() const { return arcade ? core : std::string(); }
     std::string title;
-    // The server's own file name for the game, without its extension. A
-    // save's row on RomM is named after it — see saveRowName.
+    // The server's own file name for the game, without its extension. This
+    // console's copy of a save, and the save a snapshot carries, are named
+    // after it (saves.cpp, saveRowName; savepush.h).
     std::string fsStem;
     // TWO TAGS, NOT ONE, and the difference is what lets five platforms' saves
     // travel at all. A STATE is a photograph of the emulator's insides and the
@@ -71,15 +72,20 @@ struct GameSession {
     std::string saveDir;
     std::string stateDir;
     std::vector<uint8_t> saveAtLaunch;   // to tell whether it actually changed
+    // THE SAVE CHANGED AND IS WRITTEN ON THIS CONSOLE, and RomM has not been
+    // told yet: set by whichever of the three gatherings found a change
+    // (saves.cpp: syncSave, syncDirSave, syncFileSaves), and taken by the one
+    // snapshot that goes up once the game has closed (savepush.h, leave).
+    bool saveChanged = false;
     // WHERE THIS SESSION'S SAVE CAME FROM (#346, save channels; saves.cpp,
-    // noteStart), for the snapshot pushed when the game is left: the file
-    // RomM keys the game's channels to (0 when not known), and the channel
-    // and snapshot the start continued from, both empty when it started from
-    // the console's own save or one from before channels. `startHardcore`:
-    // that channel's current was saved in hardcore, which the console never
-    // saves into. `couldNotUseNewest`: the newest save on RomM was one this
-    // console could not use, so what this session saves is kept RomM's way
-    // beside it and never put on top.
+    // noteStart), for the snapshot pushed when the game is left
+    // (savepush.h): the file RomM keys the game's channels to (0 when not
+    // known), and the channel and snapshot the start continued from, both
+    // empty when it started from the console's own save or one from before
+    // channels. `startHardcore`: that channel's current was saved in
+    // hardcore, which the console never saves into. `couldNotUseNewest`: the
+    // newest save on RomM was one this console could not use, so what this
+    // session saves is kept RomM's way beside it and never put on top.
     int channelFileId = 0;
     std::string startChannelId;
     int startSnapshotId = 0;

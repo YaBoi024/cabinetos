@@ -1,10 +1,11 @@
-// Uploads, off the thread that draws: the queue that sends saves, states,
-// screenshots, play time and favourites to RomM, and the one-file send that
-// removing a person uses too. Moved out of main.cpp in the restructure (#398).
+// Uploads, off the thread that draws: the queue that sends a game's snapshot
+// (its save, savepush.h), states, screenshots, play time and favourites to
+// RomM, and the one-file send that removing a person uses too. Moved out of
+// main.cpp in the restructure (#398).
 //
-// JOB'S FIELD ORDER IS FROZEN. The saves and states code builds a Job by
-// position ({romId, emulator, fileName, data, isState}); emulator and fileName
-// are both strings, so reordering them compiles and silently swaps them.
+// JOB'S FIELD ORDER IS FROZEN. The states code builds a Job by position
+// ({romId, emulator, fileName, data, isState}); emulator and fileName are
+// both strings, so reordering them compiles and silently swaps them.
 
 #pragma once
 
@@ -21,10 +22,13 @@
 #include "romm.h"
 #include "storage.h"
 
-bool uploadOne(const romm::Client& c, int romId, bool isState, bool isScreenshot,
+bool uploadOne(const romm::Client& c, int romId, bool isScreenshot,
                const std::string& emulator, const std::string& fileName,
                const std::vector<uint8_t>& data, const std::string& shotName,
                const std::vector<uint8_t>& shot, std::string* err);
+// RomM answered and refused it for good: an HTTP 4xx, read off the client's
+// error (uploader.cpp).
+bool refusedForGood(const std::string& err);
 bool sendPlaySessionsAs(const romm::Client& c, const storage::User& who, std::string* err);
 
 // Uploads, off the thread that draws.
@@ -69,6 +73,10 @@ public:
         bool isPlay = false;
         // Favourites (#267): every one owed, read off favorites-owed.json.
         bool isFavorite = false;
+        // A game's snapshot (#346, savepush.h): its owed push, read off its
+        // marker when it runs (cache::OwedPush). No bytes here; `fileName` is
+        // the name an owed push goes by (cache::kOwedPushName).
+        bool isPush = false;
         // WHOSE IT IS, set on the frame thread when it is queued (push, and
         // the resends), so the worker never reads storage::currentUser(),
         // which a switch of person assigns (#483, FILES-09). Last, so the
@@ -90,6 +98,12 @@ public:
 
     void push(Job job);
 
+    // A GAME'S OWED SNAPSHOT (#346), whose marker is already on the disk
+    // (savepush::leave): queued once however often it is asked for, and
+    // asked of RomM once more even after a refusal this run, as a new save
+    // of a file is (push).
+    void pushSnapshot(int romId, const storage::User& who);
+
     // SEND AGAIN EVERYTHING STILL OWED (2026-09-26). Until this, an upload
     // that failed was never tried again: a state saved while the server was
     // away stayed on this console for good, and never reached the Apple TV.
@@ -97,7 +111,11 @@ public:
     // few minutes while something is owed (the frame loop's `owing()`). The
     // bytes are read off the disk on the worker; anything already queued is
     // not queued twice, and nothing RomM refused this run (refused_). On the
-    // frame thread, for the person signed in.
+    // frame thread, for the person signed in. A SAVE'S MARKER FROM BEFORE
+    // SAVE CHANNELS, one per file, is not sent: RomM takes a save from this
+    // console only as a snapshot. It stays owed, so this console's own save
+    // goes on winning at a start (savepick.h), and the next save the game
+    // makes goes up as its snapshot and takes its place (savepush::leave).
     void resendOwed();
 
     // Everything owed in favorites-owed.json, in one job, as sendPlay.
@@ -158,13 +176,6 @@ private:
     void sendPlayFor(const storage::User& who);
 
     void run();
-
-    // THE COPY OF RomM's SAVES FOR THIS GAME (#88, savemirror.h), after a
-    // save of ours has landed: forgotten FIRST, so a copy older than what was
-    // just sent can never be used offline, then asked for again, with the
-    // bytes just sent kept as that row's. Should the asking fail there is no
-    // copy, and offline uses the console's own save, which is this one.
-    void refreshSaveCopy(const Job& job);
 
     void finished(const Job& job, bool ok, bool leftSomething);
 

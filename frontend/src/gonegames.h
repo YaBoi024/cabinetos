@@ -80,8 +80,10 @@ std::set<int> thisStart(const std::string& baseUrl, const std::vector<int>& ids)
 
 // The game on the screen and the game whose launch is under way, or 0. Set
 // by the frame thread once a frame (App::followServer); read by removeCopy
-// and removeSaves.
+// and removeSaves, and by the upload queue, which leaves a game's owed
+// snapshot unsent while the game is in use (uploader.cpp).
 void setInUse(int playing, int launching);
+bool inUse(int romId);
 
 // The upload queue, for removeSaves's order: how many uploads it still
 // holds, and whether RomM refused a person's file this run

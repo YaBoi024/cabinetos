@@ -919,6 +919,8 @@ int saveNotesTest() {
     had.digest = run.current.digest;
     had.saveHash = run.current.save.contentHash;
     had.at = 1763505768;
+    had.madeAt = 1763502168;
+    had.beside = true;
     had.hashesHad = {"fedcba9876543210fedcba9876543210", had.saveHash};
     savemirror::putHeld(u, game, had);
     savemirror::Held none;
@@ -926,7 +928,7 @@ int saveNotesTest() {
     check(savemirror::getHeld(u, game, &held) && held.channelId == had.channelId &&
               held.snapshotId == 12 && held.digest == had.digest &&
               held.saveHash == had.saveHash && held.at == had.at &&
-              held.hashesHad == had.hashesHad,
+              held.madeAt == had.madeAt && held.beside && held.hashesHad == had.hashesHad,
           "the snapshot held reads back whole, with every save's hash this console has had, "
           "and a note of no snapshot writes nothing");
     const uint64_t before = savemirror::mark();
@@ -1022,12 +1024,10 @@ int saveNotesTest() {
               state->fileName == "Game (Cabinet).state1" && state->localPath == "/states/1.state" &&
               state->shotName == "Game (Cabinet).state1.png" && state->shotPath == "/states/1.png",
           "a state's with its picture");
-    check(cache::isPending(u, 8, "Game (Cabinet).srm") && cache::pendingCount(u) == 3 &&
-              cache::pendingBytes() == 2048 + 512 + 256,
+    check(cache::pendingCount(u) == 3 && cache::pendingBytes() == 2048 + 512 + 256,
           "each still owed, counted and its bytes held back with the push's");
     cache::clearPending(u, 8, "Game (Cabinet).srm");
-    check(!cache::isPending(u, 8, "Game (Cabinet).srm") && cache::isPushOwed(u, 8) &&
-              cache::owed(u).size() == 1,
+    check(cache::isPushOwed(u, 8) && cache::owed(u).size() == 1 && cache::owed(u)[0].isState,
           "a file sent clears its own marker and leaves the push owed");
     cache::clearPushOwed(u, 8, beside);
     check(!cache::isPushOwed(u, 8) && cache::owed(u).size() == 1,
@@ -1044,8 +1044,9 @@ int saveNotesTest() {
 // folder each taken from a channel's snapshot and from RomM's saves from
 // before channels, the save they replace kept aside first and only then, one
 // copy a game; a save that is what the console already has changing nothing;
-// an empty one and one this console still owes never replacing a real one;
-// and the notes a start leaves, in the session and of the snapshot held.
+// an empty one never replacing a real one, and a pick of the console's own
+// taking nothing; and the notes a start leaves, in the session and of the
+// snapshot held.
 int savePickTest() {
     std::printf("which save a start continues from\n\n");
     int failures = savepick::test();
@@ -1119,7 +1120,6 @@ int savePickTest() {
     catalog::SaveFile spec;
     spec.path = "fbneo/kof98.fs";
     spec.untouched = catalog::Untouched::Uniform;
-    spec.coreRowName = "fbneo";
     const std::string file = saveDir + "/fbneo/kof98.fs";
     {
         StartNotes n = notesFor();
@@ -1209,19 +1209,14 @@ int savePickTest() {
                   !noteStart(f, n, u, &sess) && sess.startChannelId.empty(),
               "a save from before channels over this console's own: kept aside too, no pill, "
               "no channel in the session");
-        // And while this console's own is still owed, it wins.
+        // A pick of this console's own, which is what a save still owed
+        // gets (savepick.h), takes nothing from RomM whatever was fetched.
         cab::writeBytes(file, own);
-        cache::Owed owed;
-        owed.romId = game;
-        owed.emulator = tag;
-        owed.fileName = row.fileName;
-        owed.localPath = file;
-        cache::markPending(u, owed, static_cast<int64_t>(own.size()));
+        f.pick.from = savepick::Pick::From::Own;
         StartNotes kept = notesFor();
         restoreFileSaves({spec}, "kof98", saveDir, tag, f, &kept);
         check(cab::readBytes(file) == own && kept.keptAside.empty(),
-              "a save this console has not sent yet stands");
-        cache::clearPending(u, game, row.fileName);
+              "a pick of this console's own save leaves it, whatever RomM listed");
     }
     {
         // A fetch that went stale: a save of this game landed after it.

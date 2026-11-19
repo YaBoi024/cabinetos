@@ -129,6 +129,10 @@ void App::startDetailStates() {
             if (::stat(o.localPath.c_str(), &st) == 0 && isoUtc(st.st_mtime) > savedAt)
                 savedAt = isoUtc(st.st_mtime);
         }
+        // And its snapshot still owed (savepush.h), dated when it was made.
+        if (cache::OwedPush push; cache::owedPush(who, romId, &push) &&
+                                  isoUtc(static_cast<time_t>(push.madeAt)) > savedAt)
+            savedAt = isoUtc(static_cast<time_t>(push.madeAt));
         if (!savedAt.empty()) {
             std::string w = stateWhen(savedAt);
             if (w.rfind("Today", 0) == 0 || w.rfind("Yesterday", 0) == 0)

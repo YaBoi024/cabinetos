@@ -172,28 +172,13 @@ struct SaveFile {
     // Sega CD is the case: `4Mbit_cart.brm` also ends in `.brm`, and without
     // this the cartridge and the internal RAM overwrite each other.
     std::string captureExclude;
-    // The extension this console uploads the row under, which is also how a
-    // restore tells two regions of one game apart. "srm" for the game's own
-    // save and "cart" for Sega CD's external RAM cartridge — the reference
-    // implementation's convention, and the reason its Lunar has two rows.
+    // Which of a game's saves this file is: "srm" for the game's own save,
+    // "cart" for Sega CD's external RAM cartridge, "ps2" for a PlayStation 2
+    // card. It is the extension of this console's own copy (saveRowName) and
+    // of the row a save from before save channels has on RomM, one row a
+    // region, which is how a start tells them apart (savepick.h, regionOfRow).
     std::string region = "srm";
     Untouched untouched = Untouched::Blank;
-    // What the row on the server calls the core, or empty when naming the game
-    // is enough.
-    //
-    // ARCADE AND ONLY ARCADE: one game can legitimately have two of these, one
-    // per emulator, and RomM matches a row for overwrite by FILENAME ALONE
-    // with the emulator tag not included. So two arcade cores both uploading
-    // `smashtv (Cabinet).srm` would quietly overwrite each other's high scores
-    // on the server despite being tagged differently — a fault nobody would
-    // see until the scores were gone.
-    //
-    // The strings are the reference implementation's, not this console's
-    // manifest names, and they were read off the rows already on the server
-    // rather than guessed: `smashtv (Cabinet fbneo).srm` and `lethalen
-    // (Cabinet mame2003Plus).srm`. Matching them is the point — see
-    // saves.cpp's saveRowName.
-    std::string coreRowName;
     // DREAMCAST ONLY. Flycast keeps the VMU in the libretro SYSTEM directory —
     // `bios/dc/` here — because libretro gives a core exactly one of those and
     // that is where the core looks. It is the one file in `bios/` that cannot
@@ -203,20 +188,6 @@ struct SaveFile {
     // lives in `bios/dc/` at rest is `dc_nvmem.bin`, the console's own clock
     // and language, which rebuilds itself if it is lost.
     bool inSystemDir = false;
-    // NAMED THE WAY THE MAC NAMES IT, rather than this console's own
-    // `<game> (Cabinet).<region>`.
-    //
-    // PlayStation 2 is the platform where a save already existed on the
-    // server written by a DIFFERENT implementation of this same product, and
-    // RomM matches a row for overwrite by filename alone. Cabinet
-    // for Mac called a PS2 card `cabinet-604.ps2`; this console would call it
-    // `Burnout 3 Takedown (Cabinet).srm`. Same bytes, same emulator tag, two
-    // rows — and a restore that never finds the card the person actually made.
-    //
-    // So there the Mac's convention wins, because matching it was the entire
-    // point. It is a deliberate exception to the naming rule above and
-    // not a drift into one.
-    bool macRowName = false;
 };
 
 // --- Firmware a core can actually find --------------------------------------

@@ -53,16 +53,6 @@ void markPending(const storage::User& u, const Owed& o, int64_t bytes);
 std::vector<Owed> owed(const storage::User& u);
 void clearPending(const storage::User& u, int romId, const std::string& fileName);
 
-// Whether this console still owes the server this exact file. Read off the
-// disk like everything else here, so it survives the console being switched
-// off between the save and the upload.
-//
-// IT IS WHAT STOPS A LAUNCH UNDOING A SAVE. A game saved with no network
-// leaves a newer file on this machine than anything the server holds; without
-// this the next launch would fetch the server's older copy and write it over
-// the top, and the person would lose the session they made offline.
-bool isPending(const storage::User& u, int romId, const std::string& fileName);
-
 // --- A game's snapshot not on RomM yet (#346) --------------------------------
 //
 // ONE MARKER PER PERSON AND GAME for RomM 5.5's save channels: what a session
@@ -124,9 +114,16 @@ struct OwedPush {
 std::string markPushOwed(const storage::User& u, const OwedPush& push, int64_t bytes);
 // Every game this person's console still owes a push for, oldest first.
 std::vector<OwedPush> owedPushes(const storage::User& u);
-// This game's, when it is owed. While it is, the console's own save and
-// states of the game are newer than anything RomM holds of them, as
-// isPending says of one file above.
+// This game's, when it is owed. Read off the disk like everything else
+// here, so it survives the console being switched off between the save and
+// the push.
+//
+// IT IS WHAT STOPS A LAUNCH UNDOING A SAVE. A game saved with no network
+// leaves a newer save on this machine than anything the server holds;
+// without this the next launch would fetch the server's older copy and write
+// it over the top, and the person would lose the session they made offline.
+// A start takes nothing from RomM while it is owed (savepick.h), and the
+// same holds for a save's own marker from before save channels (owed).
 bool owedPush(const storage::User& u, int romId, OwedPush* push);
 bool isPushOwed(const storage::User& u, int romId);
 // Removes the marker if it still has this stamp.

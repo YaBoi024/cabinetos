@@ -2,7 +2,8 @@
 // for a start (its save channels and its saves from before them, and the one
 // the start continues from, savepick.h), a directory save zipped and unzipped,
 // the files a core writes, and the battery a core exposes. A save is written
-// to this console before any upload is tried. Moved out of main.cpp in the
+// to this console before anything is sent, and what a game saved goes up as
+// one snapshot once it has closed (savepush.h). Moved out of main.cpp in the
 // restructure (#398).
 
 #pragma once
@@ -96,27 +97,37 @@ void restoreDirSave(const SaveFetch& fetched, const char* tag, const std::string
                     const std::string& title, const std::string& oldCard = std::string(),
                     StartNotes* notes = nullptr);
 std::vector<cab::DirEntry> listDirSave(const GameSession& sess);
-void syncDirSave(GameSession& sess, Uploader& up);
+// WHAT A GAME SAVED IS GATHERED ON THIS CONSOLE FIRST, by the three below: a
+// save folder zipped (syncDirSave), the files a core wrote read back once it
+// has shut down (syncFileSaves), the battery read out of the core (syncSave,
+// which gathers a save folder instead where the game has one). Each writes
+// this console's copy only when the save changed, and says so in the session
+// (GameSession::saveChanged). None sends anything: the one snapshot goes up
+// once the game has closed (savepush.h, leave).
+void syncDirSave(GameSession& sess);
+std::string dirSaveZipName(const std::string& title);
 void finishInterruptedSave(const cab::standalone::Emulator& emu, const std::string& saveDir,
                            Uploader& up);
-std::string saveRowName(const std::string& fsStem, const std::string& coreRowName,
-                        const std::string& region);
+// The note an emulator run as a program is started with, and the session it
+// reads back as (saves.cpp).
+std::string playingNoteFor(const GameSession& sess, const std::string& saveDir);
+GameSession sessionOfPlayingNote(const std::string& text, std::string* saveDir = nullptr);
+std::string saveRowName(const std::string& fsStem, const std::string& region);
 std::vector<cab::FileSaveState> restoreFileSaves(
         const std::vector<catalog::SaveFile>& specs, const std::string& fsStem,
         const std::string& saveDir, const char* tag, const SaveFetch& fetched,
         StartNotes* notes = nullptr);
-void syncFileSaves(GameSession& sess, Uploader& up);
-void syncSave(GameSession& sess, Uploader& up);
+void syncFileSaves(GameSession& sess);
+void syncSave(GameSession& sess);
 void restoreBatterySave(cab::Core& core, GameSession& session, const std::string& saveDir,
-                        const storage::User& user, const SaveFetch& fetched,
-                        StartNotes* notes = nullptr);
+                        const SaveFetch& fetched, StartNotes* notes = nullptr);
 // The pill a start says when the save it continued from was made on another
 // device (#346, decision 5; MMagTech's wording).
 inline constexpr char kContinuingElsewhere[] = "Continuing from another device";
 // AFTER THE RESTORES: where the session started from goes into `session`
-// (the channel and snapshot, for the push when the game is left), and a start
-// from a channel's snapshot becomes the snapshot this console holds
-// (savemirror::Held). True when the start says "Continuing from another
-// device" (savepick::continuingElsewhere).
+// (the channel and snapshot, for the snapshot pushed when the game is left,
+// savepush.h), and a start from a channel's snapshot becomes the snapshot
+// this console holds (savemirror::Held). True when the start says
+// "Continuing from another device" (savepick::continuingElsewhere).
 bool noteStart(const SaveFetch& fetched, const StartNotes& notes, const storage::User& user,
                GameSession* session);
