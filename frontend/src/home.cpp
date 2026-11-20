@@ -181,7 +181,7 @@ void App::moveRow(int delta) {
     // the same place on screen, whatever each row has scrolled to, and the
     // last one when the other row is shorter. Going up to the bar and back
     // still returns to the same card: that is not a row move.
-    const float pitch = kShelfCoverWidth + kShelfSpacing;
+    const float pitch = shelfCoverWidth() + shelfSpacing();
     const float x = static_cast<float>(focusSlot) * pitch - shelfScroll[focusRow].to;
     const float slot = std::round((x + shelfScroll[row].to) / pitch);
     leaveFocus();
@@ -257,8 +257,8 @@ void App::drawHome(float dt, float sc) {
     // instead, which is what makes Home fit in one screen — see the
     // budget in design.h.
     const float shelfBlockHeight =
-        text.lineHeight(ui::TextStyle::Title3, sc) + kShelfHeaderGap + kShelfHeadroom +
-        kShelfCoverHeight + kShelfHeadroom;
+        text.lineHeight(ui::TextStyle::Title3, sc) + kShelfHeaderGap + shelfHeadroom() +
+        shelfCoverHeight() + shelfHeadroom();
 
     const float recentTop = barTop + barHeight + barGapBelow;
     // Favorites takes Recent's place when nothing has been played.
@@ -361,7 +361,7 @@ void App::drawHome(float dt, float sc) {
         }
 
         const float shelfTop =
-            top + text.lineHeight(ui::TextStyle::Title3, sc) + kShelfHeaderGap + kShelfHeadroom;
+            top + text.lineHeight(ui::TextStyle::Title3, sc) + kShelfHeaderGap + shelfHeadroom();
 
         // CULL TO WHAT IS ON SCREEN, and do it before touching the cover
         // cache. This loop used to run over every card: invisible with a
@@ -370,24 +370,24 @@ void App::drawHome(float dt, float sc) {
         // texture budget. A shelf is a window onto a list, not a drawing of
         // the list. The margin keeps a card's art loading just before it
         // slides in, so the fade has somewhere to start.
-        const float kCullMargin = (kShelfCoverWidth + kShelfSpacing) * 2.0f;
+        const float kCullMargin = (shelfCoverWidth() + shelfSpacing()) * 2.0f;
         // THE ROW FOLLOWS FOCUS, and only as far as it has to. Moving
         // right, the row slides once the focused card would cross the
         // right edge, and it stops where the NEXT card still peeks in, so
         // there is visibly more to come. Moving back left, it slides once
         // focus would cross the left inset. The last card rests against
         // the right edge; the first against the left inset.
-        const float pitch = kShelfCoverWidth + kShelfSpacing;
+        const float pitch = shelfCoverWidth() + shelfSpacing();
         if (rowId == RowRecent || rowId == RowFavorites) {
             Animated& rs = shelfScroll[rowId];
             if (rowFocused) {
                 const float left = kContentInset + static_cast<float>(focusSlot) * pitch;
                 const bool last = focusSlot >= static_cast<int>(count) - 1;
-                const float peek = last ? 0.0f : kShelfSpacing + kShelfCoverWidth * 0.35f;
+                const float peek = last ? 0.0f : shelfSpacing() + shelfCoverWidth() * 0.35f;
                 const float rightEdge = ui::kCanvasWidth - kContentInset - peek;
                 float target = rs.to;
-                if (left + kShelfCoverWidth - target > rightEdge)
-                    target = left + kShelfCoverWidth - rightEdge;
+                if (left + shelfCoverWidth() - target > rightEdge)
+                    target = left + shelfCoverWidth() - rightEdge;
                 if (left - target < kContentInset) target = left - kContentInset;
                 target = std::max(0.0f, target);
                 rs.retarget(target, kFocusDuration * 1.6f);
@@ -409,7 +409,7 @@ void App::drawHome(float dt, float sc) {
             if ((pass == 0) == isFocused) continue;
 
             const float cullX = cardBaseX(slot);
-            if (cullX + kShelfCoverWidth < -kCullMargin) continue;
+            if (cullX + shelfCoverWidth() < -kCullMargin) continue;
             if (cullX > ui::kCanvasWidth + kCullMargin) break;
 
             const Card& card = cards[i];
@@ -431,11 +431,11 @@ void App::drawHome(float dt, float sc) {
             const float baseX = cullX;
             // FORK (handheld): the cover's touch target, under the bar.
             homeTaps.add(rowId * 1000 + static_cast<int>(slot), baseX, shelfTop,
-                         kShelfCoverWidth, kShelfCoverHeight, barTop + barHeight);
-            const float w = kShelfCoverWidth * scale;
-            const float h = kShelfCoverHeight * scale;
-            const float x = baseX - (w - kShelfCoverWidth) * 0.5f;
-            const float y = shelfTop - (h - kShelfCoverHeight) * 0.5f;
+                         shelfCoverWidth(), shelfCoverHeight(), barTop + barHeight);
+            const float w = shelfCoverWidth() * scale;
+            const float h = shelfCoverHeight() * scale;
+            const float x = baseX - (w - shelfCoverWidth()) * 0.5f;
+            const float y = shelfTop - (h - shelfCoverHeight()) * 0.5f;
 
             // THE GRID'S COVER, NOT A COPY OF IT. Home had its own, which
             // drifted: no grey for a game that cannot be played here, and a
@@ -449,7 +449,7 @@ void App::drawHome(float dt, float sc) {
     }
         // Header, headroom, cover, headroom. No caption row: the focused
         // title is in the header, so it costs nothing here.
-        return (shelfTop - top) + kShelfCoverHeight + kShelfHeadroom;
+        return (shelfTop - top) + shelfCoverHeight() + shelfHeadroom();
     };
 
     float rowY = shelfHeaderY;
