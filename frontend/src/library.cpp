@@ -364,6 +364,9 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
             if (cov.support == catalog::Support::NoCore ||
                 cov.support == catalog::Support::Excluded)
                 continue;
+            // FORK (phones): nor one whose emulator this program will never have.
+            if (cov.support == catalog::Support::NotInstalled && platform::hidesSystemsWithoutACore())
+                continue;
             lib.platformTiles.push_back(std::move(tile));
             continue;
         }

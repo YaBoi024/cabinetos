@@ -31,6 +31,8 @@ void safeInsets(int, int, int* left, int* top, int* right, int* bottom) {
     *left = *top = *right = *bottom = 0;
 }
 bool showsGamesWithoutACore() { return false; }
+bool hidesSystemsWithoutACore() { return false; }
+bool showsBackButton() { return false; }
 void gamePlaying(bool, const char*) {}
 bool runsInAnotherApp(const char*) { return false; }
 bool openInAnotherApp(const char*, const std::string&) { return false; }

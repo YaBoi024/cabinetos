@@ -1443,6 +1443,12 @@ struct App {
     struct BarSpot { float x0 = 0.0f, x1 = 0.0f; };
     BarSpot barSpot[BarCount];
     uint64_t barDrawnAt = 0;
+    // FORK (phones): the Back button (platform::showsBackButton), as last drawn.
+    struct BackSpot { float x = 0.0f, y = 0.0f, d = 0.0f; };
+    BackSpot backSpot;
+    uint64_t backDrawnAt = 0;
+    bool canGoBackByTouch();
+    void drawBackButton(float x, float y, float d, float sc);
     screens::TapSpots homeTaps;   // FORK (handheld): Home's covers, as last drawn
     screens::TapSpots overlayTaps;   // FORK (handheld): the pause menu's rows, as last drawn
     bool tapOverlay(float x, float y);   // FORK (handheld): a tap on one of them
