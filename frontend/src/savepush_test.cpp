@@ -21,6 +21,7 @@
 #include "fileio.h"
 #include "savemirror.h"
 #include "savepick.h"
+#include "savepicture.h"
 #include "savepush.h"
 #include "saves.h"
 #include "storage.h"
@@ -646,6 +647,53 @@ int test() {
                   savemirror::getSnapshotSave(u, g, top.save) == one,
               "the copy for offline is RomM's channels as they are now, with the bytes just sent");
     }
+    {   // The save's picture (savepicture.h), with the save it was taken of.
+        GameSession s = battery(++game, one);
+        const int g = game;
+        s.savePicture = savepicture::pathFor(u, g, 1234);
+        const std::vector<uint8_t> pic = bytesOf("a picture of the save", 48);
+        cab::writeBytes(s.savePicture, pic);
+        mark(s, u);
+        Stand romm;
+        romm.answers = {made(snapshot(64, kChannel, hashOne, romTime(1)))};
+        const Sent sent = send(romm.server(), u, g, &why);
+        const bool single = romm.pushes.size() == 1;
+        check(sent == Sent::Landed && single && romm.pushes[0].hasSave &&
+                  romm.pushes[0].save.picture == pic &&
+                  romm.pushes[0].save.pictureName == "Game (USA).png",
+              "a save with its picture: the picture goes in the same push, named after the "
+              "save");
+        struct stat st;
+        check(!cache::isPushOwed(u, g) && ::stat(s.savePicture.c_str(), &st) != 0,
+              "it landed: the picture's file is deleted with the marker");
+        // A save whose picture's file is gone goes without one.
+        GameSession s2 = battery(++game, one);
+        s2.savePicture = savepicture::pathFor(u, game, 1235);
+        cab::writeBytes(s2.savePicture, pic);
+        mark(s2, u);
+        cab::removeFile(s2.savePicture);
+        Stand romm2;
+        romm2.answers = {made(snapshot(65, kChannel, hashOne, romTime(1)))};
+        check(send(romm2.server(), u, game, &why) == Sent::Landed && romm2.pushes.size() == 1 &&
+                  romm2.pushes[0].hasSave && romm2.pushes[0].save.picture.empty(),
+              "its picture's file gone: the save goes without one");
+        // A picture whose file went before the save was marked is not named.
+        GameSession s4 = battery(++game, one);
+        s4.savePicture = savepicture::pathFor(u, game, 1236);
+        mark(s4, u);
+        cache::OwedPush q4;
+        check(cache::owedPush(u, game, &q4) && q4.savePicturePath.empty(),
+              "a picture whose file is gone before the save is marked is not named");
+        cache::clearPushOwed(u, game, q4.stamp);
+        // A sitting that took no picture: none, and none of an older save's.
+        GameSession s3 = battery(++game, one);
+        mark(s3, u);
+        cache::OwedPush q;
+        check(cache::owedPush(u, game, &q) && q.savePicturePath.empty() &&
+                  q.savePictureName.empty(),
+              "a sitting that took no picture owes none");
+        cache::clearPushOwed(u, game, q.stamp);
+    }
     {   // Unchanged.
         const int g = owe([&](GameSession& s) { hold(s.romId, kChannel, 62); });
         Stand romm;
@@ -1120,8 +1168,9 @@ int test() {
                   sp.states[1].file.bytes.empty() &&
                   sp.states[2].slot == "3" && sp.states[2].file.hash == stateHash("kept b") &&
                   sp.states[2].file.bytes.empty() && romm.stateAsks == 1 &&
-                  romm.historyAsks == 0,
-              "states alone: no save named, so the snapshot's is carried; the console's own "
+                  romm.historyAsks == 0 && sp.save.picture.empty(),
+              "states alone: no save named, so the snapshot's is carried with its picture; "
+              "the console's own "
               "name only, the new one in slot 1 with its bytes and picture, the two newest of "
               "RomM's list by hash (the current's, and one off this console's copy) and no "
               "bytes, the oldest left out; RomM's list asked once and no history needed");

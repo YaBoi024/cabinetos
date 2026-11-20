@@ -551,6 +551,16 @@ code.
   save by its row's `created_at`, a state by the time in its own name
   (`savepick::dateSaves`, `stateNameMs`), never by the box it travels in.
 
+- **A BATTERY IS NOT ONLY A SAVE.** Watched once a second for the save's
+  picture (#346), Pokémon Red's battery changed four times in 30 seconds on
+  its title screen, with nobody saving: the game unpacks its pictures of
+  Pokémon into that memory as work space. Anything that reads "the battery
+  changed" as "the game saved" (the picture, the send at the leave, RomM's
+  web player's own upload) reacts to those writes too. **Nothing tells a
+  console that a game saved;** a rule built on a change sees a game's work
+  space as well, so say so where the rule is written, and do not promise
+  more than "the last moment its save changed".
+
 - **A GAME CAN BIND ITS SAVE TO THE PROFILE ID.** Forza Horizon 2 called its
   save "tampered" under any other ID. One ID on every console, for good, as
   the Xbox EEPROM is.

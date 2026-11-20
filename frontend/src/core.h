@@ -505,13 +505,15 @@ public:
     uint64_t frameDigest() const;
 
     // THE GAME'S OWN PICTURE, AS RGBA, THE WAY UP IT IS SHOWN: for the
-    // picture a save state carries (#99). Read from the game's frame, never
-    // from the screen, so the pause menu drawn over it is not in it. Rows top
-    // first, flipped and quarter-turned exactly as the player draws it, at the
-    // core's own resolution (as Cabinet sent). False with nothing to
-    // read: no frame yet, or the PS2 path, which has no states. Call on the
-    // GL thread.
-    bool snapshot(std::vector<uint8_t>& rgba, unsigned& width, unsigned& height) const;
+    // picture a save state carries (#99) and a save's (#346, savepicture.h).
+    // Read from the game's frame, never from the screen, so the pause menu
+    // drawn over it is not in it. Rows top first, flipped and quarter-turned
+    // exactly as the player draws it, at the core's own resolution (as
+    // Cabinet sent), or no wider than `maxWidth` as shown, made that small on
+    // the graphics chip before it is read where the core draws there. False
+    // with nothing to read: no frame yet. Call on the GL thread.
+    bool snapshot(std::vector<uint8_t>& rgba, unsigned& width, unsigned& height,
+                  unsigned maxWidth = 0) const;
 
     // Emulated frames run since the game loaded, and audio frames produced.
     // Audio against the core's own sample rate is the only direct read on

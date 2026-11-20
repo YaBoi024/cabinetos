@@ -28,6 +28,7 @@
 #include "netblock.h"
 #include "samenames.h"
 #include "screenview.h"
+#include "savepicture.h"
 #include "savepush.h"
 #include "selftests.h"
 #include "storage.h"
@@ -242,6 +243,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             loadStateAfter = SDL_atoi(argv[++i]);
         } else if (SDL_strcmp(argv[i], "--sync-test") == 0) {
             syncTest = true;
+        } else if (SDL_strcmp(argv[i], "--save-write-at") == 0 && i + 1 < argc) {
+            saveWriteAt = static_cast<uint64_t>(SDL_atoi(argv[++i]));
         } else if (SDL_strcmp(argv[i], "--launch-after") == 0 && i + 1 < argc) {
             autoLaunchAfter = static_cast<float>(SDL_atof(argv[++i]));
         } else if (SDL_strcmp(argv[i], "--rom-probe") == 0 && i + 1 < argc) {
@@ -337,6 +340,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             return savePickTest();
         } else if (SDL_strcmp(argv[i], "--save-push-test") == 0) {
             return savepush::test();
+        } else if (SDL_strcmp(argv[i], "--save-picture-test") == 0) {
+            return savepicture::test();
         } else if (SDL_strcmp(argv[i], "--game-events-test") == 0) {
             return gameevents::test();
         } else if (SDL_strcmp(argv[i], "--battery-test") == 0) {

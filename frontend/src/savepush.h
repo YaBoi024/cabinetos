@@ -11,7 +11,10 @@
 // from; a save folder as the zip syncDirSave makes. Under the tag the core's
 // saves travel under (catalog::saveTag), which is what lets another console
 // use it as stored (savepick.h), and named after the game. Nothing changed
-// means nothing sent.
+// means nothing sent. WITH ITS PICTURE, the game the moment it saved, when
+// the sitting took one (savepicture.h): RomM's `save_screenshot` part, which
+// RomM keeps with the save's row and its website shows on the channel's
+// tile. A push of states alone sends none: the save it carries keeps its own.
 //
 // AND THE STATES (#346, step 6; decisions 1 and 8 of 2026-11-15). A state is
 // written on this console with its picture when it is made, and marked owed

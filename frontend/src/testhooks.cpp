@@ -381,8 +381,27 @@ void App::overlayHooks() {
     }
 }
 
-// --state-check, --load-state and --sync-test, after the disc rig.
+// --state-check, --load-state, --sync-test and --save-write-at, after the
+// disc rig.
 void App::stateHooks() {
+    // --save-write-at N: one byte of the core's save memory changed at its
+    // Nth frame, as a game writes its save, so the watch sees a save made
+    // mid-game (savepicture.h). A core with no battery is left alone: a run
+    // changes the files a core writes, or its save folder, itself.
+    if (saveWriteAt > 0 && playing && cab::Core::shared().framesRun() >= saveWriteAt) {
+        saveWriteAt = 0;
+        cab::Core& core = cab::Core::shared();
+        std::vector<uint8_t> ram;
+        if (core.readSaveRam(ram) && !ram.empty()) {
+            ram[ram.size() / 2] ^= 0x5A;
+            core.writeSaveRam(ram);
+            std::fprintf(stderr, "[save-write] the battery written at frame %llu, as a game "
+                                 "saves\n",
+                         static_cast<unsigned long long>(core.framesRun()));
+        } else {
+            std::fprintf(stderr, "[save-write] no battery in this core to write\n");
+        }
+    }
     if (stateCheckAfter > 0 && playing) {
         static std::vector<uint8_t> first;
         static uint64_t savedAt = 0;

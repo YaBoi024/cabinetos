@@ -47,6 +47,9 @@ void App::dropPressesFromClosing() {
 }
 
 void App::finishExit() {
+    // THE SAVE'S PICTURE FIRST, while the game is still on screen: a save
+    // that changed since its last picture takes one now (savepicture.h).
+    savePicture.leaving(session, SDL_GetTicks());
     // TIME PLAYED (#128): the session ends as the game does, and goes to
     // RomM with the save. Game events (#716) says so, with the minutes.
     int64_t playedMs = 0;
@@ -137,6 +140,8 @@ void App::finishExit() {
     // file rather than a tree. This is where a Dreamcast's card is read
     // back out of the system directory and taken out of `bios/`.
     syncFileSaves(session);
+    // The save's picture finished, if it is still being made.
+    savePicture.finish(session, SDL_GetTicks());
     // WHAT THE SESSION LEFT GOES UP AS ONE SNAPSHOT, ONCE, now that the game
     // has closed and every kind of save is gathered and written on this
     // console (#346, savepush.h): marked as owed here, sent on the upload

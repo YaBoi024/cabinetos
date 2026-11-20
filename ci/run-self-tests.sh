@@ -71,6 +71,7 @@ TESTS=(
     --save-notes-test
     --save-pick-test
     --save-push-test
+    --save-picture-test
     --gpu-choice-test
     --tailscale-switch-test
     --update-romm-test

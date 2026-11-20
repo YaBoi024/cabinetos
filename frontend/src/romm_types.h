@@ -401,7 +401,7 @@ struct Channel {
 };
 
 // One file a push names: by its content hash, and by its bytes when RomM
-// may not hold them. A state may carry its picture (PNG).
+// may not hold them. A state and the save may carry their picture (PNG).
 struct PushFile {
     std::string hash;               // romm::contentHash of the bytes
     std::string fileName;           // the name RomM files it under

@@ -100,6 +100,8 @@ bool readPush(const std::string& path, OwedPush* p) {
         else if (k == "savename") p->saveName = v;
         else if (k == "savepath") p->savePath = v;
         else if (k == "saveshape") p->saveShape = v;
+        else if (k == "savepicname") p->savePictureName = v;
+        else if (k == "savepicpath") p->savePicturePath = v;
         else if (k == "state") p->states.push_back({v, "", "", "", "", 0});
         else if (st && k == "statemade") st->madeMs = std::atoll(v.c_str());
         else if (st && k == "statename") st->fileName = v;
@@ -224,6 +226,8 @@ std::string markPushOwed(const storage::User& u, const OwedPush& p, int64_t byte
         put("savename", p.saveName);
         put("savepath", p.savePath);
         put("saveshape", p.saveShape);
+        put("savepicname", p.savePictureName);
+        put("savepicpath", p.savePicturePath);
     }
     for (const OwedPush::State& st : p.states) {
         text += "state " + st.core + "\n";
@@ -233,10 +237,16 @@ std::string markPushOwed(const storage::User& u, const OwedPush& p, int64_t byte
         put("picname", st.pictureName);
         put("picpath", st.picturePath);
     }
+    OwedPush before;
+    const bool replaced = readPush(pushPath(u, p.romId), &before);
     if (!cab::writeBytes(pushPath(u, p.romId), text)) {
         std::fprintf(stderr, "[upload] could not write the owed push of game %d\n", p.romId);
         return "";
     }
+    // The picture of the save it replaces, which no marker names now.
+    if (replaced && !before.savePicturePath.empty() &&
+        before.savePicturePath != (p.hasSave ? p.savePicturePath : std::string()))
+        ::unlink(before.savePicturePath.c_str());
     return stamp;
 }
 
@@ -291,8 +301,10 @@ void clearPushOwed(const storage::User& u, int romId, const std::string& stamp) 
     if (!u.valid() || stamp.empty()) return;
     std::lock_guard<std::mutex> lk(gPushLock);
     OwedPush p;
-    if (readPush(pushPath(u, romId), &p) && p.stamp == stamp)
+    if (readPush(pushPath(u, romId), &p) && p.stamp == stamp) {
         ::unlink(pushPath(u, romId).c_str());
+        if (!p.savePicturePath.empty()) ::unlink(p.savePicturePath.c_str());
+    }
 }
 
 int pendingCount(const storage::User& u) {

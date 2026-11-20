@@ -167,6 +167,8 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
         std::fprintf(stderr, "[save] %s holds %zu file(s) at launch\n", root.c_str(),
                      session.dirAtLaunch.size());
     }
+    // THE SAVE WATCHED FROM HERE, for its picture (savepicture.h).
+    savePicture.begin(session, user, savepicture::programGame(), SDL_GetTicks());
     standaloneRan = 0.0f;
     if (session.romId > 0) {
         playClock.begin(session.romId, playtime::wallMs());
@@ -213,6 +215,9 @@ void App::finishStandalone() {
             std::fprintf(stderr, "[standalone] saves stay on the drive: %s\n", aerr.c_str());
     }
     if (!session.dirSaveRoot.empty()) syncDirSave(session);
+    // The save's picture finished; a game that went by itself with its save
+    // changed since its picture keeps none (savepicture.h).
+    savePicture.finish(session, SDL_GetTicks());
     savepush::leave(session, storage::currentUser(), uploader);
     session.dirSaveRoot.clear();
     // The zip is on the disk and owed to the server: nothing left for a
@@ -446,6 +451,9 @@ bool App::takeStandaloneEvent(const SDL_Event& e) {
 // Every frame while an emulator of its own runs. True when this frame is
 // done: while the emulator has the screen the frame loop does nothing else.
 bool App::watchStandalone(float dt) {
+    // THE SAVE, looked at once a second for its picture (savepicture.h).
+    if (standaloneRun.active() && !standaloneRun.stopping())
+        savePicture.tick(session, SDL_GetTicks());
     // HOME HELD ON A WII REMOTE opens the menu here as in every game
     // (followRemotesInGame). While the emulator has the screen the frame
     // loop stops before its own call, so it is asked here.
@@ -542,7 +550,7 @@ bool App::watchStandalone(float dt) {
         if (standaloneExitAfter > 0.0f && !standaloneRun.stopping() &&
             standaloneRan >= standaloneExitAfter) {
             std::fprintf(stderr, "[standalone] --standalone-exit: closing it\n");
-            standaloneRun.stop();
+            stopStandaloneGame();
         }
         // The game's rumble, to the pads in people's hands, and never
         // while it is frozen under the pause menu.
@@ -566,10 +574,19 @@ bool App::watchStandalone(float dt) {
 // a session of its own. Asked, then made, inside its grace period.
 void App::closeStandaloneAtExit() {
     if (standaloneRun.active()) {
-        standaloneRun.stop();
+        stopStandaloneGame();
         while (standaloneRun.poll()) SDL_Delay(50);
         finishStandalone();
     }
+}
+
+// EVERY CLOSE ASKED OF AN EMULATOR OF ITS OWN: Exit to Home, the Power menu,
+// the console shutting down. Its save's picture is asked of gamescope first,
+// while the game is still on its plane (savepicture.h).
+void App::stopStandaloneGame() {
+    if (standaloneRun.active() && !standaloneRun.stopping())
+        savePicture.leaving(session, SDL_GetTicks());
+    standaloneRun.stop();
 }
 
 // --- The pointer (#198) -------------------------------------------------------

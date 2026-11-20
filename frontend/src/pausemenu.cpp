@@ -146,7 +146,7 @@ void App::overlayActivate() {
             if (standaloneRun.active()) {
                 overlayOpen = false;
                 overlayFade.retarget(0.0f, overlayFadeSeconds);
-                standaloneRun.stop();
+                stopStandaloneGame();
             } else {
                 exitToHome();
             }

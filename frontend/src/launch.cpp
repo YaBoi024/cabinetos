@@ -1131,6 +1131,9 @@ void App::startPlaying(cab::Core& core) {
     std::fprintf(stderr, "[launch] running %s\n",
                  core.isPs2() ? "PCSX2" : core.coreName().c_str());
     playing = true;
+    // THE SAVE WATCHED FROM HERE, for its picture (savepicture.h): every
+    // restore has run and the session's baselines are taken.
+    savePicture.begin(session, storage::currentUser(), savepicture::coreGame(), SDL_GetTicks());
     // An arcade game's buttons as this person moved them (controls.h).
     controls::beginGame(session.arcadeCore(), session.romId, session.title);
     // RetroAchievements, when this person signed in (achievements.h):

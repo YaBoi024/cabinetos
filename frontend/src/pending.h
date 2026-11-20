@@ -101,6 +101,12 @@ struct OwedPush {
     std::string saveName;
     std::string savePath;
     std::string saveShape;
+    // ITS PICTURE (#346, savepicture.h), the moment it was saved: the name
+    // it goes up under and its file in `pending/`, empty for none. The marker
+    // owns the file: one that replaces it naming another, and the clearing
+    // of it, delete it.
+    std::string savePictureName;
+    std::string savePicturePath;
     // The states made on this console that it carries (#346, step 6), newest
     // first: each under the core's name the bank files it under, the name it
     // travels under, its file, its picture, and when it was made. The push
@@ -116,7 +122,8 @@ struct OwedPush {
     std::vector<State> states;
 };
 // Writes `push` with a new stamp, which it returns; empty when the marker
-// could not be written.
+// could not be written. The save's picture of the marker it replaces goes
+// when `push` names another or none.
 std::string markPushOwed(const storage::User& u, const OwedPush& push, int64_t bytes);
 // Every game this person's console still owes a push for, oldest first.
 std::vector<OwedPush> owedPushes(const storage::User& u);
@@ -136,7 +143,8 @@ bool isPushOwed(const storage::User& u, int romId);
 // own marker from before save channels. What keeps a start from taking
 // RomM's (savepick.h); a push of states alone leaves the save as RomM has it.
 bool saveOwed(const storage::User& u, int romId);
-// Removes the marker if it still has this stamp.
+// Removes the marker if it still has this stamp, and the save's picture it
+// names.
 void clearPushOwed(const storage::User& u, int romId, const std::string& stamp);
 // The name an owed push goes by where an owed file goes by its own: gone
 // games asks the upload queue's refusals by it (gonegames.cpp).

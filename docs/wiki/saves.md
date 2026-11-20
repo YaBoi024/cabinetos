@@ -16,6 +16,10 @@ from RomM. When you leave the game, it sends the save back if it changed.
   or missing server never loses one. Anything not yet sent is sent again later:
   at start-up, every five minutes, and as soon as the server is back.
 - The game's page shows when it was last saved: *Saved today, 8:17 PM*.
+- On RomM's website a save from the console shows a picture of the game from
+  the moment it saved. Sega CD, Neo Geo Pocket Color, 3DO, Xbox and arcade
+  games keep their save inside the emulator until you leave, so theirs show
+  RomM's own save icon instead.
 - Every way out of a game sends the save: **Exit to Home**, the Power menu
   (Sleep, Restart, Power off), and a separate emulator closing, even if it
   crashed.

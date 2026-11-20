@@ -121,10 +121,10 @@ void keepNewest(std::vector<cache::OwedPush::State>* states) {
     *states = std::move(kept);
 }
 
-// What a marker holds back on the disk (pendingBytes): its save and its
-// states with their pictures.
+// What a marker holds back on the disk (pendingBytes): its save with its
+// picture, and its states with theirs.
 int64_t owedBytes(const cache::OwedPush& p) {
-    int64_t n = p.hasSave ? sizeOf(p.savePath) : 0;
+    int64_t n = p.hasSave ? sizeOf(p.savePath) + sizeOf(p.savePicturePath) : 0;
     for (const cache::OwedPush::State& s : p.states) n += sizeOf(s.path) + sizeOf(s.picturePath);
     return n;
 }
@@ -297,6 +297,14 @@ bool mark(GameSession& sess, const storage::User& user) {
     }
     aim(sess, user, &p);
     p.madeAt = madeAt(sess);
+    // THE SAVE'S PICTURE (savepicture.h), when this sitting took one: named
+    // after the save, as RomM names it after the save's row in any case.
+    if (!sess.savePicture.empty() && sizeOf(sess.savePicture) > 0) {
+        const size_t dot = p.saveName.find_last_of('.');
+        p.savePictureName =
+            (dot == std::string::npos ? p.saveName : p.saveName.substr(0, dot)) + ".png";
+        p.savePicturePath = sess.savePicture;
+    }
     // The states an earlier marker of the game carries go on with it: made
     // on this console, they reach RomM only inside a snapshot.
     if (cache::OwedPush earlier; cache::owedPush(user, sess.romId, &earlier))
@@ -307,8 +315,9 @@ bool mark(GameSession& sess, const storage::User& user) {
     for (const cache::Owed& o : cache::owed(user))
         if (o.romId == sess.romId && !o.isState && !o.isScreenshot)
             cache::clearPending(user, o.romId, o.fileName);
-    std::fprintf(stderr, "[save] game %d: %s (%lld bytes)%s owed to RomM as a snapshot, %s%s\n",
+    std::fprintf(stderr, "[save] game %d: %s (%lld bytes)%s%s owed to RomM as a snapshot, %s%s\n",
                  sess.romId, p.saveName.c_str(), static_cast<long long>(sizeOf(p.savePath)),
+                 p.savePicturePath.empty() ? "" : " with its picture",
                  p.states.empty() ? "" : (" and " + std::to_string(p.states.size()) +
                                           " state(s)").c_str(),
                  p.channelId.empty()
@@ -483,6 +492,11 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
     if (!cache::owedPush(who, romId, &owed)) return stop(Sent::NothingOwed, "nothing is owed");
     std::vector<uint8_t> bytes =
         owed.hasSave ? cab::readBytes(owed.savePath) : std::vector<uint8_t>();
+    // Its picture, the moment it was saved (savepicture.h); none when it has
+    // none or its file is gone.
+    const std::vector<uint8_t> picture = owed.savePicturePath.empty()
+                                             ? std::vector<uint8_t>()
+                                             : cab::readBytes(owed.savePicturePath);
     // The states it carries, off the disk with their pictures. One whose
     // file is gone (deleted by hand) is not sent.
     struct Made {
@@ -623,6 +637,10 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
         push.save.hash = romm::contentHash(bytes);
         push.save.fileName = owed.saveName;
         push.save.bytes = bytes;
+        if (!picture.empty()) {
+            push.save.pictureName = owed.savePictureName;
+            push.save.picture = picture;
+        }
         const bool zip = cab::looksLikeZip(bytes);
         push.saveShape = !zip ? kSingle : owed.saveShape == kFolder ? kFolder : kMulti;
     };

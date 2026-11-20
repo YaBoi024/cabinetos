@@ -536,6 +536,11 @@ bool Client::pushSnapshot(const SnapshotPush& push, PushAnswer* answer, std::str
     if (push.hasSave && !push.save.bytes.empty())
         parts.push_back({"save", push.save.fileName, "application/octet-stream",
                          push.save.bytes.data(), push.save.bytes.size()});
+    // The save's picture as `save_screenshot` (RomM's SAVE_SCREENSHOT_PART),
+    // which RomM keeps with the save's row when that row has none.
+    if (push.hasSave && !push.save.picture.empty())
+        parts.push_back({"save_screenshot", push.save.pictureName, "image/png",
+                         push.save.picture.data(), push.save.picture.size()});
     // `state:<core>:<slot>`, and its picture as `state:<core>:<slot>:screenshot`.
     std::vector<std::string> names;
     names.reserve(push.states.size());

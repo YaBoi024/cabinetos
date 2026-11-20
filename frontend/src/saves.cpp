@@ -470,28 +470,33 @@ void finishInterruptedSave(const cab::standalone::Emulator& emu,
 
 // THE NOTE AN EMULATOR RUN AS A PROGRAM IS STARTED WITH (standalone.h), one
 // fact a line: the game's RomM id, this person's save folder for it, its
-// title, the tag its saves travel under, and "1" when the start could not
-// use the newest save on RomM (GameSession::couldNotUseNewest).
+// title, the tag its saves travel under, "1" when the start could not use the
+// newest save on RomM (GameSession::couldNotUseNewest), and the save's
+// picture the sitting took (GameSession::savePicture), written again as each
+// is taken (savepicture.h) and empty until then.
 std::string playingNoteFor(const GameSession& sess, const std::string& saveDir) {
     return std::to_string(sess.romId) + "\n" + saveDir + "\n" + sess.title + "\n" +
-           sess.saveTag + "\n" + (sess.couldNotUseNewest ? "1" : "0") + "\n";
+           sess.saveTag + "\n" + (sess.couldNotUseNewest ? "1" : "0") + "\n" +
+           sess.savePicture + "\n";
 }
 
 // And read back, into a session with nothing else in it. Its second line,
 // the folder, is the caller's to read: it decides whose the saves are.
 GameSession sessionOfPlayingNote(const std::string& text, std::string* saveDir) {
     std::istringstream note(text);
-    std::string id, dir, title, tag, couldNot;
+    std::string id, dir, title, tag, couldNot, picture;
     std::getline(note, id);
     std::getline(note, dir);
     std::getline(note, title);
     std::getline(note, tag);
     std::getline(note, couldNot);
+    std::getline(note, picture);
     GameSession sess;
     sess.romId = std::atoi(id.c_str());
     sess.title = title;
     sess.saveTag = tag;
     sess.couldNotUseNewest = couldNot == "1";
+    sess.savePicture = picture;
     if (saveDir) *saveDir = dir;
     return sess;
 }

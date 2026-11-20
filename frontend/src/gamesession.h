@@ -77,6 +77,11 @@ struct GameSession {
     // (saves.cpp: syncSave, syncDirSave, syncFileSaves), and taken by the one
     // snapshot that goes up once the game has closed (savepush.h, leave).
     bool saveChanged = false;
+    // THE SAVE'S OWN PICTURE (#346, savepicture.h): the newest picture this
+    // sitting took of the game the moment its save changed, on this console
+    // in the person's pending folder; the snapshot's save goes up with it.
+    // Empty when the sitting took none.
+    std::string savePicture;
     // WHERE THIS SESSION'S SAVE CAME FROM (#346, save channels; saves.cpp,
     // noteStart), for the snapshot pushed when the game is left
     // (savepush.h): the file RomM keys the game's channels to (0 when not
