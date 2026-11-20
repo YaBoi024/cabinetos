@@ -75,15 +75,22 @@ RomM: keep test launches under a minute, or have his go.
    newest the console can use; DS, Game Boy Advance and the Mega Drive
    family only from the same emulator; every push names the core in
    Sigil's spelling; Dreamcast keeps one card per game in the game's
-   folder; Wii and 3DS saves go up in Sigil's shape. Step 8's two
-   questions are settled (2026-11-20): another app's save in no channel is
-   not copied into a channel at the start, since an app that saves outside
-   channels is that app's to move onto them (MMagTech); and the pill shows
-   for such a save even when it names no device, the same message as any
-   save made elsewhere (left to the session, judged on the TV). An arcade
-   game takes no other app's save, whichever emulator it names, since a
-   board's memory says nothing of the emulator or version that wrote it
-   (MMagTech, 2026-11-20). Next is step 9, offline and coming back.
+   folder; Wii and 3DS saves go up in Sigil's shape. Decided 2026-11-20
+   (docs/decisions): RomM converts, and the console's Sigil only reads
+   Switch IDs (romm-converts-saves); an arcade game takes no other app's
+   save (arcade-saves-cabinetos-only); another app's save in no channel is
+   not copied into one (other-apps-saves-outside-channels); the pill shows
+   for such a save even when it names no device (left to the session,
+   judged on the TV). Next is step 9, offline and coming back, from
+   `save-channels-step9-brief.md` in the side-session notes beside step 8's.
+   After step 11 comes a Switch step: the console reads a Switch game's ID
+   with Sigil and the player's keys when the game is downloaded and gives
+   it to RomM, as Argosy does, for the dumps RomM cannot read. Four
+   upstream pieces run outside this plan, in MMagTech's Sigil work, each
+   widening what crosses between apps with no change on the console: PS3
+   .pkg reading in Sigil (argosy-sigil#5), Switch IDs from a dump's ticket
+   in Sigil (no keys), RomM's scan reading .zip games, and RomM's Convert
+   library moving a game's channels to its new file.
    Each step is a fresh
    session that keeps to CLAUDE.md's seven rules and its piece's files, reuses, removals, docs and
    tests in the plan: Fable for steps 4 and 5 (starting and leaving a
