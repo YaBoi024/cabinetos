@@ -142,6 +142,19 @@ bool hidesSystemsWithoutACore();
 // find by themselves. The console says false: its controller has B.
 bool showsBackButton();
 
+// --- A DS game -------------------------------------------------------------------
+
+// FORK (phones): A FINGER IS THE STYLUS. A touch on the DS's lower screen, wherever
+// the picture puts it, is a touch on that screen (melonDS's Touch mode, through
+// RETRO_DEVICE_POINTER). The console says false: there the stick moves a cursor.
+bool touchesDsScreen();
+
+// FORK (phones): WHERE THE DS's TWO SCREENS GO, when the machine places them itself
+// (an iPhone Duo held upright: the top screen in the upper half, the lower one in
+// the lower half with the buttons beside it). Each is x, y, width, height as shares
+// of the window. False, and the picture is drawn as usual, the two stacked.
+bool dsScreens(float top[4], float bottom[4]);
+
 // --- A game running -------------------------------------------------------------
 
 // Told when a game starts (true) and when it ends (false), on the thread that

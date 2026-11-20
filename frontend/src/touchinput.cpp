@@ -32,6 +32,7 @@
 // twice. A mouse works the same way.
 
 #include "app.h"
+#include "platform.h"
 
 #include <algorithm>
 #include <cmath>
@@ -334,10 +335,63 @@ void App::tickTouch(float dt) {
     }
 }
 
+// FORK (phones): a finger on a DS game's picture is the stylus (platform.h,
+// touchesDsScreen): down, moved or up, where it is across and down the core's own
+// frame. With the screens apart (dsScreens) a finger on the lower one is on the
+// frame's bottom half and one on the upper on its top half.
+bool App::touchGamePicture(const SDL_Event& e) {
+    if (!touchPicture.shown || session.core != "melonds" || !platform::touchesDsScreen()) return false;
+    float x = 0.0f, y = 0.0f;
+    bool down = false;
+    switch (e.type) {
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            if (e.button.button != SDL_BUTTON_LEFT) return false;
+            if (!canvasPoint(window, e.button.x, e.button.y, &x, &y)) return false;
+            down = true;
+            break;
+        case SDL_EVENT_MOUSE_MOTION:
+            if (!(e.motion.state & SDL_BUTTON_LMASK)) return false;
+            if (!canvasPoint(window, e.motion.x, e.motion.y, &x, &y)) return false;
+            down = true;
+            break;
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+            if (e.button.button != SDL_BUTTON_LEFT) return false;
+            if (!canvasPoint(window, e.button.x, e.button.y, &x, &y)) return false;
+            down = false;
+            break;
+        default:
+            return false;
+    }
+    auto inside = [&](const float* r, float* fx, float* fy) {
+        if (r[2] <= 0.0f || r[3] <= 0.0f) return false;
+        *fx = (x - r[0]) / r[2];
+        *fy = (y - r[1]) / r[3];
+        return *fx >= 0.0f && *fx <= 1.0f && *fy >= 0.0f && *fy <= 1.0f;
+    };
+    float fx = 0.0f, fy = 0.0f;
+    bool on = false;
+    if (touchPicture.split) {
+        if (inside(touchPicture.bottom, &fx, &fy)) {
+            fy = 0.5f + fy * 0.5f;
+            on = true;
+        } else if (inside(touchPicture.top, &fx, &fy)) {
+            fy *= 0.5f;
+            on = true;
+        }
+    } else {
+        on = inside(touchPicture.all, &fx, &fy);
+    }
+    // A finger dragged off the screen lets go there, as a stylus lifted at the edge.
+    cab::Core::shared().setPointer(down && on, std::clamp(fx, 0.0f, 1.0f), std::clamp(fy, 0.0f, 1.0f));
+    return true;
+}
+
 // One mouse event, after handleEvent has had its look at it. True when it was
 // a finger's and was used.
 bool App::handleTouch(const SDL_Event& e) {
     const InputOwner owner = inputOwner();
+    // FORK (phones): in a DS game a finger on the picture is the stylus.
+    if (owner == InputOwner::Game && playing && !overlayOpen && touchGamePicture(e)) return true;
     // A game takes every event itself; nothing here may act under it.
     if (owner == InputOwner::Game || poweringDown) {
         gFinger.down = false;

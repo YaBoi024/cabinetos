@@ -776,6 +776,39 @@ void App::drawGamePicture(cab::Core& core, int dh) {
         // in the game's own orientation and turned afterwards, as
         // RetroArch does. None chosen, or one that failed to load,
         // draws the picture as before.
+        // FORK (phones): A DS GAME'S TWO SCREENS APART, where the machine places them
+        // (platform::dsScreens): the frame's top half in one rectangle and its bottom
+        // half in the other, each the shape it is. Only with both screens showing.
+        touchPicture = TouchPicture{};
+        touchPicture.shown = true;
+        touchPicture.all[0] = px; touchPicture.all[1] = py;
+        touchPicture.all[2] = dw; touchPicture.all[3] = dh;
+        {
+            float t[4], b[4];
+            int pw = 0, ph = 0;
+            if (session.core == "melonds" && screenPress.view == screenview::View::Both &&
+                core.rotation() == 0 && platform::dsScreens(t, b) && window &&
+                SDL_GetWindowSizeInPixels(window, &pw, &ph) && pw > 0 && ph > 0 &&
+                ui::gCanvasScale > 0.0f) {
+                auto toCanvas = [&](const float* r, float* out) {
+                    out[0] = (r[0] * pw - ui::gCanvasLeft) / ui::gCanvasScale;
+                    out[1] = (r[1] * ph - ui::gCanvasTop) / ui::gCanvasScale;
+                    out[2] = r[2] * pw / ui::gCanvasScale;
+                    out[3] = r[3] * ph / ui::gCanvasScale;
+                };
+                touchPicture.split = true;
+                toCanvas(t, touchPicture.top);
+                toCanvas(b, touchPicture.bottom);
+                const float vm = (v0 + v1) * 0.5f;
+                const float* tr = touchPicture.top;
+                const float* br = touchPicture.bottom;
+                ui::drawImageTexture(renderer, core.texture(), tr[0], tr[1], tr[2], tr[3], u0, v0, u1, vm,
+                                     true, 0);
+                ui::drawImageTexture(renderer, core.texture(), br[0], br[1], br[2], br[3], u0, vm, u1, v1,
+                                     true, 0);
+                return;
+            }
+        }
         screenfx::Chain& look = screenfx::shared();
         look.use(screenfx::presetFor(session.platformSlug));
         GLuint looked = 0;
