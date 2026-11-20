@@ -86,6 +86,9 @@ struct StartNotes {
     bool changedOwn = false;
     // What this start has kept aside, by its name in `asideDir`.
     std::vector<std::string> keptAside;
+    // RomM's saves from before channels a restore put in place (#346, step
+    // 7), which the start brings into a channel (savepick::oldSaveToCopy).
+    std::vector<savepick::OldRowTaken> oldRowsTaken;
 };
 // A SNAPSHOT'S SAVE AS A CabinetOS CONSOLE READS IT, used as stored: a
 // battery is the core's save memory as it is; a core that writes one save
@@ -128,6 +131,10 @@ inline constexpr char kContinuingElsewhere[] = "Continuing from another device";
 // (the channel and snapshot, for the snapshot pushed when the game is left,
 // savepush.h), and a start from a channel's snapshot becomes the snapshot
 // this console holds (savemirror::Held). True when the start says
-// "Continuing from another device" (savepick::continuingElsewhere).
+// "Continuing from another device" (savepick::continuingElsewhere). A start
+// that put RomM's save from before channels in place marks the game's push
+// that brings it into a channel (savepush::markOldSave), and `*bringsOldSave`
+// says so: the caller queues it (Uploader::pushSnapshot), so it goes while
+// the game plays.
 bool noteStart(const SaveFetch& fetched, const StartNotes& notes, const storage::User& user,
-               GameSession* session);
+               GameSession* session, bool* bringsOldSave = nullptr);

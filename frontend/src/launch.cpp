@@ -529,7 +529,9 @@ struct LaunchContext {
 // launchJob.saves), so no stage here waits on the network. A save of this
 // console's that a restore replaces is kept aside first (saves.cpp,
 // keepAside), and once the last restore has run the start leaves its notes
-// (noteStart) and says so when it continued from another device's save.
+// (noteStart), sends the push that brings a save from before channels into
+// one when it took such a save (savepush.h), and says so when it continued
+// from another device's save.
 void App::pumpLaunch() {
     if (!takeFinishedJob()) return;
     if (!loadPickedCore()) return;
@@ -541,7 +543,10 @@ void App::pumpLaunch() {
     if (!loadLaunchedGame(c)) return;
     setUpLoadedGame(c);
     restoreBatterySave(c.core, session, c.saveDir, launchJob.saves, &c.startNotes);
-    const bool elsewhere = noteStart(launchJob.saves, c.startNotes, c.user, &session);
+    bool bringsOldSave = false;
+    const bool elsewhere =
+        noteStart(launchJob.saves, c.startNotes, c.user, &session, &bringsOldSave);
+    if (bringsOldSave) uploader.pushSnapshot(session.romId, c.user);
     // The fetched saves are written; a card can be megabytes, so not kept.
     launchJob.saves = SaveFetch{};
     launchJob.miiSaves = SaveFetch{};

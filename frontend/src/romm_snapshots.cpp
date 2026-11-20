@@ -464,7 +464,10 @@ std::string pushManifest(const SnapshotPush& push) {
         json_object_object_add(m, "parent_snapshot_id", json_object_new_int(push.parentId));
     if (push.hasSave) {
         json_object* save = json_object_new_object();
-        json_object_object_add(save, "hash", json_object_new_string(push.save.hash.c_str()));
+        if (push.saveCopyOf != 0)
+            json_object_object_add(save, "copy_of", json_object_new_int(push.saveCopyOf));
+        else
+            json_object_object_add(save, "hash", json_object_new_string(push.save.hash.c_str()));
         json_object_object_add(save, "shape", json_object_new_string(push.saveShape.c_str()));
         // The emulator's own files: the console converts nothing (#346, step 8).
         json_object_object_add(save, "format", json_object_new_string("native"));

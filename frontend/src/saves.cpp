@@ -298,11 +298,12 @@ void restoreDirSave(const SaveFetch& fetched, const char* tag, const std::string
     const From from = sourceOf(fetched);
     const std::vector<uint8_t>* picked = nullptr;
     std::string fileName;
+    const romm::Asset* newest = nullptr;
     if (from == From::Channel) {
         picked = &fetched.picked;
         fileName = fetched.pick.channel.current.save.fileName;
     } else if (from == From::OldRows) {
-        const romm::Asset* newest = savepick::newestOldRow(fetched.rows, tag);
+        newest = savepick::newestOldRow(fetched.rows, tag);
         if (!newest) return;
         picked = &fetchedBytes(fetched, *newest);
         fileName = newest->fileName;
@@ -349,6 +350,8 @@ void restoreDirSave(const SaveFetch& fetched, const char* tag, const std::string
             notes->fromChannel = true;
             if (change.differing > 0 || change.added > 0) notes->changedOwn = true;
         }
+        if (from == From::OldRows && notes)
+            notes->oldRowsTaken.push_back({newest->id, savepick::OldRowTaken::As::Folder, "", 0});
     } else if (from == From::OldRows && !oldCard.empty() && !data.empty()) {
         if (storage::exists(root)) {
             std::fprintf(stderr, "[save] %s is a card from before; %s already holds this game's "
@@ -617,11 +620,11 @@ std::vector<cab::FileSaveState> restoreFileSaves(
         // this file's entry in its zip.
         const std::vector<uint8_t>* incoming = nullptr;
         std::string incomingName;
+        const romm::Asset* oldRow = nullptr;
         if (source == From::OldRows) {
-            if (const romm::Asset* newest =
-                    savepick::newestOldRow(fetched.rows, tag, spec.region.c_str())) {
-                incoming = &fetchedBytes(fetched, *newest);
-                incomingName = newest->fileName;
+            if ((oldRow = savepick::newestOldRow(fetched.rows, tag, spec.region.c_str()))) {
+                incoming = &fetchedBytes(fetched, *oldRow);
+                incomingName = oldRow->fileName;
             }
         } else if (source == From::Channel) {
             incomingName = fetched.pick.channel.current.save.fileName;
@@ -645,10 +648,11 @@ std::vector<cab::FileSaveState> restoreFileSaves(
             // on the reference server are formatted and empty, uploaded by
             // an implementation with no freshness rule, and restoring one
             // of those over a real card would be this feature losing a
-            // save rather than moving one.
+            // save rather than moving one. One that is byte for byte this
+            // console's own copy replaces nothing, and is what is in place.
             if (data.empty()) {
                 std::fprintf(stderr, "[save] %s came back empty\n", incomingName.c_str());
-            } else if (haveLocal && !cab::holdsASave(data, spec.untouched)) {
+            } else if (haveLocal && data != chosen && !cab::holdsASave(data, spec.untouched)) {
                 std::fprintf(stderr,
                              "[save] %s holds no save — keeping this console's copy\n",
                              incomingName.c_str());
@@ -685,6 +689,10 @@ std::vector<cab::FileSaveState> restoreFileSaves(
                     notes->fromChannel = true;
                     if (changed) notes->changedOwn = true;
                 }
+                if (fromRomM && oldRow && notes)
+                    notes->oldRowsTaken.push_back(
+                        {oldRow->id, savepick::OldRowTaken::As::File, spec.path,
+                         static_cast<size_t>(&spec - &specs.front())});
             } else {
                 std::fprintf(stderr, "[save] could not place the card at %s\n",
                              f.path.c_str());
@@ -812,6 +820,7 @@ void restoreBatterySave(cab::Core& core, GameSession& session, const std::string
         const std::vector<uint8_t> local = cab::readBytes(saveDir + "/" + name);
         const std::vector<uint8_t>* incoming = nullptr;
         std::string incomingName;
+        const romm::Asset* oldRow = nullptr;
         From source = From::Own;
         if (!session.saveTag.empty() && fetched.asked) {
             if (!fetched.listed)
@@ -823,10 +832,9 @@ void restoreBatterySave(cab::Core& core, GameSession& session, const std::string
                 // own 8-byte `.rtc` row under the same tag; taken as the
                 // newest, its bytes went over the start of the save (#346,
                 // found in the audit).
-                if (const romm::Asset* newest =
-                        savepick::newestOldRow(fetched.rows, session.saveTag, "srm")) {
-                    incoming = &fetchedBytes(fetched, *newest);
-                    incomingName = newest->fileName;
+                if ((oldRow = savepick::newestOldRow(fetched.rows, session.saveTag, "srm"))) {
+                    incoming = &fetchedBytes(fetched, *oldRow);
+                    incomingName = oldRow->fileName;
                 }
             } else if (source == From::Channel) {
                 incomingName = fetched.pick.channel.current.save.fileName;
@@ -863,6 +871,9 @@ void restoreBatterySave(cab::Core& core, GameSession& session, const std::string
                     notes->fromChannel = true;
                     if (changed) notes->changedOwn = true;
                 }
+                if (oldRow && notes)
+                    notes->oldRowsTaken.push_back(
+                        {oldRow->id, savepick::OldRowTaken::As::Battery, "", 0});
             }
         }
         if (!fromServer && !local.empty() && core.writeSaveRam(local)) {
@@ -881,10 +892,13 @@ void restoreBatterySave(cab::Core& core, GameSession& session, const std::string
 // the newest save on RomM could not be used, which is also so when the
 // picked snapshot's save did not come or could not be read. On the console:
 // that snapshot becomes the one it holds of the game, with its save's hash
-// among those it has had (savepick::heldAfter).
+// among those it has had (savepick::heldAfter). A start that put RomM's save
+// from before channels in place marks the game's push that brings it into a
+// channel (savepick::oldSaveToCopy, savepush::markOldSave).
 bool noteStart(const SaveFetch& fetched, const StartNotes& notes, const storage::User& user,
-               GameSession* session) {
+               GameSession* session, bool* bringsOldSave) {
     session->channelFileId = fetched.channelFileId;
+    if (bringsOldSave) *bringsOldSave = false;
     // Nothing listed, or a save of this console's landed since: its own save
     // stood, and nothing on RomM was turned down.
     if (!fetched.asked || !fetched.listed ||
@@ -893,6 +907,14 @@ bool noteStart(const SaveFetch& fetched, const StartNotes& notes, const storage:
     const bool picked = fetched.pick.from == From::Channel;
     session->couldNotUseNewest =
         fetched.pick.couldNotUseNewest || (picked && !notes.fromChannel);
+    if (savepick::OldSaveCopy copy;
+        savepick::oldSaveToCopy(fetched.pick, fetched.rows, notes.oldRowsTaken, &copy)) {
+        std::vector<std::vector<uint8_t>> bytes;
+        if (copy.zipped)
+            for (const romm::Asset* r : copy.rows) bytes.push_back(fetchedBytes(fetched, *r));
+        const bool marked = savepush::markOldSave(*session, user, copy, bytes);
+        if (bringsOldSave) *bringsOldSave = marked;
+    }
     if (!picked || !notes.fromChannel) return false;
     const romm::Channel& channel = fetched.pick.channel;
     session->startChannelId = channel.id;

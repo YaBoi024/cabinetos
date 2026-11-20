@@ -373,6 +373,19 @@ int snapshotsTest() {
               field(m2, "states.snes9x-native.2") == "\"cc\"" &&
               field(m2, "states.other.1") == "\"bb\"",
           "the states a core at a time, every slot it keeps named");
+    // A save from before channels, which RomM copies in itself (#346, step 7).
+    SnapshotPush copy;
+    copy.romFileId = 8;
+    copy.channelId = "01a1f0d3-b303-75e3-86f9-d56256d5e32f";
+    copy.expectedCurrentId = 122;
+    copy.hasSave = true;
+    copy.saveCopyOf = 432;
+    copy.saveShape = "FOLDER";
+    copy.emulator = "ppsspp-native";
+    const std::string m3 = pushManifest(copy);
+    check(field(m3, "save.copy_of") == "432" && field(m3, "save.hash").empty() &&
+              field(m3, "save.shape") == "\"FOLDER\"" && field(m3, "save.format") == "\"native\"",
+          "a row RomM copies in: named by its id with no hash, its shape and format said");
 
     std::printf("%s\n", failures ? "FAILED" : "all passed");
     return failures ? 1 : 0;

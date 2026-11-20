@@ -441,6 +441,11 @@ struct SnapshotPush {
     bool hasSave = false;
     PushFile save;
     std::string saveShape = "SINGLE";
+    // With `hasSave`: the save is this person's row of that id on RomM, which
+    // RomM copies in itself (its `copy_of`), so `save` names no hash and
+    // carries no bytes; 0 for a save named by `save`. A save from before
+    // channels is brought in this way (#346, step 7), its row left as it is.
+    int saveCopyOf = 0;
     std::vector<PushState> states;
 };
 

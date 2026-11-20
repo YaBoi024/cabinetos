@@ -73,6 +73,12 @@ a save it left on your server carries on here, except GameCube: Cabinet for Mac
 kept a whole memory card, and the console keeps Dolphin's single `.gci` files.
 Saves made in RomM's web player or other apps are not read.
 
+A save the console or Cabinet left on your server before the console used
+RomM's save channels moves into a channel the first time you start that game.
+RomM copies it in, and the save it copied stays as it was, so a console that
+has not been updated yet goes on using it. Until a game is started, RomM's
+website shows its save the old way.
+
 ## Each person's own
 
 Saves, states, play time and favourites belong to the person signed in. See

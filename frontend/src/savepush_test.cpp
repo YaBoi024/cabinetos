@@ -8,6 +8,7 @@
 // `--game-events-test` have theirs: the cases would otherwise fill
 // savepush.cpp.
 
+#include <fcntl.h>
 #include <sys/stat.h>
 
 #include <cstdio>
@@ -25,6 +26,7 @@
 #include "savepush.h"
 #include "saves.h"
 #include "storage.h"
+#include "timewords.h"
 #include "uploader.h"
 
 namespace savepush {
@@ -1544,6 +1546,270 @@ int test() {
         check(send(romm.server(), u, game, &why) == Sent::NothingOwed && romm.pushes.empty() &&
                   !cache::isPushOwed(u, game),
               "its file deleted by hand: nothing left to send, nothing owed");
+    }
+
+    // ---- Saves from before channels (#346, step 7) -----------------------------
+    std::printf("\nsaves from before channels, brought into a channel\n");
+    const std::string oldAt = romTime(-86400);
+    const int64_t oldAtSec = isoMicros(oldAt) / 1000000;
+    // RomM's row of a save from before channels, at RomM's time `at`.
+    auto oldRow = [&](int id, const std::string& at) {
+        romm::Asset a;
+        a.id = id;
+        a.fileName = "Game (USA) (Cabinet).srm";
+        a.emulator = kTag;
+        a.updatedAt = at;
+        a.createdAt = at;
+        return a;
+    };
+    // The push a start that took row `id` owes (markOldSave).
+    auto startTook = [&](const GameSession& s, const romm::Asset& row) {
+        std::vector<romm::Asset> rows = {row};
+        savepick::Pick pick;
+        pick.from = savepick::Pick::From::OldRows;
+        savepick::OldSaveCopy copy;
+        savepick::oldSaveToCopy(pick, rows,
+                                {{row.id, savepick::OldRowTaken::As::Battery, "", 0}}, &copy);
+        // The start kept the row's bytes, as the worker's fetch does.
+        savemirror::putBytes(u, s.romId, row, older);
+        return markOldSave(s, u, copy, {});
+    };
+    {
+        GameSession s = battery(++game, older);
+        s.saveChanged = false;
+        const romm::Asset row = oldRow(501, oldAt);
+        check(startTook(s, row) && cache::owedPush(u, game, &p) && p.fromOldRows() &&
+                  p.madeAt == oldAtSec && !cache::saveOwed(u, game),
+              "a start that took a battery from before channels owes its push, no save of "
+              "this console's");
+        Stand romm;
+        romm.rows = {row};
+        romm::Snapshot copied = snapshot(510, kChannel, romm::contentHash(older), romTime(0));
+        romm.answers = {made(copied)};
+        savemirror::Held held;
+        const Sent sent = send(romm.server(), u, game, &why);
+        check(sent == Sent::Landed && romm.pushes.size() == 1 && romm.pushes[0].hasSave &&
+                  romm.pushes[0].saveCopyOf == 501 && romm.pushes[0].save.bytes.empty() &&
+                  romm.pushes[0].save.hash.empty() && romm.pushes[0].saveShape == "SINGLE" &&
+                  romm.pushes[0].label == kDefaultChannel && romm.pushes[0].expectedCurrentId == 0 &&
+                  romm.pushes[0].emulator == kTag,
+              "sent as RomM's copy of the row: no hash and no bytes, into \"default\"");
+        check(!cache::isPushOwed(u, game) && savemirror::getHeld(u, game, &held) &&
+                  held.snapshotId == 510 && held.saveHash == romm::contentHash(older) &&
+                  held.madeAt == oldAtSec && !held.beside,
+              "once RomM holds it: owed no more, and the console holds the snapshot, made when "
+              "RomM stored the row");
+        check(savemirror::getSnapshotSave(u, game, copied.save) == older,
+              "and keeps the row's bytes as the copy's, for a start offline");
+        // RomM's copy is not the bytes this console kept of the row.
+        startTook(s, oldRow(507, oldAt));
+        romm.rows = {oldRow(507, oldAt)};
+        const romm::Snapshot other = snapshot(511, kChannel, "not-these-bytes", romTime(0));
+        romm.answers = {made(other)};
+        check(send(romm.server(), u, game, &why) == Sent::Landed &&
+                  savemirror::getSnapshotSave(u, game, other.save).empty(),
+              "bytes kept of a row that are not RomM's copy are not kept as the copy's");
+    }
+    {
+        // A console on the old version saved again after the start: RomM's
+        // row is no longer what the start took.
+        GameSession s = battery(++game, older);
+        const romm::Asset row = oldRow(502, oldAt);
+        startTook(s, row);
+        Stand romm;
+        romm.rows = {oldRow(502, romTime(-60))};
+        check(send(romm.server(), u, game, &why) == Sent::NothingOwed && romm.pushes.empty() &&
+                  !cache::isPushOwed(u, game),
+              "the row changed since the start: not brought in, nothing owed; the next start "
+              "takes it as it is");
+        startTook(s, row);
+        romm.rows.clear();
+        check(send(romm.server(), u, game, &why) == Sent::NothingOwed && romm.pushes.empty(),
+              "the row deleted on RomM's website: the same");
+        startTook(s, row);
+        romm.rows = {row};
+        romm.rows[0].channelId = kChannel;
+        check(send(romm.server(), u, game, &why) == Sent::NothingOwed && romm.pushes.empty(),
+              "a row RomM lists in a channel now: no longer a save from before channels");
+    }
+    {
+        // The channel moved on meanwhile: RomM keeps the copy beside, and it
+        // goes on top only when RomM stored the row later.
+        GameSession s = battery(++game, older);
+        const romm::Asset row = oldRow(503, oldAt);
+        hold(game, kChannel, 520);
+        startTook(s, row);
+        check(cache::owedPush(u, game, &p) && p.channelId == kChannel && p.expectedCurrentId == 520,
+              "aimed onto the snapshot this console holds");
+        Stand romm;
+        romm.rows = {row};
+        romm::Snapshot theirs = snapshot(521, kChannel, "theirs", romTime(-2 * 86400));
+        romm.channels = {channel(kChannel, kDefaultChannel, theirs)};
+        const romm::Snapshot branch = snapshot(522, kChannel, romm::contentHash(older), romTime(0));
+        romm.answers = {movedOn(branch, &theirs), made(snapshot(523, kChannel,
+                                                                romm::contentHash(older),
+                                                                romTime(0)))};
+        check(send(romm.server(), u, game, &why) == Sent::Landed && romm.pushes.size() == 2 &&
+                  romm.pushes[0].saveCopyOf == 503 && !romm.pushes[1].hasSave &&
+                  romm.pushes[1].saveCopyOf == 0 && romm.pushes[1].parentId == 522 &&
+                  romm.pushes[1].expectedCurrentId == 521,
+              "a current stored before the row: the copy goes on top, named as the branch, "
+              "nothing copied twice");
+        hold(game, kChannel, 520);
+        startTook(s, row);
+        romm.pushes.clear();
+        theirs = snapshot(524, kChannel, "theirs", romTime(-60));
+        romm.channels = {channel(kChannel, kDefaultChannel, theirs)};
+        romm.answers = {movedOn(branch, &theirs)};
+        check(send(romm.server(), u, game, &why) == Sent::Beside && romm.pushes.size() == 1,
+              "a current stored after it: the copy stays beside, the newer save on top");
+    }
+    {
+        // States owed before the start go with the copy; one made in play
+        // joins it; the session's own save at the leave takes its place.
+        GameSession s = session(++game);
+        s.fsStem = "Game (USA)";
+        s.saveTag = kTag;
+        markState(s, u, makeState(s, base, "made before"));
+        // A state the old version made and sent: its file on this console,
+        // no marker.
+        const StateMade oldVersion = makeState(s, base - 5000, "from the old version");
+        const romm::Asset row = oldRow(504, oldAt);
+        startTook(s, row);
+        bool both = cache::owedPush(u, game, &p) && p.fromOldRows() && p.states.size() == 2;
+        for (const cache::OwedPush::State& st : p.states)
+            both = both && st.core == kTag &&
+                   (st.fileName == oldVersion.fileName ||
+                    st.fileName == stateName(base));
+        check(both, "states owed before the start, and the console's own from before channels, "
+                    "go with the copy into the game's first snapshot");
+        Stand romm;
+        romm.rows = {row};
+        romm.answers = {made(snapshot(512, kChannel, romm::contentHash(older), romTime(0)))};
+        check(send(romm.server(), u, game, &why) == Sent::Landed && romm.pushes.size() == 1 &&
+                  romm.pushes[0].saveCopyOf == 504 && romm.pushes[0].states.size() == 2 &&
+                  romm.pushes[0].states[1].file.fileName == oldVersion.fileName &&
+                  romm.pushes[0].states[1].file.bytes == bytesOf("from the old version", 128) &&
+                  romm.pushes[0].states[1].slot == "2",
+              "sent with the copy, the state from before channels as its bytes, newest first");
+        markState(s, u, makeState(s, base + 1000, "made in play"));
+        startTook(s, row);
+        check(cache::owedPush(u, game, &p) && p.fromOldRows() && p.states.size() == 3 &&
+                  p.label == kDefaultChannel,
+              "a state made in play joins a copy still owed, aimed where the copy goes");
+        cab::writeBytes(s.saveDir + "/" + saveRowName(s.fsStem, "srm"), one);
+        s.saveChanged = true;
+        check(mark(s, u) && cache::owedPush(u, game, &p) && !p.fromOldRows() && p.hasSave &&
+                  p.states.size() == 3 && cache::saveOwed(u, game),
+              "the session's own save at the leave takes the copy's place, carrying the states");
+        cache::clearPushOwed(u, game, p.stamp);
+    }
+    {
+        // Sega CD's two rows: the zip the start wrote goes as bytes.
+        GameSession s = battery(++game, older);
+        romm::Asset internalRow = oldRow(505, oldAt), cartRow = oldRow(506, oldAt);
+        cartRow.fileName = "Game (USA) (Cabinet).cart";
+        std::vector<romm::Asset> rows = {internalRow, cartRow};
+        savepick::Pick pick;
+        pick.from = savepick::Pick::From::OldRows;
+        savepick::OldSaveCopy copy;
+        savepick::oldSaveToCopy(pick, rows,
+                                {{505, savepick::OldRowTaken::As::File, "Game (USA).brm", 0},
+                                 {506, savepick::OldRowTaken::As::File, "4Mbit_cart.brm", 1}},
+                                &copy);
+        check(markOldSave(s, u, copy, {one, two}) && cache::owedPush(u, game, &p) &&
+                  p.savePath == s.saveDir + "/" + saveRowName(s.fsStem, "zip") &&
+                  p.saveShape == "MULTI",
+              "two rows: their zip beside the console's own copy");
+        check(!markOldSave(s, u, copy, {one}),
+              "a row whose bytes did not come: nothing marked");
+        Stand romm;
+        romm.rows = rows;
+        const std::vector<uint8_t> zip = cab::readBytes(p.savePath);
+        romm.answers = {made(snapshot(530, kChannel, romm::contentHash(zip), romTime(0)))};
+        check(send(romm.server(), u, game, &why) == Sent::Landed && romm.pushes.size() == 1 &&
+                  romm.pushes[0].saveCopyOf == 0 && romm.pushes[0].save.bytes == zip &&
+                  romm.pushes[0].saveShape == "MULTI" &&
+                  romm.pushes[0].save.hash == romm::contentHash(zip),
+              "sent as the zip's bytes, named by its hash");
+    }
+    {
+        // A save's marker from before save channels becomes its game's push.
+        GameSession s = battery(++game, one);
+        cache::Owed o;
+        o.romId = game;
+        o.emulator = kTag;
+        o.fileName = "Game (USA) (Cabinet).srm";
+        o.localPath = s.saveDir + "/Game (USA) (Cabinet).srm";
+        cache::markPending(u, o, 64);
+        // Written an hour ago, when the game saved and RomM could not be
+        // reached.
+        const struct timespec hourAgo[2] = {{now - 3600, 0}, {now - 3600, 0}};
+        ::utimensat(AT_FDCWD, o.localPath.c_str(), hourAgo, 0);
+        struct stat st;
+        ::stat(o.localPath.c_str(), &st);
+        check(adoptOldSaves(u) == 1 && cache::owed(u).empty() && cache::owedPush(u, game, &p) &&
+                  p.hasSave && !p.fromOldRows() && p.savePath == o.localPath &&
+                  p.saveName == "Game (USA).srm" && p.saveShape == "SINGLE" &&
+                  p.madeAt == now - 3600 && st.st_mtime == now - 3600 &&
+                  p.label == kDefaultChannel &&
+                  p.emulator == kTag && cache::saveOwed(u, game),
+              "a battery's: its file as the save, made when the console wrote it, into "
+              "\"default\", still a save this console owes");
+        Stand romm;
+        romm.answers = {made(snapshot(540, kChannel, romm::contentHash(one), romTime(0)))};
+        check(send(romm.server(), u, game, &why) == Sent::Landed &&
+                  romm.pushes[0].save.bytes == one && romm.pushes[0].saveCopyOf == 0 &&
+                  !cache::isPushOwed(u, game),
+              "and it goes up with its bytes");
+    }
+    {
+        // Sega CD's two files owed from before: one zip, each under its name.
+        GameSession s = session(++game);
+        const std::string dir = s.saveDir;
+        cab::writeBytes(dir + "/Lunar.brm", one);
+        cab::writeBytes(dir + "/4Mbit_cart.brm", two);
+        cache::Owed a, b;
+        a.romId = b.romId = game;
+        a.emulator = b.emulator = "gpgx-native";
+        a.fileName = "Lunar (Cabinet).srm";
+        a.localPath = dir + "/Lunar.brm";
+        b.fileName = "Lunar (Cabinet).cart";
+        b.localPath = dir + "/4Mbit_cart.brm";
+        cache::markPending(u, a, 64);
+        cache::markPending(u, b, 96);
+        markState(s, u, makeState(s, base, "carried"));
+        std::vector<cab::ZipFile> files;
+        std::string zerr;
+        const bool adopted = adoptOldSaves(u) == 1 && cache::owedPush(u, game, &p) &&
+                             cab::readZip(cab::readBytes(p.savePath), &files, &zerr);
+        bool both = files.size() == 2;
+        for (const cab::ZipFile& f : files)
+            both = both && ((f.relPath == "Lunar.brm" && f.bytes == one) ||
+                            (f.relPath == "4Mbit_cart.brm" && f.bytes == two));
+        check(adopted && both && p.saveShape == "MULTI" && p.saveName == "Lunar.zip" &&
+                  p.savePath == dir + "/" + saveRowName("Lunar", "zip") && p.states.size() == 1 &&
+                  cache::owed(u).empty(),
+              "two files of one game: one zip of both under their own names, the states owed "
+              "carried, the old markers gone");
+        cache::clearPushOwed(u, game, p.stamp);
+    }
+    {
+        // A push of the console's own save already owed carries the whole save.
+        GameSession s = battery(++game, one);
+        mark(s, u);
+        cache::OwedPush before;
+        cache::owedPush(u, game, &before);
+        cache::Owed o;
+        o.romId = game;
+        o.emulator = kTag;
+        o.fileName = "Game (USA) (Cabinet).srm";
+        o.localPath = s.saveDir + "/Game (USA) (Cabinet).srm";
+        cache::markPending(u, o, 64);
+        check(adoptOldSaves(u) == 0 && cache::owed(u).empty() && cache::owedPush(u, game, &p) &&
+                  p.stamp == before.stamp,
+              "beside a push of the console's own save: the old marker only goes");
+        cache::clearPushOwed(u, game, p.stamp);
     }
 
     storage::removeEntry(root);

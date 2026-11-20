@@ -14,16 +14,16 @@
 
 // EVERYTHING `who` STILL OWES RomM, sent now with their own login, before their
 // folder is deleted (#194): each game's owed snapshot, which is its save and
-// its states (savepush.h), a state's marker from before save channels made
-// one first, then their screenshots. Synchronous: called off the frame
-// thread. Stops at the first failure, because a server that refused one or
-// did not answer will do the same for the rest, and each try can take curl's
-// whole timeout. Returns how much is still owed afterwards: refused,
-// unanswered, a marker from before 2026-09-26 that cannot be sent at all, or
-// a save's own marker from before save channels, which RomM is no longer
-// sent (uploader.h, resendOwed).
+// its states (savepush.h), a save's or a state's marker from before save
+// channels made one first, then their screenshots. Synchronous: called off
+// the frame thread. Stops at the first failure, because a server that
+// refused one or did not answer will do the same for the rest, and each try
+// can take curl's whole timeout. Returns how much is still owed afterwards:
+// refused, unanswered, or a marker from before 2026-09-26 that cannot be
+// sent at all.
 static int sendEverythingOwed(romm::Client& c, const storage::User& who,
                               const std::atomic<bool>* stop) {
+    savepush::adoptOldSaves(who);
     savepush::adoptOldStates(who);
     bool failed = false;
     for (const cache::OwedPush& p : cache::owedPushes(who)) {

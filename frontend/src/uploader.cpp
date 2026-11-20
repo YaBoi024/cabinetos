@@ -106,6 +106,7 @@ bool Uploader::refusedThisRun(const storage::User& who, int romId,
 }
 
 void Uploader::resendOwed() {
+    savepush::adoptOldSaves(storage::currentUser());
     savepush::adoptOldStates(storage::currentUser());
     resendOwedFor(storage::currentUser());
 }

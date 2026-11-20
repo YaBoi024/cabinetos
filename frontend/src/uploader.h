@@ -95,13 +95,11 @@ public:
     // few minutes while something is owed (the frame loop's `owing()`). The
     // bytes are read off the disk on the worker; anything already queued is
     // not queued twice, and nothing RomM refused this run (refused_). On the
-    // frame thread, for the person signed in. A SAVE'S MARKER FROM BEFORE
-    // SAVE CHANNELS, one per file, is not sent: RomM takes a save from this
-    // console only as a snapshot. It stays owed, so this console's own save
-    // goes on winning at a start (savepick.h), and the next save the game
-    // makes goes up as its snapshot and takes its place (savepush::leave). A
-    // STATE'S becomes a state of its game's owed push first
-    // (savepush::adoptOldStates), here on the frame thread, where states are
+    // frame thread, for the person signed in. A SAVE'S OR A STATE'S MARKER
+    // FROM BEFORE SAVE CHANNELS, one per file, is not sent as it is: RomM
+    // takes a save or a state from this console only inside a snapshot. Each
+    // becomes its game's owed push first (savepush::adoptOldSaves, then
+    // adoptOldStates), here on the frame thread, where saves and states are
     // marked.
     void resendOwed();
 

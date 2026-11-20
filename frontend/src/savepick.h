@@ -139,6 +139,54 @@ const romm::Asset* newestOldRow(const std::vector<romm::Asset>& rows, const std:
 std::vector<const romm::Asset*> oldRowsAStartMayTake(const std::vector<romm::Asset>& rows,
                                                      const std::string& tag);
 
+// --- A start that took them brings them into a channel (#346, step 7) -------
+//
+// DECISION 2 OF 2026-11-15: a game's save from before channels moves into a
+// channel the first time the game is started after the update, game by game.
+// When the pick is RomM's saves from before channels (the game has no
+// channel, or that save is newer than every channel's: a console not yet
+// updated made it), the start puts it in place exactly as before, then the
+// game's push brings it into the channel this console saves into
+// (savepush.h, markOldSave). RomM copies a row in itself (`copy_of`), so no
+// byte is sent, and the row stays as it is, so a console still on the old
+// version goes on reading and writing it. A save that was several rows
+// (Sega CD's own memory and its cartridge) has to be one zip in a snapshot,
+// as a start reads one (saves.h), which RomM cannot make of two rows: the
+// console sends that zip.
+
+// One row a restore put in place, and as what.
+struct OldRowTaken {
+    int rowId = 0;
+    enum class As { Battery, File, Folder } as = As::Battery;
+    // A file save's: the path its core reads it at, and its place among the
+    // core's save files (0 the first, which a snapshot's one file is read as).
+    std::string path;
+    size_t file = 0;
+};
+
+// What the push brings in: the rows, and how they travel.
+struct OldSaveCopy {
+    std::vector<const romm::Asset*> rows;   // in `rows`, each once
+    // Several rows: one zip of them, each under `paths[i]` (the core's own).
+    // One row: RomM's copy of it.
+    bool zipped = false;
+    std::vector<std::string> paths;
+    std::string shape;   // "SINGLE", "MULTI" or "FOLDER", RomM's words
+};
+
+// False when nothing is brought in: the pick is not RomM's saves from before
+// channels, no restore took one (each came back empty or held no save), or a
+// row taken is not a save from before channels in `rows`. Nor when the
+// newest save on RomM is one this console cannot use: an old save it did not
+// change is no progress to keep beside that one (answer 3 of 2026-11-17
+// keeps the console's progress, which the session's own push carries), and
+// RomM would keep another copy of it beside at every start. A folder save
+// counts as taken only when it was a zip a start unpacked: GameCube's card
+// from before #344 is read in by Dolphin, and that folder goes up at the
+// leave as any changed folder does.
+bool oldSaveToCopy(const Pick& pick, const std::vector<romm::Asset>& rows,
+                   const std::vector<OldRowTaken>& taken, OldSaveCopy* out);
+
 // The table of `--save-pick-test` (selftests.cpp runs it, then the restores in
 // a scratch folder): the rule on every case, the pill, the note a start
 // leaves and the old rows' helpers. Asks nothing, reads no disk. How many

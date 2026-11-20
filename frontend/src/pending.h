@@ -64,8 +64,8 @@ void clearPending(const storage::User& u, int romId, const std::string& fileName
 // owed. A newer one replaces it, carrying the states the older one held, so
 // what goes is always the newest. Kept beside the markers above, one per
 // file, which a screenshot keeps; a save's or a state's from before save
-// channels is read, and a state's becomes a state of its game's push
-// (savepush::adoptOldStates).
+// channels is read, and becomes its game's push (savepush::adoptOldSaves,
+// adoptOldStates).
 //
 // In `pending/` as `<romId>.push`: the byte count on the first line, where
 // pendingBytes() reads it, then "key value" lines as above. A state's lines
@@ -101,6 +101,20 @@ struct OwedPush {
     std::string saveName;
     std::string savePath;
     std::string saveShape;
+    // OR THE SAVE IS RomM'S OWN FROM BEFORE SAVE CHANNELS (#346, step 7),
+    // which a start took and this push brings into a channel: each of its
+    // rows by RomM's id, with the time RomM had for it then, in seconds. One
+    // row RomM copies in itself, so no byte is sent (`savePath` empty); the
+    // save of several (Sega CD's own memory and its cartridge) goes as the
+    // zip of them at `savePath`. Sent only while RomM still has every row as
+    // it was. Not a save this console owes (saveOwed passes it by), and
+    // `madeAt` is RomM's time for the newest row.
+    struct OldRow {
+        int id = 0;
+        int64_t at = 0;
+    };
+    std::vector<OldRow> oldRows;
+    bool fromOldRows() const { return !oldRows.empty(); }
     // ITS PICTURE (#346, savepicture.h), the moment it was saved: the name
     // it goes up under and its file in `pending/`, empty for none. The marker
     // owns the file: one that replaces it naming another, and the clearing
@@ -141,7 +155,8 @@ bool owedPush(const storage::User& u, int romId, OwedPush* push);
 bool isPushOwed(const storage::User& u, int romId);
 // THIS CONSOLE OWES RomM A SAVE of the game: a push with a save, or a save's
 // own marker from before save channels. What keeps a start from taking
-// RomM's (savepick.h); a push of states alone leaves the save as RomM has it.
+// RomM's (savepick.h); a push of states alone leaves the save as RomM has it,
+// and so does one that brings RomM's own save from before channels in.
 bool saveOwed(const storage::User& u, int romId);
 // Removes the marker if it still has this stamp, and the save's picture it
 // names.

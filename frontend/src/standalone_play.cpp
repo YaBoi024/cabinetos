@@ -113,7 +113,9 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     starting.romId = launchJob.romId;
     starting.title = launchJob.title;
     if (tag) starting.saveTag = tag;
-    const bool elsewhere = noteStart(startedFrom, startNotes, user, &starting);
+    bool bringsOldSave = false;
+    const bool elsewhere = noteStart(startedFrom, startNotes, user, &starting, &bringsOldSave);
+    if (bringsOldSave) uploader.pushSnapshot(starting.romId, user);
     // AND ONTO WHERE THE EMULATOR READS THEM, when that is not a folder
     // (Xbox: its hard drive). The note says whose they are, should the
     // console go down before the game ends.

@@ -75,8 +75,21 @@
 // save anywhere else: one this console owes from before save channels, or
 // one RomM holds from before them. With nothing to build on it would make a
 // snapshot with no save in front of that one, so it waits, owed, until the
-// game's save is in a channel. A game with no save at all sends its states
-// in a snapshot with none.
+// game's save is in a channel; the game's next start brings it in, and the
+// states go with it. A game with no save at all sends its states in a
+// snapshot with none.
+//
+// A SAVE FROM BEFORE SAVE CHANNELS COMES IN AT THE GAME'S FIRST START AFTER
+// THE UPDATE (#346, step 7; decision 2 of 2026-11-15). A start that put
+// RomM's in place (savepick.h, oldSaveToCopy) owes the game's push of it
+// (markOldSave), aimed where this console saves into, and queued at once:
+// RomM copies the row in itself (`copy_of`), no byte sent, and leaves the
+// row as it is for a console still on the old version. The game's states
+// from before channels go in with it, from this console's copies, as their
+// bytes, since RomM holds them in no snapshot. "Made" is RomM's time
+// for the row, so a channel that moved on meanwhile keeps the newer save on
+// top. A save this console still owes from before save channels, one marker
+// a file, becomes its game's push the same way (adoptOldSaves).
 //
 // A HARDCORE CHANNEL IS NEVER SAVED INTO (decision 10). A session that
 // started from one, or whose channel has turned hardcore since, saves into
@@ -107,6 +120,7 @@
 #include "gamesession.h"
 #include "pending.h"
 #include "romm.h"
+#include "savepick.h"
 #include "storage.h"
 
 class Uploader;
@@ -160,6 +174,33 @@ bool markState(const GameSession& sess, const storage::User& user, const StateMa
 // App::recoverDriveSaves), and the key that gathers a battery mid-game
 // (input.cpp).
 void leave(GameSession& sess, const storage::User& user, Uploader& up);
+
+// A START THAT TOOK RomM'S SAVE FROM BEFORE CHANNELS (savepick.h,
+// oldSaveToCopy) MARKED AS THE GAME'S OWED PUSH that brings it into a
+// channel (#346, step 7; decision 2 of 2026-11-15): aimed as the session's
+// own save would be (WHERE IT GOES, above), carrying the states an earlier
+// marker holds and this console's own copies of the game's newest states
+// (answer 5 of 2026-11-17: they go into its first snapshot), and made when
+// RomM stored the newest of its rows. One row is
+// named for RomM to copy; the rows of a save that was several are zipped
+// from `bytes` (each row's, in `copy.rows`' order) beside this console's own
+// copy of the save. Not a save this console owes (cache::saveOwed). A push
+// of the session's own save marked at the leave takes its place. False when
+// nothing was marked. Asks nothing of the network.
+bool markOldSave(const GameSession& sess, const storage::User& user,
+                 const savepick::OldSaveCopy& copy,
+                 const std::vector<std::vector<uint8_t>>& bytes);
+
+// A SAVE'S MARKER FROM BEFORE SAVE CHANNELS, one per file (cache::Owed): a
+// save this console made and RomM never had, so it still wins at a start.
+// Each game's become its owed push (#346, step 7), its file as the save,
+// made when the console wrote it, into the person's "default", or onto the
+// snapshot this console holds; a game's several files (Sega CD's two) go as
+// one zip of them, each under its own name, written beside them. A push
+// already owed with a save of the console's own carries the whole save, so
+// the old markers only go. The old markers go once the push is marked. On
+// the frame thread (Uploader::resendOwed). How many games gained one.
+int adoptOldSaves(const storage::User& who);
 
 // A STATE'S MARKER FROM BEFORE SAVE CHANNELS, one per file (cache::Owed):
 // RomM takes a state from this console only inside a snapshot now, so each

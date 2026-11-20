@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <ctime>
 #include <map>
 #include <set>
@@ -365,6 +366,161 @@ void leave(GameSession& sess, const storage::User& user, Uploader& up) {
         up.pushSnapshot(sess.romId, user);
 }
 
+bool markOldSave(const GameSession& sess, const storage::User& user,
+                 const savepick::OldSaveCopy& copy,
+                 const std::vector<std::vector<uint8_t>>& bytes) {
+    if (copy.rows.empty() || sess.saveTag.empty() || sess.romId <= 0 || !user.valid())
+        return false;
+    cache::OwedPush earlier;
+    const bool hadEarlier = cache::owedPush(user, sess.romId, &earlier);
+    // A save this console owes wins at a start (savepick.h), so a start that
+    // took RomM's had none; one marked since stands.
+    if (hadEarlier && earlier.hasSave && !earlier.fromOldRows()) return false;
+    cache::OwedPush p;
+    p.romId = sess.romId;
+    p.emulator = sess.saveTag;
+    p.hasSave = true;
+    p.saveShape = copy.shape;
+    for (const romm::Asset* r : copy.rows) {
+        const int64_t at = isoMicros(r->updatedAt) / 1000000;
+        p.oldRows.push_back({r->id, at});
+        p.madeAt = std::max(p.madeAt, at);
+    }
+    if (copy.zipped) {
+        // Each row as the restore put it in place, under the path its core
+        // reads it at, beside the console's own copy, as gather writes one.
+        std::vector<cab::ZipFile> files;
+        for (size_t i = 0; i < copy.rows.size() && i < bytes.size() && i < copy.paths.size(); ++i)
+            if (!bytes[i].empty()) files.push_back({copy.paths[i], bytes[i]});
+        std::vector<uint8_t> zip;
+        std::string zerr;
+        p.saveName = sanitisedStem(sess.fsStem) + ".zip";
+        p.savePath = sess.saveDir + "/" + saveRowName(sess.fsStem, "zip");
+        if (files.size() != copy.rows.size() || !cab::zipFiles(files, &zip, &zerr) ||
+            !cab::writeBytes(p.savePath, zip)) {
+            std::fprintf(stderr, "[save] game %d: its save from before channels could not be "
+                                 "zipped to %s: %s\n",
+                         sess.romId, p.savePath.c_str(),
+                         files.size() != copy.rows.size() ? "a row's bytes did not come"
+                         : zerr.empty()                   ? "the write failed"
+                                                          : zerr.c_str());
+            return false;
+        }
+    } else {
+        // For the log: RomM names its copy after the row.
+        p.saveName = ownName(copy.rows.front()->fileName);
+    }
+    aim(sess, user, &p);
+    if (hadEarlier) p.states = earlier.states;
+    // THE GAME'S STATES FROM BEFORE CHANNELS GO INTO ITS FIRST SNAPSHOT
+    // (answer 5 of 2026-11-17): this console's own copies of its newest, as
+    // the game offers them with RomM away, beside any the marker carries.
+    // RomM holds them in no snapshot, so they go as their bytes (send). One
+    // per name: keepNewest keeps the marker's own.
+    if (!sess.stateTag.empty() && !sess.stateDir.empty()) {
+        for (const OfferedState& o :
+             offeredStates(user, sess.romId, sess.stateTag, sess.stateDir, nullptr))
+            p.states.push_back({sess.stateTag, o.fileName, o.path,
+                                o.picture.empty() ? std::string()
+                                                  : o.picture.substr(o.picture.rfind('/') + 1),
+                                o.picture, o.madeMs});
+        keepNewest(&p.states);
+    }
+    if (cache::markPushOwed(user, p, owedBytes(p)).empty()) return false;
+    std::fprintf(stderr, "[save] game %d: its save from before channels, %s, owed to RomM as a "
+                         "snapshot (%s)%s, %s\n",
+                 sess.romId, p.saveName.c_str(),
+                 copy.zipped ? (std::to_string(copy.rows.size()) + " rows zipped").c_str()
+                             : ("row " + std::to_string(p.oldRows.front().id) +
+                                " copied in by RomM, no bytes sent").c_str(),
+                 p.states.empty() ? "" : (" and " + std::to_string(p.states.size()) +
+                                          " state(s)").c_str(),
+                 p.channelId.empty()
+                     ? ("into the channel named \"" + p.label + "\"").c_str()
+                     : ("on snapshot " + std::to_string(p.expectedCurrentId) + " of channel \"" +
+                        p.label + "\"").c_str());
+    return true;
+}
+
+int adoptOldSaves(const storage::User& who) {
+    std::map<int, std::vector<cache::Owed>> byGame;
+    for (const cache::Owed& o : cache::owed(who))
+        if (!o.isState && !o.isScreenshot) byGame[o.romId].push_back(o);
+    int games = 0;
+    // The name this console's copy had, " (Cabinet)" taken off: the name the
+    // save goes up under, as a push of the session's names it.
+    auto upName = [](const std::string& path) {
+        std::string name = path.substr(path.find_last_of('/') + 1);
+        const size_t at = name.rfind(" (Cabinet).");
+        if (at != std::string::npos) name.erase(at, std::strlen(" (Cabinet)"));
+        return name;
+    };
+    for (const auto& [romId, list] : byGame) {
+        cache::OwedPush earlier;
+        const bool had = cache::owedPush(who, romId, &earlier);
+        auto clearOld = [&, romId = romId] {
+            for (const cache::Owed& o : list) cache::clearPending(who, romId, o.fileName);
+        };
+        if (had && earlier.hasSave && !earlier.fromOldRows()) {
+            clearOld();
+            continue;
+        }
+        cache::OwedPush p;
+        p.romId = romId;
+        p.emulator = list.front().emulator;
+        p.hasSave = true;
+        std::vector<cab::ZipFile> files;
+        for (const cache::Owed& o : list) {
+            struct stat st;
+            if (::stat(o.localPath.c_str(), &st) == 0)
+                p.madeAt = std::max(p.madeAt, static_cast<int64_t>(st.st_mtime));
+            if (list.size() > 1)
+                if (std::vector<uint8_t> b = cab::readBytes(o.localPath); !b.empty())
+                    files.push_back({o.localPath.substr(o.localPath.find_last_of('/') + 1),
+                                     std::move(b)});
+        }
+        if (p.madeAt == 0) p.madeAt = static_cast<int64_t>(std::time(nullptr));
+        if (list.size() == 1) {
+            p.savePath = list.front().localPath;
+            p.saveName = upName(p.savePath);
+            p.saveShape = cab::looksLikeZip(cab::readBytes(p.savePath)) ? kFolder : kSingle;
+        } else {
+            // Several files of one game (Sega CD's memory and its cartridge):
+            // one zip of them, as a snapshot holds them (saves.h).
+            std::string stem = upName(list.front().fileName);
+            stem = stem.substr(0, stem.find_last_of('.'));
+            p.saveName = stem + ".zip";
+            p.savePath = dirOf(list.front().localPath) + "/" + saveRowName(stem, "zip");
+            p.saveShape = kMulti;
+            std::vector<uint8_t> zip;
+            std::string zerr;
+            if (!files.empty() &&
+                (!cab::zipFiles(files, &zip, &zerr) || !cab::writeBytes(p.savePath, zip))) {
+                std::fprintf(stderr, "[save] game %d: its saves from before save channels could "
+                                     "not be zipped: %s\n",
+                             romId, zerr.empty() ? "the write failed" : zerr.c_str());
+                continue;
+            }
+        }
+        savemirror::Held held;
+        if (savemirror::getHeld(who, romId, &held)) {
+            p.channelId = held.channelId;
+            p.label = labelOf(who, romId, held.channelId);
+            p.expectedCurrentId = held.snapshotId;
+        } else {
+            p.label = kDefaultChannel;
+        }
+        if (had) p.states = earlier.states;
+        if (cache::markPushOwed(who, p, owedBytes(p)).empty()) continue;
+        clearOld();
+        std::fprintf(stderr, "[save] game %d: its save owed from before save channels (%zu "
+                             "file(s)) goes up as its snapshot\n",
+                     romId, list.size());
+        ++games;
+    }
+    return games;
+}
+
 int adoptOldStates(const storage::User& who) {
     std::map<int, std::vector<cache::Owed>> byGame;
     for (const cache::Owed& o : cache::owed(who))
@@ -490,8 +646,11 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
     };
     cache::OwedPush owed;
     if (!cache::owedPush(who, romId, &owed)) return stop(Sent::NothingOwed, "nothing is owed");
+    // A SAVE FROM BEFORE CHANNELS THAT RomM COPIES IN ITSELF (markOldSave):
+    // one row, and no file of this console's to send.
+    bool copyIn = owed.fromOldRows() && owed.savePath.empty();
     std::vector<uint8_t> bytes =
-        owed.hasSave ? cab::readBytes(owed.savePath) : std::vector<uint8_t>();
+        owed.hasSave && !copyIn ? cab::readBytes(owed.savePath) : std::vector<uint8_t>();
     // Its picture, the moment it was saved (savepicture.h); none when it has
     // none or its file is gone.
     const std::vector<uint8_t> picture = owed.savePicturePath.empty()
@@ -512,14 +671,14 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
                                               : cab::readBytes(s.picturePath)});
     }
     if (inPlay && inPlay()) return stop(Sent::NotSent, "the game is being played");
-    if (owed.hasSave && bytes.empty() && !made.empty()) {
+    if (owed.hasSave && !copyIn && bytes.empty() && !made.empty()) {
         // The save's file is gone, its states are not: they go, with the
         // save of the snapshot they build on.
         std::fprintf(stderr, "[save] game %d's owed save has no file left; its states go alone\n",
                      romId);
         owed.hasSave = false;
     }
-    if (bytes.empty() && made.empty()) {
+    if (bytes.empty() && made.empty() && !copyIn) {
         // The files it was owed from are gone (deleted by hand, or with the
         // person). Nothing left to send, so nothing is owed.
         cache::clearPushOwed(who, romId, owed.stamp);
@@ -553,6 +712,40 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
         if (server.channels(fileId, &channels, &err, &gone)) break;
         if (!gone || askedFile) return unasked();
         fileId = 0;
+    }
+
+    // A SAVE FROM BEFORE CHANNELS IS BROUGHT IN ONLY AS THE START TOOK IT
+    // (markOldSave): every row still RomM's, from before channels, at the
+    // time it had then. One changed (a console on the old version saved
+    // again) or gone (deleted on RomM's website) is not brought in: the next
+    // start takes what RomM holds then, and brings that in. States the push
+    // carries go on alone. The bytes of a row RomM copies, as this console
+    // kept them since the start (savemirror), become the copy's for offline.
+    std::vector<uint8_t> copied;
+    if (owed.fromOldRows()) {
+        std::vector<romm::Asset> rows;
+        if (!server.saves(romId, &rows, &err)) return unasked();
+        bool asTaken = true;
+        for (const cache::OwedPush::OldRow& old : owed.oldRows) {
+            const auto row = std::find_if(rows.begin(), rows.end(), [&](const romm::Asset& r) {
+                return r.id == old.id && r.channelId.empty();
+            });
+            asTaken = asTaken && row != rows.end() && isoMicros(row->updatedAt) / 1000000 == old.at;
+            if (asTaken && copyIn) copied = savemirror::getBytes(who, romId, *row);
+        }
+        if (!asTaken) {
+            std::fprintf(stderr, "[save] game %d: its save from before channels changed on RomM "
+                                 "since the start; not brought in%s\n",
+                         romId, made.empty() ? "" : ", its states go alone");
+            if (made.empty()) {
+                cache::clearPushOwed(who, romId, owed.stamp);
+                return stop(Sent::NothingOwed, "its save from before channels changed on RomM");
+            }
+            owed.hasSave = false;
+            owed.oldRows.clear();
+            bytes.clear();
+            copyIn = false;
+        }
     }
 
     // WHERE IT GOES, now that RomM's channels are known: the channel the
@@ -632,8 +825,15 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
     }
     // The bytes, named by RomM's hash of them. A zip travels as one of the
     // two zip shapes and anything else as a single file, which RomM checks.
-    auto withBytes = [&] {
+    // A row RomM copies in is named by its id, as the start found it.
+    auto withSave = [&] {
         push.hasSave = true;
+        if (copyIn) {
+            push.saveCopyOf = owed.oldRows.front().id;
+            push.save = romm::PushFile{};
+            push.saveShape = owed.saveShape.empty() ? kSingle : owed.saveShape;
+            return;
+        }
         push.save.hash = romm::contentHash(bytes);
         push.save.fileName = owed.saveName;
         push.save.bytes = bytes;
@@ -644,7 +844,7 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
         const bool zip = cab::looksLikeZip(bytes);
         push.saveShape = !zip ? kSingle : owed.saveShape == kFolder ? kFolder : kMulti;
     };
-    if (owed.hasSave) withBytes();
+    if (owed.hasSave) withSave();
     // THE STATES IT NAMES (the head of savepush.h): the ones made since, with
     // their bytes and pictures, and the newest of RomM's under the console's
     // own name, by hash; kStatesKept, one per hash, in slots "1" to "3",
@@ -748,7 +948,7 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
         for (const std::string& key : missing) {
             if (key == "save") {
                 if (!owed.hasSave || push.hasSave) return false;
-                withBytes();
+                withSave();
                 any = true;
                 continue;
             }
@@ -863,6 +1063,7 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
             push.parentId = held.id;
             push.hasSave = false;
             push.save = romm::PushFile{};
+            push.saveCopyOf = 0;
             push.states.clear();
             continue;
         }
@@ -876,7 +1077,7 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
                 beside ? held.id : push.parentId ? push.parentId : push.expectedCurrentId;
             intoSoftcore(madeFrom);
             if (beside) push.states.clear();
-            else if (owed.hasSave) withBytes();
+            else if (owed.hasSave) withSave();
             continue;
         }
         if (answer.kind == Kind::BytesMissing && supply(answer.missing)) continue;
@@ -924,11 +1125,13 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
     savemirror::putHeld(who, romId, now);
     cache::clearPushOwed(who, romId, owed.stamp);
     std::fprintf(stderr,
-                 "[save] game %d: snapshot %d %s channel \"%s\" on RomM (%s, %zu bytes; %zu "
+                 "[save] game %d: snapshot %d %s channel \"%s\" on RomM (%s, %zu bytes%s; %zu "
                  "state(s) named)\n",
                  romId, held.id, beside ? "is kept beside the current of" : "is the current of",
                  push.label.c_str(), owed.hasSave ? owed.saveName.c_str() : "its states alone",
-                 bytes.size(), namedHashes.size());
+                 bytes.size(),
+                 copyIn ? ", its save from before channels copied in by RomM" : "",
+                 namedHashes.size());
     // This console's copies of states it no longer offers: kept are the ones
     // this push named and the ones in a push owed since (the head of
     // savepush.h).
@@ -948,7 +1151,12 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
     bool gone = false;
     if (server.channels(fileId, &channels, &err, &gone)) {
         savemirror::putChannels(who, romId, channels);
-        if (held.hasSave && owed.hasSave) savemirror::putSnapshotSave(who, romId, held.save, bytes);
+        // A row RomM copied: this console's bytes of it, while they are the
+        // copy's.
+        const std::vector<uint8_t>& kept = copyIn ? copied : bytes;
+        if (held.hasSave && owed.hasSave && !kept.empty() &&
+            (!copyIn || romm::contentHash(kept) == held.save.contentHash))
+            savemirror::putSnapshotSave(who, romId, held.save, kept);
     }
     return stop(beside ? Sent::Beside : Sent::Landed, std::string());
 }

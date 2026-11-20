@@ -120,9 +120,11 @@ void App::startDetailStates() {
             if (::stat(o.localPath.c_str(), &st) == 0 && isoUtc(st.st_mtime) > savedAt)
                 savedAt = isoUtc(st.st_mtime);
         }
-        // And its snapshot still owed with a save (savepush.h), dated when
-        // the save was made.
+        // And its snapshot still owed with a save of this console's
+        // (savepush.h), dated when the save was made; not RomM's own from
+        // before channels on its way into one, which RomM already dated.
         if (cache::OwedPush push; cache::owedPush(who, romId, &push) && push.hasSave &&
+                                  !push.fromOldRows() &&
                                   isoUtc(static_cast<time_t>(push.madeAt)) > savedAt)
             savedAt = isoUtc(static_cast<time_t>(push.madeAt));
         if (!savedAt.empty()) {

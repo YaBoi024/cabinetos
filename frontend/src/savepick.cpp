@@ -199,6 +199,40 @@ std::vector<const romm::Asset*> oldRowsAStartMayTake(const std::vector<romm::Ass
     return out;
 }
 
+bool oldSaveToCopy(const Pick& pick, const std::vector<romm::Asset>& rows,
+                   const std::vector<OldRowTaken>& taken, OldSaveCopy* out) {
+    *out = OldSaveCopy{};
+    if (pick.from != Pick::From::OldRows || pick.couldNotUseNewest || taken.empty()) return false;
+    std::vector<const OldRowTaken*> each;
+    for (const OldRowTaken& t : taken) {
+        const auto row = std::find_if(rows.begin(), rows.end(), [&](const romm::Asset& r) {
+            return r.id == t.rowId && r.channelId.empty();
+        });
+        if (row == rows.end()) return false;
+        if (std::find(out->rows.begin(), out->rows.end(), &*row) != out->rows.end()) continue;
+        out->rows.push_back(&*row);
+        each.push_back(&t);
+    }
+    using As = OldRowTaken::As;
+    // One row RomM copies: a battery, a save folder's zip, or the one file of
+    // a core's that a snapshot's single file is read as (its first).
+    if (each.size() == 1 && (each[0]->as != As::File || each[0]->file == 0)) {
+        out->shape = each[0]->as == As::Folder ? "FOLDER" : "SINGLE";
+        return true;
+    }
+    // Several files of a core, or its second alone: one zip, each under the
+    // path its core reads it at, as a push of the session's would make it.
+    for (const OldRowTaken* t : each)
+        if (t->as != As::File || t->path.empty()) {
+            *out = OldSaveCopy{};
+            return false;
+        }
+    out->zipped = true;
+    out->shape = "MULTI";
+    for (const OldRowTaken* t : each) out->paths.push_back(t->path);
+    return true;
+}
+
 
 // ---- `--save-pick-test`'s table ---------------------------------------------
 
@@ -566,6 +600,67 @@ int test() {
         check(isoMicros(t2) - isoMicros(t1) == 3600500000LL && isoMicros(t3) > isoMicros(t2) &&
                   isoMicros("2026-11-18T22:00:00Z") == isoMicros(t3) && isoMicros("soon") == 0,
               "RomM's times read to the microsecond, with or without a fraction");
+    }
+
+    std::printf("\nbrought into a channel by the start that took them (step 7)\n");
+    {
+        auto row = [](int id, const char* name, const char* channel = "") {
+            romm::Asset a;
+            a.id = id;
+            a.fileName = name;
+            a.emulator = kTag;
+            a.updatedAt = "2026-11-01T10:00:00+00:00";
+            a.channelId = channel;
+            return a;
+        };
+        const std::vector<romm::Asset> rows = {
+            row(1, "Game (Cabinet).srm"), row(2, "Game (Cabinet).cart"), row(3, "Game.zip"),
+            row(4, "Game [2026-11-18_22-42-48-649].srm", "channel-default")};
+        Pick old;
+        old.from = From::OldRows;
+        using As = OldRowTaken::As;
+        OldRowTaken battery{1, As::Battery, "", 0};
+        OldRowTaken folder{3, As::Folder, "", 0};
+        OldRowTaken first{1, As::File, "Game.brm", 0};
+        OldRowTaken cart{2, As::File, "4Mbit_cart.brm", 1};
+        OldSaveCopy c;
+        check(oldSaveToCopy(old, rows, {battery}, &c) && c.rows.size() == 1 &&
+                  c.rows[0]->id == 1 && !c.zipped && c.shape == "SINGLE",
+              "a battery from before channels: RomM copies its row in, no bytes");
+        check(oldSaveToCopy(old, rows, {folder}, &c) && c.rows.size() == 1 &&
+                  c.rows[0]->id == 3 && !c.zipped && c.shape == "FOLDER",
+              "a save folder's zip: copied in, as a folder");
+        check(oldSaveToCopy(old, rows, {first}, &c) && c.rows.size() == 1 && !c.zipped &&
+                  c.shape == "SINGLE",
+              "a core's one save file: copied in");
+        check(oldSaveToCopy(old, rows, {first, cart}, &c) && c.rows.size() == 2 && c.zipped &&
+                  c.shape == "MULTI" && c.paths.size() == 2 && c.paths[0] == "Game.brm" &&
+                  c.paths[1] == "4Mbit_cart.brm",
+              "two files of a core (Sega CD's memory and cartridge): one zip of both, each "
+              "under the path its core reads");
+        check(oldSaveToCopy(old, rows, {cart}, &c) && c.zipped && c.paths.size() == 1 &&
+                  c.paths[0] == "4Mbit_cart.brm",
+              "a core's second file alone: a zip, so a start never reads it as the first");
+        check(oldSaveToCopy(old, rows, {battery, battery}, &c) && c.rows.size() == 1 && !c.zipped,
+              "a row taken twice is one row");
+        Pick own;
+        Pick fromChannel;
+        fromChannel.from = From::Channel;
+        check(!oldSaveToCopy(own, rows, {battery}, &c) &&
+                  !oldSaveToCopy(fromChannel, rows, {battery}, &c),
+              "a start from the console's own save or from a channel brings nothing in");
+        check(!oldSaveToCopy(old, rows, {}, &c), "nothing put in place: nothing brought in");
+        Pick notNewest = old;
+        notNewest.couldNotUseNewest = true;
+        check(!oldSaveToCopy(notNewest, rows, {battery}, &c),
+              "another emulator's save the newest: the console's own from before channels is "
+              "not brought in beside it");
+        const std::vector<OldRowTaken> inChannel = {OldRowTaken{4, As::Battery, "", 0}};
+        const std::vector<OldRowTaken> unlisted = {OldRowTaken{9, As::Battery, "", 0}};
+        check(!oldSaveToCopy(old, rows, inChannel, &c) && !oldSaveToCopy(old, rows, unlisted, &c),
+              "a snapshot's save, or a row RomM did not list: nothing brought in");
+        check(!oldSaveToCopy(old, rows, {folder, cart}, &c) && c.rows.empty(),
+              "a folder and a file together (no core has both): nothing brought in");
     }
     return failures;
 }

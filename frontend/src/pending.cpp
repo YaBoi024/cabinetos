@@ -102,6 +102,13 @@ bool readPush(const std::string& path, OwedPush* p) {
         else if (k == "saveshape") p->saveShape = v;
         else if (k == "savepicname") p->savePictureName = v;
         else if (k == "savepicpath") p->savePicturePath = v;
+        else if (k == "oldrow") {
+            OwedPush::OldRow r;
+            r.id = std::atoi(v.c_str());
+            if (const size_t at = v.find(' '); at != std::string::npos)
+                r.at = std::atoll(v.c_str() + at + 1);
+            if (r.id > 0) p->oldRows.push_back(r);
+        }
         else if (k == "state") p->states.push_back({v, "", "", "", "", 0});
         else if (st && k == "statemade") st->madeMs = std::atoll(v.c_str());
         else if (st && k == "statename") st->fileName = v;
@@ -110,7 +117,7 @@ bool readPush(const std::string& path, OwedPush* p) {
         else if (st && k == "picpath") st->picturePath = v;
     }
     std::fclose(f);
-    p->hasSave = !p->savePath.empty();
+    p->hasSave = !p->savePath.empty() || p->fromOldRows();
     return p->romId > 0 && !p->stamp.empty();
 }
 
@@ -228,6 +235,8 @@ std::string markPushOwed(const storage::User& u, const OwedPush& p, int64_t byte
         put("saveshape", p.saveShape);
         put("savepicname", p.savePictureName);
         put("savepicpath", p.savePicturePath);
+        for (const OwedPush::OldRow& r : p.oldRows)
+            put("oldrow", std::to_string(r.id) + " " + std::to_string(static_cast<long long>(r.at)));
     }
     for (const OwedPush::State& st : p.states) {
         text += "state " + st.core + "\n";
@@ -291,7 +300,7 @@ bool isPushOwed(const storage::User& u, int romId) {
 
 bool saveOwed(const storage::User& u, int romId) {
     OwedPush p;
-    if (owedPush(u, romId, &p) && p.hasSave) return true;
+    if (owedPush(u, romId, &p) && p.hasSave && !p.fromOldRows()) return true;
     for (const Owed& o : owed(u))
         if (o.romId == romId && !o.isState && !o.isScreenshot) return true;
     return false;

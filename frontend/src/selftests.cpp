@@ -29,6 +29,7 @@
 #include "saves.h"
 #include "server.h"
 #include "storage.h"
+#include "timewords.h"
 #include "unsettled.h"
 
 // Does completing setup actually STICK?
@@ -1307,6 +1308,247 @@ int savePickTest() {
         restoreDirSave(f, "ppsspp-native", psp, "Lumines", std::string(), &bad);
         check(cab::readBytes(psp + "/ULUS10002/DATA.BIN") == own && !bad.fromChannel,
               "a snapshot's save that is no zip is never unpacked over a save folder");
+    }
+
+    // 3. A start that took RomM's saves from before channels brings them into
+    //    a channel (#346, step 7): the game's push, owed, aimed and queued.
+    std::printf("\nsaves from before channels, brought in by the start\n");
+    {
+        auto oldRow = [&](int id, const char* name, const char* at) {
+            romm::Asset a;
+            a.id = id;
+            a.romId = game;
+            a.fileName = name;
+            a.emulator = tag;
+            a.updatedAt = at;
+            return a;
+        };
+        auto oldFetch = [&](int romId, std::vector<romm::Asset> rows) {
+            SaveFetch f;
+            f.romId = romId;
+            f.asked = f.listed = true;
+            f.channelFileId = 4410;
+            f.mark = savemirror::mark();
+            f.pick.from = savepick::Pick::From::OldRows;
+            f.rows = std::move(rows);
+            return f;
+        };
+        auto sessionOf = [&](int romId, const char* sessTag, const std::string& dir,
+                             const char* stem) {
+            GameSession s;
+            s.romId = romId;
+            s.saveTag = sessTag;
+            s.saveDir = dir;
+            s.fsStem = stem;
+            return s;
+        };
+        const char* at = "2026-11-10T09:30:00+00:00";
+        const int64_t atSec = isoMicros(at) / 1000000;
+        savemirror::forgetHeld(u, game);
+        cab::writeBytes(file, own);
+        cache::OwedPush p;
+        {
+            SaveFetch f = oldFetch(game, {oldRow(9, "kof98 (Cabinet fbneo).srm", at)});
+            f.bytes[9] = theirs;
+            StartNotes n = notesFor();
+            restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
+            GameSession sess = sessionOf(game, tag, saveDir, "kof98");
+            bool brings = false;
+            noteStart(f, n, u, &sess, &brings);
+            check(brings && n.oldRowsTaken.size() == 1 && cache::owedPush(u, game, &p) &&
+                      p.hasSave && p.fromOldRows() && p.oldRows.size() == 1 &&
+                      p.oldRows[0].id == 9 && p.oldRows[0].at == atSec && p.madeAt == atSec &&
+                      p.savePath.empty() && p.saveShape == "SINGLE" && p.emulator == tag &&
+                      p.label == "default" && p.channelId.empty() && p.romFileId == 4410,
+                  "a core's one save file from before channels: the game's push names its row "
+                  "for RomM to copy, no bytes, into the person's \"default\", made when RomM "
+                  "stored it");
+            check(!cache::saveOwed(u, game),
+                  "and it is no save this console owes: the next start still takes RomM's newest");
+            cache::clearPushOwed(u, game, p.stamp);
+        }
+        {
+            // The console holds a snapshot: onto it, as the session's own save
+            // would go; and the states an earlier marker owes go with it.
+            savemirror::Held held;
+            held.channelId = "01937a3c-0000-7000-8000-00000000000a";
+            held.snapshotId = 61;
+            held.saveHash = "aaaa";
+            held.at = 1;
+            savemirror::putHeld(u, game, held);
+            cache::OwedPush states;
+            states.romId = game;
+            states.emulator = tag;
+            states.label = "default";
+            states.states.push_back({tag, "kof98.state", saveDir + "/kof98.state", "", "",
+                                     1763560512345});
+            cache::markPushOwed(u, states, 64);
+            SaveFetch f = oldFetch(game, {oldRow(9, "kof98 (Cabinet fbneo).srm", at)});
+            f.bytes[9] = theirs;
+            StartNotes n = notesFor();
+            restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
+            GameSession sess = sessionOf(game, tag, saveDir, "kof98");
+            bool brings = false;
+            noteStart(f, n, u, &sess, &brings);
+            check(brings && cache::owedPush(u, game, &p) && p.fromOldRows() &&
+                      p.channelId == held.channelId && p.expectedCurrentId == 61 &&
+                      p.states.size() == 1 && p.states[0].fileName == "kof98.state",
+                  "onto the snapshot this console holds, carrying the states owed before it");
+            cache::clearPushOwed(u, game, p.stamp);
+            savemirror::forgetHeld(u, game);
+        }
+        {
+            // A save of this console's owed: it stands, and nothing is brought
+            // in over it (a start that took RomM's has none; this one is made
+            // up to see the guard).
+            cache::OwedPush mine;
+            mine.romId = game;
+            mine.emulator = tag;
+            mine.hasSave = true;
+            mine.saveName = "kof98.fs";
+            mine.savePath = file;
+            mine.label = "default";
+            const std::string stamp = cache::markPushOwed(u, mine, 64);
+            SaveFetch f = oldFetch(game, {oldRow(9, "kof98 (Cabinet fbneo).srm", at)});
+            f.bytes[9] = theirs;
+            StartNotes n = notesFor();
+            restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
+            GameSession sess = sessionOf(game, tag, saveDir, "kof98");
+            bool brings = true;
+            noteStart(f, n, u, &sess, &brings);
+            check(!brings && cache::owedPush(u, game, &p) && p.stamp == stamp &&
+                      !p.fromOldRows() && cache::saveOwed(u, game),
+                  "a save of this console's still owed is never replaced by one from RomM");
+            cache::clearPushOwed(u, game, stamp);
+        }
+        {
+            // RomM's from before channels holds no save: the console's stands
+            // and nothing is brought in.
+            cab::writeBytes(file, own);
+            SaveFetch f = oldFetch(game, {oldRow(9, "kof98 (Cabinet fbneo).srm", at)});
+            f.bytes[9] = blank;
+            StartNotes n = notesFor();
+            restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
+            GameSession sess = sessionOf(game, tag, saveDir, "kof98");
+            bool brings = true;
+            noteStart(f, n, u, &sess, &brings);
+            check(cab::readBytes(file) == own && n.oldRowsTaken.empty() && !brings &&
+                      !cache::isPushOwed(u, game),
+                  "a save from before channels that holds nothing is not put in place, nor "
+                  "brought in");
+            // The same blank card on this console: it is what is in place,
+            // so it is brought in, and a state made later has a snapshot to
+            // go onto.
+            cab::writeBytes(file, blank);
+            StartNotes same = notesFor();
+            restoreFileSaves({spec}, "kof98", saveDir, tag, f, &same);
+            GameSession again = sessionOf(game, tag, saveDir, "kof98");
+            brings = false;
+            noteStart(f, same, u, &again, &brings);
+            check(cab::readBytes(file) == blank && same.oldRowsTaken.size() == 1 &&
+                      same.keptAside.empty() && brings && cache::owedPush(u, game, &p) &&
+                      p.fromOldRows(),
+                  "one that is byte for byte this console's own blank card is what is in "
+                  "place, and is brought in");
+            cache::clearPushOwed(u, game, p.stamp);
+            cab::writeBytes(file, own);
+        }
+        {
+            // The newest on RomM is another emulator's: the console's own
+            // from before channels is put in place, not brought in beside it.
+            SaveFetch f = oldFetch(game, {oldRow(9, "kof98 (Cabinet fbneo).srm", at)});
+            f.bytes[9] = theirs;
+            f.pick.couldNotUseNewest = true;
+            StartNotes n = notesFor();
+            restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
+            GameSession sess = sessionOf(game, tag, saveDir, "kof98");
+            bool brings = true;
+            noteStart(f, n, u, &sess, &brings);
+            check(cab::readBytes(file) == theirs && !brings && !cache::isPushOwed(u, game) &&
+                      sess.couldNotUseNewest,
+                  "another emulator's save the newest: the old save is put in place and not "
+                  "brought in");
+        }
+        {
+            // Sega CD's two files, each a row of its own: one zip of both.
+            catalog::SaveFile internal, cart;
+            internal.path = "Lunar.brm";
+            internal.untouched = catalog::Untouched::Blank;
+            cart.path = "4Mbit_cart.brm";
+            cart.region = "cart";
+            cart.untouched = catalog::Untouched::Blank;
+            const int lunar = 802;
+            const std::string dir = storage::savesDir(u, "Sega CD", lunar, "genesis_plus_gx");
+            romm::Asset internalRow = oldRow(11, "Lunar (Cabinet).srm", at);
+            romm::Asset cartRow = oldRow(12, "Lunar (Cabinet).cart", "2026-11-10T09:31:00+00:00");
+            internalRow.romId = cartRow.romId = lunar;
+            internalRow.emulator = cartRow.emulator = "gpgx-native";
+            SaveFetch f = oldFetch(lunar, {internalRow, cartRow});
+            f.bytes[11] = theirs;
+            f.bytes[12] = own;
+            StartNotes n;
+            n.asideDir = storage::replacedSaveDir(u, "Sega CD", lunar);
+            restoreFileSaves({internal, cart}, "Lunar", dir, "gpgx-native", f, &n);
+            GameSession sess = sessionOf(lunar, "gpgx-native", dir, "Lunar");
+            bool brings = false;
+            noteStart(f, n, u, &sess, &brings);
+            std::vector<cab::ZipFile> zipped;
+            std::string zerr;
+            const bool zipOk = cache::owedPush(u, lunar, &p) &&
+                               cab::readZip(cab::readBytes(p.savePath), &zipped, &zerr);
+            bool both = zipped.size() == 2;
+            for (const cab::ZipFile& z : zipped)
+                both = both && ((z.relPath == "Lunar.brm" && z.bytes == theirs) ||
+                                (z.relPath == "4Mbit_cart.brm" && z.bytes == own));
+            check(brings && zipOk && both && p.fromOldRows() && p.oldRows.size() == 2 &&
+                      p.saveShape == "MULTI" && p.saveName == "Lunar.zip" &&
+                      p.savePath == dir + "/" + saveRowName("Lunar", "zip") &&
+                      p.madeAt == isoMicros("2026-11-10T09:31:00+00:00") / 1000000,
+                  "Sega CD's two files from before channels: one zip of both, each under the "
+                  "path its core reads, made when the newer row was stored");
+            cache::clearPushOwed(u, lunar, p.stamp);
+        }
+        {
+            // A save folder's zip from before channels: copied in as a folder.
+            const std::string psp = storage::savesDir(u, "PSP", 901, "ppsspp") + "/PSP/SAVEDATA";
+            cab::writeBytes(psp + "/ULUS10002/DATA.BIN", own);
+            std::vector<uint8_t> zip;
+            std::string zerr;
+            cab::zipTree(psp, {"ULUS10002/DATA.BIN"}, &zip, &zerr);
+            cab::writeBytes(psp + "/ULUS10002/DATA.BIN", theirs);
+            romm::Asset row = oldRow(13, "Lumines.zip", at);
+            row.romId = 901;
+            row.emulator = "ppsspp-native";
+            SaveFetch f = oldFetch(901, {row});
+            f.bytes[13] = zip;
+            StartNotes n;
+            restoreDirSave(f, "ppsspp-native", psp, "Lumines", std::string(), &n);
+            GameSession sess = sessionOf(901, "ppsspp-native", "", "");
+            bool brings = false;
+            noteStart(f, n, u, &sess, &brings);
+            check(cab::readBytes(psp + "/ULUS10002/DATA.BIN") == own && brings &&
+                      cache::owedPush(u, 901, &p) && p.oldRows.size() == 1 &&
+                      p.oldRows[0].id == 13 && p.saveShape == "FOLDER" && p.savePath.empty(),
+                  "a save folder's zip from before channels: unpacked, and its row copied in "
+                  "as a folder");
+            cache::clearPushOwed(u, 901, p.stamp);
+            // GameCube's card from before #344 is no zip: Dolphin reads it in,
+            // and nothing is brought in at the start.
+            romm::Asset card = oldRow(14, "card.USA.raw", at);
+            card.romId = 902;
+            card.emulator = "dolphin-native";
+            const std::string gc = storage::savesDir(u, "GameCube", 902, "dolphin");
+            SaveFetch g = oldFetch(902, {card});
+            g.bytes[14] = bytesOf("not a zip, a raw card", 64);
+            StartNotes cn;
+            restoreDirSave(g, "dolphin-native", gc + "/GC/USA/Card A", "Ikaruga",
+                           gc + "/card.raw", &cn);
+            GameSession gsess = sessionOf(902, "dolphin-native", "", "");
+            bool gBrings = true;
+            noteStart(g, cn, u, &gsess, &gBrings);
+            check(cn.oldRowsTaken.empty() && !gBrings && !cache::isPushOwed(u, 902),
+                  "a card from before #344, which is no zip: not brought in at the start");
+        }
     }
     std::printf("\n%s\n", failures ? "FAILED" : "passed");
     return failures ? 1 : 0;
