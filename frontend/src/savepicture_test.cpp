@@ -317,6 +317,24 @@ int test() {
         check(n.savePicture.empty(),
               "the file a core writes by starting up, holding nothing: no picture");
         wn.finish(n, 2100);
+        // A file the core writes only as the game closes (Flycast's board
+        // memory, written also whenever a state is made): not looked at.
+        GameSession b = s;
+        b.romId = 506;
+        b.fileSaves[0].spec.writtenAtClose = true;
+        b.fileSaves[0].atLaunch = cab::readBytes(f.path);
+        Watch wb;
+        wb.begin(b, u, Game{nullptr, game.frame, nullptr}, 0);
+        std::vector<uint8_t> board = b.fileSaves[0].atLaunch;
+        board[20] ^= 0x33;
+        cab::writeBytes(f.path, board);
+        wb.tick(b, 1000);
+        wb.tick(b, 2000);
+        settle(wb, b, 2000);
+        wb.leaving(b, 2100);
+        wb.finish(b, 2200);
+        check(b.savePicture.empty(),
+              "a file the core writes only as the game closes, written in play: no picture");
         savepicture::prune(u, game3);
     }
 

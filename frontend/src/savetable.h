@@ -188,6 +188,12 @@ struct SaveFile {
     // lives in `bios/dc/` at rest is `dc_nvmem.bin`, the console's own clock
     // and language, which rebuilds itself if it is lost.
     bool inSystemDir = false;
+    // THE CORE WRITES IT ONLY AS THE GAME CLOSES (read off each core at our
+    // pin, 2026-11-19, #346): the save lives inside the core until then, so
+    // no moment of saving can be seen while it runs, and the save's picture
+    // does not look at it (savepicture.h). Flycast also writes a board's
+    // memory whenever a state is made, which is not the game saving.
+    bool writtenAtClose = false;
 };
 
 // --- Firmware a core can actually find --------------------------------------

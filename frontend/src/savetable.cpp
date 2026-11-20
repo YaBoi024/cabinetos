@@ -416,6 +416,10 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
     if (arcade) {
         SaveFile f;
         f.untouched = Untouched::Uniform;
+        // Every arcade board's memory is written as the game closes: MAME
+        // 2003-Plus in mame_done, FinalBurn Neo in retro_unload_game,
+        // Flycast in Emulator::stop (and whenever a state is made).
+        f.writtenAtClose = true;
         if (core == "mame2003_plus") {
             // ONE DIRECTORY DEEPER THAN THE REFERENCE IMPLEMENTATION SAYS, and
             // this was measured rather than carried across. Cabinet wrote
@@ -484,12 +488,15 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
     // row. `4Mbit_cart.brm` is fixed by the core's own defaults for cart_bram
     // and cart_size; per-game separation already comes from the save directory.
     if (slug == "segacd") {
+        // Genesis Plus GX writes both in retro_unload_game (bram_save).
         SaveFile internal;
+        internal.writtenAtClose = true;
         internal.path = stem + ".brm";
         internal.captureSuffix = ".brm";
         internal.captureExclude = "cart.brm";
         internal.untouched = Untouched::SegaCDBackup;
         SaveFile cart;
+        cart.writtenAtClose = true;
         cart.path = "4Mbit_cart.brm";
         cart.captureSuffix = "cart.brm";
         cart.region = "cart";
@@ -498,14 +505,17 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
     }
 
     if (slug == "neo-geo-pocket-color") {
+        // Beetle NGP writes it in rom_unload (flash_commit).
         SaveFile f;
+        f.writtenAtClose = true;
         f.path = stem + ".flash";
         f.captureSuffix = ".flash";
         return {f};
     }
 
-    // melonDS writes `<content basename>.sav` through its own SRAM manager,
-    // debounce-flushed during play and flushed again at unload.
+    // melonDS writes `<content basename>.sav` through its own SRAM manager, 2
+    // to 3 s after the game last wrote it, and in its libretro build not again
+    // at unload (NDSCart_SRAMManager::DeInit skips the flush there, at our pin).
     if (slug == "nds") {
         SaveFile f;
         f.path = stem + ".sav";
@@ -516,7 +526,9 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
     // Opera writes to a fixed nested path rather than a flat suffix-named
     // file, so this one is exact in both directions.
     if (slug == "3do") {
+        // Opera writes it in retro_unload_game (opera_lr_nvram_save).
         SaveFile f;
+        f.writtenAtClose = true;
         f.path = "opera/shared/nvram.0.srm";
         f.untouched = Untouched::ThreeDONvram;
         return {f};

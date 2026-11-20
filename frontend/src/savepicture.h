@@ -32,7 +32,10 @@
 // Naomi and Atomiswave, sm2-emu, Supermodel), and Xbox, whose saves are read
 // out of its drive only once xemu has closed (xboxhdd.h). RomM's web player
 // and Argosy find a save the same way, so they see no moment for these
-// emulators either.
+// emulators either. The save table names the libretro cores' files of this
+// kind (catalog::SaveFile::writtenAtClose) and the watch does not look at
+// them: Flycast also writes a board's memory whenever a state is made, which
+// is not the game saving.
 //
 // THE PICTURE. The game's own frame, the menu never in it (Core::snapshot), no
 // wider than kMaxWidth, its shape kept: made that small on the graphics chip

@@ -56,8 +56,11 @@ cab::DirEntry statOf(const std::string& path) {
 Look lookAt(const GameSession& sess, const Game& game) {
     Look l;
     if (sess.dirSaveRoot.empty() && game.battery) game.battery(&l.battery);
+    // A file the core writes only as the game closes is not looked at
+    // (catalog::SaveFile::writtenAtClose): no moment of saving shows there.
     for (const cab::FileSaveState& f : sess.fileSaves)
-        l.files.push_back(statOf(cab::writtenFile(f.spec, f.path)));
+        l.files.push_back(f.spec.writtenAtClose ? cab::DirEntry{}
+                                                : statOf(cab::writtenFile(f.spec, f.path)));
     if (!sess.dirSaveRoot.empty()) l.folder = listDirSave(sess);
     return l;
 }
