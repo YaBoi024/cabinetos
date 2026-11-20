@@ -17,6 +17,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 namespace platform {
 
@@ -65,6 +66,39 @@ void textFieldClosed();
 // the results use the room above it. On the console this is false and the
 // keyboard is what it always was.
 bool ownsKeyboard();
+
+// FORK (phones): THE MACHINE'S OWN TEXT FIELD. A phone types best in its own
+// field: the real one, with paste, selection, the cursor under a finger, and
+// the keyboard the person chose. When nativeFieldOpen answers true, the
+// frontend draws nothing of its keyboard panel; the machine shows the title,
+// the field, its shortcuts and its buttons, and
+//   * what the field holds is read every frame (nativeFieldText);
+//   * its Done arrives as a Return key and its Cancel as an Escape key, so every
+//     loop that drives a keyboard ends a field the way it always has;
+//   * the field stays up until nativeFieldClose: a Done the frontend refuses
+//     (an empty required field, a join under way) leaves it as it was.
+// False, and the keyboard is the frontend's own, as before. The console says false.
+struct NativeField {
+    std::string title;
+    std::string hint;
+    std::string initial;
+    std::string placeholder;
+    std::vector<std::string> shortcuts;   // typed at the cursor, from a row of keys
+    bool conceal = false;   // a password: masked, with a key to show it
+    bool address = false;   // an address: the keyboard for one, nothing corrected
+    bool docked = false;    // Search: a field at the foot of the screen, results above it
+};
+bool nativeFieldOpen(const NativeField& field);
+// What the field holds, when it changed since the last call.
+bool nativeFieldText(std::string* out);
+// A message under the field until the next edit; `problem` says it in red and
+// shakes the field. Without `keep` the field is emptied first.
+void nativeFieldSay(const std::string& msg, bool problem, bool keep);
+// While on, the field takes no typing and only Cancel works.
+void nativeFieldBusy(bool on);
+void nativeFieldClose();
+// A docked field: where its top edge is, as a share of the window's height. 1 with none.
+float nativeFieldTop();
 
 // --- The screen's shape ----------------------------------------------------------
 
