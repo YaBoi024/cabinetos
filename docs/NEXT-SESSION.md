@@ -75,12 +75,13 @@ RomM: keep test launches under a minute, or have his go.
    newest the console can use; DS, Game Boy Advance and the Mega Drive
    family only from the same emulator; every push names the core in
    Sigil's spelling; Dreamcast keeps one card per game in the game's
-   folder; Wii and 3DS saves go up in Sigil's shape. Two questions in
-   step 8 are MMagTech's and were put to him on 2026-11-19 at night, built
-   to the session's pick until he answers: whether the start copies another
-   app's save in no channel into a channel (built: no), and, after that
-   one, what the pill does when such a save names no device (built: it
-   shows). Next is step 9, offline and coming back.
+   folder; Wii and 3DS saves go up in Sigil's shape. Step 8's two
+   questions are settled (2026-11-20): another app's save in no channel is
+   not copied into a channel at the start, since an app that saves outside
+   channels is that app's to move onto them (MMagTech); and the pill shows
+   for such a save even when it names no device, the same message as any
+   save made elsewhere (left to the session, judged on the TV). Next is
+   step 9, offline and coming back.
    Each step is a fresh
    session that keeps to CLAUDE.md's seven rules and its piece's files, reuses, removals, docs and
    tests in the plan: Fable for steps 4 and 5 (starting and leaving a
