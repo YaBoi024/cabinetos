@@ -147,6 +147,8 @@ bool heardServerChannels() {
     return gHeardChannels;
 }
 
+bool serverTakesSaves() { return !serverAway() && heardServerChannels(); }
+
 bool Client::setAddress(const std::string& address, std::string* err) {
     std::string a = address;
     while (!a.empty() && (a.back() == '/' || a.back() == ' ')) a.pop_back();

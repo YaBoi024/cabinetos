@@ -54,11 +54,11 @@ static int askChannelFile(romm::Client& c, int romId) {
 // channel for is in the answer with none; a game left out is one RomM could
 // not be asked about. RomM refuses a whole call when one file in it is gone
 // or hidden, so then each game is asked alone, and one whose file no longer
-// answers is asked for its file again. Nothing on a RomM before 5.5.
+// answers is asked for its file again. Asked only of a RomM that has them
+// (backfillDrive).
 static std::map<int, std::vector<romm::Channel>> channelsOfGames(romm::Client& c,
                                                                  const std::vector<int>& romIds) {
     std::map<int, std::vector<romm::Channel>> out;
-    if (!romm::heardServerChannels()) return out;
     std::map<int, int> romOfFile;
     std::vector<int> files;
     for (int romId : romIds) {
@@ -162,6 +162,14 @@ void backfillDrive(const std::string& address) {
             }
             if (const catalog::Coverage cov = catalog::coverageFor(g); cov.core)
                 if (const char* tag = catalog::saveTag(cov.core)) saveTagOf[g.id] = tag;
+        }
+        // NOTHING OF A GAME'S SAVE FROM A RomM TOO OLD FOR SAVE CHANNELS (#346,
+        // step 9): it is neither read nor written, so the copy stays as last
+        // seen, which a start goes by, as offline.
+        if (!romm::heardServerChannels()) {
+            if (!saveTagOf.empty())
+                std::fprintf(stderr, "[offline] saves not fetched: RomM has no save channels\n");
+            saveTagOf.clear();
         }
         // THE SAVE A START WOULD CONTINUE FROM, for every game (savemirror.h):
         // RomM's saves from before channels in one call, its save channels
@@ -370,6 +378,32 @@ void App::followServer(float dt) {
                 if (!libFromDrive) {
                     owedClock = 0.0f;
                     uploader.resendOwed();
+                }
+            }
+        }
+        // RomM GAINED SAVE CHANNELS (#346, step 9; decision 6 of 2026-11-15):
+        // updated to 5.5 or newer while the console runs, or found so when
+        // it came back. What waited on this console because the server had
+        // none (savepush.h) goes now, and what offline needs is fetched
+        // again, as when the server comes back; heard within a minute, from
+        // the reconnect thread's heartbeat. One without them is said once
+        // when first heard, and once when it loses them (put back to an
+        // older version); what is owed waits. A server first heard after an
+        // offline start has gained nothing: coming back sends what is owed.
+        if (!away && !romm::heardServerVersion().empty()) {
+            const int channels = romm::heardServerChannels() ? 1 : 0;
+            if (channels != shownChannels) {
+                const bool gained = channels == 1 && shownChannels == 0;
+                if (channels == 0 || gained)
+                    std::fprintf(stderr, gained ? "[save] RomM has save channels now; what waited "
+                                                  "on this console goes\n"
+                                                : "[save] RomM has no save channels; saves and "
+                                                  "states stay on this console until it has\n");
+                shownChannels = channels;
+                if (gained && !libFromDrive) {
+                    owedClock = 0.0f;
+                    uploader.resendOwed();
+                    backfillDrive(rommAddress);
                 }
             }
         }

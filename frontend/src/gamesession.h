@@ -96,6 +96,13 @@ struct GameSession {
     int startSnapshotId = 0;
     bool startHardcore = false;
     bool couldNotUseNewest = false;
+    // A GAME IN A CORE THAT NEVER ENDED (#346, step 9; saves.h,
+    // finishInterruptedPlay): the file the core was handed, without its
+    // folder, which the save table names a core's own save files after
+    // (catalog::saveFiles), and when the note a start leaves in `saveDir`
+    // was first written, nanoseconds since 1970; 0 for none.
+    std::string romFile;
+    int64_t playingSince = 0;
     // An emulator of its own: which, and the game's folder, for whatever it
     // needs doing once it has gone (standalone::afterEnd).
     std::string standaloneCore;

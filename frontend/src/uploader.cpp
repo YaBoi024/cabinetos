@@ -229,8 +229,7 @@ void Uploader::run() {
                 sent = savepush::send(savepush::serverOf(*client_), job.who, job.romId, &why,
                                       [&job] { return job.resend && gone::inUse(job.romId); });
             }
-            const bool ok = sent == savepush::Sent::Landed || sent == savepush::Sent::Beside ||
-                            sent == savepush::Sent::NothingOwed;
+            const bool ok = savepush::settled(sent);
             if (sent == savepush::Sent::Refused) {
                 std::lock_guard<std::mutex> lock(mutex_);
                 refused_.insert(whoKey(job));
@@ -242,8 +241,21 @@ void Uploader::run() {
                 std::fprintf(stderr, "[save] %sgame %d's snapshot not sent, kept on this "
                                      "console: %s\n",
                              job.resend ? "resent, " : "", job.romId, why.c_str());
+            } else if (sent == savepush::Sent::Waits && !job.resend) {
+                // ON A RomM TOO OLD FOR SAVE CHANNELS (savepush.h) it waits,
+                // said once, at the push a leave queued: the five-minute
+                // retry asks nothing of the server for it. A server never
+                // heard since the console started is away, not too old.
+                const bool heard = !romm::heardServerVersion().empty() && !romm::serverAway();
+                std::fprintf(stderr, heard ? "[save] game %d's snapshot waits on this console "
+                                             "until RomM has save channels\n"
+                                           : "[save] game %d's snapshot not sent, kept on this "
+                                             "console: the server is away\n",
+                             job.romId);
             }
-            finished(job, ok, /*leftSomething=*/sent == savepush::Sent::NotSent);
+            // What waits stays owed, so the five-minute retry goes on behind
+            // the notice of the server gaining channels (App::followServer).
+            finished(job, ok, /*leftSomething=*/savepush::triedAgain(sent));
             continue;
         }
         // A SCREENSHOT (#79), the one file that still goes up by itself. A

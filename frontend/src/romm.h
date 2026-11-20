@@ -408,6 +408,12 @@ std::string heardServerVersion();
 // the same block). Heard with the version, from the same heartbeat; false
 // before the first.
 bool heardServerChannels();
+// WHETHER A SAVE OR A STATE IS ASKED OF THE SERVER AT ALL (#346, step 9;
+// decision 7 of 2026-11-15, answer 4 of 2026-11-17): only while it is there
+// (serverAway) and has said it has save channels. A RomM too old for them is
+// neither read nor written: a start goes by the console's copy as last seen,
+// as offline, and what the console owes waits until it has them.
+bool serverTakesSaves();
 
 // RomM'S CONTENT HASH of a save's or a state's bytes, the name a snapshot
 // gives each (RomM 5.5, `hash_save_content`): the MD5 of the bytes in lower

@@ -25,6 +25,7 @@
 #include "savepicture.h"
 #include "savepush.h"
 #include "saves.h"
+#include "standalone.h"
 #include "storage.h"
 #include "timewords.h"
 #include "uploader.h"
@@ -133,7 +134,7 @@ struct Stand {
     std::vector<romm::Asset> stateRows;
     bool statesAnswer = true;
     std::map<std::string, std::vector<romm::Snapshot>> history;
-    int stateAsks = 0, historyAsks = 0;
+    int stateAsks = 0, historyAsks = 0, saveAsks = 0;
 
     Server server() {
         Server s;
@@ -171,6 +172,7 @@ struct Stand {
             return true;
         };
         s.saves = [this](int, std::vector<romm::Asset>* out, std::string*) {
+            ++saveAsks;
             *out = rows;
             return true;
         };
@@ -906,17 +908,29 @@ int test() {
               "no answer from the server: still owed, to be tried again");
         romm.heard = false;
         romm.pushes.clear();
-        romm.channelAsks = 0;
-        check(send(romm.server(), u, g, &why) == Sent::NotSent && romm.pushes.empty() &&
-                  romm.channelAsks == 0 && cache::isPushOwed(u, g),
-              "a server that has not said it has save channels is asked nothing: still owed");
+        romm.channelAsks = romm.fileAsks = romm.saveAsks = romm.stateAsks = 0;
+        check(send(romm.server(), u, g, &why) == Sent::Waits && romm.pushes.empty() &&
+                  romm.channelAsks == 0 && romm.fileAsks == 0 && romm.saveAsks == 0 &&
+                  romm.stateAsks == 0 && cache::isPushOwed(u, g) &&
+                  !savemirror::getHeld(u, g, &held),
+              "a RomM too old for save channels is asked nothing: the push waits, still owed");
         romm.heard = true;
         romm.answers = {made(snapshot(120, kChannel, hashOne, romTime(1)))};
         check(send(romm.server(), u, g, &why, [] { return true; }) == Sent::NotSent &&
                   romm.pushes.empty() && cache::isPushOwed(u, g),
               "a game being played keeps its owed snapshot until it is left");
-        cache::owedPush(u, g, &p);
-        cache::clearPushOwed(u, g, p.stamp);
+        check(send(romm.server(), u, g, &why) == Sent::Landed && romm.pushes.size() == 1 &&
+                  romm.pushes[0].hasSave && !cache::isPushOwed(u, g) &&
+                  savemirror::getHeld(u, g, &held) && held.snapshotId == 120,
+              "once RomM has save channels, the push that waited goes as it was owed");
+        check(!settled(Sent::Waits) && triedAgain(Sent::Waits) && !settled(Sent::NotSent) &&
+                  triedAgain(Sent::NotSent) && !settled(Sent::Refused) &&
+                  !triedAgain(Sent::Refused) && settled(Sent::Landed) &&
+                  settled(Sent::Beside) && settled(Sent::NothingOwed) &&
+                  !triedAgain(Sent::Landed),
+              "a push that waits or had no answer stays owed and is tried again on the timer; "
+              "a refusal waits for the next start; one RomM holds is done");
+        if (cache::owedPush(u, g, &p)) cache::clearPushOwed(u, g, p.stamp);
     }
     {   // The file RomM keys the channels to.
         const int g = owe([&](GameSession& s) { s.channelFileId = 0; });
@@ -1836,6 +1850,119 @@ int test() {
                   p.stamp == before.stamp,
               "beside a push of the console's own save: the old marker only goes");
         cache::clearPushOwed(u, game, p.stamp);
+    }
+
+    // ---- A game in a core that never ended (saves.h, finishInterruptedPlay) ----
+    std::printf("\na game in a core that never ended\n");
+    // The note as notePlaying writes it, but `ago` seconds old: a file's time
+    // is the kernel's coarse clock, so one written the moment after the note
+    // could read as written before it.
+    auto noteAgo = [&](GameSession& s, int64_t ago) {
+        s.playingSince = (now - ago) * 1000000000;
+        cab::standalone::writePlayingNote(s.saveDir, playingNoteFor(s, s.saveDir));
+    };
+    auto age = [&](const std::string& path, int64_t ago) {
+        const timespec t[2] = {{now - ago, 0}, {now - ago, 0}};
+        utimensat(AT_FDCWD, path.c_str(), t, 0);
+    };
+    {
+        // A DS game: melonDS writes its `.sav` while the game runs.
+        const int g = ++game;
+        GameSession s;
+        s.romId = g;
+        s.title = "Ended Badly";
+        s.saveTag = "melonds-native";
+        s.core = "melonds";
+        s.platformSlug = "nds";
+        s.romFile = "Ended Badly.nds";
+        s.fsStem = "Ended Badly";
+        s.saveDir = storage::savesDir(u, "nds", g, "melonds");
+        for (const catalog::SaveFile& spec : catalog::saveFiles("nds", "melonds", s.romFile, false)) {
+            cab::FileSaveState f;
+            f.spec = spec;
+            f.path = s.saveDir + "/" + spec.path;
+            s.fileSaves.push_back(f);
+        }
+        // A battery lives in the core: a crash loses that session, and there
+        // is nothing on the console to note.
+        GameSession cartridge = s;
+        cartridge.romId = g + 1000;
+        cartridge.saveDir = storage::savesDir(u, "gb", cartridge.romId, "gambatte");
+        cartridge.fileSaves.clear();
+        storage::makeDirs(cartridge.saveDir);
+        notePlaying(cartridge);
+        check(!cab::standalone::hasPlayingNote(cartridge.saveDir) && cartridge.playingSince == 0,
+              "a game whose save is a battery notes nothing");
+        const std::string sav = s.saveDir + "/Ended Badly.sav";
+        const std::vector<uint8_t> started = bytesOf("the save the start put in place", 512);
+        const std::vector<uint8_t> won = bytesOf("the cup won before the power went", 512);
+        cab::writeBytes(sav, started);
+        notePlaying(s);
+        GameSession read = sessionOfPlayingNote(cab::standalone::playingNote(s.saveDir));
+        check(cab::standalone::hasPlayingNote(s.saveDir) && s.playingSince > 0 &&
+                  read.romId == g && read.core == "melonds" && read.platformSlug == "nds" &&
+                  read.romFile == s.romFile && read.saveTag == s.saveTag &&
+                  read.fsStem == s.fsStem &&
+                  read.playingSince == s.playingSince,
+              "a game in a core whose save is files notes it is playing, with what rebuilds its "
+              "saves");
+        Uploader up;
+        check(!finishInterruptedPlay(s.saveDir, up) && !cache::isPushOwed(u, g) &&
+                  !cab::standalone::hasPlayingNote(s.saveDir) && cab::readBytes(sav) == started,
+              "it never ended, having saved nothing since its start: nothing owed, the note gone");
+        // Saved an hour ago, in a session that started two hours ago.
+        noteAgo(s, 7200);
+        cab::writeBytes(sav, won);
+        age(sav, 3600);
+        check(finishInterruptedPlay(s.saveDir, up) && cache::owedPush(u, g, &p) && p.hasSave &&
+                  cab::readBytes(p.savePath) == won && p.madeAt == now - 3600 &&
+                  p.saveName == "Ended Badly.sav" &&
+                  cache::saveOwed(u, g) && !cab::standalone::hasPlayingNote(s.saveDir) &&
+                  up.pending() == 1,
+              "what the core wrote after the note goes up as the session's snapshot, owed so "
+              "the next start keeps it, made when the core wrote it, and the note goes");
+        cache::clearPushOwed(u, g, p.stamp);
+        // A note with no time (not one notePlaying writes) is taken away:
+        // every file would read as written after it.
+        s.playingSince = 0;
+        cab::standalone::writePlayingNote(s.saveDir, playingNoteFor(s, s.saveDir));
+        cab::writeBytes(sav, bytesOf("a save of unknown age", 512));
+        check(!finishInterruptedPlay(s.saveDir, up) && !cache::isPushOwed(u, g) &&
+                  !cab::standalone::hasPlayingNote(s.saveDir),
+              "a note that says nothing of when the game started is taken away, nothing sent");
+        // Half written by a power cut: the wrong size for a DS cartridge.
+        noteAgo(s, 10);
+        cab::writeBytes(sav, bytesOf("half a save", 300));
+        check(!finishInterruptedPlay(s.saveDir, up) && !cache::isPushOwed(u, g) &&
+                  !cab::standalone::hasPlayingNote(s.saveDir),
+              "a file that fails the save check is not kept: nothing owed");
+    }
+    {
+        // A PSP game: PPSSPP writes into its save folder while the game runs.
+        const int g = ++game;
+        GameSession s;
+        s.romId = g;
+        s.title = "Folder Game";
+        s.saveTag = "ppsspp";
+        s.core = "ppsspp";
+        s.platformSlug = "psp";
+        s.romFile = "Folder Game.chd";
+        s.saveDir = storage::savesDir(u, "psp", g, "ppsspp");
+        s.dirSaveRoot = s.saveDir + "/PSP/SAVEDATA";
+        cab::writeBytes(s.dirSaveRoot + "/ULUS00000/OLD.BIN", bytesOf("from the start", 64));
+        age(s.dirSaveRoot + "/ULUS00000/OLD.BIN", 60);
+        noteAgo(s, 10);
+        cab::writeBytes(s.dirSaveRoot + "/ULUS00000/DATA.BIN", bytesOf("saved in play", 64));
+        Uploader up;
+        check(finishInterruptedPlay(s.saveDir, up) && cache::owedPush(u, g, &p) && p.hasSave &&
+                  cab::looksLikeZip(cab::readBytes(p.savePath)) && cache::saveOwed(u, g) &&
+                  !cab::standalone::hasPlayingNote(s.saveDir),
+              "a save folder written in after the note goes up whole, owed");
+        cache::clearPushOwed(u, g, p.stamp);
+        age(s.dirSaveRoot + "/ULUS00000/DATA.BIN", 60);
+        noteAgo(s, 10);
+        check(!finishInterruptedPlay(s.saveDir, up) && !cache::isPushOwed(u, g),
+              "a save folder with nothing written after the note sends nothing");
     }
 
     storage::removeEntry(root);

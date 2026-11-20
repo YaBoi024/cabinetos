@@ -261,9 +261,11 @@ void Watch::pump(GameSession& sess, uint64_t nowMs) {
                 !named(st.who, st.romId, sess.savePicture))
                 cab::removeFile(sess.savePicture);
             sess.savePicture = made;
-            // AN EMULATOR RUN AS A PROGRAM notes it where a power cut's
-            // recovery reads (finishInterruptedSave).
-            if (st.program && cab::standalone::hasPlayingNote(sess.saveDir))
+            // A GAME THAT NOTES IT IS PLAYING (an emulator run as a
+            // program, a core whose save is files) notes it where a power
+            // cut's recovery reads (finishInterruptedSave,
+            // finishInterruptedPlay).
+            if (cab::standalone::hasPlayingNote(sess.saveDir))
                 cab::standalone::writePlayingNote(sess.saveDir,
                                                   playingNoteFor(sess, sess.saveDir));
         } else {

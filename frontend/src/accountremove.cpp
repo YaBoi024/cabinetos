@@ -30,7 +30,7 @@ static int sendEverythingOwed(romm::Client& c, const storage::User& who,
         if (stop && stop->load()) break;
         std::string why;
         const savepush::Sent sent = savepush::send(savepush::serverOf(c), who, p.romId, &why);
-        const bool ok = sent != savepush::Sent::NotSent && sent != savepush::Sent::Refused;
+        const bool ok = savepush::settled(sent);
         std::fprintf(stderr, "[remove] game %d's snapshot %s for %s%s%s\n", p.romId,
                      ok ? "sent" : "not sent", who.name.c_str(), ok ? "" : ": ",
                      ok ? "" : why.c_str());

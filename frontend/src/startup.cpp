@@ -798,6 +798,7 @@ void App::startSync() {
         if (!libFromDrive) backfillDrive(rommAddress);
     }
     shownAway = romm::serverAway();
+    shownChannels = romm::heardServerVersion().empty() ? -1 : romm::heardServerChannels();
 }
 
 // SAVES A POWER CUT LEFT ON A DRIVE: an Xbox game's folder still holding
@@ -816,19 +817,27 @@ void App::recoverPowerCutSaves() {
         }
     }
     // AND THE NOTES IN THIS PERSON'S OWN FOLDERS, `saves/<platform>/<rom
-    // id>/<core>/`: an Xbox 360, Wii U, Switch or PS3 game's (`notesPlaying`,
-    // the emulator writes there), and an Xbox game's whose saves another
-    // person's start brought off the drive for them (recoverDriveSaves,
-    // below). Only this person's, since the upload goes as them; anyone
-    // else's is finished when they next start a game of that kind here, or
-    // the console starts as them.
+    // id>/<core>/`: an Xbox 360, Wii U, Switch, PS3, Vita, Model 2 or Model 3
+    // game's (`notesPlaying`, the emulator writes there), an Xbox game's
+    // whose saves another person's start brought off the drive for them
+    // (recoverDriveSaves, below), and a game's in a core whose save is files
+    // (notePlaying: DS, Dreamcast, PlayStation 2, PSP, 3DS, GameCube, Wii).
+    // Only this person's, since the upload goes as them; anyone else's is
+    // finished when they next start that game here, or the console starts as
+    // them.
     const std::string saves = storage::userDir(storage::currentUser()) + "/saves";
     for (const std::string& platform : listNames(saves))
         for (const std::string& rom : listNames(saves + "/" + platform))
-            for (const cab::standalone::Emulator* emu : cab::standalone::all()) {
-                const std::string dir = saves + "/" + platform + "/" + rom + "/" + emu->core;
-                if (cab::standalone::hasPlayingNote(dir))
-                    finishInterruptedSave(*emu, dir, uploader);
+            for (const std::string& core : listNames(saves + "/" + platform + "/" + rom)) {
+                const std::string dir = saves + "/" + platform + "/" + rom + "/" + core;
+                if (!cab::standalone::hasPlayingNote(dir)) continue;
+                const cab::standalone::Emulator* program = nullptr;
+                for (const cab::standalone::Emulator* emu : cab::standalone::all())
+                    if (emu->core == core) program = emu;
+                if (program)
+                    finishInterruptedSave(*program, dir, uploader);
+                else
+                    finishInterruptedPlay(dir, uploader);
             }
 }
 

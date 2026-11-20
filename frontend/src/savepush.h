@@ -101,6 +101,12 @@
 // ordinary save over a hardcore current in any case (409
 // `hardcore_downgrade`), and the console never approves that.
 //
+// A RomM TOO OLD FOR SAVE CHANNELS IS NEITHER READ NOR WRITTEN (#346, step
+// 9; decisions 6 and 7 of 2026-11-15, answer 4 of 2026-11-17): a push waits,
+// owed, with nothing asked (Sent::Waits), and the console sends by itself
+// once the server says it has them (App::followServer). Not refused: nothing
+// RomM said is in the way.
+//
 // THE ORDER THAT KEEPS A SAVE (pending.h). The marker is written before the
 // push is queued, and cleared only by the push that sent it, after the note
 // of the snapshot held is written, so a crash or a power cut at any point
@@ -263,7 +269,14 @@ enum class Sent {
     NothingOwed,   // no marker, or the file it named is gone: nothing to send
     NotSent,       // no answer, or not asked: still owed, tried again later
     Refused,       // RomM answered and will not take it: still owed
+    Waits,         // RomM is too old for save channels: still owed, nothing asked
 };
+// RomM holds it, or nothing is owed: the push is done with.
+bool settled(Sent sent);
+// Still owed and tried again on the upload queue's timer: no answer, or a
+// RomM too old for save channels. A refusal waits for the next start or a
+// new save of the game instead (uploader.h, refused_).
+bool triedAgain(Sent sent);
 
 // ONE GAME'S OWED PUSH, SENT AND SETTLED (the head of this file), as `who`.
 // Reads the marker and the save's bytes off the disk, so what goes is what

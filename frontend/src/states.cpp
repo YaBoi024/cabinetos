@@ -290,15 +290,20 @@ void beginLoadLatestState(StateLoad& load, GameSession& sess,
         // made here and still owed; off this console when it has the file,
         // else down from RomM by its id. Only this core's: a state from
         // another emulator does not fail cleanly, it boots something that
-        // looks like the game and is not. With RomM away or not answering,
-        // this console's own files.
+        // looks like the game and is not. With RomM away, not answering or
+        // too old for save channels (romm::serverTakesSaves), this console's
+        // own files.
         std::vector<romm::Asset> rows;
         std::string err;
-        const bool listed = !romm::serverAway() && client.fetchStates(romId, &rows, &err);
+        const bool asks = romm::serverTakesSaves();
+        const bool listed = asks && client.fetchStates(romId, &rows, &err);
         const std::vector<savepush::OfferedState> offered =
             savepush::offeredStates(who, romId, tag, stateDir, listed ? &rows : nullptr);
         const savepush::OfferedState* top = offered.empty() ? nullptr : &offered.front();
-        if (!top && !listed) {
+        // A RomM TOO OLD FOR SAVE CHANNELS is not asked, and nothing is said
+        // of it (decision 7 of 2026-11-15): this console's own are all there
+        // are, so none is "No saved state", never "Couldn't reach RomM".
+        if (!top && !listed && (asks || romm::serverAway())) {
             // RomM could not be asked and this console has none, which is
             // Cabinet's offline case by another name.
             load.note = err.empty() ? "RomM is away" : err;

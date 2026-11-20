@@ -260,13 +260,16 @@ void aim(const GameSession& sess, const storage::User& user, cache::OwedPush* p)
 }
 
 // WHEN THIS CONSOLE WROTE THE SAVE: now, for one gathered as the game closed.
-// A save folder a power cut left is gathered at a later start, so its files'
-// own newest time stands when that is earlier.
+// A save folder or a core's file a crash or a power cut left is gathered at
+// a later start (finishInterruptedSave, finishInterruptedPlay), so the
+// files' own newest time stands when that is earlier.
 int64_t madeAt(const GameSession& sess) {
     const int64_t now = static_cast<int64_t>(std::time(nullptr));
     int64_t newest = 0;
     for (const cab::DirEntry& e : sess.dirAtLaunch)
         newest = std::max(newest, e.mtimeNs / 1000000000);
+    for (const cab::FileSaveState& f : sess.fileSaves)
+        if (!f.kept.empty()) newest = std::max(newest, cab::modifiedNs(f.kept) / 1000000000);
     return newest > 0 && newest < now ? newest : now;
 }
 
@@ -621,6 +624,12 @@ std::vector<OfferedState> offeredStates(const storage::User& who, int romId,
     return out;
 }
 
+bool settled(Sent sent) {
+    return sent == Sent::Landed || sent == Sent::Beside || sent == Sent::NothingOwed;
+}
+
+bool triedAgain(Sent sent) { return sent == Sent::NotSent || sent == Sent::Waits; }
+
 Server serverOf(romm::Client& client) {
     Server s;
     s.hasChannels = [] { return romm::heardServerChannels(); };
@@ -697,8 +706,7 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
                      romId);
         return stop(Sent::NothingOwed, "its files are gone");
     }
-    if (!server.hasChannels())
-        return stop(Sent::NotSent, "RomM has not said it has save channels");
+    if (!server.hasChannels()) return stop(Sent::Waits, "RomM has not said it has save channels");
 
     // What RomM is asked could not be had: refused for good when it answered
     // so (the game is gone, or hidden from this person), else tried again.

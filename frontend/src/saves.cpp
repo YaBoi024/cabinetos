@@ -30,15 +30,22 @@ static std::string pickedName(const SaveFetch& f) {
                                          : f.pick.channel.current.save.fileName;
 }
 
+// Why RomM is not asked for a save: away, or too old for save channels
+// (romm::serverTakesSaves).
+static const char* notAsked() {
+    return romm::serverAway() ? "the server is away" : "RomM has no save channels";
+}
+
 // RomM'S SAVES FROM BEFORE CHANNELS FOR A GAME, OR THE COPY OF THEM (#88,
-// savemirror.h). Online: asked, and the copy refreshed. Offline: the copy, as
-// last seen, so a launch decides exactly as it would online. Every fetch asks
-// through these, on a worker (listSaves and fetchSaves below, for the game's
-// page and for a launch): the person is handed in, as the worker's threads do
-// not read the current one.
+// savemirror.h). Online: asked, and the copy refreshed. Offline, and on a
+// RomM too old for save channels, which is neither read nor written (#346,
+// step 9): the copy, as last seen, so a launch decides exactly as it would
+// online. Every fetch asks through these, on a worker (listSaves and
+// fetchSaves below, for the game's page and for a launch): the person is
+// handed in, as the worker's threads do not read the current one.
 static bool savesFor(romm::Client& client, const storage::User& u, int romId,
                      std::vector<romm::Asset>* rows, std::string* err) {
-    if (!romm::serverAway()) {
+    if (romm::serverTakesSaves()) {
         const uint64_t asked = savemirror::mark();
         if (client.fetchSaves(romId, rows, err)) {
             if (!savemirror::forgottenSince(romId, asked)) savemirror::putList(u, romId, *rows);
@@ -47,16 +54,16 @@ static bool savesFor(romm::Client& client, const storage::User& u, int romId,
         if (!romm::serverAway()) return false;
     }
     if (savemirror::getList(u, romId, rows)) {
-        std::fprintf(stderr, "[save] the server is away; using its saves as last seen\n");
+        std::fprintf(stderr, "[save] %s; using its saves as last seen\n", notAsked());
         return true;
     }
-    if (err) *err = "the server is away, and its saves were never seen here";
+    if (err) *err = std::string(notAsked()) + ", and its saves were never seen here";
     return false;
 }
 
 static std::vector<uint8_t> saveBytesFor(romm::Client& client, const storage::User& u,
                                          int romId, const romm::Asset& row) {
-    if (!romm::serverAway()) {
+    if (romm::serverTakesSaves()) {
         std::vector<uint8_t> b = client.fetchAsset("saves", row.id);
         if (!b.empty()) {
             savemirror::putBytes(u, romId, row, b);
@@ -72,13 +79,13 @@ static std::vector<uint8_t> saveBytesFor(romm::Client& client, const storage::Us
 // RomM keys them to, and the copy refreshed. `*fileId` is that file as the
 // caller knows it (0 for not known) and comes back as RomM gave it when RomM
 // had to be asked: the first time, and again when the id no longer answers
-// (RomM's library was scanned since and the file has another). Away: the
-// copy, as last seen, or none when they were never seen. A RomM before 5.5
-// has none. False only when RomM was asked and gave nothing to go by.
+// (RomM's library was scanned since and the file has another). Away, or on a
+// RomM too old for them: the copy, as last seen, or none when they were
+// never seen. False only when RomM was asked and gave nothing to go by.
 static bool channelsFor(romm::Client& client, const storage::User& u, int romId, int* fileId,
                         std::vector<romm::Channel>* channels, std::string* err) {
     channels->clear();
-    if (!romm::serverAway() && romm::heardServerChannels()) {
+    if (romm::serverTakesSaves()) {
         const uint64_t asked = savemirror::mark();
         auto askFile = [&]() {
             std::vector<romm::RomFile> files;
@@ -109,20 +116,20 @@ static bool channelsFor(romm::Client& client, const storage::User& u, int romId,
         channels->clear();
         if (!romm::serverAway()) return false;
     }
-    if (romm::serverAway() && savemirror::getChannels(u, romId, channels))
-        std::fprintf(stderr, "[save] the server is away; using its save channels as last "
-                             "seen\n");
+    if (savemirror::getChannels(u, romId, channels))
+        std::fprintf(stderr, "[save] %s; using its save channels as last seen\n", notAsked());
     return true;
 }
 
 // A snapshot's save. A save in a snapshot is named by its content hash, and
 // the console's copy is kept under that name (savemirror.h), so a copy whose
 // bytes still hash to it is the save itself and is not fetched again. Else
-// RomM's, kept for offline. Away, the copy as it is, or nothing.
+// RomM's, kept for offline. Away, or on a RomM too old for save channels,
+// the copy as it is, or nothing.
 static std::vector<uint8_t> snapshotSaveFor(romm::Client& client, const storage::User& u,
                                             int romId, const romm::SnapshotFile& save) {
     std::vector<uint8_t> kept = savemirror::getSnapshotSave(u, romId, save);
-    if (romm::serverAway()) return kept;
+    if (!romm::serverTakesSaves()) return kept;
     if (!kept.empty() && romm::contentHash(kept) == save.contentHash) return kept;
     std::vector<uint8_t> b = client.fetchAsset("saves", save.id);
     if (!b.empty()) savemirror::putSnapshotSave(u, romId, save, b);
@@ -468,9 +475,9 @@ void fetchSaves(romm::Client& client, const storage::User& user, int romId, int 
     if (!out->listed) return;
     if (out->pick.other) {
         if (cancel && cancel->load()) return;
-        std::string why = !own                ? "this start reads no other emulator's save"
-                          : romm::serverAway() ? "the server is away"
-                                               : std::string();
+        std::string why = !own                        ? "this start reads no other emulator's save"
+                          : !romm::serverTakesSaves() ? notAsked()
+                                                      : std::string();
         if (why.empty() && takeOther(client, *own, out, &why)) return;
         // THE NEWEST THIS CONSOLE CAN USE, and the start says it could not
         // use the newest (savepick.h).
@@ -813,35 +820,116 @@ void finishInterruptedSave(const cab::standalone::Emulator& emu,
     cab::standalone::finished(emu, saveDir);
 }
 
-// THE NOTE AN EMULATOR RUN AS A PROGRAM IS STARTED WITH (standalone.h), one
-// fact a line: the game's RomM id, this person's save folder for it, its
-// title, the tag its saves travel under, "1" when the start could not use the
-// newest save on RomM (GameSession::couldNotUseNewest), and the save's
-// picture the sitting took (GameSession::savePicture), written again as each
-// is taken (savepicture.h) and empty until then.
+void notePlaying(GameSession& sess) {
+    if (sess.saveTag.empty() || (sess.fileSaves.empty() && sess.dirSaveRoot.empty())) return;
+    // To the nanosecond, after the restores: a file's time is the kernel's
+    // coarse clock, never ahead of this one, so a restore's write is older.
+    timespec now{};
+    clock_gettime(CLOCK_REALTIME, &now);
+    sess.playingSince = static_cast<int64_t>(now.tv_sec) * 1000000000 + now.tv_nsec;
+    if (!cab::standalone::writePlayingNote(sess.saveDir, playingNoteFor(sess, sess.saveDir)))
+        std::fprintf(stderr, "[save] could not note game %d as playing in %s\n", sess.romId,
+                     sess.saveDir.c_str());
+}
+
+bool finishInterruptedPlay(const std::string& saveDir, Uploader& up) {
+    GameSession sess = sessionOfPlayingNote(cab::standalone::playingNote(saveDir));
+    sess.saveDir = saveDir;
+    const int64_t since = sess.playingSince;
+    if (sess.romId <= 0 || since <= 0) {
+        cab::standalone::removePlayingNote(saveDir);
+        return false;
+    }
+    // The core's own files, each counted as written this session only when
+    // it was written after the note; the rest stand as their own baseline.
+    for (const catalog::SaveFile& spec :
+         catalog::saveFiles(sess.platformSlug, sess.core, sess.romFile, sess.arcade)) {
+        cab::FileSaveState f;
+        f.spec = spec;
+        f.path = saveDir + "/" + spec.path;
+        f.hadOne = true;
+        const std::string written = cab::writtenFile(spec, f.path);
+        std::vector<uint8_t> data =
+            written.empty() ? std::vector<uint8_t>() : cab::readBytes(written);
+        std::string why;
+        if (!data.empty() && cab::modifiedNs(written) > since &&
+            !cab::passesCheck(data, spec.check, spec.untouched, &why)) {
+            std::fprintf(stderr, "[save] %s, written before the game ended, is not kept: %s\n",
+                         written.c_str(), why.c_str());
+            f.atLaunch = std::move(data);
+        } else if (data.empty() || cab::modifiedNs(written) <= since) {
+            f.atLaunch = std::move(data);
+        }
+        sess.fileSaves.push_back(std::move(f));
+    }
+    // A save folder: its files written after the note are this session's.
+    if (const char* sub = catalog::directorySaveRoot(sess.core.c_str(), sess.platformSlug,
+                                                     sess.dirSaveTitleId)) {
+        sess.dirSaveRoot = saveDir + "/" + sub;
+        sess.dirSaveCore = sess.core;
+        sess.dirSavePlatform = sess.platformSlug;
+        for (const cab::DirEntry& e : listDirSave(sess))
+            if (e.mtimeNs <= since) sess.dirAtLaunch.push_back(e);
+        syncDirSave(sess);
+    }
+    syncFileSaves(sess);
+    const bool changed = sess.saveChanged;
+    std::fprintf(stderr, "[save] game %d's last session in %s never ended; %s\n", sess.romId,
+                 sess.core.c_str(),
+                 changed ? "what it saved goes up as its snapshot" : "it saved nothing");
+    const storage::User who = storage::currentUser();
+    // A START ALREADY FETCHING SEES ITS LIST IS STALE (fetchIsStale), as when
+    // a push lands meanwhile: this console's save is the newer.
+    if (changed) savemirror::forget(who, sess.romId);
+    savepush::leave(sess, who, up);
+    cab::standalone::removePlayingNote(saveDir);
+    return changed;
+}
+
+// THE NOTE AN EMULATOR RUN AS A PROGRAM IS STARTED WITH (standalone.h), and
+// a game in a core whose saves are files (notePlaying), one fact a line: the
+// game's RomM id, this person's save folder for it, its title, the tag its
+// saves travel under, "1" when the start could not use the newest save on
+// RomM (GameSession::couldNotUseNewest), and the save's picture the sitting
+// took (GameSession::savePicture), written again as each is taken
+// (savepicture.h) and empty until then. Then what finishInterruptedPlay
+// rebuilds a core's saves from: the core, the platform, the file the core
+// was handed, "1" for an arcade game, the game's title ID, when the note was
+// first written, and the stem a save goes up named after (GameSession::fsStem).
 std::string playingNoteFor(const GameSession& sess, const std::string& saveDir) {
     return std::to_string(sess.romId) + "\n" + saveDir + "\n" + sess.title + "\n" +
            sess.saveTag + "\n" + (sess.couldNotUseNewest ? "1" : "0") + "\n" +
-           sess.savePicture + "\n";
+           sess.savePicture + "\n" + sess.core + "\n" + sess.platformSlug + "\n" +
+           sess.romFile + "\n" + (sess.arcade ? "1" : "0") + "\n" + sess.dirSaveTitleId +
+           "\n" + std::to_string(sess.playingSince) + "\n" + sess.fsStem + "\n";
 }
 
 // And read back, into a session with nothing else in it. Its second line,
 // the folder, is the caller's to read: it decides whose the saves are.
 GameSession sessionOfPlayingNote(const std::string& text, std::string* saveDir) {
     std::istringstream note(text);
-    std::string id, dir, title, tag, couldNot, picture;
+    std::string id, dir, title, tag, couldNot, picture, arcade, since;
+    GameSession sess;
     std::getline(note, id);
     std::getline(note, dir);
     std::getline(note, title);
     std::getline(note, tag);
     std::getline(note, couldNot);
     std::getline(note, picture);
-    GameSession sess;
+    std::getline(note, sess.core);
+    std::getline(note, sess.platformSlug);
+    std::getline(note, sess.romFile);
+    std::getline(note, arcade);
+    std::getline(note, sess.dirSaveTitleId);
+    std::getline(note, since);
+    std::getline(note, sess.fsStem);
     sess.romId = std::atoi(id.c_str());
     sess.title = title;
     sess.saveTag = tag;
     sess.couldNotUseNewest = couldNot == "1";
     sess.savePicture = picture;
+    sess.arcade = arcade == "1";
+    sess.playingSince = std::atoll(since.c_str());
     if (saveDir) *saveDir = dir;
     return sess;
 }

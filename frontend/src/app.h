@@ -1035,6 +1035,10 @@ struct App {
     playtime::Clock playClock;
     float playCheckpointClock = 0.0f;
     bool shownAway = false;
+    // Whether the server had save channels when last heard (#346, step 9):
+    // 1 or 0, and -1 before it was first heard. followServer sends what
+    // waited when it gains them.
+    int shownChannels = -1;
     float onlineAgainClock = 5.0f;   // a failed reload waits before the next
     // The library being fetched for a console that started offline (#88).
     struct OnlineLoad {

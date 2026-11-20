@@ -722,6 +722,10 @@ void App::prepareSaveDirAndDiscs(LaunchContext& c) {
     c.saveDir = storage::savesDir(
         c.user, launchJob.platformFsSlug, launchJob.romId, launchJob.coreName);
     storage::makeDirs(c.saveDir);
+    // A LAST GAME HERE THAT NEVER ENDED (a crash or a power cut): what its
+    // core wrote goes up first, and the restores below keep it
+    // (finishInterruptedPlay).
+    if (cab::standalone::hasPlayingNote(c.saveDir)) finishInterruptedPlay(c.saveDir, uploader);
 
     // A DIRECTORY save comes down BEFORE the game is loaded, unlike the
     // battery below, which the core can be handed afterwards. PPSSPP mounts
@@ -995,6 +999,11 @@ void App::setUpLoadedGame(LaunchContext& c) {
         std::fprintf(stderr, "[save] %s holds %zu file(s) at launch\n",
                      session.dirSaveRoot.c_str(), session.dirAtLaunch.size());
     }
+    // THE NOTE THAT THE GAME IS PLAYING, for a core whose save is files, so
+    // a crash or a power cut leaves nothing it wrote behind
+    // (finishInterruptedPlay); taken away at the leave (finishExit).
+    session.romFile = launchJob.romPath.substr(launchJob.romPath.find_last_of('/') + 1);
+    notePlaying(session);
 }
 
 // Options again, AFTER the game is loaded. Some cores declare nothing

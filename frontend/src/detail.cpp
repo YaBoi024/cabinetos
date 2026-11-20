@@ -136,11 +136,12 @@ void App::startDetailStates() {
         // THE NEWEST THREE STATES, as the game offers them
         // (savepush::offeredStates): the three newest under the console's
         // own name on RomM, wherever they are there, with the ones made here
-        // and still owed. With RomM away or not answering, or for a core
-        // whose states never leave the console, this console's own files.
+        // and still owed. With RomM away, not answering or too old for save
+        // channels (romm::serverTakesSaves), or for a core whose states never
+        // leave the console, this console's own files.
         std::vector<romm::Asset> rows;
         err.clear();
-        const bool listed = !tag.empty() && !romm::serverAway() &&
+        const bool listed = !tag.empty() && romm::serverTakesSaves() &&
                             liveClient.fetchStates(romId, &rows, &err);
         if (!err.empty()) std::fprintf(stderr, "[detail] states: %s\n", err.c_str());
         std::vector<std::string> localPaths;

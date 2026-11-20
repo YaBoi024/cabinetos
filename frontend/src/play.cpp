@@ -148,6 +148,9 @@ void App::finishExit() {
     // console (#346, savepush.h): marked as owed here, sent on the upload
     // queue's thread. Nothing changed means nothing sent.
     savepush::leave(session, storage::currentUser(), uploader);
+    // The game ended: its note that it was playing goes (saves.h,
+    // notePlaying), now that what it saved is marked owed.
+    cab::standalone::removePlayingNote(session.saveDir);
     // Whatever sound the game had queued goes with it, rather than playing
     // on over Home (see where the stream's rate is set, at launch).
     if (audioStream) SDL_ClearAudioStream(audioStream);

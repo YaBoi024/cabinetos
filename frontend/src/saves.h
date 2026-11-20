@@ -164,6 +164,24 @@ void syncDirSave(GameSession& sess);
 std::string dirSaveZipName(const std::string& title);
 void finishInterruptedSave(const cab::standalone::Emulator& emu, const std::string& saveDir,
                            Uploader& up);
+// A GAME IN A CORE THAT NEVER ENDED (#346, step 9; MMagTech, 2026-11-20): a
+// core that writes its save as files while the game runs (DS, Dreamcast,
+// PlayStation 2, PSP, 3DS, GameCube, Wii) leaves the progress a crash or a
+// power cut interrupted on this console, as an emulator run as a program
+// does. notePlaying writes the session's note in its save folder once the
+// restores are done (the game's own files, or a save folder, and a tag its
+// saves travel under; nothing for a battery, which lives in the core);
+// App::finishExit takes it away once the game is left. finishInterruptedPlay
+// reads a note left behind, at the next start of that game and at start-up:
+// every save file the core wrote after the note was written is gathered as
+// the session's save, as the leave would have, and goes up as its snapshot,
+// owed until it lands, so the start that follows keeps it rather than
+// putting RomM's older save over it. A file that fails the save check
+// another app's save gets (catalog::SaveCheck: its size, its marks, a save
+// in it) is not kept: a power cut can leave one half written. A save folder
+// has no such check and goes as the core left it. True when a save went.
+void notePlaying(GameSession& sess);
+bool finishInterruptedPlay(const std::string& saveDir, Uploader& up);
 // The note an emulator run as a program is started with, and the session it
 // reads back as (saves.cpp).
 std::string playingNoteFor(const GameSession& sess, const std::string& saveDir);

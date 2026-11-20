@@ -81,8 +81,21 @@ RomM: keep test launches under a minute, or have his go.
    save (arcade-saves-cabinetos-only); another app's save in no channel is
    not copied into one (other-apps-saves-outside-channels); the pill shows
    for such a save even when it names no device (left to the session,
-   judged on the TV). Next is step 9, offline and coming back, from
-   `save-channels-step9-brief.md` in the side-session notes beside step 8's.
+   judged on the TV). Step 9 is built: offline is as before, and back
+   online the save made later wins, the other kept on RomM (in the
+   channel's history, or 30 days as a branch); a RomM too old for channels
+   is neither read nor written, and the console sends what waited by itself
+   within a minute of the server gaining them; a save a core wrote before a
+   crash or a power cut (DS, Dreamcast, PS2, PSP, 3DS, GameCube, Wii) is kept
+   and sent, as the programs' already were; every file the console replaces
+   now has its name on the drive before the write returns. Step 10 records
+   step 9's two calls of 2026-11-20 with the others: a save a core wrote
+   before a crash is kept and sent (it is the player's progress), and a
+   game's own write after a session where nothing was saved still makes a
+   snapshot (Battletoads' board counters, Gex's record: the console sends
+   what the game wrote and cannot tell the two apart). Next is step 10, words
+   and records, from `save-channels-step10-brief.md` in the side-session
+   notes beside step 9's.
    After step 11 comes a Switch step: the console reads a Switch game's ID
    with Sigil and the player's keys when the game is downloaded and gives
    it to RomM, as Argosy does, for the dumps RomM cannot read. Four

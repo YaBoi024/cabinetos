@@ -23,6 +23,13 @@ from RomM. When you leave the game, it sends the save back if it changed.
 - Every way out of a game sends the save: **Exit to Home**, the Power menu
   (Sleep, Restart, Power off), and a separate emulator closing, even if it
   crashed.
+- If the console crashes or the power goes out during a game, a save the game
+  had already made is kept and sent when the console next starts, on the
+  systems whose emulator writes the save while you play: DS, Dreamcast, PS2,
+  PSP, 3DS, GameCube, Wii and the systems run as separate programs (Switch,
+  PS3, Wii U, Xbox, Xbox 360, Vita, Model 2, Model 3). The other systems keep
+  the save inside the emulator until you leave, so what was saved in that
+  session is lost.
 - **Which copy wins:** a save on the console that has not reached the server
   yet; otherwise the newest one on the server. A blank memory card never
   replaces one with saves on it.
@@ -65,6 +72,15 @@ no rewind.
 Offline, the console uses the saves it last saw on the server, so a game
 starts from the same save it would online. New saves wait on the console and go
 up when the server is back.
+
+If you also played the game on another device while the console was offline,
+the save made later wins when the console is back online. The other one stays
+on RomM: in the game's save history, or for 30 days as a side copy RomM
+keeps. Either can be put back as the current save on RomM's website.
+
+A RomM older than 5.5 has no save channels. On such a server the console
+plays and saves exactly as it does offline, and sends everything by itself
+once the server is updated.
 
 ## Saves from Cabinet
 

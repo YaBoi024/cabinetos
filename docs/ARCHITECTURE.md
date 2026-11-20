@@ -59,7 +59,7 @@ is in the file named for its feature, and
 | PlayStation 2 | `ps2.cpp`, `ps2window.cpp`, `overlaywin.cpp`, and `frontend/ps2/` (its `CabinetPS2Bios.cpp` chooses each game's BIOS by the game's region) |
 | Emulators run as programs | `standalone.h`, `standalone.cpp`, `standalone_play.cpp` (also what the console draws over the game in play: the dim, and the pointer for a game touched through the console, the Vita's), `standalone_eden.cpp`, `standalone_xemu.cpp`, `standalone_rpcs3.cpp`, `standalone_xenia.cpp`, `standalone_cemu.cpp`, `standalone_vita3k.cpp`, `standalone_sm2emu.cpp` (Sega Model 2: sm2-emu's settings, written whole in the person's folder for the game, with a game's buttons on a fight stick where the stick's rules put them), `standalone_supermodel.cpp` (Sega Model 3: Supermodel's settings, written whole in its home, which is its working folder, with the person's NVRAM folder for the game linked in, and its buttons laid out the same way), `vpad.cpp` (the virtual controllers: the plain uinput ones, and beside each one for RPCS3 a motion device that carries the player's tilt, #683; which kind an emulator gets is a switch on its row), `vdualsense.cpp` (the stand-in DualSense Eden, Cemu and Vita3K are given in place of the plain controller, #669: a `/dev/uhid` device with Sony's id, which the kernel's own PlayStation driver turns into a gamepad, a motion device and a touchpad sharing one uniq, so the emulator's SDL pairs the player's tilt by itself, and for a pad without sensors one whose motion device the emulator cannot open; its report thread, the driver's three questions answered, rumble back, and `--dualsense-test`), `vtouch.cpp` (the virtual touch screen the pointer touches with, and gamescope passing touch through), `xtitles.cpp`, `xboxhdd.cpp`, `x360profile.cpp`, `dolphinprep.cpp` |
 | Saves and states | `savetable.cpp` (what each core writes, where, which of its files it writes only as the game closes, and its two tags on RomM: `emulatorTag` for states, `saveTag` for saves; how RomM hands each core another emulator's save, the core's name in Sigil's spelling with the options and profile a request names, `saveForm`, and the check such a save must pass, `SaveCheck`; which systems have states and rewind, `snapshotsAllowed` and `rewindAllowed`), `saves.cpp` (gathering and restoring all three kinds of save: `syncSave`, `syncDirSave` and `syncFileSaves` each write this console's copy when the save changed and send nothing; and, for a start, fetching what RomM holds of the game's save, another emulator's asked of RomM in this console's form and checked, `toOwnForm`, writing the one the start continues from, keeping a save it replaces aside first, and the notes the start leaves), `savepick.cpp` (which save a start continues from, the one rule: RomM's save channels and its saves from before them weighed together, another emulator's in a channel or in none named to be asked for, a save not yet sent winning, a save of the console's own that RomM kept beside a channel's current never losing to an older one, and whether the start says "Continuing from another device"; and which of RomM's saves from before channels a start brings into a channel, #346), `savepush.cpp` (leaving a game: what a session left marked as one owed snapshot, where it is aimed, and RomM's answer settled; a save from before channels brought into a channel by the start that took it, and a save's marker from before them made the game's push; a state marked owed in it as Save state makes it, and the states a game offers and a push names: the three newest under the console's own name, from that push and from wherever they are on RomM; with `--save-push-test` in `savepush_test.cpp`, #346), `savepicture.cpp` (the save's own picture: the game's save looked at once a second while it runs, and a picture of the game taken about a second after it stops changing, the core's frame or, for an emulator run as a program and PlayStation 2 in its own window while it plays, gamescope's, asked from a worker so the main loop that feeds PS2's sound never waits, kept in the person's pending folder until it goes with that save; with `--save-picture-test` in `savepicture_test.cpp`, #346), `dirsave.cpp` and `filesave.cpp` (their helpers), `states.cpp` (Save state and Load latest state, and screenshots), `statefile.cpp` (a state file's layout: the core's bytes alone, or RetroArch's RASTATE blocks with the achievement progress), `savemirror.cpp` (RomM's saves and save channels as last seen, and the snapshot the console holds of each game), `uploader.cpp` (the queue: a game's snapshot, with its save and states, screenshots, time played and favourites), `pending.cpp` (the markers), `offline_sync.cpp`, `playtime.cpp`, `favorites.cpp`; the requests themselves are in `romm_playdata.cpp`, and RomM 5.5's save channels and snapshots in `romm_snapshots.cpp` |
-| Storage | `storage.h` (where everything lives), `storage_internal.h`, `locations.cpp`, `cache.cpp`, `drives.cpp`, `drives_fs.cpp`, `udisks.cpp`, `users.cpp`, `accounts.cpp`, `accountremove.cpp`, `fileio.cpp` (every file the console replaces goes through its `writeBytes`: a temporary, fsync, a rename; `syncDrive` waits for one drive, and `keepsSizeWithBytes` says which drives need no care after a power cut, #559), `unsettled.cpp` (the files a launch marked complete that their drive may not have yet, listed on the console's own drive and deleted at that game's next start after a power cut, #559), `prefs.cpp`, `gonegames.cpp` (a game RomM no longer has leaves the drive at a start with the server there, with its record, covers, saves, states and screenshots, #625) |
+| Storage | `storage.h` (where everything lives), `storage_internal.h`, `locations.cpp`, `cache.cpp`, `drives.cpp`, `drives_fs.cpp`, `udisks.cpp`, `users.cpp`, `accounts.cpp`, `accountremove.cpp`, `fileio.cpp` (every file the console replaces goes through its `writeBytes`: a temporary, fsync, a rename, the folder synced so the name is on the drive too; `syncDrive` waits for one drive, and `keepsSizeWithBytes` says which drives need no care after a power cut, #559), `unsettled.cpp` (the files a launch marked complete that their drive may not have yet, listed on the console's own drive and deleted at that game's next start after a power cut, #559), `prefs.cpp`, `gonegames.cpp` (a game RomM no longer has leaves the drive at a start with the server there, with its record, covers, saves, states and screenshots, #625) |
 | Controllers | `players.cpp` (which pad is which player; it refuses to seat the console's own stand-in controllers, told by their name, since the stand-in DualSense carries a real pad's id), `tilt.cpp` (a seated pad's motion sensors, its accelerometer and gyroscope, turned on for a player's seat when a game asks and read in SDL's own units; it knows no core or emulator, and `core_input.cpp` answers libretro's sensor interface from it, for mGBA and Azahar, and `vpad.cpp` writes it into each PS3 player's motion device and each Switch, Wii U and Vita player's stand-in DualSense; a LinkUp friend's seat on the host is a pad with the friend's sensors, read the same way (`linkup_pad.cpp`); its test pads serve `--motion-device-test` and `--dualsense-test` too), `fightstick.cpp` (the table of known fight sticks, and an arcade game's buttons laid out on one), `controls.cpp` (Controls: an arcade game's buttons moved per game, kind of controller and person, kept in `users/<id> - <name>/controls/`; `play.cpp`'s readGameInput reads each pad through it, `launch.cpp`'s startPlaying reads the game's file, and for sm2-emu and Supermodel `standalone_play.cpp`'s startStandalone reads it before `standalone_sm2emu.cpp` and `standalone_supermodel.cpp` write each player's buttons from it into the program's settings), `controlsflow.cpp` (its panel over the pause menu, and the press it listens for, which `controllers.cpp` hands it before anything else sees it), `controllers.cpp`, `bluetooth.cpp`, `btagent.h`, `battery.cpp`, `batteryrow.cpp`, `shortcuts.cpp`, `wiiremote.cpp` (starts the Wii bridge), `wiipair.cpp`, `wiipanel.cpp`, `wiimii.cpp`, `wii.cpp`, `wiiu.cpp` |
 | The machine | `net.cpp`, `wifi.cpp`, `power.cpp`, `power_menu.cpp`, `powerprofile.cpp`, `volume.cpp`, `sound.cpp`, `gpu.cpp`, `cpus.cpp`, `idle.cpp`, `proc.cpp` (running a program with no shell), `unit.cpp` (asking systemd for a root job), `timezone.cpp` (the time zone first run asks on a console with none: its regions and cities from the tz database, and setting one through `cabinetos-timezone@.service`), `update.cpp` (System update, the console's side), `files.cpp` (File access, the console's side), `server.cpp` and `serveraddress.cpp` (the RomM server this console belongs to) |
 | RetroAchievements | `achievements.cpp` (the sign-in and rcheevos' client; its console table names every system), `achievements_ui.cpp`, `ra_list.cpp`, `ra_net.cpp`, `ra_state.h` |
@@ -213,10 +213,11 @@ is in the file named for its feature, and
    with the server there starts the backfill (`offline_sync.h`): the games
    RomM no longer has asked about and removed first (`gonegames.h`), then
    what offline needs fetched;
-   `recoverPowerCutSaves`, which finishes the saves a power cut left in an
-   emulator run as a program (an Xbox game's drive through
-   `recoverDriveSaves`, which that game's launch also runs); then the rest
-   of the start-up steps.
+   `recoverPowerCutSaves`, which finishes the saves a crash or a power cut
+   left in an emulator run as a program (an Xbox game's drive through
+   `recoverDriveSaves`, which that game's launch also runs) or in a core
+   whose save is files (`finishInterruptedPlay`, which that game's launch
+   also runs); then the rest of the start-up steps.
 9. `runFrameLoop` (`frame.cpp`) until the console exits or restarts; then the
    game is left, the emulators closed, the core unloaded, and `shutDown`
    (`startup.cpp`): the uploads are sent and RetroAchievements' unlocks put
@@ -336,7 +337,16 @@ run as a program does the same when the program ends (`finishStandalone` in
 `standalone_play.cpp`, and `finishInterruptedSave` in `saves.cpp` after a
 power cut, the picture its sitting took read from its playing note); every
 close the console asks of the program goes through `stopStandaloneGame`,
-which asks gamescope for the save's picture first.
+which asks gamescope for the save's picture first. A game in a core whose
+save is files the core writes while it runs (DS, Dreamcast, PlayStation 2,
+PSP, 3DS, GameCube, Wii) has a playing note of its own, written once the
+start's restores are done (`notePlaying`, from `setUpLoadedGame`) and taken
+away here; one a crash or a power cut left is read at the game's next start,
+before its restores, and at start-up (`finishInterruptedPlay`): what the
+core wrote after the note is gathered as the leave would have, unless a
+file fails the save check another app's save gets, and goes up as the
+session's snapshot, made when the core wrote it, so the start keeps it
+rather than putting RomM's older save over it (#346, step 9).
 
 The snapshot goes up on the upload queue's thread (`savepush::send`), into
 the channel the save it was made from is in, naming the snapshot this
@@ -415,8 +425,8 @@ the frontend asks for it over the local socket (`linkup_wire.h`, `linkupsession.
    push as RomM's `save_screenshot` part, and RomM keeps it with the save's
    row, which is what its website shows on the channel's tile. A marker left by a crash is sent
    again at the next start (`startSync`). One that failed is sent again
-   every five minutes, when the server comes back and after a person's next
-   upload works; one RomM refused (an HTTP 4xx) keeps its marker and waits
+   every five minutes, when the server comes back, when RomM gains save
+   channels (step 4) and after a person's next upload works; one RomM refused (an HTTP 4xx) keeps its marker and waits
    for the next start or a new save of it, unless RomM no longer has the
    game: then, once the queue has tried it that start, the file goes with
    the game (`gonegames.h`). A snapshot owed for a game that is being
@@ -486,7 +496,22 @@ the frontend asks for it over the local socket (`linkup_wire.h`, `linkupsession.
    offline will need is fetched while online: every game on the drive's
    saves, its channels, and the bytes of the save the same rule picks
    (`offline_sync.cpp`); the server is tried in the background while it is
-   away, and what is owed waits as markers on disk. `savemirror.h` also
+   away, and what is owed waits as markers on disk. Back online it goes at
+   once, and the save made later wins (`savepush::send`, step 2 of
+   "Leaving a game"): the console's goes on top when its save was made
+   after the other device's push reached RomM, else RomM keeps it beside
+   the current as a branch, 30 days by RomM's
+   `SNAPSHOT_BRANCH_LIFETIME_DAYS`; the save it replaces on top stays in
+   the channel's history, which RomM trims to `SNAPSHOT_RETENTION` (10).
+   A RomM TOO OLD FOR SAVE CHANNELS (no `SAVE_SYNC` in its heartbeat) is
+   neither read nor written for a save or a state (#346, step 9; decision 7
+   of 2026-11-15, answer 4 of 2026-11-17; `romm::serverTakesSaves`): a
+   start goes by the copy as last seen, as offline, the game's page and
+   Load latest state by the console's own states, the offline download
+   fetches no save, and a push waits with nothing asked
+   (`savepush::Sent::Waits`). Nothing is said on the TV. The heartbeat the
+   reconnect thread asks once a minute notices the server gaining channels,
+   and what waited goes at once (`App::followServer`). `savemirror.h` also
    keeps one note of the console's own, which forgetting RomM's copy
    leaves: the snapshot it holds of the game, written by a start from one,
    with the content hash of every save of the game it has held. RomM keeps
