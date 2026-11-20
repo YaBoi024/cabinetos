@@ -53,8 +53,14 @@ struct SaveFetch {
     savepick::Pick pick;
     std::string oldRowAt;
     // The picked snapshot's save as RomM stores it, when the pick is a
-    // channel's; empty when it did not come.
+    // channel's; empty when it did not come. Another emulator's save
+    // (`converted`) is RomM's answer for this console's form instead, put
+    // the way a start reads a snapshot's save and checked (fetchSaves).
     std::vector<uint8_t> picked;
+    bool converted = false;
+    // What the pick went by, for the start that falls back when another
+    // emulator's save cannot be used.
+    savepick::Facts facts;
     // savemirror::mark() taken before the ask. A save of this game that this
     // console sends after it makes what was fetched older than the console's
     // own copy (saves.cpp, fetchIsStale).
@@ -66,12 +72,43 @@ struct SaveFetch {
 // without a tag or a token.
 void listSaves(romm::Client& client, const storage::User& user, int romId, int channelFileId,
                const char* tag, SaveFetch* out);
+// THE FORM THIS CONSOLE'S CORE READS ITS SAVE IN, for another emulator's
+// save asked of RomM (#346, step 8): how RomM is asked (catalog::SaveForm),
+// and what the save is: the files the core writes (catalog::saveFiles), a
+// folder (its directorySaveRoot, or an emulator run as a program), or else
+// the battery the core exposes.
+struct OwnForm {
+    catalog::SaveForm form;
+    std::string tag;   // the tag this core's saves travel under (catalog::saveTag)
+    std::string platform;
+    std::vector<catalog::SaveFile> files;
+    bool folder = false;
+};
 // The worker's half of a restore: listSaves, then the bytes of the save the
 // pick names: the snapshot's, or of RomM's old rows the newest under `tag` in
 // each region (the file saves and the battery) and of any kind (a folder
-// save). Stops between requests once `cancel` is set.
+// save). ANOTHER EMULATOR'S SAVE (savepick.h) is asked of RomM in `own`'s
+// form and checked; one that cannot be used, or any with `own` null, leaves
+// the start to the newest this console can use as stored, and the pick says
+// it could not use the newest. Stops between requests once `cancel` is set.
 void fetchSaves(romm::Client& client, const storage::User& user, int romId, int channelFileId,
-                const char* tag, const std::atomic<bool>* cancel, SaveFetch* out);
+                const char* tag, const OwnForm* own, const std::atomic<bool>* cancel,
+                SaveFetch* out);
+// RomM's answer for another emulator's save, put the way a start reads a
+// snapshot's save in `own`'s form (the head of saves.h), and checked: each
+// file by its catalog::SaveCheck, a battery by batteryCheck, a folder by its
+// system's shape. Handed over as stored (`plain`: asked with no core, once
+// RomM said it converts nothing for the system; or one file with no path in
+// the emulator's folder), a save where Sigil names a difference, or a folder,
+// is used only when this core made it (savepick::mayLoad, by `madeBy` and
+// `madeByCore`, the names the save carries). False, with why, when it is no
+// save this console's core reads.
+bool toOwnForm(const romm::SaveAnswer& answer, bool plain, const OwnForm& own,
+               const std::string& madeBy, const std::string& madeByCore,
+               std::vector<uint8_t>* out, std::string* why);
+// The pill a start says when the newest save on RomM was another emulator's
+// and could not be used (#346, decision 5; MMagTech's wording, 2026-11-17).
+inline constexpr char kCouldNotUseNewest[] = "Couldn't use the newest save";
 
 // WHAT A START'S RESTORES DID, gathered across the three of them for the
 // notes the start leaves (noteStart). `asideDir` is the caller's: where a
@@ -79,8 +116,9 @@ void fetchSaves(romm::Client& client, const storage::User& user, int romId, int 
 // (storage::replacedSaveDir); empty keeps none. The rest is the restores'.
 struct StartNotes {
     std::string asideDir;
-    // The picked snapshot's save was put in place.
-    bool fromChannel = false;
+    // The pick's save was put in place: a snapshot's, or another app's in no
+    // channel.
+    bool tookPick = false;
     // What was put in place was not what this console already had: it had no
     // save, or another.
     bool changedOwn = false;
@@ -96,9 +134,19 @@ struct StartNotes {
 // under its path in the save folder; a folder save, the zip syncDirSave
 // makes. A restore that cannot read the picked save that way leaves the
 // console's own in place.
+// A ZIP IN SIGIL'S SHAPE (dirsave.h, ZipShape) is put back in the folder's
+// own; `shape` and `wiiKind` from zipShapeOf and wiiKindOf.
 void restoreDirSave(const SaveFetch& fetched, const char* tag, const std::string& root,
                     const std::string& title, const std::string& oldCard = std::string(),
-                    StartNotes* notes = nullptr);
+                    StartNotes* notes = nullptr, cab::ZipShape shape = cab::ZipShape::Folder,
+                    const std::string& wiiKind = std::string());
+// RomM's shape for this core's folder save (dirsave.h): Sigil's for a Wii
+// game (the Mii Channel's stays the folder's) and a 3DS game.
+cab::ZipShape zipShapeOf(const std::string& core, const std::string& platform,
+                         const std::string& titleId);
+// A Wii title's kind folder from RomM's `title_id`: the first eight of a
+// channel's sixteen digits (`00010001` for WiiWare), `00010000` for a disc.
+std::string wiiKindOf(const std::string& titleId);
 std::vector<cab::DirEntry> listDirSave(const GameSession& sess);
 // WHAT A GAME SAVED IS GATHERED ON THIS CONSOLE FIRST, by the three below: a
 // save folder zipped (syncDirSave), the files a core wrote read back once it

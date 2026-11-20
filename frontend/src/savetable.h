@@ -157,6 +157,24 @@ enum class Untouched {
     VmuDirectory,
 };
 
+// WHAT ANOTHER EMULATOR'S SAVE MUST BE BEFORE THIS CONSOLE USES IT (#346, step
+// 8; decided 2026-10-12). A save a CabinetOS console made is used as RomM
+// stores it. Any other is asked of RomM in this console's own form (saveForm
+// below) and then checked: the size this core's file has, the marks its
+// format carries, and that it holds a save (holdsASave). One that fails is
+// not used, and the game starts from this console's own save with "Couldn't
+// use the newest save".
+struct SaveCheck {
+    // The sizes the file may have, in bytes; empty for any. A battery's is
+    // the core's own, checked once the core is loaded (saves.cpp).
+    std::vector<size_t> sizes;
+    // Bytes the format always carries, at `markAt` from the start, or from
+    // the end when `markFromEnd`; empty for a format that carries none.
+    std::string mark;
+    size_t markAt = 0;
+    bool markFromEnd = false;
+};
+
 // One file a core writes for itself.
 struct SaveFile {
     // Relative to the core's SAVE directory, which is
@@ -179,15 +197,25 @@ struct SaveFile {
     // region, which is how a start tells them apart (savepick.h, regionOfRow).
     std::string region = "srm";
     Untouched untouched = Untouched::Blank;
-    // DREAMCAST ONLY. Flycast keeps the VMU in the libretro SYSTEM directory —
-    // `bios/dc/` here — because libretro gives a core exactly one of those and
-    // that is where the core looks. It is the one file in `bios/` that cannot
-    // be fetched again, which is the last rough edge the folder layout left
-    // open: see docs/PROJECT.md, open question 18. So the card is placed there
-    // for the length of a session and taken back out afterwards, and what
-    // lives in `bios/dc/` at rest is `dc_nvmem.bin`, the console's own clock
-    // and language, which rebuilds itself if it is lost.
-    bool inSystemDir = false;
+    // What another emulator's save of this file must be (SaveCheck).
+    SaveCheck check;
+    // THE CORE READS `path` ONLY WHEN NO FILE OF ITS OWN NAMING IS THERE, and
+    // always writes under that name. Dreamcast: with one card per game
+    // (MMagTech, 2026-11-17; `reicast_per_content_vmus` = `VMU A1`), Flycast
+    // reads `<disc's product number>.A1.bin`, else `<content name>.A1.bin`,
+    // and writes the first (getVmuPath, shell/libretro/oslib.cpp at our pin).
+    // So a start puts the person's card at `path` and takes away any other
+    // file ending in `captureSuffix`, which would be read first; a game on
+    // several discs, whose discs may have different product numbers, then
+    // finds the card from any disc. After the game the file the core wrote is
+    // read, moved to `path`, and is what travels.
+    bool coreNamesItself = false;
+    // THIS PERSON'S CARD FROM BEFORE, copied once to `path` when a start
+    // finds none there (MMagTech, 2026-11-17): Dreamcast's card lived in the
+    // system directory until #346, and this console kept each person's copy
+    // at saveRowName(stem, region) in the save folder (saves.cpp). The old
+    // file is left as it is.
+    bool fromFormerCopy = false;
     // THE CORE WRITES IT ONLY AS THE GAME CLOSES (read off each core at our
     // pin, 2026-11-19, #346): the save lives inside the core until then, so
     // no moment of saving can be seen while it runs, and the save's picture
@@ -319,6 +347,48 @@ const char* emulatorTag(const char* manifestCoreName);
 //
 // Returns nullptr when even a save should stay local.
 const char* saveTag(const char* manifestCoreName);
+
+// HOW RomM HANDS THIS CORE A SAVE ANOTHER EMULATOR MADE, and the name the
+// console gives the core on everything it sends (#346, step 8; the plan's
+// "Checked against Sigil"). RomM converts a save through Sigil, the save
+// library it builds in, for whichever emulator a request names, and answers
+// with the files that emulator reads, by their paths in its save folder.
+struct SaveForm {
+    // Sigil's name for the core: its library name without `_libretro`, or
+    // the emulator's own id, as Sigil's layout table spells it. Four of this
+    // console's names differ: `beetle_*` is `mednafen_*`, `fbneo_libretro`
+    // is `fbneo`, and `mupen64plus` is `mupen64plus_next` (our build is
+    // libretro's mupen64plus-libretro-nx). Sent with every push as `core`,
+    // beside the tag the save travels under, so the same core in another app
+    // gets the same bytes (answer 7 of 2026-11-17), and named in every
+    // request. Empty for a core whose saves stay on this console.
+    std::string sigil;
+    // The core options that decide where this core's save lives, as Sigil
+    // reads them, sent with a request so RomM writes the file this console's
+    // core reads: Dreamcast's card per game, Sega CD's backup memory per
+    // game, PlayStation 2's card per game.
+    std::vector<std::pair<std::string, std::string>> options;
+    // The one profile this console's emulator keeps, for an emulator whose
+    // saves Sigil files under a profile (Switch, Wii U, PS Vita, PS3).
+    std::string profile;
+    // A folder save: what comes before this console's own root (its
+    // directorySaveRoot, or the emulator's saveRoot) in the paths of RomM's
+    // answer, each `*` one folder of any name. Empty for a file.
+    std::string answerRoot;
+    // SIGIL NAMES A DIFFERENCE between emulators' files for this system that
+    // RomM does not convert yet (MMagTech, 2026-11-17: DS, Game Boy Advance,
+    // Mega Drive, Master System, Game Gear, 32X). Another emulator's save is
+    // used only when RomM converted it or this core made it (RomM's own
+    // `may_load` rule: the core first, else the emulator). When RomM converts
+    // these systems, the same rule lets them through with no change here.
+    bool sameCoreOnly = false;
+};
+SaveForm saveForm(const char* manifestCoreName, const std::string& platformSlug);
+
+// What another emulator's battery save must be for this system (SaveCheck):
+// its marks, and its size where every game's is the same. Any other battery
+// is checked against the core's own size once it is loaded (saves.cpp).
+SaveCheck batteryCheck(const std::string& platformSlug);
 
 // WHETHER THIS SYSTEM OFFERS SAVE STATES AT ALL — docs/PROJECT.md, open
 // question 25. False for PlayStation 2, GameCube and anything later, and the

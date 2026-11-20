@@ -508,6 +508,88 @@ std::vector<uint8_t> Client::fetchBytes(const std::string& path) const {
 }
 
 namespace {
+// The one header a save in an emulator's form carries, `X-Save-Path`.
+size_t savePathHeader(char* p, size_t sz, size_t n, void* user) {
+    const size_t len = sz * n;
+    static const char kName[] = "x-save-path:";
+    const size_t nameLen = sizeof kName - 1;
+    if (len > nameLen) {
+        bool match = true;
+        for (size_t i = 0; i < nameLen && match; ++i)
+            match = std::tolower(static_cast<unsigned char>(p[i])) == kName[i];
+        if (match) {
+            std::string v(p + nameLen, len - nameLen);
+            while (!v.empty() && std::isspace(static_cast<unsigned char>(v.front()))) v.erase(0, 1);
+            while (!v.empty() && std::isspace(static_cast<unsigned char>(v.back()))) v.pop_back();
+            std::string out;
+            for (size_t i = 0; i < v.size(); ++i) {
+                if (v[i] == '%' && i + 2 < v.size() && std::isxdigit(static_cast<unsigned char>(v[i + 1])) &&
+                    std::isxdigit(static_cast<unsigned char>(v[i + 2]))) {
+                    out.push_back(static_cast<char>(std::stoi(v.substr(i + 1, 2), nullptr, 16)));
+                    i += 2;
+                } else {
+                    out.push_back(v[i]);
+                }
+            }
+            *static_cast<std::string*>(user) = out;
+        }
+    }
+    return len;
+}
+
+// A string field of RomM's answer, by its name, for the log only.
+std::string answerField(const std::vector<uint8_t>& body, const std::string& field) {
+    const std::string text(body.begin(), body.end());
+    const std::string key = "\"" + field + "\":\"";
+    const size_t at = text.find(key);
+    if (at == std::string::npos) return std::string();
+    const size_t from = at + key.size();
+    const size_t to = text.find('"', from);
+    return to == std::string::npos ? std::string() : text.substr(from, to - from);
+}
+}  // namespace
+
+SaveAnswer Client::fetchSaveAs(int saveId, const std::string& query) const {
+    SaveAnswer a;
+    CURL* c = curl_easy_init();
+    if (!c) return a;
+    const Where at = where();
+    const std::string url = at.base + "/api/saves/" + std::to_string(saveId) + "/content" +
+                            (query.empty() ? std::string() : "?" + query);
+    curl_slist* hdrs = nullptr;
+    if (!at.token.empty())
+        hdrs = curl_slist_append(hdrs, ("Authorization: Bearer " + at.token).c_str());
+    curl_easy_setopt(c, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, byteSink);
+    curl_easy_setopt(c, CURLOPT_WRITEDATA, &a.bytes);
+    curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, savePathHeader);
+    curl_easy_setopt(c, CURLOPT_HEADERDATA, &a.savePath);
+    curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, kConnectTimeoutSec);
+    curl_easy_setopt(c, CURLOPT_TIMEOUT, kTimeoutSec);
+    if (hdrs) curl_easy_setopt(c, CURLOPT_HTTPHEADER, hdrs);
+    const CURLcode rc = performOnServer(c, at.base, [&a] {
+        a.bytes.clear();
+        a.savePath.clear();
+    });
+    noteTransport(c, rc);
+    curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &a.status);
+    if (hdrs) curl_slist_free_all(hdrs);
+    curl_easy_cleanup(c);
+    if (rc != CURLE_OK) {
+        a.status = 0;
+        a.error = curl_easy_strerror(rc);
+        a.bytes.clear();
+    } else if (a.status != 200) {
+        a.error = answerField(a.bytes, "error");
+        if (a.error.empty()) a.error = answerField(a.bytes, "detail");
+        if (a.error.empty()) a.error = "HTTP " + std::to_string(a.status);
+        a.bytes.clear();
+        a.savePath.clear();
+    }
+    return a;
+}
+
+namespace {
 // Keeps at most `cap` bytes and then stops the transfer, so a server that
 // ignores the range cannot stream a 4 GB disc into memory.
 struct CappedSink {

@@ -280,6 +280,85 @@ const char* saveTag(const char* core) {
     return nullptr;
 }
 
+SaveForm saveForm(const char* core, const std::string& slug) {
+    SaveForm f;
+    if (!core || !saveTag(core)) return f;
+    const std::string name = manifestName(core);
+    // Sigil's spelling where it differs from this console's name for the
+    // core (the Layouts table of Sigil's platforms page, at the commit RomM
+    // 5.5.0-alpha.2 builds in). Xbox and Xbox 360 have no row there yet;
+    // `xemu` and `xenia_edge` are the ids of the rows waiting in Sigil
+    // (argosy-sigil#25 to #27).
+    struct { const char* core; const char* sigil; } kNames[] = {
+        {"beetle_saturn", "mednafen_saturn"}, {"beetle_ngp", "mednafen_ngp"},
+        {"beetle_pce_fast", "mednafen_pce_fast"}, {"beetle_vb", "mednafen_vb"},
+        {"fbneo_libretro", "fbneo"}, {"mupen64plus", "mupen64plus_next"},
+        {"mame_libretro", "mame"}, {"xenia", "xenia_edge"},
+    };
+    f.sigil = name;
+    for (const auto& n : kNames)
+        if (name == n.core) f.sigil = n.sigil;
+
+    // Where the save lives, as Sigil reads the core's options: what the
+    // console sets (coreoptions.cpp, core_ps2.cpp) or what its folders
+    // already are. Sega CD's cartridge is named as one every game shares
+    // (`4Mbit_cart.brm`, the core's default), but it sits in this game's own
+    // folder, so it is asked for per game and comes back as
+    // `<game>_4Mbit_cart.brm` in one answer, which the console reads as its
+    // cartridge by the name's end (saveFiles).
+    if (name == "flycast" && slug == "dc") f.options = {{"reicast_per_content_vmus", "VMU A1"}};
+    if (name == "genesis_plus_gx" && slug == "segacd")
+        f.options = {{"genesis_plus_gx_system_bram", "per game"},
+                     {"genesis_plus_gx_cart_bram", "per game"}};
+    if (name == "pcsx2") f.options = {{"pcsx2_shared_memory_cards", "disabled"}};
+
+    // The one profile each of these emulators keeps on this console. Eden's
+    // is the folder of the profile standalone_eden.cpp makes (kProfileId,
+    // "CabinetOS player", its bytes backwards in hex, as Eden names it).
+    if (name == "eden") f.profile = "726579616C7020534F74656E69626143";
+    if (name == "cemu") f.profile = "80000001";
+    if (name == "vita3k") f.profile = "00";
+    if (name == "rpcs3") f.profile = "00000001";
+
+    // A folder save's place in Sigil's answer (its restore targets) against
+    // this console's root for the same folder.
+    if (name == "ppsspp") f.answerRoot = "PSP/SAVEDATA/";
+    if (name == "azahar") f.answerRoot = "sdmc/Nintendo 3DS/";
+    if (name == "dolphin" && slug == "ngc") f.answerRoot = "User/GC/*/Card A/";
+    if (name == "dolphin" && slug == "wii") f.answerRoot = "User/Wii/title/";
+    if (name == "eden") f.answerRoot = "nand/user/save/0000000000000000/*/";
+    if (name == "cemu") f.answerRoot = "mlc01/usr/save/*/";
+    if (name == "vita3k") f.answerRoot = "ux0/user/*/savedata/";
+    if (name == "rpcs3") f.answerRoot = "dev_hdd0/home/*/savedata/";
+
+    // Sigil names how these emulators' files differ, and RomM hands them over
+    // as stored (MMagTech, 2026-11-17). Genesis Plus GX only for the
+    // cartridge systems: RomM converts Sega CD.
+    f.sameCoreOnly = name == "melonds" || name == "mgba" || name == "picodrive" ||
+                     (name == "genesis_plus_gx" && slug != "segacd");
+    return f;
+}
+
+SaveCheck batteryCheck(const std::string& slug) {
+    SaveCheck c;
+    // pcsx_rearmed's battery is memory card 1, a raw card: 128 KB, `MC` first
+    // (Sigil's psx page, a raw card).
+    if (slug == "psx") {
+        c.sizes = {131072};
+        c.mark = "MC";
+    }
+    // Beetle Saturn's battery is the internal backup memory, as the libretro
+    // save method has it (coreoptions.cpp): 32 KB, formatted with its name.
+    if (slug == "saturn") {
+        c.sizes = {32768};
+        c.mark = "BackUpRam Format";
+    }
+    // mupen64plus-next's battery is every kind of N64 save in one struct, the
+    // same 296960 bytes for every game at our pin (savetable.cpp, emulatorTag).
+    if (slug == "n64") c.sizes = {296960};
+    return c;
+}
+
 const char* gameCubeRegion(const std::string& titleId) {
     const std::string code = wii::codeFromTitleId(titleId);
     if (code.size() != 4) return nullptr;
@@ -463,21 +542,23 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
         return {};
     }
 
-    // Dreamcast. The one row that is not under the save directory: Flycast
-    // never answers RETRO_MEMORY_SAVE_RAM — confirmed against its own
-    // retro_get_memory_data, which only ever answers RETRO_MEMORY_SYSTEM_RAM —
-    // and writes the card into the system directory instead, beside the BIOS.
-    //
-    // `per_content_vmus` defaults to 0, so the file is the bare
-    // `vmu_save_A1.bin`; the capture scans for the suffix anyway, because with
-    // that option on the core prefixes the disc's own game id and a capture
-    // that insisted on the exact name would silently find nothing.
+    // Dreamcast. Flycast never answers RETRO_MEMORY_SAVE_RAM (its own
+    // retro_get_memory_data answers RETRO_MEMORY_SYSTEM_RAM only) and keeps
+    // the card as a file. ONE CARD PER GAME, IN THE GAME'S SAVE FOLDER
+    // (MMagTech, 2026-11-17; #346, step 8): `reicast_per_content_vmus` =
+    // `VMU A1` (coreoptions.cpp), the row Sigil gives a card that holds one
+    // game, so RomM hands another app's save back in one answer. Until then
+    // the card was the system directory's shared `dc/vmu_save_A1.bin`,
+    // copied in for each session. A card is 128 KB of 512-byte blocks whose
+    // root, block 255, starts with sixteen 0x55 bytes.
     if (slug == "dc") {
         SaveFile vmu;
-        vmu.path = "dc/vmu_save_A1.bin";
-        vmu.captureSuffix = "vmu_save_A1.bin";
+        vmu.path = stem + ".A1.bin";
+        vmu.captureSuffix = ".A1.bin";
         vmu.untouched = Untouched::VmuDirectory;
-        vmu.inSystemDir = true;
+        vmu.coreNamesItself = true;
+        vmu.fromFormerCopy = true;
+        vmu.check = {{131072}, std::string(16, '\x55'), 255 * 512, false};
         return {vmu};
     }
 
@@ -495,12 +576,18 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
         internal.captureSuffix = ".brm";
         internal.captureExclude = "cart.brm";
         internal.untouched = Untouched::SegaCDBackup;
+        // Both end in the format's own block: `SEGA_CD_ROM` 32 bytes from
+        // the end, `RAM_CARTRIDGE___` the last 16. The internal memory is
+        // 8 KB; the cartridge the core's default 4 Mbit, 512 KB.
+        const std::string format = std::string("SEGA_CD_ROM\0\1\0\0\0RAM_CARTRIDGE___", 32);
+        internal.check = {{8192}, format, 32, true};
         SaveFile cart;
         cart.writtenAtClose = true;
         cart.path = "4Mbit_cart.brm";
         cart.captureSuffix = "cart.brm";
         cart.region = "cart";
         cart.untouched = Untouched::SegaCDBackup;
+        cart.check = {{524288}, format, 32, true};
         return {internal, cart};
     }
 
@@ -510,6 +597,9 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
         f.writtenAtClose = true;
         f.path = stem + ".flash";
         f.captureSuffix = ".flash";
+        // NeoPop's flash file starts with its id, 0x0053 (flash.cpp's
+        // FlashFileHeader); its length is the game's.
+        f.check = {{}, std::string("\x53\x00", 2), 0, false};
         return {f};
     }
 
@@ -520,6 +610,10 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
         SaveFile f;
         f.path = stem + ".sav";
         f.captureSuffix = ".sav";
+        // A cartridge's memory is a power of two, 512 bytes to 32 MB.
+        // DeSmuME's file is 122 bytes longer (Sigil's nds page), which this
+        // refuses.
+        for (size_t n = 512; n <= (32u << 20); n *= 2) f.check.sizes.push_back(n);
         return {f};
     }
 
@@ -531,6 +625,8 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
         f.writtenAtClose = true;
         f.path = "opera/shared/nvram.0.srm";
         f.untouched = Untouched::ThreeDONvram;
+        // 32 KB, starting with the volume label Opera formats it with.
+        f.check = {{32768}, std::string("\x01\x5a\x5a\x5a\x5a\x5a", 6), 0, false};
         return {f};
     }
 
@@ -546,6 +642,9 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
         f.captureSuffix = ".ps2";
         f.region = "ps2";
         f.untouched = Untouched::Ps2Format;
+        // An 8 MB card with its error-correcting bytes, as PCSX2 and Sigil
+        // keep it, formatted with its name.
+        f.check = {{8650752}, "Sony PS2 Memory Card Format ", 0, false};
         return {f};
     }
 

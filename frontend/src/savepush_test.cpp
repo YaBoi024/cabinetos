@@ -346,12 +346,13 @@ int test() {
         cache::clearPushOwed(u, game, p.stamp);
     }
     {
-        // DREAMCAST'S CARD, the one save kept in the system folder, where
-        // Flycast alone looks (the console's own entry, catalog::saveFiles):
-        // a start puts the person's copy there; leaving copies the card back
-        // to the person's folder and takes it out of the system folder; that
-        // copy is what goes up; and a start on another console puts RomM's
-        // card back in the system folder.
+        // DREAMCAST'S CARD, ONE PER GAME IN THE GAME'S SAVE FOLDER (#346,
+        // step 8): a start copies the person's card from before once to the
+        // name Flycast reads, the old file left, and takes away a card under
+        // the disc's product number, which Flycast would read first; leaving
+        // moves the card Flycast wrote under that number back to the game's
+        // name, and that is what goes up; a start on another console puts
+        // RomM's card there.
         const std::vector<catalog::SaveFile> specs =
             catalog::saveFiles("dc", "flycast", "Ikaruga (Japan).chd", false);
         GameSession s;
@@ -359,23 +360,46 @@ int test() {
         s.title = "Ikaruga";
         s.fsStem = "Ikaruga (Japan)";
         s.saveTag = "flycast-native";
+        s.core = "flycast";
+        s.platformSlug = "dc";
         s.saveDir = storage::savesDir(u, "dc", game, "flycast");
-        const std::string card = storage::biosDir() + "/dc/vmu_save_A1.bin";
-        const std::string mine = s.saveDir + "/" + saveRowName(s.fsStem, "srm");
-        cab::writeBytes(mine, older);
+        const std::string card = s.saveDir + "/Ikaruga (Japan).A1.bin";
+        const std::string numbered = s.saveDir + "/T38706M.A1.bin";
+        const std::string former = s.saveDir + "/" + saveRowName(s.fsStem, "srm");
+        cab::writeBytes(former, older);
         s.fileSaves = restoreFileSaves(specs, s.fsStem, s.saveDir, "flycast-native", SaveFetch{});
-        check(specs.size() == 1 && specs[0].inSystemDir && s.fileSaves.size() == 1 &&
-                  cab::readBytes(card) == older,
-              "Dreamcast: a start puts the person's card in the system folder");
-        cab::writeBytes(card, one);   // the game saved to its card
+        check(specs.size() == 1 && specs[0].path == "Ikaruga (Japan).A1.bin" &&
+                  s.fileSaves.size() == 1 && cab::readBytes(card) == older &&
+                  cab::readBytes(former) == older,
+              "Dreamcast: the card from before is copied once to the game's own name, and "
+              "stays");
+        cab::writeBytes(numbered, one);   // Flycast wrote the game's card under its number
         syncFileSaves(s);
-        check(s.saveChanged && cab::readBytes(mine) == one && cab::readBytes(card).empty(),
-              "leaving copies the card to the person's folder and takes it out of the system "
-              "folder");
+        check(s.saveChanged && cab::readBytes(card) == one && cab::readBytes(numbered).empty() &&
+                  cab::readBytes(former) == older,
+              "leaving moves the card Flycast wrote under the disc's number to the game's name");
         const bool marked = mark(s, u) && cache::owedPush(u, game, &p);
-        check(marked && p.savePath == mine && cab::readBytes(p.savePath) == one &&
+        check(marked && p.savePath == card && cab::readBytes(p.savePath) == one &&
                   p.saveName == "Ikaruga (Japan).bin" && p.saveShape == "SINGLE",
-              "and that copy is what goes up, as one file");
+              "and that card is what goes up, as one file");
+        check(p.emulator == "flycast-native" && p.core == "flycast",
+              "the push names the console's tag and the core in Sigil's spelling (#346, step "
+              "8)");
+        s.fileSaves = restoreFileSaves(specs, s.fsStem, s.saveDir, "flycast-native", SaveFetch{});
+        check(cab::readBytes(card) == one && cab::readBytes(former) == older,
+              "the next start reads the game's card as it is; the card from before is copied "
+              "once, never over it");
+        const std::vector<uint8_t> crashLeft(64, 0x5c);
+        cab::writeBytes(numbered, crashLeft);   // a card under the number, left by a crash
+        {   // written after the game's: a file's time moves in clock ticks
+            const timespec later[2] = {{0, UTIME_OMIT}, {std::time(nullptr) + 60, 0}};
+            ::utimensat(AT_FDCWD, numbered.c_str(), later, 0);
+        }
+        s.fileSaves = restoreFileSaves(specs, s.fsStem, s.saveDir, "flycast-native", SaveFetch{});
+        check(cab::readBytes(card) == crashLeft && cab::readBytes(numbered).empty() &&
+                  cab::readBytes(former) == older,
+              "a start reads the card Flycast last wrote and leaves it under the game's name "
+              "only, so no other is read first; the card from before is not copied again");
         const std::string other = storage::savesDir(u, "dc", game + 5000, "flycast");
         SaveFetch fetched;
         fetched.romId = game + 5000;
@@ -383,13 +407,15 @@ int test() {
         fetched.mark = savemirror::mark();
         fetched.pick.from = savepick::Pick::From::Channel;
         fetched.pick.channel.current.save.fileName = p.saveName;
-        fetched.picked = cab::readBytes(p.savePath);
+        fetched.picked = one;
         restoreFileSaves(specs, s.fsStem, other, "flycast-native", fetched);
-        check(cab::readBytes(card) == one &&
-                  cab::readBytes(other + "/" + saveRowName(s.fsStem, "srm")) == one,
-              "a start on another console puts RomM's card in the system folder, and keeps "
-              "the person's copy beside the game");
-        cab::removeFile(card);
+        check(cab::readBytes(other + "/Ikaruga (Japan).A1.bin") == one,
+              "a start on another console puts RomM's card under the game's name");
+        const std::vector<catalog::SaveFile> discs =
+            catalog::saveFiles("dc", "flycast", "Skies of Arcadia.m3u", false);
+        check(discs.size() == 1 && discs[0].path == "Skies of Arcadia.A1.bin",
+              "a game on several discs: the card is named after the disc list, whatever disc "
+              "it starts from");
         cache::clearPushOwed(u, game, p.stamp);
     }
     {

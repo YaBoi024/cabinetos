@@ -1132,7 +1132,7 @@ int savePickTest() {
         const bool pill = noteStart(f, n, u, &sess);
         savemirror::Held held;
         check(cab::readBytes(file) == theirs && st.size() == 1 && st[0].atLaunch == theirs &&
-                  n.fromChannel && n.changedOwn && n.keptAside.empty() && !exists(aside),
+                  n.tookPick && n.changedOwn && n.keptAside.empty() && !exists(aside),
               "a console with no save takes the snapshot's, and keeps nothing aside");
         check(pill && sess.startChannelId == f.pick.channel.id && sess.startSnapshotId == 21 &&
                   sess.channelFileId == 4410 && !sess.couldNotUseNewest &&
@@ -1146,7 +1146,7 @@ int savePickTest() {
         const SaveFetch f = fromChannel(21, theirs, true);
         restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
         GameSession sess;
-        check(n.fromChannel && !n.changedOwn && n.keptAside.empty() && !exists(aside) &&
+        check(n.tookPick && !n.changedOwn && n.keptAside.empty() && !exists(aside) &&
                   !noteStart(f, n, u, &sess) && sess.startSnapshotId == 21,
               "started again from the same save: nothing replaced, nothing aside, no pill");
     }
@@ -1178,13 +1178,13 @@ int savePickTest() {
         restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
         GameSession sess;
         noteStart(f, n, u, &sess);
-        check(cab::readBytes(file) == own && !n.fromChannel && sess.startChannelId.empty() &&
+        check(cab::readBytes(file) == own && !n.tookPick && sess.startChannelId.empty() &&
                   sess.couldNotUseNewest,
               "a snapshot whose save holds nothing never replaces a real one, and the session "
               "knows the newest was not used");
         f = fromChannel(25, {}, true);
         restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
-        check(cab::readBytes(file) == own && !n.fromChannel,
+        check(cab::readBytes(file) == own && !n.tookPick,
               "nor one whose bytes did not come");
     }
     {
@@ -1206,7 +1206,7 @@ int savePickTest() {
         StartNotes n = notesFor();
         restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
         GameSession sess;
-        check(cab::readBytes(file) == theirs && !n.fromChannel && n.keptAside.size() == 1 &&
+        check(cab::readBytes(file) == theirs && !n.tookPick && n.keptAside.size() == 1 &&
                   cab::readBytes(aside + "/fbneo/kof98.fs") == own &&
                   !noteStart(f, n, u, &sess) && sess.startChannelId.empty(),
               "a save from before channels over this console's own: kept aside too, no pill, "
@@ -1228,7 +1228,7 @@ int savePickTest() {
         StartNotes n = notesFor();
         restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
         GameSession sess;
-        check(cab::readBytes(file) == own && !n.fromChannel && !noteStart(f, n, u, &sess) &&
+        check(cab::readBytes(file) == own && !n.tookPick && !noteStart(f, n, u, &sess) &&
                   !sess.couldNotUseNewest,
               "a save of this console's that reached RomM after the fetch: its own stands");
     }
@@ -1254,7 +1254,7 @@ int savePickTest() {
         n.asideDir = storage::replacedSaveDir(u, "Sega CD", 801);
         restoreFileSaves({internal, cart}, "Lunar", dir, "gpgx-native", f, &n);
         check(cab::readBytes(dir + "/Lunar.brm") == theirs &&
-                  cab::readBytes(dir + "/4Mbit_cart.brm") == own && n.fromChannel &&
+                  cab::readBytes(dir + "/4Mbit_cart.brm") == own && n.tookPick &&
                   n.keptAside.size() == 1 &&
                   cab::readBytes(n.asideDir + "/4Mbit_cart.brm") == theirs,
               "a snapshot's zip of two save files: each to its own file, the one replaced "
@@ -1283,7 +1283,7 @@ int savePickTest() {
         StartNotes same;
         same.asideDir = pspAside;
         restoreDirSave(f, "ppsspp-native", psp, "Lumines", std::string(), &same);
-        check(same.fromChannel && !same.changedOwn && same.keptAside.empty() && !exists(pspAside),
+        check(same.tookPick && !same.changedOwn && same.keptAside.empty() && !exists(pspAside),
               "a save folder that already holds exactly the snapshot's save: nothing changes");
         cab::writeBytes(psp + "/ULUS10002/DATA.BIN", own);
         cab::writeBytes(psp + "/ULUS99999/OTHER.BIN", own);
@@ -1297,7 +1297,7 @@ int savePickTest() {
             if (z.relPath == "ULUS10002/DATA.BIN" && z.bytes == own) keptOwn = true;
             if (z.relPath.rfind("ULUS99999", 0) == 0) keptOther = true;
         }
-        check(cab::readBytes(psp + "/ULUS10002/DATA.BIN") == theirs && n.fromChannel &&
+        check(cab::readBytes(psp + "/ULUS10002/DATA.BIN") == theirs && n.tookPick &&
                   n.changedOwn && read && kept.size() == 2 && keptOwn && !keptOther &&
                   cab::readBytes(psp + "/ULUS99999/OTHER.BIN") == own,
               "a save folder with other bytes: the files the snapshot replaces are kept aside "
@@ -1306,7 +1306,7 @@ int savePickTest() {
         StartNotes bad;
         cab::writeBytes(psp + "/ULUS10002/DATA.BIN", own);
         restoreDirSave(f, "ppsspp-native", psp, "Lumines", std::string(), &bad);
-        check(cab::readBytes(psp + "/ULUS10002/DATA.BIN") == own && !bad.fromChannel,
+        check(cab::readBytes(psp + "/ULUS10002/DATA.BIN") == own && !bad.tookPick,
               "a snapshot's save that is no zip is never unpacked over a save folder");
     }
 
@@ -1549,6 +1549,374 @@ int savePickTest() {
             check(cn.oldRowsTaken.empty() && !gBrings && !cache::isPushOwed(u, 902),
                   "a card from before #344, which is no zip: not brought in at the start");
         }
+    }
+
+    // ANOTHER EMULATOR'S SAVE IN THIS CONSOLE'S FORM, AND ITS CHECK, PER
+    // SYSTEM (#346, step 8; saves.h, toOwnForm): RomM's answer put the way a
+    // start reads a snapshot's save, each system's check refusing a wrong
+    // size, a wrong mark and an empty file. The table's own entries
+    // (catalog::saveForm, saveFiles, batteryCheck) are what is checked.
+    std::printf("\nanother emulator's save in this console's form, checked per system\n");
+    {
+        auto answer = [](const std::string& path, std::vector<uint8_t> b) {
+            romm::SaveAnswer a;
+            a.status = 200;
+            a.bytes = std::move(b);
+            a.savePath = path;
+            return a;
+        };
+        auto zipped = [](cab::ZipFile one, cab::ZipFile two = cab::ZipFile{}) {
+            romm::SaveAnswer a;
+            a.status = 200;
+            std::vector<cab::ZipFile> files = {std::move(one)};
+            if (!two.relPath.empty()) files.push_back(std::move(two));
+            std::string err;
+            cab::zipFiles(files, &a.bytes, &err);
+            return a;
+        };
+        auto form = [](const char* core, const char* platform, const char* rom, bool folder) {
+            OwnForm o;
+            o.form = catalog::saveForm(core, platform);
+            o.tag = catalog::saveTag(core) ? catalog::saveTag(core) : "";
+            o.platform = platform;
+            o.folder = folder;
+            if (!folder) o.files = catalog::saveFiles(platform, core, rom, false);
+            return o;
+        };
+        auto takes = [](romm::SaveAnswer a, bool plain, const OwnForm& o,
+                        std::vector<uint8_t>* out = nullptr, const char* madeBy = "",
+                        const char* madeByCore = "") {
+            std::vector<uint8_t> b;
+            std::string why;
+            const bool ok = toOwnForm(a, plain, o, madeBy, madeByCore, &b, &why);
+            if (!ok) std::printf("        (%s)\n", why.c_str());
+            if (out) *out = b;
+            return ok;
+        };
+        auto filled = [](size_t n, const std::string& head, size_t at = 0) {
+            std::vector<uint8_t> b(n, 0x00);
+            for (size_t i = 0; i < head.size() && at + i < n; ++i) b[at + i] = head[i];
+            if (n > 300) b[n / 2] = 0x5a;   // something a game wrote
+            return b;
+        };
+        auto marked = [&](size_t n, const std::string& head) { return filled(n, head); };
+        auto unmarked = [&](size_t n) { return filled(n, std::string("\x5a\x5a", 2)); };
+
+        // The names a push sends and a request asks with, in Sigil's spelling.
+        check(catalog::saveForm("mupen64plus", "n64").sigil == "mupen64plus_next" &&
+                  catalog::saveForm("beetle_saturn", "saturn").sigil == "mednafen_saturn" &&
+                  catalog::saveForm("beetle_ngp", "neo-geo-pocket-color").sigil == "mednafen_ngp" &&
+                  catalog::saveForm("fbneo_libretro", "arcade").sigil == "fbneo" &&
+                  catalog::saveForm("gambatte", "gb").sigil == "gambatte" &&
+                  catalog::saveForm("xenia", "xbox360").sigil == "xenia_edge",
+              "the core's name in Sigil's spelling, the four that differ from the console's");
+        check(catalog::saveForm("melonds", "nds").sameCoreOnly &&
+                  catalog::saveForm("mgba", "gba").sameCoreOnly &&
+                  catalog::saveForm("picodrive", "sega32").sameCoreOnly &&
+                  catalog::saveForm("genesis_plus_gx", "genesis").sameCoreOnly &&
+                  !catalog::saveForm("genesis_plus_gx", "segacd").sameCoreOnly &&
+                  !catalog::saveForm("snes9x", "snes").sameCoreOnly,
+              "\"Sigil names a difference\": DS, GBA and the Mega Drive family, not Sega CD");
+
+        // Batteries.
+        const OwnForm gb = form("gambatte", "gb", "Pokemon Red.gb", false);
+        std::vector<uint8_t> out;
+        check(takes(answer("Pokemon Red.srm", unmarked(32768)), false, gb, &out) &&
+                  out == unmarked(32768),
+              "Game Boy: the converted battery as it is");
+        check(takes(zipped({"Pokemon Gold.rtc", unmarked(8)}, {"Pokemon Gold.srm", unmarked(32768)}),
+                    false, gb, &out) && out == unmarked(32768),
+              "Game Boy: a cartridge with a clock, its battery out of RomM's zip");
+        check(!takes(answer("Pokemon Red.srm", {}), false, gb), "Game Boy: an empty file refused");
+        check(!takes(answer("Pokemon Red.srm", std::vector<uint8_t>(32768, 0xFF)), false, gb),
+              "Game Boy: one that holds no save refused");
+        const OwnForm psx = form("pcsx_rearmed", "psx", "Crash.chd", false);
+        check(takes(answer("Crash.srm", marked(131072, "MC")), false, psx),
+              "PlayStation: a 128 KB card marked MC");
+        check(!takes(answer("Crash.srm", marked(65536, "MC")), false, psx) &&
+                  !takes(answer("Crash.srm", unmarked(131072)), false, psx) &&
+                  !takes(answer("Crash.srm", {}), false, psx),
+              "PlayStation: wrong size, no mark, empty: refused");
+        const OwnForm sat = form("beetle_saturn", "saturn", "Rally.chd", false);
+        check(takes(answer("Rally.srm", marked(32768, "BackUpRam Format")), false, sat) &&
+                  !takes(answer("Rally.srm", marked(65536, "BackUpRam Format")), false, sat) &&
+                  !takes(answer("Rally.srm", unmarked(32768)), false, sat) &&
+                  !takes(answer("Rally.srm", {}), false, sat),
+              "Saturn: 32 KB marked BackUpRam Format; wrong size, no mark, empty refused");
+        const OwnForm n64 = form("mupen64plus", "n64", "Wave Race.v64", false);
+        check(takes(answer("Wave Race.srm", unmarked(296960)), false, n64) &&
+                  !takes(answer("Wave Race.srm", unmarked(32768)), false, n64) &&
+                  !takes(answer("Wave Race.srm", {}), false, n64),
+              "N64: 296960 bytes; wrong size, empty refused");
+        check(!takes(zipped({"a.srm", unmarked(512)}), true, form("snes9x", "snes", "M.sfc", false)),
+              "a battery handed over as stored that is a zip: refused, the console converts "
+              "nothing");
+
+        // The files a core writes.
+        std::vector<uint8_t> vmu(131072, 0x00);
+        for (int i = 0; i < 16; ++i) vmu[255 * 512 + i] = 0x55;
+        vmu[253 * 512] = 0x33;
+        const OwnForm dc = form("flycast", "dc", "Ikaruga (Japan).chd", false);
+        check(dc.form.options.size() == 1 && dc.form.options[0].second == "VMU A1",
+              "Dreamcast is asked for one card per game");
+        check(takes(answer("T38706M.A1.bin", vmu), false, dc, &out) && out == vmu,
+              "Dreamcast: RomM's card under the disc's number is the game's card");
+        std::vector<uint8_t> noRoot = vmu;
+        noRoot[255 * 512] = 0;
+        std::vector<uint8_t> noFile = vmu;
+        noFile[253 * 512] = 0;
+        check(!takes(answer("T38706M.A1.bin", std::vector<uint8_t>(vmu.begin(), vmu.begin() + 65536)),
+                     false, dc) &&
+                  !takes(answer("T38706M.A1.bin", noRoot), false, dc) &&
+                  !takes(answer("T38706M.A1.bin", noFile), false, dc) &&
+                  !takes(answer("T38706M.A1.bin", {}), false, dc),
+              "Dreamcast: wrong size, no root mark, no file on it, empty: refused");
+        const std::string format = std::string("SEGA_CD_ROM\0\1\0\0\0RAM_CARTRIDGE___", 32);
+        auto brm = [&](size_t n) {
+            std::vector<uint8_t> b = unmarked(n);
+            std::copy(format.begin(), format.end(), b.end() - 32);
+            return b;
+        };
+        const OwnForm scd = form("genesis_plus_gx", "segacd", "Lunar.chd", false);
+        check(takes(zipped({"Lunar.brm", brm(8192)}, {"Lunar_4Mbit_cart.brm", brm(524288)}),
+                    false, scd, &out),
+              "Sega CD: the backup memory and the cartridge out of RomM's zip");
+        std::vector<cab::ZipFile> files;
+        std::string zerr;
+        check(cab::readZip(out, &files, &zerr) && files.size() == 2 &&
+                  files[0].relPath == "Lunar.brm" && files[1].relPath == "4Mbit_cart.brm",
+              "each under the name this console's core reads it at");
+        check(takes(answer("Lunar.brm", brm(8192)), false, scd, &out) && out == brm(8192),
+              "Sega CD: the backup memory alone, as it is");
+        check(takes(answer("Lunar_4Mbit_cart.brm", brm(524288)), false, scd, &out) &&
+                  cab::readZip(out, &files, &zerr) && files.size() == 1 &&
+                  files[0].relPath == "4Mbit_cart.brm",
+              "Sega CD: the cartridge alone, a zip of one under its own name, never read as the "
+              "backup memory");
+        check(scd.form.options.size() == 2 &&
+                  form("pcsx2", "ps2", "B.chd", false).form.options.size() == 1 &&
+                  form("ppsspp", "psp", "", true).form.options.empty(),
+              "the options a request names: Sega CD's memory and cartridge per game, PS2's card "
+              "per game, none for the rest");
+        check(!takes(answer("Lunar.brm", brm(16384)), false, scd) &&
+                  !takes(answer("Lunar.brm", unmarked(8192)), false, scd) &&
+                  !takes(answer("Lunar.brm", {}), false, scd),
+              "Sega CD: wrong size, no format block, empty: refused");
+        const OwnForm ps2 = form("pcsx2", "ps2", "Burnout 3.chd", false);
+        const std::string ps2Mark = "Sony PS2 Memory Card Format ";
+        check(takes(answer("Burnout 3.ps2", marked(8650752, ps2Mark)), false, ps2) &&
+                  !takes(answer("Burnout 3.ps2", marked(8388608, ps2Mark)), false, ps2) &&
+                  !takes(answer("Burnout 3.ps2", unmarked(8650752)), false, ps2) &&
+                  !takes(answer("Burnout 3.ps2", {}), false, ps2),
+              "PlayStation 2: an 8 MB card with its ECC, formatted; wrong size, no mark, "
+              "empty refused");
+        const OwnForm ngp = form("beetle_ngp", "neo-geo-pocket-color", "Metal Slug.ngc", false);
+        check(takes(answer("", marked(272, std::string("\x53\x00", 2))), true, ngp, &out) &&
+                  !takes(answer("", unmarked(272)), true, ngp) &&
+                  !takes(answer("", {}), true, ngp),
+              "Neo Geo Pocket, handed over as stored: the flash file's id; no id, empty refused");
+        const OwnForm nds = form("melonds", "nds", "Contra 4.nds", false);
+        check(takes(answer("", unmarked(512)), true, nds) &&
+                  !takes(answer("", unmarked(512 + 122)), true, nds) &&
+                  !takes(answer("", {}), true, nds),
+              "DS: a cartridge's size; DeSmuME's 122 more bytes, empty refused");
+        // Handed over as stored (no path in the emulator's folder, or asked
+        // plainly): where Sigil names a difference, and for a folder, only
+        // what this core made, by RomM's `may_load`.
+        check(!takes(answer("", unmarked(512)), false, nds, nullptr, "desmume") &&
+                  takes(answer("", unmarked(512)), false, nds, nullptr, "melonDS") &&
+                  takes(answer("", unmarked(512)), false, nds, nullptr, "melonds-native") &&
+                  !takes(answer("", unmarked(512)), false, nds, nullptr, "melonds", "desmume"),
+              "DS handed over as stored: used only when melonDS made it, the core first");
+        check(takes(answer("", unmarked(8192)), false, form("fceumm", "nes", "K.nes", false),
+                    nullptr, "nestopia"),
+              "NES handed over as stored: another emulator's used, Sigil names no difference");
+        check(takes(answer("Contra 4.sav", unmarked(512)), false, nds, nullptr, "desmume"),
+              "DS converted by RomM (a path in the emulator's folder): used, whoever made it");
+        const OwnForm opera = form("opera", "3do", "Gex.chd", false);
+        const std::string label("\x01\x5a\x5a\x5a\x5a\x5a", 6);
+        check(takes(answer("", marked(32768, label)), true, opera) &&
+                  !takes(answer("", marked(16384, label)), true, opera) &&
+                  !takes(answer("", unmarked(32768)), true, opera) &&
+                  !takes(answer("", {}), true, opera),
+              "3DO: 32 KB with Opera's volume label; wrong size, no label, empty refused");
+
+        // Folders: RomM's paths under the emulator's own save folder.
+        auto sfo = [&](size_t n) { return marked(n, std::string("\0PSF", 4)); };
+        const OwnForm psp = form("ppsspp", "psp", "", true);
+        check(takes(zipped({"PSP/SAVEDATA/ULUS10002LUMINES/PARAM.SFO", sfo(4912)},
+                            {"PSP/SAVEDATA/ULUS10002LUMINES/DATA.BIN", unmarked(64)}),
+                    false, psp, &out) &&
+                  cab::readZip(out, &files, &zerr) && files.size() == 2 &&
+                  files[0].relPath == "ULUS10002LUMINES/PARAM.SFO",
+              "PSP: the save folders under PSP/SAVEDATA, as this console's zip has them");
+        check(!takes(zipped({"PSP/SAVEDATA/ULUS10002LUMINES/PARAM.SFO", unmarked(4912)}),
+                     false, psp) &&
+                  !takes(zipped({"elsewhere/PARAM.SFO", sfo(4912)}), false, psp) &&
+                  !takes(answer("", {}), false, psp),
+              "PSP: a PARAM.SFO without its mark, a file outside PSP/SAVEDATA, empty: refused");
+        const OwnForm gc = form("dolphin", "ngc", "", true);
+        std::vector<uint8_t> gci = unmarked(64 + 8192 * 4);
+        gci[0] = 'G'; gci[1] = 'I'; gci[2] = 'K'; gci[3] = 'E';
+        check(takes(answer("User/GC/USA/Card A/70-GIKE-ikaruga_save_data.gci", gci), false, gc,
+                    &out) &&
+                  cab::readZip(out, &files, &zerr) && files.size() == 1 &&
+                  files[0].relPath == "70-GIKE-ikaruga_save_data.gci",
+              "GameCube: RomM's one .gci, as a zip of the folder's files");
+        std::vector<uint8_t> noCode = gci;
+        noCode[0] = 0xFF;
+        check(!takes(answer("User/GC/USA/Card A/x.gci", std::vector<uint8_t>(gci.begin(), gci.end() - 100)),
+                     false, gc) &&
+                  !takes(answer("User/GC/USA/Card A/x.gci", noCode), false, gc) &&
+                  !takes(answer("User/GC/USA/Card A/x.gci", {}), false, gc),
+              "GameCube: no whole blocks, no game's code, empty: refused");
+        const OwnForm wiiForm = form("dolphin", "wii", "", true);
+        check(takes(zipped({"User/Wii/title/00010001/57545245/data/savefile.dat", unmarked(512)}),
+                    false, wiiForm) &&
+                  !takes(zipped({"User/Wii/title/00010001/57545245/content/x.app", unmarked(512)}),
+                         false, wiiForm) &&
+                  !takes(answer("", {}), false, wiiForm),
+              "Wii: a title's data folder; anything else, empty: refused");
+        const std::string sd(32, '0');
+        const OwnForm n3ds = form("azahar", "3ds", "", true);
+        check(takes(zipped({"sdmc/Nintendo 3DS/" + sd + "/" + sd +
+                                 "/title/00040000/00049000/data/00000001/n640.sav",
+                             unmarked(428)}),
+                    false, n3ds) &&
+                  !takes(zipped({"sdmc/Nintendo 3DS/" + sd + "/n640.sav", unmarked(428)}), false,
+                         n3ds) &&
+                  !takes(answer("", {}), false, n3ds),
+              "3DS: a title's save on the SD card; anything else, empty: refused");
+        const OwnForm sw = form("eden", "switch", "", true);
+        check(sw.form.profile.size() == 32 &&
+                  takes(zipped({"nand/user/save/0000000000000000/" + sw.form.profile +
+                                     "/0100AC10085CE000/save.dat",
+                                 unmarked(64)}),
+                        false, sw, &out) &&
+                  cab::readZip(out, &files, &zerr) &&
+                  files[0].relPath == "0100AC10085CE000/save.dat" &&
+                  !takes(zipped({"nand/user/save/0000000000000000/" + sw.form.profile +
+                                      "/save.dat",
+                                  unmarked(64)}),
+                         false, sw) &&
+                  !takes(answer("", {}), false, sw),
+              "Switch: the title's folder under the console's one profile; anything else, "
+              "empty: refused");
+        check(!takes(zipped({"0100AC10085CE000/save.dat", unmarked(64)}), true, sw, nullptr,
+                     "Ryujinx") &&
+                  takes(zipped({"0100AC10085CE000/save.dat", unmarked(64)}), true, sw, nullptr,
+                        "Eden"),
+              "a folder handed over as stored: only one this emulator made, as it is");
+        const OwnForm wiiu = form("cemu", "wiiu", "", true);
+        check(takes(zipped({"mlc01/usr/save/00050000/1016e100/user/80000001/saveData.bin",
+                             unmarked(64)},
+                            {"mlc01/usr/save/00050000/1016e100/meta/meta.xml", unmarked(64)}),
+                    false, wiiu) &&
+                  !takes(zipped({"mlc01/usr/save/00050000/1016e100/x.bin", unmarked(64)}),
+                         false, wiiu) &&
+                  !takes(answer("", {}), false, wiiu),
+              "Wii U: a title's user and meta folders; anything else, empty: refused");
+        const OwnForm ps3 = form("rpcs3", "ps3", "", true);
+        check(takes(zipped({"dev_hdd0/home/00000001/savedata/NPUB30046-SAVE/PARAM.SFO", sfo(64)}),
+                    false, ps3) &&
+                  !takes(zipped({"dev_hdd0/home/00000001/savedata/NPUB30046-SAVE/PARAM.SFO",
+                                  unmarked(64)}),
+                         false, ps3) &&
+                  !takes(answer("", {}), false, ps3),
+              "PS3: save folders with PARAM.SFO; one without its mark, empty: refused");
+        const OwnForm vita = form("vita3k", "psvita", "", true);
+        check(takes(zipped({"ux0/user/00/savedata/PCSE00640/sdslot.dat", unmarked(64)}), false,
+                    vita) &&
+                  !takes(zipped({"ux0/user/00/sdslot.dat", unmarked(64)}), false, vita) &&
+                  !takes(answer("", {}), false, vita),
+              "PS Vita: the game's save folders; anything else, empty: refused");
+    }
+
+    // ANOTHER APP'S SAVE IN NO CHANNEL, PUT IN PLACE (#346, step 8): the
+    // pill, no snapshot held, its row left as it is; and a start whose
+    // newest could not be used saying so.
+    std::printf("\nanother app's save at a start\n");
+    {
+        SaveFetch f;
+        f.romId = 990;
+        f.asked = f.listed = true;
+        f.mark = savemirror::mark();
+        f.pick.from = savepick::Pick::From::OtherRow;
+        f.pick.other = true;
+        f.pick.madeElsewhere = true;
+        f.pick.row.id = 77;
+        f.pick.row.fileName = "Game.srm";
+        f.pick.row.emulator = "sameboy";
+        f.picked = theirs;
+        f.converted = true;
+        catalog::SaveFile spec;
+        spec.path = "kof98.fs";
+        const std::string dir = storage::savesDir(u, "FBNEO", 990, "fbneo");
+        StartNotes n;
+        restoreFileSaves({spec}, "kof98", dir, "fbneo-native", f, &n);
+        GameSession sess;
+        sess.romId = 990;
+        sess.saveTag = "fbneo-native";
+        const bool pill = noteStart(f, n, u, &sess);
+        savemirror::Held held;
+        check(cab::readBytes(dir + "/kof98.fs") == theirs && n.tookPick && pill &&
+                  !sess.couldNotUseNewest && sess.startSnapshotId == 0 &&
+                  !savemirror::getHeld(u, 990, &held) && !cache::isPushOwed(u, 990),
+              "another app's save in no channel: in place, with the pill; nothing held, its "
+              "row left as it is");
+        SaveFetch g;
+        g.romId = 990;
+        g.asked = g.listed = true;
+        g.mark = savemirror::mark();
+        g.pick.couldNotUseNewest = true;
+        GameSession again;
+        again.romId = 990;
+        check(!noteStart(g, StartNotes{}, u, &again) && again.couldNotUseNewest,
+              "one that could not be used: the console's own stands, and the session says so "
+              "(\"Couldn't use the newest save\")");
+    }
+
+    // RomM'S SHAPE FOR WII AND 3DS ZIPS (dirsave.h, ZipShape): Sigil's, and
+    // the folder's own read back from either.
+    std::printf("\nSigil's shape for Wii and 3DS saves\n");
+    {
+        using cab::ZipShape;
+        const std::vector<cab::ZipFile> wiiTree = {{"00010001/57545245/data/banner.bin", {1}},
+                                                    {"00010001/57545245/data/savefile.dat", {2}}};
+        const std::vector<cab::ZipFile> wiiUnit = cab::toZipShape(ZipShape::Wii, wiiTree);
+        check(wiiUnit.size() == 2 && wiiUnit[0].relPath == "57545245/data/banner.bin",
+              "Wii: a push holds <title>/data/..., without the kind folder above it");
+        check(cab::fromZipShape(ZipShape::Wii, wiiKindOf("0001000157545245"), wiiUnit)[1].relPath ==
+                      "00010001/57545245/data/savefile.dat" &&
+                  wiiKindOf("52474C45") == "00010000",
+              "and a start puts it back under the title's kind: WiiWare's, a disc's");
+        check(cab::fromZipShape(ZipShape::Wii, "00010000", wiiTree)[0].relPath ==
+                  wiiTree[0].relPath,
+              "a zip in the folder's own shape, from before, is read as it is");
+        const std::string sd(32, '0');
+        const std::vector<cab::ZipFile> tree = {
+            {sd + "/" + sd + "/title/00040000/00049000/data/00000001.metadata", {1}},
+            {sd + "/" + sd + "/title/00040000/00049000/data/00000001/n640.sav", {2}},
+            {sd + "/" + sd + "/extdata/00000000/00000490/user/x.dat", {3}}};
+        const std::vector<cab::ZipFile> unit = cab::toZipShape(ZipShape::ThreeDS, tree);
+        check(unit.size() == 3 && unit[0].relPath == "00040000/00049000/data/00000001.metadata" &&
+                  unit[2].relPath == "00040000/00049000/extdata/user/x.dat",
+              "3DS: a push holds <high>/<low>/data/... and the title's extra data");
+        const std::vector<cab::ZipFile> back = cab::fromZipShape(ZipShape::ThreeDS, "", unit);
+        check(back.size() == 3 && back[1].relPath == tree[1].relPath &&
+                  back[2].relPath == tree[2].relPath,
+              "and a start puts both back on the SD card");
+        std::vector<cab::ZipFile> stray = tree;
+        stray.push_back({sd + "/" + sd + "/extdata/00048000/f000000b/x", {4}});
+        check(cab::toZipShape(ZipShape::ThreeDS, stray)[0].relPath == stray[0].relPath,
+              "a 3DS save with a file Sigil's shape has no place for travels as the folder is, "
+              "nothing left out");
+        check(cab::fromZipShape(ZipShape::ThreeDS, "", tree)[0].relPath == tree[0].relPath,
+              "a 3DS zip from before is read as it is");
+        check(zipShapeOf("dolphin", "wii", "52474C45") == ZipShape::Wii &&
+                  zipShapeOf("azahar", "3ds", "") == ZipShape::ThreeDS &&
+                  zipShapeOf("ppsspp", "psp", "") == ZipShape::Folder,
+              "which systems' zips take Sigil's shape: Wii and 3DS");
     }
     std::printf("\n%s\n", failures ? "FAILED" : "passed");
     return failures ? 1 : 0;

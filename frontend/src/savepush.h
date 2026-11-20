@@ -10,7 +10,10 @@
 // as it is; several files as a zip, each under the path its core reads it
 // from; a save folder as the zip syncDirSave makes. Under the tag the core's
 // saves travel under (catalog::saveTag), which is what lets another console
-// use it as stored (savepick.h), and named after the game. Nothing changed
+// use it as stored (savepick.h), with the core's own name in Sigil's spelling
+// beside it (catalog::SaveForm; answer 7 of 2026-11-17), from which RomM
+// converts the save for another app (#346, step 8), and named after the
+// game. Nothing changed
 // means nothing sent. WITH ITS PICTURE, the game the moment it saved, when
 // the sitting took one (savepicture.h): RomM's `save_screenshot` part, which
 // RomM keeps with the save's row and its website shows on the channel's

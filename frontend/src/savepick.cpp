@@ -1,6 +1,8 @@
 #include "savepick.h"
 
 #include <algorithm>
+#include <cctype>
+#include <climits>
 #include <cstdio>
 #include <cstring>
 #include <map>
@@ -40,29 +42,40 @@ bool notesSayElsewhere(const Facts& f, const romm::Snapshot& s) {
 
 }  // namespace
 
-Pick pick(const Facts& f) {
+Pick pick(const Facts& f, bool others) {
     Pick p;
-    const romm::Channel* newest = nullptr;   // the newest save in any channel
-    const romm::Channel* usable = nullptr;   // the newest this console can use
+    // The newest save in a channel this console uses as stored, and the
+    // newest another emulator made; and the newest of another app's in no
+    // channel.
+    const romm::Channel* usable = nullptr;
+    const romm::Channel* otherCh = nullptr;
     for (const romm::Channel& c : f.channels) {
         if (!holdsSave(c)) continue;
+        const romm::Channel*& newest = c.current.save.emulator == f.tag ? usable : otherCh;
         if (!newest || madeAt(c) > madeAt(*newest)) newest = &c;
-        if (c.current.save.emulator != f.tag) continue;
-        if (!usable || madeAt(c) > madeAt(*usable)) usable = &c;
     }
+    const romm::Asset* otherRow = nullptr;
+    for (const romm::Asset& a : f.otherRows)
+        if (!otherRow || isoMicros(a.updatedAt) > isoMicros(otherRow->updatedAt)) otherRow = &a;
     const bool oldRows = !f.oldRowAt.empty();
     const int64_t oldAt = isoMicros(f.oldRowAt);
-    p.couldNotUseNewest = newest && newest->current.save.emulator != f.tag &&
-                          (!usable || madeAt(*newest) > madeAt(*usable)) &&
-                          (!oldRows || madeAt(*newest) > oldAt);
-    const std::string unusable =
-        p.couldNotUseNewest ? "; the newest on RomM, snapshot " +
-                                  std::to_string(newest->current.id) + " (" +
-                                  newest->current.save.emulator +
-                                  "), is another emulator's and is not used"
-                            : std::string();
+    constexpr int64_t kNone = INT64_MIN;
+    const int64_t ownNewest = std::max(usable ? madeAt(*usable) : kNone, oldRows ? oldAt : kNone);
+    const int64_t channelAt = otherCh ? madeAt(*otherCh) : kNone;
+    const int64_t rowAt = otherRow ? isoMicros(otherRow->updatedAt) : kNone;
+    // ANOTHER EMULATOR'S SAVE IS THE NEWEST: a channel's on a tie with a row,
+    // which is the row copied in; this console's own form on a tie with it.
+    const bool otherNewest = std::max(channelAt, rowAt) != kNone &&
+                             std::max(channelAt, rowAt) > ownNewest;
+    const bool otherInChannel = otherNewest && channelAt >= rowAt;
+    const std::string otherWords =
+        !otherNewest ? std::string()
+        : otherInChannel ? "snapshot " + std::to_string(otherCh->current.id) + " (" +
+                               otherCh->current.save.emulator + ")"
+                         : "save " + std::to_string(otherRow->id) + " (" + otherRow->emulator +
+                               "), in no channel";
     if (f.owed) {
-        p.why = "a save of this game has not reached RomM yet; this console's stands" + unusable;
+        p.why = "a save of this game has not reached RomM yet; this console's stands";
         return p;
     }
     // A save made before one of this console's own that RomM kept beside a
@@ -70,6 +83,32 @@ Pick pick(const Facts& f) {
     const int64_t ownAt = f.haveHeld && f.held.beside ? f.held.madeAt * 1000000 : 0;
     const char* older = "; RomM kept this console's own save beside a channel's current, and "
                         "the newest it could use was made before it";
+    if (others && otherNewest) {
+        if (std::max(channelAt, rowAt) < ownAt) {
+            p.why = "this console's own save stands" + std::string(older);
+            return p;
+        }
+        p.other = true;
+        if (otherInChannel) {
+            p.from = Pick::From::Channel;
+            p.channel = *otherCh;
+            p.madeElsewhere = notesSayElsewhere(f, otherCh->current);
+        } else {
+            p.from = Pick::From::OtherRow;
+            p.row = *otherRow;
+            // Never a CabinetOS console's: every one files its saves under
+            // the tag. Said even when the row names no device.
+            p.madeElsewhere = true;
+        }
+        p.why = otherWords + " is the newest save on RomM, another emulator's: asked in this "
+                             "console's own form";
+        return p;
+    }
+    // Left out: the newest was another emulator's and could not be used.
+    p.couldNotUseNewest = otherNewest;
+    const std::string unusable =
+        p.couldNotUseNewest ? "; the newest on RomM, " + otherWords + ", could not be used"
+                            : std::string();
     // A channel's save against the saves from before channels: the one RomM
     // took later. On a tie the channel's, which is the old save copied in.
     if (usable && (!oldRows || madeAt(*usable) >= oldAt)) {
@@ -99,7 +138,27 @@ Pick pick(const Facts& f) {
 }
 
 bool continuingElsewhere(const Pick& pick, bool sameAsOwn) {
-    return pick.from == Pick::From::Channel && pick.madeElsewhere && !sameAsOwn;
+    return (pick.from == Pick::From::Channel || pick.from == Pick::From::OtherRow) &&
+           pick.madeElsewhere && !sameAsOwn;
+}
+
+std::vector<romm::Asset> otherRows(const std::vector<romm::Asset>& rows, const std::string& tag) {
+    std::vector<romm::Asset> out;
+    for (const romm::Asset& a : rows)
+        if (a.channelId.empty() && a.emulator != tag) out.push_back(a);
+    return out;
+}
+
+bool mayLoad(const std::string& emulator, const std::string& core, const std::string& tag,
+             const std::string& sigil) {
+    auto lower = [](std::string s) {
+        for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        return s;
+    };
+    if (!core.empty() && !sigil.empty()) return lower(core) == lower(sigil);
+    if (!emulator.empty() && (!tag.empty() || !sigil.empty()))
+        return lower(emulator) == lower(tag) || lower(emulator) == lower(sigil);
+    return true;
 }
 
 savemirror::Held heldAfter(const savemirror::Held& before, const std::string& channelId,
@@ -131,6 +190,7 @@ std::string pickedAt(const Pick& pick, const std::string& oldRowAt) {
     switch (pick.from) {
         case Pick::From::Channel: return savedAt(pick.channel.current);
         case Pick::From::OldRows: return oldRowAt;
+        case Pick::From::OtherRow: return pick.row.updatedAt;
         case Pick::From::Own: break;
     }
     return std::string();
@@ -354,9 +414,9 @@ int test() {
         check(pick(f).from == From::Own,
               "a local save still owed, RomM's from before channels: this console's stands");
         f.channels = {channelWith("default", 40, t3, kPhoneTag, "ffff", "argosy", {"argosy"})};
-        check(pick(f).from == From::Own && pick(f).couldNotUseNewest,
+        check(pick(f).from == From::Own && !pick(f).other && !pick(f).couldNotUseNewest,
               "a local save still owed, another emulator's the newest: this console's stands, "
-              "and the session still knows the newest could not be used");
+              "and nothing was turned down: its push goes by when each was made");
     }
     {   // 5b. A save of this console's own that RomM kept beside a channel's
         //     current (savepush.h): nothing made before it is started from.
@@ -383,12 +443,21 @@ int test() {
               "with the pill");
         f.channels = {channelWith("default", 40, t3, kPhoneTag, "ffff", "argosy", {"argosy"}),
                       channelWith("softcore", 12, t1, kTag, "aaaa", console, {console})};
-        const Pick stays = pick(f);
-        check(stays.from == From::Own && stays.couldNotUseNewest,
-              "a save of its own kept beside a newest it could not use: its own stands, never "
-              "the older one it could use");
+        const Pick asks = pick(f);
+        check(asks.other && asks.from == From::Channel && asks.channel.current.id == 40,
+              "a save of its own kept beside, another emulator's made later: that one is asked "
+              "for (#346, step 8)");
+        f.channels[0].current.createdAt = "2026-11-18T20:30:00+00:00";   // between t1 and t2
+        check(!pick(f).other && pick(f).from == From::Own,
+              "a save of its own kept beside, another emulator's newer than what it could use "
+              "but made before its own: its own stands, nothing asked");
+        f.channels[0].current.createdAt = t3;
+        const Pick stays = pick(f, false);
+        check(stays.from == From::Own && stays.couldNotUseNewest && !stays.other,
+              "and when it could not be used: its own stands, never the older one it could use");
         f.held.beside = false;
-        check(pick(f).from == From::Channel && pick(f).channel.current.id == 12,
+        check(pick(f, false).from == From::Channel && pick(f, false).channel.current.id == 12 &&
+                  pick(f, false).couldNotUseNewest,
               "the same lists for a console whose save is not beside anything: the newest it "
               "can use, as before");
     }
@@ -438,20 +507,80 @@ int test() {
         Facts f;
         f.tag = kTag;
         f.channels = {channelWith("default", 40, t3, kPhoneTag, "ffff", "argosy", {"argosy"})};
-        const Pick alone = pick(f);
-        check(alone.from == From::Own && alone.couldNotUseNewest,
-              "another emulator's save, alone: this console's stands, and the session knows");
+        const Pick asked = pick(f);
+        check(asked.other && asked.from == From::Channel && asked.channel.current.id == 40 &&
+                  asked.madeElsewhere && !asked.couldNotUseNewest,
+              "another emulator's save, the newest: it is asked for in this console's form, "
+              "and it was made elsewhere (#346, step 8)");
+        const Pick alone = pick(f, false);
+        check(alone.from == From::Own && alone.couldNotUseNewest && !alone.other,
+              "and when it could not be used, alone: this console's stands, and the session "
+              "knows");
         f.oldRowAt = t1;
-        const Pick withOld = pick(f);
+        const Pick withOld = pick(f, false);
         check(withOld.from == From::OldRows && withOld.couldNotUseNewest,
-              "another emulator's save newest: the console's own from before channels");
+              "could not be used: the console's own from before channels");
         f.channels.push_back(channelWith("softcore", 12, t2, kTag, "aaaa", console, {console}));
-        const Pick withOwn = pick(f);
+        const Pick withOwn = pick(f, false);
         check(withOwn.from == From::Channel && withOwn.channel.current.id == 12 &&
                   withOwn.couldNotUseNewest,
-              "another emulator's save newest: the newest this console can use");
+              "could not be used: the newest this console can use");
         f.channels[0].current.createdAt = t1;
-        check(!pick(f).couldNotUseNewest, "another emulator's save, older: nothing to say");
+        check(!pick(f).other && !pick(f).couldNotUseNewest && pick(f).channel.current.id == 12,
+              "another emulator's save, older: nothing asked, nothing to say");
+        f.channels[0].current.createdAt = t2;
+        check(!pick(f).other && pick(f).channel.current.id == 12,
+              "made at the same moment as this console's: this console's, which needs no "
+              "asking");
+    }
+    {   // 9b. ANOTHER APP'S SAVE IN NO CHANNEL (#346, step 8; MMagTech,
+        //     2026-11-19): weighed as a channel's is.
+        auto row = [](int id, const char* emulator, const char* at) {
+            romm::Asset a;
+            a.id = id;
+            a.fileName = "Game.srm";
+            a.emulator = emulator;
+            a.updatedAt = at;
+            return a;
+        };
+        const std::vector<romm::Asset> rows = {row(70, "sameboy", t3), row(71, kTag, t1),
+                                               [&] { romm::Asset a = row(72, "gambatte", t3);
+                                                     a.channelId = "channel-x";
+                                                     return a; }()};
+        const std::vector<romm::Asset> others = otherRows(rows, kTag);
+        check(others.size() == 1 && others[0].id == 70,
+              "another app's saves in no channel: not this console's tag, and not a snapshot's");
+        Facts f;
+        f.tag = kTag;
+        f.otherRows = others;
+        f.oldRowAt = t1;
+        const Pick p = pick(f);
+        check(p.other && p.from == From::OtherRow && p.row.id == 70 && p.madeElsewhere &&
+                  pickedAt(p, f.oldRowAt) == t3,
+              "another app's save in no channel, the newest: asked for, made elsewhere");
+        check(continuingElsewhere(p, false) && !continuingElsewhere(p, true),
+              "its pill, never when it is what this console already had");
+        check(pick(f, false).from == From::OldRows && pick(f, false).couldNotUseNewest,
+              "and when it could not be used: this console's own, saying so");
+        f.channels = {channelWith("default", 40, t3, kPhoneTag, "ffff", "argosy", {"argosy"})};
+        check(pick(f).from == From::Channel && pick(f).channel.current.id == 40,
+              "a channel's and a row's made at the same moment: the channel's");
+        f.channels = {channelWith("default", 12, t3, kTag, "aaaa", console, {console})};
+        check(!pick(f).other && pick(f).from == From::Channel,
+              "this console's own as new: this console's");
+        f.owed = true;
+        check(pick(f).from == From::Own && !pick(f).other, "one still owed stands");
+    }
+    {   // 9c. RomM's rule for who may load a save as stored (mayLoad).
+        check(mayLoad("melonds-native", "melonds", "melonds-native", "melonds"),
+              "may load: the same core");
+        check(!mayLoad("desmume", "desmume", "melonds-native", "melonds"),
+              "may not: another core");
+        check(mayLoad("melonDS", "", "melonds-native", "melonds") &&
+                  mayLoad("MELONDS-NATIVE", "", "melonds-native", "melonds"),
+              "no core named: by the emulator, either of this console's names, any case");
+        check(!mayLoad("nds", "", "melonds-native", "melonds"), "may not: another emulator");
+        check(mayLoad("", "", "melonds-native", "melonds"), "neither named: may, as RomM's");
     }
 
     {   // 10. A current that changed only its states carries an older save

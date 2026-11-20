@@ -52,8 +52,7 @@ namespace cab {
 // One of a game's save files as this console is tracking it across a session.
 struct FileSaveState {
     catalog::SaveFile spec;
-    // Where the core actually reads and writes it, resolved against the save
-    // directory or the system directory before the game was loaded.
+    // Where the core actually reads and writes it, in this game's save folder.
     std::string path;
     // The bytes that were there once the restore had run and before the game
     // had a chance to write anything. Empty means there was no file at all,
@@ -66,9 +65,8 @@ struct FileSaveState {
     // than an empty row.
     bool hadOne = false;
     // The file on this console that holds `atLaunch`, for the snapshot pushed
-    // when the game is left (savepush.h): the one the core wrote, or this
-    // person's copy of a card the core keeps in the system directory. Empty
-    // when there is no file.
+    // when the game is left (savepush.h): the one the core wrote. Empty when
+    // there is no file.
     std::string kept;
 };
 
@@ -77,12 +75,22 @@ struct FileSaveState {
 // is what it is.
 bool holdsASave(const std::vector<uint8_t>& data, catalog::Untouched rule);
 
+// WHETHER ANOTHER EMULATOR'S SAVE IS A FILE THIS CORE READS (#346, step 8;
+// decided 2026-10-12): a size `check` allows, the marks it names, and
+// something a game wrote (holdsASave by `rule`), which an empty file never
+// holds. Why not, in `why`.
+bool passesCheck(const std::vector<uint8_t>& data, const catalog::SaveCheck& check,
+                 catalog::Untouched rule, std::string* why);
+
 // The file the core actually left, which is not always the name we predicted:
-// with per-game VMUs on, Flycast prefixes the disc's own id. Returns the
-// spec's own path when there is no scan to do, and the empty string when
-// nothing is there.
-//
-// `dir` is the directory `path` sits in; the scan never leaves it.
+// Flycast names a game's card after the disc's product number. Returns the
+// spec's own path when there is no scan to do, the newest file the core wrote
+// when it names the file itself (catalog::SaveFile::coreNamesItself), and the
+// empty string when nothing is there. The scan never leaves `path`'s folder.
 std::string writtenFile(const catalog::SaveFile& spec, const std::string& path);
+// Removes every file in `path`'s folder that the scan above would find, but
+// `path`: for a core that names the file itself, which would read one of
+// those before `path`.
+void removeOtherCaptures(const catalog::SaveFile& spec, const std::string& path);
 
 }  // namespace cab

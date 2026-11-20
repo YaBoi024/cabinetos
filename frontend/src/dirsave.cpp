@@ -8,8 +8,10 @@
 #include <sys/types.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cerrno>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <utility>
 
@@ -438,6 +440,98 @@ bool zipNameMarks(const std::vector<uint8_t>& zip, std::map<std::string, bool>* 
         at = next;
     }
     return true;
+}
+
+namespace {
+
+bool hexRun(const std::string& s, size_t from, size_t n) {
+    if (s.size() < from + n) return false;
+    for (size_t i = from; i < from + n; ++i)
+        if (!std::isxdigit(static_cast<unsigned char>(s[i]))) return false;
+    return true;
+}
+
+// The SD card's `<id0>/<id1>/`: two runs of 32 hex digits. This console's
+// Azahar has one SD card, all zeros.
+bool sdCardIds(const std::string& p) {
+    return hexRun(p, 0, 32) && p.size() > 66 && p[32] == '/' && hexRun(p, 33, 32) && p[65] == '/';
+}
+
+}  // namespace
+
+std::vector<ZipFile> toZipShape(ZipShape shape, std::vector<ZipFile> files) {
+    if (shape == ZipShape::Folder) return files;
+    std::vector<ZipFile> out;
+    if (shape == ZipShape::Wii) {
+        // `<kind>/<title>/data/...` to `<title>/data/...`.
+        for (const ZipFile& f : files) {
+            if (!hexRun(f.relPath, 0, 8) || f.relPath.size() < 23 || f.relPath[8] != '/' ||
+                !hexRun(f.relPath, 9, 8) || f.relPath.compare(17, 6, "/data/") != 0)
+                return files;
+            out.push_back({f.relPath.substr(9), f.bytes});
+        }
+        return out;
+    }
+    // 3DS: the title the save's data belongs to, then each file under it.
+    std::string high, low;
+    for (const ZipFile& f : files)
+        if (sdCardIds(f.relPath) && f.relPath.compare(66, 6, "title/") == 0 &&
+            hexRun(f.relPath, 72, 8) && hexRun(f.relPath, 81, 8)) {
+            if (!high.empty() && (high != f.relPath.substr(72, 8) || low != f.relPath.substr(81, 8)))
+                return files;   // two titles: Sigil's unit holds one
+            high = f.relPath.substr(72, 8);
+            low = f.relPath.substr(81, 8);
+        }
+    if (high.empty()) return files;
+    char ext[17];
+    std::snprintf(ext, sizeof ext, "%08lx", std::strtoul(low.c_str(), nullptr, 16) >> 8);
+    const std::string titleAt = "title/" + high + "/" + low + "/data/";
+    const std::string extAt = "extdata/00000000/" + std::string(ext) + "/";
+    for (const ZipFile& f : files) {
+        if (!sdCardIds(f.relPath)) return files;
+        const std::string rest = f.relPath.substr(66);
+        if (rest.compare(0, titleAt.size(), titleAt) == 0)
+            out.push_back({high + "/" + low + "/data/" + rest.substr(titleAt.size()), f.bytes});
+        else if (rest.compare(0, extAt.size(), extAt) == 0)
+            out.push_back({high + "/" + low + "/extdata/" + rest.substr(extAt.size()), f.bytes});
+        else
+            return files;
+    }
+    return out;
+}
+
+std::vector<ZipFile> fromZipShape(ZipShape shape, const std::string& wiiKind,
+                                  std::vector<ZipFile> files) {
+    if (shape == ZipShape::Folder || files.empty()) return files;
+    std::vector<ZipFile> out;
+    if (shape == ZipShape::Wii) {
+        // `<title>/data/...` is Sigil's; `<kind>/<title>/data/...` the folder's.
+        for (const ZipFile& f : files) {
+            const bool sigil = hexRun(f.relPath, 0, 8) && f.relPath.compare(8, 6, "/data/") == 0;
+            if (!sigil) return files;
+            out.push_back({wiiKind + "/" + f.relPath, f.bytes});
+        }
+        return out;
+    }
+    // 3DS: `<high>/<low>/data|extdata/...` is Sigil's; the folder's starts
+    // with the SD card's ids.
+    const std::string sd(32, '0');
+    for (const ZipFile& f : files) {
+        const std::string& p = f.relPath;
+        if (p.size() < 18) return files;
+        const std::string high = p.substr(0, 8), low = p.substr(9, 8), rest = p.substr(18);
+        if (rest.compare(0, 5, "data/") == 0) {
+            out.push_back({sd + "/" + sd + "/title/" + high + "/" + low + "/" + rest, f.bytes});
+        } else if (rest.compare(0, 8, "extdata/") == 0) {
+            char ext[17];
+            std::snprintf(ext, sizeof ext, "%08lx", std::strtoul(low.c_str(), nullptr, 16) >> 8);
+            out.push_back({sd + "/" + sd + "/extdata/00000000/" + ext + "/" + rest.substr(8),
+                           f.bytes});
+        } else {
+            return files;
+        }
+    }
+    return out;
 }
 
 }  // namespace cab

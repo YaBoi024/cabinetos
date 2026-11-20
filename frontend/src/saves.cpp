@@ -2,6 +2,7 @@
 
 #include <sys/stat.h>
 
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -17,8 +18,17 @@
 #include "savemirror.h"
 #include "savepush.h"
 #include "storage.h"
+#include "wii.h"
 
 using From = savepick::Pick::From;
+
+// The pick's save comes as `picked`: a channel's, or another app's in no
+// channel (#346, step 8).
+static bool usesPicked(From f) { return f == From::Channel || f == From::OtherRow; }
+static std::string pickedName(const SaveFetch& f) {
+    return f.pick.from == From::OtherRow ? f.pick.row.fileName
+                                         : f.pick.channel.current.save.fileName;
+}
 
 // RomM'S SAVES FROM BEFORE CHANNELS FOR A GAME, OR THE COPY OF THEM (#88,
 // savemirror.h). Online: asked, and the copy refreshed. Offline: the copy, as
@@ -161,11 +171,276 @@ void listSaves(romm::Client& client, const storage::User& user, int romId, int c
     savepick::dateSaves(&facts.channels, out->rows);
     if (const romm::Asset* newest = savepick::newestOldRow(out->rows, tag))
         facts.oldRowAt = newest->updatedAt;
+    facts.otherRows = savepick::otherRows(out->rows, tag);
     facts.owed = cache::saveOwed(user, romId);
     facts.haveHeld = savemirror::getHeld(user, romId, &facts.held);
     out->oldRowAt = facts.oldRowAt;
+    out->facts = facts;
     out->pick = savepick::pick(facts);
     std::fprintf(stderr, "[save] game %d: %s\n", romId, out->pick.why.c_str());
+}
+
+namespace {
+
+bool startsWith(const std::string& s, const std::string& prefix) {
+    return s.compare(0, prefix.size(), prefix) == 0;
+}
+
+bool isHex(const std::string& s, size_t from, size_t n) {
+    if (s.size() < from + n) return false;
+    for (size_t i = from; i < from + n; ++i)
+        if (!std::isxdigit(static_cast<unsigned char>(s[i]))) return false;
+    return true;
+}
+
+// `path` with `root` taken off its front, each `*` in `root` one folder of
+// any name; false when `path` is not under it.
+bool underRoot(const std::string& root, const std::string& path, std::string* rest) {
+    size_t r = 0, p = 0;
+    while (r < root.size()) {
+        if (root[r] == '*') {
+            const size_t slash = path.find('/', p);
+            if (slash == std::string::npos || slash == p) return false;
+            p = slash;
+            ++r;
+            continue;
+        }
+        if (p >= path.size() || path[p] != root[r]) return false;
+        ++r;
+        ++p;
+    }
+    *rest = path.substr(p);
+    return !rest->empty();
+}
+
+bool sfoAt(const std::vector<cab::ZipFile>& files, const std::string& path) {
+    for (const cab::ZipFile& f : files)
+        if (f.relPath == path)
+            return f.bytes.size() >= 4 && std::memcmp(f.bytes.data(), "\0PSF", 4) == 0;
+    return false;
+}
+
+// A FOLDER SAVE IN THIS CONSOLE'S SHAPE FOR ITS SYSTEM (the head of
+// dirsave.h, and each emulator's own layout), the check of another
+// emulator's (#346, step 8): every file where the system keeps a save, with
+// the marks its format carries.
+bool folderFits(const OwnForm& own, const std::vector<cab::ZipFile>& files, std::string* why) {
+    const std::string& core = own.form.sigil;
+    auto no = [why](const std::string& w) {
+        *why = w;
+        return false;
+    };
+    if (files.empty()) return no("it holds no file");
+    for (const cab::ZipFile& f : files) {
+        const std::string& p = f.relPath;
+        const size_t slash = p.find('/');
+        const std::string top = slash == std::string::npos ? std::string() : p.substr(0, slash);
+        if (core == "ppsspp" || core == "rpcs3") {
+            // A PSP's or a PS3's save folder holds PARAM.SFO, which starts
+            // with `\0PSF`.
+            if (top.empty()) return no(p + " is in no save folder");
+            if (!sfoAt(files, top + "/PARAM.SFO")) return no(top + " holds no PARAM.SFO with its mark");
+        } else if (core == "dolphin" && own.platform == "ngc") {
+            // A GameCube save is a `.gci`: a 64-byte header, then whole
+            // 8 KB blocks, its game's four-letter code first.
+            if (!top.empty() || p.size() < 5 || p.compare(p.size() - 4, 4, ".gci") != 0)
+                return no(p + " is not a GameCube save");
+            if (f.bytes.size() < 64 + 8192 || (f.bytes.size() - 64) % 8192 != 0)
+                return no(p + " is " + std::to_string(f.bytes.size()) +
+                          " bytes, no size a GameCube save has");
+            for (int i = 0; i < 4; ++i)
+                if (!std::isalnum(f.bytes[i])) return no(p + " does not carry a game's code");
+        } else if (core == "dolphin") {
+            // Wii: `<kind>/<title>/data/...` under Dolphin's `title/`.
+            if (!isHex(p, 0, 8) || p.size() < 23 || p[8] != '/' || !isHex(p, 9, 8) ||
+                p.compare(17, 6, "/data/") != 0)
+                return no(p + " is not in a Wii title's data folder");
+        } else if (core == "azahar") {
+            // `<id0>/<id1>/title/<high>/<low>/data/...` or `.../extdata/...`
+            // under the SD card's `Nintendo 3DS/`.
+            if (!isHex(p, 0, 32) || p.size() < 66 || p[32] != '/' || !isHex(p, 33, 32) ||
+                p[65] != '/' ||
+                (!startsWith(p.substr(66), "title/") && !startsWith(p.substr(66), "extdata/")))
+                return no(p + " is not in a 3DS title's save");
+        } else if (core == "eden") {
+            if (!isHex(p, 0, 16) || p.size() < 18 || p[16] != '/')
+                return no(p + " is not in a Switch title's save folder");
+        } else if (core == "cemu") {
+            if (!isHex(p, 0, 8) || p.size() < 10 || p[8] != '/' ||
+                (!startsWith(p.substr(9), "user/") && !startsWith(p.substr(9), "meta/")))
+                return no(p + " is not in a Wii U title's save");
+        } else if (top.empty()) {
+            return no(p + " is in no save folder");
+        }
+    }
+    return true;
+}
+
+}  // namespace
+
+bool toOwnForm(const romm::SaveAnswer& answer, bool plain, const OwnForm& own,
+               const std::string& madeBy, const std::string& madeByCore,
+               std::vector<uint8_t>* out, std::string* why) {
+    out->clear();
+    const bool asStored =
+        plain || (answer.savePath.empty() && !cab::looksLikeZip(answer.bytes));
+    if (asStored && (own.form.sameCoreOnly || own.folder) &&
+        !savepick::mayLoad(madeBy, madeByCore, own.tag, own.form.sigil)) {
+        *why = "RomM hands it over as stored, and " + (madeBy.empty() ? "another" : madeBy) +
+               " made it, not this console's emulator";
+        return false;
+    }
+    // What RomM sent: a zip of several files by their paths in the
+    // emulator's save folder, or one file named by `X-Save-Path` (none when
+    // handed over as stored).
+    std::vector<cab::ZipFile> sent;
+    const bool zipped = cab::looksLikeZip(answer.bytes);
+    if (zipped) {
+        std::string zerr;
+        if (!cab::readZip(answer.bytes, &sent, &zerr)) {
+            *why = "RomM's answer would not unpack: " + zerr;
+            return false;
+        }
+    } else if (!answer.bytes.empty()) {
+        sent.push_back({answer.savePath, answer.bytes});
+    }
+    if (sent.empty()) {
+        *why = "RomM's answer is empty";
+        return false;
+    }
+    auto base = [](const std::string& p) { return p.substr(p.find_last_of('/') + 1); };
+    auto endsWith = [](const std::string& s, const std::string& end) {
+        return !end.empty() && s.size() >= end.size() &&
+               s.compare(s.size() - end.size(), end.size(), end) == 0;
+    };
+
+    // A FOLDER: each file under this console's root for it, the shape a
+    // push of its own makes. As stored, the paths are the other app's own.
+    if (own.folder) {
+        std::vector<cab::ZipFile> mine;
+        for (cab::ZipFile& f : sent) {
+            std::string rel = f.relPath;
+            if (!asStored && !own.form.answerRoot.empty() &&
+                !underRoot(own.form.answerRoot, f.relPath, &rel)) {
+                *why = f.relPath + " is outside where this emulator keeps its saves";
+                return false;
+            }
+            mine.push_back({rel, std::move(f.bytes)});
+        }
+        if (!folderFits(own, mine, why)) return false;
+        std::string zerr;
+        if (!cab::zipFiles(mine, out, &zerr)) {
+            *why = "could not zip it: " + zerr;
+            return false;
+        }
+        return true;
+    }
+
+    // THE BATTERY: the one file, or a clock's zip's `.srm`. The clock waits
+    // for its own step (#353).
+    if (own.files.empty()) {
+        if (asStored && zipped) {
+            *why = "it is a zip, and RomM converted nothing";
+            return false;
+        }
+        const cab::ZipFile* battery = sent.size() == 1 ? &sent.front() : nullptr;
+        for (const cab::ZipFile& f : sent)
+            if (sent.size() > 1 && endsWith(f.relPath, ".srm")) battery = &f;
+        if (!battery) {
+            *why = "RomM's answer holds no battery save";
+            return false;
+        }
+        if (!cab::passesCheck(battery->bytes, catalog::batteryCheck(own.platform),
+                              catalog::Untouched::Blank, why))
+            return false;
+        *out = battery->bytes;
+        return true;
+    }
+
+    // THE FILES A CORE WRITES, each found by the end of its name (the scan
+    // after a session uses the same: cab::writtenFile); a file handed over
+    // as stored is the core's first.
+    std::vector<cab::ZipFile> mine;
+    for (const catalog::SaveFile& spec : own.files) {
+        const cab::ZipFile* found = nullptr;
+        for (const cab::ZipFile& f : sent) {
+            const std::string name = base(f.relPath);
+            const bool fits =
+                asStored && !zipped
+                    ? &spec == &own.files.front()
+                    : !spec.captureSuffix.empty()
+                          ? endsWith(name, spec.captureSuffix) &&
+                                !endsWith(name, spec.captureExclude)
+                          : name == base(spec.path);
+            if (fits && !found) found = &f;
+        }
+        if (!found) continue;
+        std::string w;
+        if (!cab::passesCheck(found->bytes, spec.check, spec.untouched, &w)) {
+            *why = base(found->relPath) + ": " + w;
+            return false;
+        }
+        mine.push_back({spec.path, found->bytes});
+    }
+    if (mine.empty()) {
+        *why = "nothing in RomM's answer is a file this emulator reads";
+        return false;
+    }
+    // The first file alone as it is; else a zip, each under its path in the
+    // save folder, as a push of this console's makes them (savepush.h).
+    if (mine.size() == 1 && mine.front().relPath == own.files.front().path) {
+        *out = mine.front().bytes;
+        return true;
+    }
+    std::string zerr;
+    if (!cab::zipFiles(mine, out, &zerr)) {
+        *why = "could not zip it: " + zerr;
+        return false;
+    }
+    return true;
+}
+
+// ANOTHER EMULATOR'S SAVE, ASKED OF RomM IN THIS CONSOLE'S FORM AND CHECKED
+// (#346, step 8; decided 2026-10-12; savepick.h). Which systems convert is
+// RomM's own list: it converts a save through Sigil for the emulator named,
+// hands a cartridge system's over as stored, and says a system it cannot
+// convert "can't be converted for a core", whose file then travels as it is,
+// checked the same way. Where Sigil names a difference RomM does not convert
+// yet, or for a folder RomM cannot convert, a save handed over as stored is
+// used only when this core made it (savepick::mayLoad). False, with why,
+// when it cannot be used.
+static bool takeOther(romm::Client& client, const OwnForm& own, SaveFetch* out,
+                      std::string* why) {
+    const savepick::Pick& p = out->pick;
+    const bool row = p.from == From::OtherRow;
+    const int saveId = row ? p.row.id : p.channel.current.save.id;
+    const std::string emulator = row ? p.row.emulator : p.channel.current.save.emulator;
+    const std::string core = row ? std::string() : p.channel.current.save.core;
+    std::string query = "core=" + romm::encodeSegment(own.form.sigil);
+    for (const auto& [key, value] : own.form.options)
+        query += "&option=" + romm::encodeSegment(key + ":" + value);
+    if (!own.form.profile.empty()) query += "&profile=" + romm::encodeSegment(own.form.profile);
+    romm::SaveAnswer a = client.fetchSaveAs(saveId, query);
+    const bool plain = a.status == 400 && a.error.find("can't be converted") != std::string::npos;
+    if (plain) {
+        std::fprintf(stderr, "[save] RomM converts no save of this system (%s); asked as stored\n",
+                     a.error.c_str());
+        a = client.fetchSaveAs(saveId, std::string());
+    }
+    if (a.status != 200) {
+        *why = a.status == 0 ? "RomM did not answer: " + a.error
+                             : "RomM answered " + std::to_string(a.status) + " (" + a.error + ")";
+        return false;
+    }
+    std::vector<uint8_t> mine;
+    if (!toOwnForm(a, plain, own, emulator, core, &mine, why)) return false;
+    std::fprintf(stderr, "[save] %s from RomM in this console's form (%s, %zu bytes)%s\n",
+                 pickedName(*out).c_str(), own.form.sigil.c_str(), mine.size(),
+                 plain || (a.savePath.empty() && !cab::looksLikeZip(a.bytes)) ? ", as stored"
+                                                                            : "");
+    out->picked = std::move(mine);
+    out->converted = true;
+    return true;
 }
 
 // THE WORKER'S HALF OF EVERY RESTORE (#481, LAUNCH-17): what RomM holds and
@@ -176,9 +451,23 @@ void listSaves(romm::Client& client, const storage::User& user, int romId, int c
 // each restore asked RomM on the frame thread behind the curtain, and a
 // server that was slow or hung held a black screen with no way out.
 void fetchSaves(romm::Client& client, const storage::User& user, int romId, int channelFileId,
-                const char* tag, const std::atomic<bool>* cancel, SaveFetch* out) {
+                const char* tag, const OwnForm* own, const std::atomic<bool>* cancel,
+                SaveFetch* out) {
     listSaves(client, user, romId, channelFileId, tag, out);
     if (!out->listed) return;
+    if (out->pick.other) {
+        if (cancel && cancel->load()) return;
+        std::string why = !own                ? "this start reads no other emulator's save"
+                          : romm::serverAway() ? "the server is away"
+                                               : std::string();
+        if (why.empty() && takeOther(client, *own, out, &why)) return;
+        // THE NEWEST THIS CONSOLE CAN USE, and the start says it could not
+        // use the newest (savepick.h).
+        std::fprintf(stderr, "[save] game %d: could not use %s: %s\n", romId,
+                     pickedName(*out).c_str(), why.c_str());
+        out->pick = savepick::pick(out->facts, false);
+        std::fprintf(stderr, "[save] game %d: %s\n", romId, out->pick.why.c_str());
+    }
     if (out->pick.from == From::Channel) {
         if (cancel && cancel->load()) return;
         out->picked = snapshotSaveFor(client, user, romId, out->pick.channel.current.save);
@@ -293,15 +582,33 @@ static const std::vector<uint8_t>& fetchedBytes(const SaveFetch& f, const romm::
 // and Dolphin reads it in itself.
 //
 // From what the launch worker fetched (fetchSaves); nothing is asked here.
+cab::ZipShape zipShapeOf(const std::string& core, const std::string& platform,
+                         const std::string& titleId) {
+    if (core == "dolphin" && platform == "wii" && !wii::isMiiChannel(titleId))
+        return cab::ZipShape::Wii;
+    if (core == "azahar") return cab::ZipShape::ThreeDS;
+    return cab::ZipShape::Folder;
+}
+
+std::string wiiKindOf(const std::string& titleId) {
+    if (titleId.size() == 16) {
+        std::string kind = titleId.substr(0, 8);
+        for (char& c : kind) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        return kind;
+    }
+    return "00010000";
+}
+
 void restoreDirSave(const SaveFetch& fetched, const char* tag, const std::string& root,
-                    const std::string& title, const std::string& oldCard, StartNotes* notes) {
+                    const std::string& title, const std::string& oldCard, StartNotes* notes,
+                    cab::ZipShape shape, const std::string& wiiKind) {
     const From from = sourceOf(fetched);
     const std::vector<uint8_t>* picked = nullptr;
     std::string fileName;
     const romm::Asset* newest = nullptr;
-    if (from == From::Channel) {
+    if (usesPicked(from)) {
         picked = &fetched.picked;
-        fileName = fetched.pick.channel.current.save.fileName;
+        fileName = pickedName(fetched);
     } else if (from == From::OldRows) {
         newest = savepick::newestOldRow(fetched.rows, tag);
         if (!newest) return;
@@ -324,6 +631,17 @@ void restoreDirSave(const SaveFetch& fetched, const char* tag, const std::string
                          files.empty() && uerr.empty() ? "archive held no files" : uerr.c_str());
             return;
         }
+        // Sigil's shape back to the folder's own (dirsave.h).
+        std::vector<uint8_t> reshaped;
+        if (shape != cab::ZipShape::Folder) {
+            files = cab::fromZipShape(shape, wiiKind, std::move(files));
+            if (!cab::zipFiles(files, &reshaped, &uerr)) {
+                std::fprintf(stderr, "[save] %s would not unpack: %s\n", fileName.c_str(),
+                             uerr.c_str());
+                return;
+            }
+        }
+        const std::vector<uint8_t>& unpack = shape != cab::ZipShape::Folder ? reshaped : data;
         const TreeChange change = changeToTree(files, root);
         if (change.differing == 0 && change.added == 0) {
             std::fprintf(stderr, "[save] %s already holds %s (%zu file(s)); nothing to "
@@ -338,7 +656,7 @@ void restoreDirSave(const SaveFetch& fetched, const char* tag, const std::string
                     std::fprintf(stderr, "[save] could not archive the save folder to keep it "
                                          "aside: %s\n", zerr.c_str());
             }
-            if (!cab::unzipTree(data, root, &uerr)) {
+            if (!cab::unzipTree(unpack, root, &uerr)) {
                 std::fprintf(stderr, "[save] %s would not unpack: %s\n", fileName.c_str(),
                              uerr.c_str());
                 return;
@@ -346,8 +664,8 @@ void restoreDirSave(const SaveFetch& fetched, const char* tag, const std::string
             std::fprintf(stderr, "[save] unpacked %s (%zu bytes) into %s\n", fileName.c_str(),
                          data.size(), root.c_str());
         }
-        if (from == From::Channel && notes) {
-            notes->fromChannel = true;
+        if (usesPicked(from) && notes) {
+            notes->tookPick = true;
             if (change.differing > 0 || change.added > 0) notes->changedOwn = true;
         }
         if (from == From::OldRows && notes)
@@ -427,7 +745,20 @@ void syncDirSave(GameSession& sess) {
 
     std::vector<uint8_t> zip;
     std::string zerr;
-    if (!cab::zipTree(sess.dirSaveRoot, paths, &zip, &zerr)) {
+    // In RomM's shape for the system (dirsave.h, ZipShape), else as the
+    // folder is.
+    const cab::ZipShape shape =
+        zipShapeOf(sess.dirSaveCore, sess.dirSavePlatform, sess.dirSaveTitleId);
+    bool zipped = false;
+    if (shape == cab::ZipShape::Folder) {
+        zipped = cab::zipTree(sess.dirSaveRoot, paths, &zip, &zerr);
+    } else {
+        std::vector<cab::ZipFile> files;
+        for (const std::string& rel : paths)
+            files.push_back({rel, cab::readBytes(sess.dirSaveRoot + "/" + rel)});
+        zipped = cab::zipFiles(cab::toZipShape(shape, std::move(files)), &zip, &zerr);
+    }
+    if (!zipped) {
         std::fprintf(stderr, "[save] could not archive the save folder: %s\n", zerr.c_str());
         return;
     }
@@ -506,8 +837,10 @@ GameSession sessionOfPlayingNote(const std::string& text, std::string* saveDir) 
 
 // THE NAME THIS CONSOLE KEEPS ITS OWN COPY OF A SAVE UNDER, in the person's
 // save folder for the game: `<the server's file name without its extension>
-// (Cabinet).<region>`. A battery's copy, which the core never writes itself,
-// and a Dreamcast card's, which Flycast keeps in the system directory. Until
+// (Cabinet).<region>`. A battery's copy, which the core never writes itself;
+// and until #346, step 8, a Dreamcast card's, when Flycast kept it in the
+// system directory, which a start now copies once to the game's own card
+// (catalog::SaveFile::fromFormerCopy). Until
 // save channels (#346) it was also the name each save's row had on RomM, the
 // retired Apple apps' own, where RomM replaced a row by file name alone; a
 // snapshot's save is named by its hash, and the name it goes up with is the
@@ -554,62 +887,34 @@ std::vector<cab::FileSaveState> restoreFileSaves(
     From source = tag ? sourceOf(fetched) : From::Own;
     // The picked snapshot's save, when it is a zip: the files in it.
     std::vector<cab::ZipFile> pickedFiles;
-    const bool pickedIsZip = source == From::Channel && cab::looksLikeZip(fetched.picked);
+    const bool pickedIsZip = usesPicked(source) && cab::looksLikeZip(fetched.picked);
     if (pickedIsZip) {
         std::string zerr;
         if (!cab::readZip(fetched.picked, &pickedFiles, &zerr)) {
             std::fprintf(stderr, "[save] %s would not unpack: %s; this console's saves stand\n",
-                         fetched.pick.channel.current.save.fileName.c_str(), zerr.c_str());
+                         pickedName(fetched).c_str(), zerr.c_str());
             source = From::Own;
         }
     }
-    const storage::User& user = storage::currentUser();
-
     for (const catalog::SaveFile& spec : specs) {
         cab::FileSaveState f;
         f.spec = spec;
-        f.path = (spec.inSystemDir ? storage::biosDir() : saveDir) + "/" + spec.path;
+        f.path = saveDir + "/" + spec.path;
 
-        // WHERE THIS PERSON'S COPY LIVES. For every platform but Dreamcast it
-        // is the file the core writes, because the core was handed this
-        // person's own save directory. Dreamcast's is a copy under the same
-        // directory, because Flycast insists on the system directory and the
-        // system directory is shared by the whole machine.
-        const std::string mine =
-            spec.inSystemDir ? saveDir + "/" + saveRowName(fsStem, spec.region) : f.path;
-
-        // A card left in the system directory by a session that did not shut
-        // down cleanly. It is somebody's save and nothing on this machine says
-        // whose game it was, so it is kept rather than guessed at — the same
-        // answer the folder move gave to the two save piles it could not
-        // attribute, and in the same place.
-        if (spec.inSystemDir) {
-            const std::string stray = cab::writtenFile(spec, f.path);
-            if (!stray.empty()) {
-                const std::vector<uint8_t> bytes = cab::readBytes(stray);
-                if (!bytes.empty() && bytes != cab::readBytes(mine)) {
-                    char stamp[32];
-                    const std::time_t now = std::time(nullptr);
-                    std::strftime(stamp, sizeof stamp, "%Y-%m-%d %H-%M-%S",
-                                  std::localtime(&now));
-                    const std::string kept = storage::userDir(user) +
-                                             "/saves/unattributed/system-directory/" +
-                                             std::string(stamp) + " " + spec.region + ".bin";
-                    if (cab::writeBytes(kept, bytes))
-                        std::fprintf(stderr,
-                                     "[save] a card was left in the system directory by a "
-                                     "session that did not finish; kept at %s\n",
-                                     kept.c_str());
-                }
-                cab::removeFile(stray);
-            }
+        // THIS PERSON'S CARD FROM BEFORE (savetable.h, fromFormerCopy), copied
+        // once to the name the core reads, the old file left as it is.
+        if (spec.fromFormerCopy && cab::writtenFile(spec, f.path).empty()) {
+            const std::string former = saveDir + "/" + saveRowName(fsStem, spec.region);
+            const std::vector<uint8_t> was = cab::readBytes(former);
+            if (!was.empty() && cab::writeBytes(f.path, was))
+                std::fprintf(stderr, "[save] this console's card from before, %s, copied to %s; "
+                                     "the old file stays\n", former.c_str(), f.path.c_str());
         }
 
         // What this console already has. Found by scanning rather than by the
         // predicted name, because the name the core chose last time is the one
         // that is actually on the disk.
-        const std::string existing =
-            spec.inSystemDir ? mine : cab::writtenFile(spec, f.path);
+        const std::string existing = cab::writtenFile(spec, f.path);
         std::vector<uint8_t> chosen =
             existing.empty() ? std::vector<uint8_t>() : cab::readBytes(existing);
         const bool haveLocal = !chosen.empty();
@@ -626,8 +931,8 @@ std::vector<cab::FileSaveState> restoreFileSaves(
                 incoming = &fetchedBytes(fetched, *oldRow);
                 incomingName = oldRow->fileName;
             }
-        } else if (source == From::Channel) {
-            incomingName = fetched.pick.channel.current.save.fileName;
+        } else if (usesPicked(source)) {
+            incomingName = pickedName(fetched);
             if (!pickedIsZip) {
                 if (&spec == &specs.front()) incoming = &fetched.picked;
             } else {
@@ -674,28 +979,26 @@ std::vector<cab::FileSaveState> restoreFileSaves(
         }
 
         if (!chosen.empty()) {
-            // LOCAL FIRST, ALWAYS, and for Dreamcast that means two writes:
-            // this person's copy, then the working copy the core reads. For
-            // everything else the two are the same file.
-            if (!cab::writeBytes(mine, chosen)) {
-                std::fprintf(stderr, "[save] could not write %s\n", mine.c_str());
-            } else if (!spec.inSystemDir || cab::writeBytes(f.path, chosen)) {
+            if (!cab::writeBytes(f.path, chosen)) {
+                std::fprintf(stderr, "[save] could not write %s\n", f.path.c_str());
+            } else {
                 std::fprintf(stderr, "[save] %zu bytes from %s into %s\n", chosen.size(),
                              from ? from : "nowhere", f.path.c_str());
+                // A file of the core's own naming would be read before this
+                // one (savetable.h, coreNamesItself); what it held is in
+                // `chosen`, or kept aside.
+                if (spec.coreNamesItself) cab::removeOtherCaptures(spec, f.path);
                 f.atLaunch = chosen;
                 f.hadOne = true;
-                f.kept = mine;
-                if (fromRomM && source == From::Channel && notes) {
-                    notes->fromChannel = true;
+                f.kept = f.path;
+                if (fromRomM && usesPicked(source) && notes) {
+                    notes->tookPick = true;
                     if (changed) notes->changedOwn = true;
                 }
                 if (fromRomM && oldRow && notes)
                     notes->oldRowsTaken.push_back(
                         {oldRow->id, savepick::OldRowTaken::As::File, spec.path,
                          static_cast<size_t>(&spec - &specs.front())});
-            } else {
-                std::fprintf(stderr, "[save] could not place the card at %s\n",
-                             f.path.c_str());
             }
         } else {
             std::fprintf(stderr, "[save] no save anywhere for %s yet\n", spec.path.c_str());
@@ -725,55 +1028,39 @@ std::vector<cab::FileSaveState> restoreFileSaves(
 // once the game has closed (savepush.h).
 void syncFileSaves(GameSession& sess) {
     for (cab::FileSaveState& f : sess.fileSaves) {
-        const std::string written = cab::writtenFile(f.spec, f.path);
+        std::string written = cab::writtenFile(f.spec, f.path);
         std::vector<uint8_t> data =
             written.empty() ? std::vector<uint8_t>() : cab::readBytes(written);
 
-        // Dreamcast, and this is the half that closes the folder layout's last
-        // rough edge. The card was placed in the system directory because that
-        // is the only place Flycast looks; now that it has been read back, it
-        // comes out again, so what sits in `bios/` between sessions is
-        // firmware and the console's own settings rather than the one file in
-        // there that could never be fetched a second time.
-        //
-        // Taken out whether or not anything changed, and whether or not the
-        // push works: the copy below is written to this person's save
-        // directory first, and the thing left in `bios/` is a duplicate either
-        // way. Only removed when it was actually read — a file we could not
-        // read is left exactly where it is rather than deleted on a guess.
-        const bool tidyAway = f.spec.inSystemDir && !written.empty() && !data.empty();
-
-        if (data.empty() || data == f.atLaunch) {
-            if (tidyAway) cab::removeFile(written);
-            continue;
+        // THE FILE THE CORE NAMED ITSELF goes back to the name a start puts it
+        // at (savetable.h, coreNamesItself), there before anything else, so
+        // what is on this console between games is one card under one name.
+        if (f.spec.coreNamesItself && !written.empty() && written != f.path && !data.empty()) {
+            if (!cab::writeBytes(f.path, data)) {
+                std::fprintf(stderr, "[save] could not write %s; the card stays at %s\n",
+                             f.path.c_str(), written.c_str());
+                continue;
+            }
+            cab::removeFile(written);
+            written = f.path;
         }
+
+        if (data.empty() || data == f.atLaunch) continue;
         if (!f.hadOne && !cab::holdsASave(data, f.spec.untouched)) {
             std::fprintf(stderr,
                          "[save] %s is what the core writes by starting up, not a save — "
                          "not sending it\n", written.c_str());
-            if (tidyAway) cab::removeFile(written);
             continue;
         }
 
-        // LOCAL FIRST, ALWAYS. For every platform but Dreamcast the file is
-        // already sitting in this person's save directory, because that is the
-        // directory the core was handed — so this writes nothing and the
-        // guarantee holds for free. Dreamcast's card has to be copied across
-        // out of the system directory, and that copy happens before a single
-        // byte is offered to the network.
-        const std::string local = sess.saveDir + "/" + saveRowName(sess.fsStem, f.spec.region);
-        if (f.spec.inSystemDir && !cab::writeBytes(local, data)) {
-            std::fprintf(stderr, "[save] could not write %s — leaving the card in %s\n",
-                         local.c_str(), written.c_str());
-            continue;
-        }
-        if (tidyAway) cab::removeFile(written);
-
+        // LOCAL FIRST, ALWAYS: the file is already in this person's save
+        // folder, the folder the core was handed, before a byte is offered to
+        // the network.
         std::fprintf(stderr, "[save] %zu bytes from %s\n", data.size(),
                      f.spec.path.c_str());
         f.atLaunch = std::move(data);    // the new baseline; do not gather it twice
         f.hadOne = true;
-        f.kept = f.spec.inSystemDir ? local : written;
+        f.kept = written;
         sess.saveChanged = true;
     }
 }
@@ -836,13 +1123,22 @@ void restoreBatterySave(cab::Core& core, GameSession& session, const std::string
                     incoming = &fetchedBytes(fetched, *oldRow);
                     incomingName = oldRow->fileName;
                 }
-            } else if (source == From::Channel) {
-                incomingName = fetched.pick.channel.current.save.fileName;
+            } else if (usesPicked(source)) {
+                incomingName = pickedName(fetched);
                 // A battery travels as it is (saves.h). A zip is no battery,
                 // and copied into the core's memory it would be the save lost.
                 if (cab::looksLikeZip(fetched.picked))
                     std::fprintf(stderr, "[save] %s is a zip, which no battery is; this "
                                          "console's save stands\n", incomingName.c_str());
+                // ANOTHER EMULATOR'S IS THE CORE'S OWN SIZE OR NOTHING (#346,
+                // step 8): the rest of its check was the worker's
+                // (toOwnForm), and this is the part only the loaded core can
+                // say. This console's own saves keep the rule below.
+                else if (fetched.converted && fetched.picked.size() != core.saveRamSize())
+                    std::fprintf(stderr, "[save] %s is %zu bytes where this core's save is "
+                                         "%zu: not a save it reads; this console's stands\n",
+                                 incomingName.c_str(), fetched.picked.size(),
+                                 core.saveRamSize());
                 else
                     incoming = &fetched.picked;
             }
@@ -867,8 +1163,8 @@ void restoreBatterySave(cab::Core& core, GameSession& session, const std::string
                 if (changed && !cab::writeBytes(saveDir + "/" + name, *incoming))
                     std::fprintf(stderr, "[save] could not write %s/%s\n", saveDir.c_str(),
                                  name.c_str());
-                if (source == From::Channel && notes) {
-                    notes->fromChannel = true;
+                if (usesPicked(source) && notes) {
+                    notes->tookPick = true;
                     if (changed) notes->changedOwn = true;
                 }
                 if (oldRow && notes)
@@ -904,9 +1200,9 @@ bool noteStart(const SaveFetch& fetched, const StartNotes& notes, const storage:
     if (!fetched.asked || !fetched.listed ||
         savemirror::forgottenSince(fetched.romId, fetched.mark))
         return false;
-    const bool picked = fetched.pick.from == From::Channel;
+    const bool picked = usesPicked(fetched.pick.from);
     session->couldNotUseNewest =
-        fetched.pick.couldNotUseNewest || (picked && !notes.fromChannel);
+        fetched.pick.couldNotUseNewest || (picked && !notes.tookPick);
     if (savepick::OldSaveCopy copy;
         savepick::oldSaveToCopy(fetched.pick, fetched.rows, notes.oldRowsTaken, &copy)) {
         std::vector<std::vector<uint8_t>> bytes;
@@ -915,7 +1211,18 @@ bool noteStart(const SaveFetch& fetched, const StartNotes& notes, const storage:
         const bool marked = savepush::markOldSave(*session, user, copy, bytes);
         if (bringsOldSave) *bringsOldSave = marked;
     }
-    if (!picked || !notes.fromChannel) return false;
+    if (!picked || !notes.tookPick) return false;
+    // ANOTHER APP'S SAVE IN NO CHANNEL (savepick.h): no snapshot to hold, so
+    // what the game saves goes where this console's saves go, onto the
+    // snapshot it holds or into "default", and the row stays as it is.
+    if (fetched.pick.from == From::OtherRow) {
+        const bool elsewhere = savepick::continuingElsewhere(fetched.pick, !notes.changedOwn);
+        std::fprintf(stderr, "[save] started from save %d (%s), another app's in no channel%s%s\n",
+                     fetched.pick.row.id, fetched.pick.row.emulator.c_str(),
+                     notes.changedOwn ? "" : ", which this console already had",
+                     elsewhere ? "; it was made on another device" : "");
+        return elsewhere;
+    }
     const romm::Channel& channel = fetched.pick.channel;
     session->startChannelId = channel.id;
     session->startSnapshotId = channel.current.id;

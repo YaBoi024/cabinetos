@@ -70,9 +70,10 @@ static bool cancelled(LaunchJob& job) {
 // first; RomM is asked when the record has none or its file no longer
 // answers, and the record then keeps what it said (library.h).
 static void fetchSavesOf(int romId, romm::Client& client, const storage::User& user,
-                         const char* tag, const std::atomic<bool>* cancel, SaveFetch* out) {
+                         const char* tag, const OwnForm* own, const std::atomic<bool>* cancel,
+                         SaveFetch* out) {
     const int known = rememberedChannelFile(romId);
-    fetchSaves(client, user, romId, known, tag, cancel, out);
+    fetchSaves(client, user, romId, known, tag, own, cancel, out);
     if (out->channelFileId != known) rememberChannelFile(romId, out->channelFileId);
 }
 
@@ -87,7 +88,21 @@ static void fetchSavesOf(int romId, romm::Client& client, const storage::User& u
 // core's saves travel under, as the restores did.
 static void fetchLaunchSaves(LaunchJob& job, romm::Client& client, const storage::User& user) {
     const char* tag = catalog::saveTag(job.coreName.c_str());
-    fetchSavesOf(job.romId, client, user, tag, &job.cancel, &job.saves);
+    // The form this core reads its save in, for another emulator's save
+    // asked of RomM (saves.h, OwnForm): the files it writes, named after the
+    // file it is handed, as restoreBeforeLoad finds them.
+    OwnForm own;
+    own.form = catalog::saveForm(job.coreName.c_str(), job.platformSlug);
+    own.tag = tag ? tag : "";
+    own.platform = job.platformSlug;
+    own.folder = cab::standalone::find(job.coreName) != nullptr ||
+                 catalog::directorySaveRoot(job.coreName.c_str(), job.platformSlug,
+                                            job.titleId) != nullptr;
+    if (!own.folder)
+        own.files = catalog::saveFiles(job.platformSlug, job.coreName,
+                                       job.romPath.substr(job.romPath.find_last_of('/') + 1),
+                                       job.arcade);
+    fetchSavesOf(job.romId, client, user, tag, &own, &job.cancel, &job.saves);
     job.miiSaves = SaveFetch{};
     if (job.cancel.load() || job.platformSlug != "wii" || job.coreName != "dolphin" ||
         wii::isMiiChannel(job.titleId))
@@ -95,7 +110,7 @@ static void fetchLaunchSaves(LaunchJob& job, romm::Client& client, const storage
     int miiRom = 0;
     std::string miiTitle;
     if (!findMiiChannel(client, job.platformId, &miiRom, &miiTitle)) return;
-    fetchSavesOf(miiRom, client, user, tag, &job.cancel, &job.miiSaves);
+    fetchSavesOf(miiRom, client, user, tag, nullptr, &job.cancel, &job.miiSaves);
     job.miiSaves.title = miiTitle;
 }
 

@@ -237,6 +237,14 @@ public:
     // `/api/saves/{id}/content` or `/api/states/{id}/content`. Small enough to
     // hold: a state is hundreds of kilobytes, a memory card is 128.
     std::vector<uint8_t> fetchAsset(const char* kind, int assetId) const;
+    // A SAVE IN ONE EMULATOR'S OWN FORM (#346, step 8): `/api/saves/{id}/
+    // content?<query>`, the query naming the emulator as Sigil spells it, its
+    // options and its profile, already escaped. For a system RomM converts it
+    // answers with the files that emulator reads, through Sigil: one file
+    // raw, with its path in the emulator's save folder in `X-Save-Path`, or
+    // several as a zip of those paths. A cartridge system's save comes as
+    // stored. Every answer is kept, a refusal with RomM's code for it.
+    SaveAnswer fetchSaveAs(int saveId, const std::string& query) const;
 
     // A state and a save go up inside a snapshot (pushSnapshot, below).
 

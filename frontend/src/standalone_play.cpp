@@ -112,6 +112,8 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     GameSession starting;
     starting.romId = launchJob.romId;
     starting.title = launchJob.title;
+    starting.core = launchJob.coreName;
+    starting.platformSlug = launchJob.platformSlug;
     if (tag) starting.saveTag = tag;
     bool bringsOldSave = false;
     const bool elsewhere = noteStart(startedFrom, startNotes, user, &starting, &bringsOldSave);
@@ -158,6 +160,9 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     // The pill when its save came from another device, drawn over the game
     // as any pill is.
     if (elsewhere) menuNotice.say(kContinuingElsewhere, Tone::Info);
+    // The newest save on RomM was one this console could not use (#346,
+    // step 8; saves.cpp, fetchSaves).
+    else if (starting.couldNotUseNewest) menuNotice.say(kCouldNotUseNewest, Tone::Problem);
     // No save states: the pause menu is Resume, Screenshot and Exit to
     // Home (open question 25; Switch fails its rule).
     session.snapshots = catalog::snapshotsAllowed(launchJob.coreName.c_str());

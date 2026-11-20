@@ -137,8 +137,9 @@ void App::finishExit() {
     if (session.platformSlug == "wii" && session.core == "dolphin")
         wii::keepRumbleFrom(session.saveDir + "/User/Wii/shared2/sys/SYSCONF");
     // And the same trigger for the same reason, for the class that is one
-    // file rather than a tree. This is where a Dreamcast's card is read
-    // back out of the system directory and taken out of `bios/`.
+    // file rather than a tree. This is where a Dreamcast's card, which
+    // Flycast writes under the disc's product number, goes back to the
+    // game's own name.
     syncFileSaves(session);
     // The save's picture finished, if it is still being made.
     savePicture.finish(session, SDL_GetTicks());

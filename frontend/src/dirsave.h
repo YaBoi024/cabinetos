@@ -141,4 +141,24 @@ private:
 // extension, so the name says nothing at all about what is inside.
 bool looksLikeZip(const std::vector<uint8_t>& data);
 
+// RomM'S SHAPE FOR A FOLDER SAVE'S ZIP, WHERE IT IS NOT THE FOLDER AS IT IS
+// (#346, step 8): Sigil's unit for the system (its sync page and its layout
+// table at the commit RomM 5.5.0-alpha.2 builds in). Sigil reads a
+// zip in its own shape only, so this console's saves reach the other apps
+// only in it:
+//   Wii: `<title>/data/...`, without Dolphin's `<kind>/` folder above it;
+//   3DS: `<high>/<low>/data/...`, and the title's extra data as
+//   `<high>/<low>/extdata/...`, without the SD card's `<id0>/<id1>/title/`
+//   and `<id0>/<id1>/extdata/00000000/<low / 256>/` above them.
+// A save holding any file that has no place in it travels in the folder's
+// own shape, so nothing is ever left out. The zips already on RomM keep the
+// folder's shape, which a start still reads (MMagTech's rule of 2026-10-28:
+// no update breaks a save).
+enum class ZipShape { Folder, Wii, ThreeDS };
+std::vector<ZipFile> toZipShape(ZipShape shape, std::vector<ZipFile> files);
+// Back to the folder's own paths; a zip in the folder's shape comes back as
+// it is. `wiiKind`: the Wii title's kind folder, `00010000` for a disc.
+std::vector<ZipFile> fromZipShape(ZipShape shape, const std::string& wiiKind,
+                                  std::vector<ZipFile> files);
+
 }  // namespace cab

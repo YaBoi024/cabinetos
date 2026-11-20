@@ -342,6 +342,20 @@ struct SnapshotFile {
     std::string core;
 };
 
+// WHAT RomM ANSWERED A REQUEST FOR A SAVE IN AN EMULATOR'S FORM
+// (Client::fetchSaveAs).
+struct SaveAnswer {
+    long status = 0;              // 0: no answer from the server
+    std::vector<uint8_t> bytes;   // with 200
+    // One file RomM converted: its path in the emulator's save folder
+    // (`X-Save-Path`, unescaped). Empty for a zip of several, and for a save
+    // handed over as stored.
+    std::string savePath;
+    // A refusal's code (`detail.error`, Sigil's: NOT_FOUND, UNSUPPORTED_FORMAT,
+    // NO_TARGET...) or RomM's words (`detail`), for the log.
+    std::string error;
+};
+
 // One slot of a snapshot's bank: the core RomM files it under, the slot's
 // name, and the state.
 struct SnapshotState {

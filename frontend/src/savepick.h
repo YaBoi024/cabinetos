@@ -21,9 +21,17 @@
 // of its own that is still listed, over the newer one on its drive. The note
 // of the snapshot held says when that save was made (savemirror::Held).
 //
-// WHICH SAVES IT CAN USE, until the console asks RomM to convert another
-// emulator's (#346, step 8): the ones filed under the tag this core's saves
-// travel under, which a CabinetOS console made and are used as stored.
+// WHICH SAVES IT CAN USE. The ones filed under the tag this core's saves
+// travel under, which a CabinetOS console made, are used as stored. ANOTHER
+// EMULATOR'S SAVE IS ASKED OF RomM IN THIS CONSOLE'S OWN FORM AND CHECKED
+// (#346, step 8; decided 2026-10-12): when the newest is one, the pick names
+// it (`other`) and the launch worker asks for it (saves.cpp, fetchSaves);
+// one that cannot be used leaves the start to the newest this console can
+// use as stored, the pick with others left out, which says so
+// (`couldNotUseNewest`). AND ANOTHER APP'S SAVE IN NO CHANNEL IS WEIGHED THE
+// SAME WAY (MMagTech, 2026-11-19): a row from before channels that another
+// emulator made, from an app that does not use channels or uploaded by hand
+// on RomM's website. Its row is left as it is.
 //
 // THE PILL IS NEVER A GUESS (MMagTech, 2026-11-17: the console shows no
 // message that is wrong; one missed is accepted). It shows only when the
@@ -63,6 +71,8 @@ struct Facts {
     // stored (its `updated_at`); empty when there is none or they are not
     // known.
     std::string oldRowAt;
+    // RomM's saves in no channel that another emulator made (otherRows).
+    std::vector<romm::Asset> otherRows;
     // This console still owes RomM a save of the game, as a snapshot or as a
     // file from before channels, so its own copy is newer than anything RomM
     // holds (pending.h).
@@ -78,9 +88,14 @@ struct Pick {
         Own,       // nothing from RomM: what is on this console stands
         Channel,   // `channel`'s current snapshot
         OldRows,   // RomM's saves from before channels, by the old rule
+        OtherRow,  // `row`, another app's save in no channel
     };
     From from = From::Own;
     romm::Channel channel;   // From::Channel only
+    romm::Asset row;         // From::OtherRow only
+    // The save named is another emulator's, to be asked of RomM in this
+    // console's form and checked before it is used (the head of this file).
+    bool other = false;
     // The notes say the save was made somewhere else (the head of this file).
     bool madeElsewhere = false;
     // The newest save on RomM is one this console cannot use.
@@ -89,12 +104,26 @@ struct Pick {
     std::string why;
 };
 
-Pick pick(const Facts& facts);
+// With `others` false, another emulator's save is never named: the start
+// after one could not be used.
+Pick pick(const Facts& facts, bool others = true);
 
 // Whether a start that put `pick`'s save in place says "Continuing from
 // another device": only for a channel's save the notes say was made
-// elsewhere, and never when it was what this console already had.
+// elsewhere, or another app's save in no channel, and never when it was what
+// this console already had.
 bool continuingElsewhere(const Pick& pick, bool sameAsOwn);
+
+// The saves of `rows` in no channel that another emulator made: not under
+// `tag`, the one every CabinetOS console files them under.
+std::vector<romm::Asset> otherRows(const std::vector<romm::Asset>& rows, const std::string& tag);
+
+// RomM'S OWN RULE FOR WHO MAY LOAD A SAVE AS STORED (`may_load` in its
+// handler/snapshots/legacy.py at 5.5.0-alpha.2): the save's core against this
+// console's (`sigil`), else, when it names none, its emulator against this
+// console's names for the core (`tag` or `sigil`), else yes.
+bool mayLoad(const std::string& emulator, const std::string& core, const std::string& tag,
+             const std::string& sigil);
 
 // The note of the snapshot this console holds, after it took `taken` in
 // `channelId` from RomM, at a start or as RomM's answer to a push: `before`

@@ -28,6 +28,7 @@ constexpr GalleryNotice kNoticeGallery[] = {
     {"Couldn't reach RomM", Tone::Problem},
     {"Couldn't load that state", Tone::Problem},
     {"Continuing from another device", Tone::Info},
+    {"Couldn't use the newest save", Tone::Problem},
     {"That state is on Disc 3", Tone::Problem},
     {"Download removed", Tone::Done},
     {"Freeing space\xE2\x80\xA6", Tone::Busy},

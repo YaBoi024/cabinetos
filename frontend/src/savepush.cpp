@@ -206,6 +206,14 @@ bool gather(const GameSession& sess, cache::OwedPush* p) {
     return !p->savePath.empty() && sizeOf(p->savePath) > 0;
 }
 
+// THE CORE'S OWN NAME, in Sigil's spelling (catalog::SaveForm), sent beside
+// the tag the save travels under (answer 7 of 2026-11-17), so the same core
+// in another app gets the same bytes and RomM converts the save for any
+// other (#346, step 8).
+std::string coreNameOf(const GameSession& sess) {
+    return catalog::saveForm(sess.core.c_str(), sess.platformSlug).sigil;
+}
+
 // The name this console last saw a channel under, for a push that has to
 // make it again; RomM's own when it never saw it.
 std::string labelOf(const storage::User& user, int romId, const std::string& channelId) {
@@ -291,6 +299,7 @@ bool mark(GameSession& sess, const storage::User& user) {
     cache::OwedPush p;
     p.romId = sess.romId;
     p.emulator = sess.saveTag;
+    p.core = coreNameOf(sess);
     p.hasSave = true;
     if (!gather(sess, &p)) {
         std::fprintf(stderr, "[save] game %d: nothing on this console to send\n", sess.romId);
@@ -337,6 +346,7 @@ bool markState(const GameSession& sess, const storage::User& user, const StateMa
         p = cache::OwedPush{};
         p.romId = sess.romId;
         p.emulator = sess.stateTag;
+        p.core = coreNameOf(sess);
     }
     // States alone are aimed from this session, where they were made; a
     // push with a save stays where its save goes.
@@ -379,6 +389,7 @@ bool markOldSave(const GameSession& sess, const storage::User& user,
     cache::OwedPush p;
     p.romId = sess.romId;
     p.emulator = sess.saveTag;
+    p.core = coreNameOf(sess);
     p.hasSave = true;
     p.saveShape = copy.shape;
     for (const romm::Asset* r : copy.rows) {

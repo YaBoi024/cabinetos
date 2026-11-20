@@ -554,6 +554,9 @@ void App::pumpLaunch() {
     openSoundAndPace(c.core);
     startPlaying(c.core);
     if (elsewhere) menuNotice.say(kContinuingElsewhere, Tone::Info);
+    // The newest save on RomM was one this console could not use, and the
+    // game started from its own (#346, step 8; saves.cpp, fetchSaves).
+    else if (session.couldNotUseNewest) menuNotice.say(kCouldNotUseNewest, Tone::Problem);
 }
 
 // Stages 1 to 3: a failed job is undone and a Ready one taken (a launch once
@@ -741,7 +744,9 @@ void App::prepareSaveDirAndDiscs(LaunchContext& c) {
     }
     if (c.dirSub && c.launchTag && launchJob.saves.asked)
         restoreDirSave(launchJob.saves, c.launchTag, c.saveDir + "/" + c.dirSub,
-                       launchJob.title, oldGameCubeCard, &c.startNotes);
+                       launchJob.title, oldGameCubeCard, &c.startNotes,
+                       zipShapeOf(launchJob.coreName, launchJob.platformSlug, launchJob.titleId),
+                       wiiKindOf(launchJob.titleId));
 
     // AND THE SAVES THE CORE WRITES AS A FILE, which is most of the ones
     // on a real server and none of the ones this console used to handle.
