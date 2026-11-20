@@ -278,10 +278,19 @@ bool folderFits(const OwnForm& own, const std::vector<cab::ZipFile>& files, std:
 
 }  // namespace
 
+// OwnForm::arcade: another app's save for an arcade game, refused with why.
+static bool arcadeRefuses(const OwnForm& own, const std::string& madeBy, std::string* why) {
+    if (!own.arcade) return false;
+    *why = "an arcade game takes only CabinetOS's saves, and " +
+           (madeBy.empty() ? std::string("another app") : madeBy) + " made it";
+    return true;
+}
+
 bool toOwnForm(const romm::SaveAnswer& answer, bool plain, const OwnForm& own,
                const std::string& madeBy, const std::string& madeByCore,
                std::vector<uint8_t>* out, std::string* why) {
     out->clear();
+    if (arcadeRefuses(own, madeBy, why)) return false;
     const bool asStored =
         plain || (answer.savePath.empty() && !cab::looksLikeZip(answer.bytes));
     if (asStored && (own.form.sameCoreOnly || own.folder) &&
@@ -407,8 +416,9 @@ bool toOwnForm(const romm::SaveAnswer& answer, bool plain, const OwnForm& own,
 // convert "can't be converted for a core", whose file then travels as it is,
 // checked the same way. Where Sigil names a difference RomM does not convert
 // yet, or for a folder RomM cannot convert, a save handed over as stored is
-// used only when this core made it (savepick::mayLoad). False, with why,
-// when it cannot be used.
+// used only when this core made it (savepick::mayLoad). An arcade game's is
+// refused before RomM is asked (OwnForm::arcade). False, with why, when it
+// cannot be used.
 static bool takeOther(romm::Client& client, const OwnForm& own, SaveFetch* out,
                       std::string* why) {
     const savepick::Pick& p = out->pick;
@@ -416,6 +426,7 @@ static bool takeOther(romm::Client& client, const OwnForm& own, SaveFetch* out,
     const int saveId = row ? p.row.id : p.channel.current.save.id;
     const std::string emulator = row ? p.row.emulator : p.channel.current.save.emulator;
     const std::string core = row ? std::string() : p.channel.current.save.core;
+    if (arcadeRefuses(own, emulator, why)) return false;
     std::string query = "core=" + romm::encodeSegment(own.form.sigil);
     for (const auto& [key, value] : own.form.options)
         query += "&option=" + romm::encodeSegment(key + ":" + value);

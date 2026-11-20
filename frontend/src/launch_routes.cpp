@@ -95,6 +95,7 @@ static void fetchLaunchSaves(LaunchJob& job, romm::Client& client, const storage
     own.form = catalog::saveForm(job.coreName.c_str(), job.platformSlug);
     own.tag = tag ? tag : "";
     own.platform = job.platformSlug;
+    own.arcade = job.arcade;
     own.folder = cab::standalone::find(job.coreName) != nullptr ||
                  catalog::directorySaveRoot(job.coreName.c_str(), job.platformSlug,
                                             job.titleId) != nullptr;

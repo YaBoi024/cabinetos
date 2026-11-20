@@ -1733,6 +1733,19 @@ int savePickTest() {
               "NES handed over as stored: another emulator's used, Sigil names no difference");
         check(takes(answer("Contra 4.sav", unmarked(512)), false, nds, nullptr, "desmume"),
               "DS converted by RomM (a path in the emulator's folder): used, whoever made it");
+        // Arcade: no other app's save, whichever emulator it names; the same
+        // answer is taken by a game that is not one, so the refusal is the rule's.
+        OwnForm board = form("fbneo_libretro", "arcade", "btoads.zip", false);
+        board.files = catalog::saveFiles("arcade", "fbneo_libretro", "btoads.zip", true);
+        const std::vector<uint8_t> nvram = unmarked(8192);
+        check(takes(answer("", nvram), true, board, nullptr, "fbneo"),
+              "an arcade board's file taken when the game is not marked arcade");
+        board.arcade = true;
+        check(!takes(answer("", nvram), true, board, nullptr, "mame2003_plus") &&
+                  !takes(answer("", nvram), true, board, nullptr, "fbneo") &&
+                  !takes(answer("", nvram), true, board, nullptr, "fbneo", "fbneo") &&
+                  !takes(answer("", nvram), true, board),
+              "arcade: another app's save refused, even one naming FinalBurn Neo");
         const OwnForm opera = form("opera", "3do", "Gex.chd", false);
         const std::string label("\x01\x5a\x5a\x5a\x5a\x5a", 6);
         check(takes(answer("", marked(32768, label)), true, opera) &&

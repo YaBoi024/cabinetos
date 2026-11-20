@@ -83,6 +83,11 @@ struct OwnForm {
     std::string platform;
     std::vector<catalog::SaveFile> files;
     bool folder = false;
+    // An arcade game takes no other app's save, whichever emulator it names:
+    // a board's memory carries no mark of the emulator or its version that
+    // wrote it (MMagTech, 2026-11-20). CabinetOS consoles' saves travel
+    // under the tag and are never asked for in this form.
+    bool arcade = false;
 };
 // The worker's half of a restore: listSaves, then the bytes of the save the
 // pick names: the snapshot's, or of RomM's old rows the newest under `tag` in

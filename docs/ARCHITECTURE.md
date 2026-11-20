@@ -461,7 +461,8 @@ the frontend asks for it over the local socket (`linkup_wire.h`, `linkupsession.
    save" (the session's `couldNotUseNewest`). Where Sigil names a
    difference RomM does not convert yet (DS, Game Boy Advance, the Mega
    Drive family), a save handed over as stored is used only when this
-   core made it, RomM's own `may_load` rule (`savepick::mayLoad`). Every
+   core made it, RomM's own `may_load` rule (`savepick::mayLoad`); an
+   arcade game takes no other app's save at all (`OwnForm::arcade`). Every
    push names the core in Sigil's spelling beside the tag. What RomM holds and the
    picked save's bytes are fetched on the launch worker (`fetchSaves`) and
    written on the frame thread (`saves.cpp`); a save of the game that lands

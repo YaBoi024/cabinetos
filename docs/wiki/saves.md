@@ -98,13 +98,14 @@ What crosses between apps depends on the system, by what RomM's save library
   converts only when RomM knows the game's title ID.
 - **The save travels as it is,** and the console's check decides whether its
   emulator reads it: NES, Super Nintendo, TurboGrafx-16, TurboGrafx-CD, Neo Geo
-  Pocket Color, 3DO, Virtual Boy, Atari 2600, Atari 7800, Vectrex, and arcade
-  games in FinalBurn Neo and MAME 2003-Plus.
+  Pocket Color, 3DO, Virtual Boy, Atari 2600, Atari 7800 and Vectrex.
 - **Only from the same emulator, until RomM converts them:** DS, Game Boy
-  Advance, Mega Drive, Master System, Game Gear and 32X. Their emulators keep
-  different files.
-- **Between CabinetOS consoles only, for now:** Xbox, Xbox 360, and arcade
-  games in MAME, Naomi, Atomiswave, Model 2 and Model 3.
+  Advance, Mega Drive, Master System, Game Gear, 32X, Xbox and Xbox 360. Their
+  emulators keep different files.
+- **Arcade games, between CabinetOS consoles only:** FinalBurn Neo, MAME
+  2003-Plus, Naomi, Atomiswave, Model 2 and Model 3. A board's memory carries
+  nothing that says which emulator, or which version of it, wrote it, so a
+  save from another app is never used. MAME keeps its saves on the console.
 
 ## Each person's own
 

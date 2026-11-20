@@ -80,8 +80,10 @@ RomM: keep test launches under a minute, or have his go.
    not copied into a channel at the start, since an app that saves outside
    channels is that app's to move onto them (MMagTech); and the pill shows
    for such a save even when it names no device, the same message as any
-   save made elsewhere (left to the session, judged on the TV). Next is
-   step 9, offline and coming back.
+   save made elsewhere (left to the session, judged on the TV). An arcade
+   game takes no other app's save, whichever emulator it names, since a
+   board's memory says nothing of the emulator or version that wrote it
+   (MMagTech, 2026-11-20). Next is step 9, offline and coming back.
    Each step is a fresh
    session that keeps to CLAUDE.md's seven rules and its piece's files, reuses, removals, docs and
    tests in the plan: Fable for steps 4 and 5 (starting and leaving a
