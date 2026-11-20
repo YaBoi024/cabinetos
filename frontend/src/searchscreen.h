@@ -107,6 +107,7 @@ private:
     float resultsBottom_ = ui::kCanvasHeight;
     bool keysUp_ = true;
     design::Animated scroll_;
+    int cols_ = 0;   // FORK (phones): the results' columns when upright, 0 for one row
     TapSpots taps_;   // FORK (handheld)
 };
 
