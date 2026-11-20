@@ -245,6 +245,17 @@ bool tapPanel(App& a, App::InputOwner owner, float x, float y) {
     return false;
 }
 
+// FORK (phones): a tap on the Back button is B. Only while it is drawn.
+bool tapBack(App& a, App::InputOwner owner, float x, float y) {
+    if (SDL_GetTicks() - a.backDrawnAt > 150) return false;
+    const App::BackSpot& b = a.backSpot;
+    constexpr float kReach = 14.0f;   // a finger is not a pointer
+    if (x < b.x - kReach || x > b.x + b.d + kReach || y < b.y - kReach || y > b.y + b.d + kReach)
+        return false;
+    goBack(a, owner);
+    return true;
+}
+
 // A tap on the top bar: the destination or the account chip under the finger,
 // opened as the pad's A opens it. False when the bar is not on screen or
 // something is over it, or the tap is not on any of its items.
@@ -488,6 +499,7 @@ bool App::handleTouch(const SDL_Event& e) {
                 if (tapBar(*this, x, y)) return true;
                 if (owner == InputOwner::Keyboard) return true;
             }
+            if (tapBack(*this, owner, x, y)) return true;   // FORK (phones)
             if (owner == InputOwner::UI && tapNotice(x, y)) return true;
             if (tapPanel(*this, owner, x, y)) return true;
             if (tapBar(*this, x, y)) return true;

@@ -130,6 +130,18 @@ void safeInsets(int windowW, int windowH, int* left, int* top, int* right, int* 
 // and a missing one is a fault. A phone is given its emulators one at a time.
 bool showsGamesWithoutACore();
 
+// FORK (phones): A SYSTEM WHOSE EMULATOR THIS PROGRAM WILL NEVER HAVE gets no Library
+// tile at all, rather than a greyed one that says its core is not built yet. The
+// console says false: there a missing core is a fault worth seeing. A phone that
+// can never run a system's emulator (a PlayStation 2, a GameCube) says true.
+bool hidesSystemsWithoutACore();
+
+// FORK (phones): A BACK BUTTON ON THE SCREEN, at the left of the top bar (and alone
+// where the bar is not drawn), whenever there is somewhere to go back to. A
+// touchscreen has no B button, and a swipe in from the edge is not something people
+// find by themselves. The console says false: its controller has B.
+bool showsBackButton();
+
 // --- A game running -------------------------------------------------------------
 
 // Told when a game starts (true) and when it ends (false), on the thread that
