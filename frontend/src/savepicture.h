@@ -40,11 +40,16 @@
 // THE PICTURE. The game's own frame, the menu never in it (Core::snapshot), no
 // wider than kMaxWidth, its shape kept: made that small on the graphics chip
 // before it is read, so the game does not wait on a whole 4K frame (8 to 23 ms
-// on the reference console). For an emulator run as a program, gamescope's own
-// picture of the game, as Screenshot takes it (App::standaloneScreenshot),
-// read back once gamescope has written it and made as small. A PNG, as RomM's
-// web player sends and this console's states carry, encoded off the game's
-// thread.
+// on the reference console). For an emulator run as a program, and for
+// PlayStation 2 in its own window (#226) while it plays, gamescope's own
+// picture of the game's plane, as Screenshot takes a program's
+// (App::standaloneScreenshot), asked from the worker and read back once
+// gamescope has written it, made as small: PCSX2's own read-back kept the
+// console's main loop, which feeds PS2's sound, waiting 48 ms (1 s while PCSX2
+// was not drawing yet), and gamescope's capture costs PCSX2 no frame
+// (measured 2026-11-19). As a PS2 game is left, PCSX2's read-back, since its
+// window goes the moment the game unloads. A PNG, as RomM's web player sends
+// and this console's states carry, encoded off the game's thread.
 //
 // AS THE GAME IS LEFT, while it is still on screen (leaving): a save that
 // changed since the last picture and has not settled takes its picture then,
@@ -90,16 +95,19 @@ inline constexpr uint64_t kProgramWaitMs = 10000;
 
 // THE GAME'S PART, so the self-test can play it: the battery as it is now
 // (Core::readSaveRam; false for none), the game's own frame no wider than
-// kMaxWidth (Core::snapshot; on the frame thread), and for an emulator run as
-// a program, gamescope asked for its picture of the game into a file (false
-// when it could not be asked). A game without a part leaves it empty.
+// kMaxWidth (Core::snapshot; on the frame thread), and gamescope asked for its
+// picture of the game into a file (false when it could not be asked; on the
+// worker), for an emulator run as a program and PS2 in its own window. With
+// both, gamescope's is the picture in play and the frame the picture as the
+// game is left. A game without a part leaves it empty.
 struct Game {
     std::function<bool(std::vector<uint8_t>*)> battery;
     std::function<bool(std::vector<uint8_t>*, unsigned*, unsigned*)> frame;
     std::function<bool(const std::string& path)> askProgram;
 };
-// The part of a game in this process's core (Core::shared), and of an
-// emulator run as a program (`gamescopectl screenshot`).
+// The part of a game in this process's core (Core::shared), with gamescope's
+// for PS2 in its own window, and of an emulator run as a program
+// (`gamescopectl screenshot`).
 Game coreGame();
 Game programGame();
 
@@ -139,7 +147,7 @@ private:
     struct State;
     // The picture taken now (the head of this file); one wanted while one is
     // being made waits, the newest, and goes next.
-    void take(GameSession& sess, uint64_t nowMs, const char* why);
+    void take(GameSession& sess, uint64_t nowMs, const char* why, bool leaving = false);
     // A picture made taken into the session, the next one started, and
     // gamescope's file followed.
     void pump(GameSession& sess, uint64_t nowMs);

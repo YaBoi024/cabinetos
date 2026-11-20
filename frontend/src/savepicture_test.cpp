@@ -9,9 +9,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "cache.h"
@@ -45,6 +47,15 @@ bool readPicture(const std::string& path, int* w, int* h, int* red) {
     const size_t mid = (static_cast<size_t>(*h / 2) * *w + *w / 2) * 4;
     *red = rgba[mid];
     return true;
+}
+
+// The red of the picture's last row, which a file read before it was whole
+// leaves black.
+int bottomRed(const std::string& path) {
+    std::vector<uint8_t> rgba;
+    int w = 0, h = 0;
+    if (!ui::decodeImage(cab::readBytes(path), rgba, w, h) || w <= 0 || h <= 0) return -1;
+    return rgba[(static_cast<size_t>(h - 1) * w + w / 2) * 4];
 }
 
 bool exists(const std::string& path) {
@@ -115,6 +126,12 @@ int test() {
             w.tick(s, at);
             usleep(5000);
         }
+    };
+    // A look a little later in real time too, so a picture asked of gamescope
+    // on the worker has been asked by then.
+    auto later = [&](Watch& w, GameSession& s, uint64_t at) {
+        usleep(20000);
+        w.tick(s, at);
     };
     auto battery = [&](int romId) {
         GameSession s;
@@ -385,16 +402,21 @@ int test() {
         cab::writeBytes(s.dirSaveRoot + "/0000/progress.bin", std::string("one"));
         s.dirAtLaunch = listDirSave(s);
         cab::standalone::writePlayingNote(s.saveDir, playingNoteFor(s, s.saveDir));
-        int asked = 0;
-        bool writes = true;
+        std::atomic<int> asked{0};
+        std::atomic<bool> offThread{true};
+        const std::thread::id caller = std::this_thread::get_id();
+        std::atomic<bool> writes{true};
+        // gamescope's pictures, made beforehand: asking returns at once, as
+        // `gamescopectl` does, and the file is there a moment later.
+        std::vector<uint8_t> shot210, shot220, shot230;
+        ui::encodePNG(plain(1920, 1080, 210), 1920, 1080, shot210);
+        ui::encodePNG(plain(1920, 1080, 220), 1920, 1080, shot220);
+        ui::encodePNG(plain(1920, 1080, 230), 1920, 1080, shot230);
         Game prog;
         prog.askProgram = [&](const std::string& path) {
             ++asked;
-            if (writes) {
-                std::vector<uint8_t> png;
-                ui::encodePNG(plain(1920, 1080, 210), 1920, 1080, png);
-                cab::writeBytes(path, png);
-            }
+            if (std::this_thread::get_id() == caller) offThread = false;
+            if (writes) cab::writeBytes(path, shot210);
             return true;
         };
         Watch w;
@@ -402,12 +424,14 @@ int test() {
         cab::writeBytes(s.dirSaveRoot + "/0000/progress.bin", std::string("two"));
         w.tick(s, 1000);
         w.tick(s, 2000);
-        for (uint64_t t = 2500; t <= 4000; t += 500) w.tick(s, t);
+        for (uint64_t t = 2500; t <= 4000; t += 500) later(w, s, t);
         settle(w, s, 4000);
         int pw = 0, ph = 0, red = 0;
-        check(asked == 1 && readPicture(s.savePicture, &pw, &ph, &red) && red == 210 &&
+        check(asked == 1 && offThread && readPicture(s.savePicture, &pw, &ph, &red) &&
+                  red == 210 &&
                   pw == 640 && ph == 360,
-              "gamescope's picture read back once whole and made 640 wide");
+              "gamescope asked on the worker, never the caller's thread, and its picture "
+              "read back once whole and made 640 wide");
         check(picturesOf(u, game5) == 1, "gamescope's own file deleted once read");
         std::string dir;
         const GameSession back =
@@ -434,10 +458,9 @@ int test() {
               "though the program wrote the last of its save as it closed");
         // gamescope still writing when first looked at: read once whole.
         bool half = true;
-        std::vector<uint8_t> full;
+        const std::vector<uint8_t>& full = shot220;
         prog.askProgram = [&](const std::string& path) {
             ++asked;
-            ui::encodePNG(plain(1920, 1080, 220), 1920, 1080, full);
             cab::writeBytes(path, std::vector<uint8_t>(full.begin(), full.begin() + full.size() / 2));
             return true;
         };
@@ -447,7 +470,7 @@ int test() {
         cab::writeBytes(s4.dirSaveRoot + "/0000/progress.bin", std::string("half"));
         w4.tick(s4, 1000);
         w4.tick(s4, 2000);
-        w4.tick(s4, 2500);
+        later(w4, s4, 2500);
         if (half) {
             half = false;
             std::string raw;
@@ -461,10 +484,12 @@ int test() {
             }
             cab::writeBytes(raw, full);
         }
-        for (uint64_t t = 3000; t <= 4500; t += 500) w4.tick(s4, t);
+        for (uint64_t t = 3000; t <= 4500; t += 500) later(w4, s4, t);
         settle(w4, s4, 4500);
-        check(readPicture(s4.savePicture, &pw, &ph, &red) && red == 220,
-              "gamescope still writing its file: read only once its size stops changing");
+        check(readPicture(s4.savePicture, &pw, &ph, &red) && red == 220 &&
+                  bottomRed(s4.savePicture) == 220,
+              "gamescope still writing its file: read only once its size stops changing, the "
+              "whole picture");
         w4.finish(s4, 4600);
         // gamescope never writes one.
         prog.askProgram = [&](const std::string&) {
@@ -478,7 +503,7 @@ int test() {
         cab::writeBytes(s3.dirSaveRoot + "/0000/progress.bin", std::string("five"));
         w3.tick(s3, 1000);
         w3.tick(s3, 2000);
-        for (uint64_t t = 2500; t <= 2000 + kProgramWaitMs + 1000; t += 500) w3.tick(s3, t);
+        for (uint64_t t = 2500; t <= 2000 + kProgramWaitMs + 1000; t += 500) later(w3, s3, t);
         check(s3.savePicture.empty() && picturesOf(u, game5) == 0,
               "gamescope writing nothing: given up after ten seconds, nothing left");
         w3.finish(s3, 20000);
@@ -489,22 +514,80 @@ int test() {
         prog.askProgram = [&](const std::string& path) {
             ++asked;
             if (fails) return true;
-            std::vector<uint8_t> png;
-            ui::encodePNG(plain(1920, 1080, 230), 1920, 1080, png);
-            return cab::writeBytes(path, png);
+            return cab::writeBytes(path, shot230);
         };
         w5.begin(s5, u, prog, 0);
         cab::writeBytes(s5.dirSaveRoot + "/0000/progress.bin", std::string("six"));
         w5.tick(s5, 1000);
         w5.tick(s5, 2000);
-        for (uint64_t t = 2500; t <= 2000 + kProgramWaitMs + 1000; t += 500) w5.tick(s5, t);
+        for (uint64_t t = 2500; t <= 2000 + kProgramWaitMs + 1000; t += 500) later(w5, s5, t);
         fails = false;
         cab::writeBytes(s5.dirSaveRoot + "/0000/progress.bin", std::string("seven"));
-        for (uint64_t t = 14000; t <= 17000; t += 500) w5.tick(s5, t);
+        for (uint64_t t = 14000; t <= 17000; t += 500) later(w5, s5, t);
         settle(w5, s5, 17000);
         check(readPicture(s5.savePicture, &pw, &ph, &red) && red == 230,
               "after gamescope gave nothing, the next save still gets its picture");
         w5.finish(s5, 17100);
+    }
+
+    std::printf("\nPlayStation 2 in its own window\n");
+    {
+        // The core's frame and gamescope's both: gamescope's while it plays,
+        // the frame as the game is left.
+        GameSession s;
+        s.romId = 507;
+        s.title = "Burnout 3 Takedown";
+        s.fsStem = "Burnout 3 Takedown";
+        s.saveTag = "pcsx2";
+        s.saveDir = storage::savesDir(u, "ps2", 507, "pcsx2");
+        cab::FileSaveState f;
+        f.spec.path = "Burnout 3 Takedown.ps2";
+        f.spec.captureSuffix = ".ps2";
+        f.path = s.saveDir + "/Burnout 3 Takedown.ps2";
+        f.atLaunch = std::vector<uint8_t>(4096, 0x11);
+        f.hadOne = true;
+        cab::writeBytes(f.path, f.atLaunch);
+        s.fileSaves = {f};
+        std::atomic<int> shots{0}, frames{0};
+        std::atomic<bool> offThread{true};
+        const std::thread::id caller = std::this_thread::get_id();
+        Game ps2;
+        ps2.frame = [&](std::vector<uint8_t>* rgba, unsigned* w, unsigned* h) {
+            ++frames;
+            *rgba = plain(640, 448, 240);
+            *w = 640;
+            *h = 448;
+            return true;
+        };
+        std::vector<uint8_t> shot250;
+        ui::encodePNG(plain(3840, 2160, 250), 3840, 2160, shot250);
+        ps2.askProgram = [&](const std::string& path) {
+            ++shots;
+            if (std::this_thread::get_id() == caller) offThread = false;
+            return cab::writeBytes(path, shot250);
+        };
+        Watch w;
+        w.begin(s, u, ps2, 0);
+        std::vector<uint8_t> card = f.atLaunch;
+        card[100] = 0x22;
+        cab::writeBytes(f.path, card);
+        w.tick(s, 1000);
+        w.tick(s, 2000);
+        for (uint64_t t = 2500; t <= 4000; t += 500) later(w, s, t);
+        settle(w, s, 4000);
+        int pw = 0, ph = 0, red = 0;
+        check(shots == 1 && frames == 0 && offThread &&
+                  readPicture(s.savePicture, &pw, &ph, &red) && red == 250 && pw == 640,
+              "while it plays: gamescope's picture, asked on the worker, and PCSX2's frame never "
+              "read on the main loop");
+        card[200] = 0x33;
+        cab::writeBytes(f.path, card);
+        w.leaving(s, 4100);
+        w.finish(s, 4200);
+        check(shots == 1 && frames == 1 && readPicture(s.savePicture, &pw, &ph, &red) &&
+                  red == 240,
+              "as it is left, saved within the second: PCSX2's frame, read before its window goes");
+        savepicture::prune(u, 507);
     }
 
     std::printf("\nthe shrink\n");

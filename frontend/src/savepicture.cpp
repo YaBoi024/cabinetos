@@ -14,6 +14,7 @@
 #include "job.h"
 #include "pending.h"
 #include "proc.h"
+#include "ps2.h"
 #include "saves.h"
 #include "standalone.h"
 #include "storage.h"
@@ -142,7 +143,9 @@ struct Watch::State {
     };
     bool frameWaiting = false;
     Frame waiting;
-    // A picture gamescope is writing for an emulator run as a program.
+    // A picture asked of gamescope (on `ask`, never the main loop) and being
+    // written by it.
+    cab::Job<bool> ask;
     std::string shotRaw, shotPath;
     int64_t shotSize = -1;
     uint64_t shotAskedMs = 0, shotCheckedMs = 0;
@@ -196,27 +199,31 @@ bool changedSince(const GameSession& sess, const Look& now, const Look& atPictur
 
 }  // namespace
 
-void Watch::take(GameSession& sess, uint64_t nowMs, const char* why) {
+void Watch::take(GameSession& sess, uint64_t nowMs, const char* why, bool leaving) {
     State& st = *s_;
     const Game& game = st.game;
     const std::string path = pathFor(st.who, st.romId, wallMs());
-    if (st.program) {
-        // gamescope's own picture of the game's plane, which leaves the menu
-        // out, written by gamescope a moment after it is asked.
-        if (!st.shotRaw.empty() || st.job.busy()) {
+    // gamescope's own picture of the game's plane, which leaves the menu out,
+    // written by gamescope a moment after it is asked: an emulator run as a
+    // program's always, PS2's while it plays (the head of savepicture.h).
+    if (game.askProgram && (!game.frame || !leaving)) {
+        if (!st.shotRaw.empty() || st.job.busy() || st.ask.busy()) {
             st.askAgain = true;
             return;
         }
         const std::string raw = path + ".gamescope.png";
-        if (!game.askProgram || !game.askProgram(raw)) {
-            std::fprintf(stderr, "[save] game %d: gamescope could not be asked for the save's "
-                                 "picture\n", st.romId);
-            return;
-        }
         st.shotRaw = raw;
         st.shotPath = path;
         st.shotSize = -1;
         st.shotAskedMs = st.shotCheckedMs = nowMs;
+        // ASKED ON THE WORKER, so the main loop, which feeds a PS2 game its
+        // pads and drains its sound, never waits on `gamescopectl`.
+        const std::function<bool(const std::string&)> askFor = game.askProgram;
+        st.ask.start([askFor, raw](bool& asked, std::string& e) {
+            asked = askFor(raw);
+            if (!asked) e = "gamescope could not be asked";
+            return asked;
+        });
         std::fprintf(stderr, "[save] game %d: the save's picture asked of gamescope (%s)\n",
                      st.romId, why);
         return;
@@ -236,6 +243,14 @@ void Watch::take(GameSession& sess, uint64_t nowMs, const char* why) {
 
 void Watch::pump(GameSession& sess, uint64_t nowMs) {
     State& st = *s_;
+    // gamescope could not be asked: nothing is coming.
+    bool asked = false;
+    std::string askErr;
+    if (st.ask.take(&asked, &askErr, nullptr) && !asked) {
+        std::fprintf(stderr, "[save] game %d: no picture of its save: %s\n", st.romId,
+                     askErr.c_str());
+        st.shotRaw.clear();
+    }
     // A PICTURE MADE: into the session, the one before it deleted unless a
     // push already owed sends it.
     std::string made, err;
@@ -267,7 +282,8 @@ void Watch::pump(GameSession& sess, uint64_t nowMs) {
     // GAMESCOPE'S PICTURE, whole once its size stops changing (as
     // App::pumpStandaloneShot reads it), then read back, made small and
     // encoded on the worker.
-    if (!st.shotRaw.empty() && nowMs - st.shotCheckedMs >= 500 && !st.job.busy()) {
+    if (!st.shotRaw.empty() && !st.ask.busy() && nowMs - st.shotCheckedMs >= 500 &&
+        !st.job.busy()) {
         st.shotCheckedMs = nowMs;
         struct stat fs;
         const bool there = ::stat(st.shotRaw.c_str(), &fs) == 0 && fs.st_size > 0;
@@ -296,7 +312,7 @@ void Watch::pump(GameSession& sess, uint64_t nowMs) {
             st.shotSize = fs.st_size;
         }
     }
-    if (st.askAgain && st.shotRaw.empty() && !st.job.busy()) {
+    if (st.askAgain && st.shotRaw.empty() && !st.job.busy() && !st.ask.busy()) {
         st.askAgain = false;
         take(sess, nowMs, "the save changed again");
     }
@@ -329,7 +345,7 @@ void Watch::leaving(GameSession& sess, uint64_t nowMs) {
     st.lastLookMs = nowMs;
     Look now = lookAt(sess, st.game);
     if (now != st.atPicture && changedSince(sess, now, st.atPicture, st.fileBytes))
-        take(sess, nowMs, "the game is being left");
+        take(sess, nowMs, "the game is being left", /*leaving=*/true);
     st.atPicture = st.last = std::move(now);
     st.fileBytes.clear();
     for (const cab::DirEntry& e : st.atPicture.files)
@@ -350,11 +366,13 @@ void Watch::finish(GameSession& sess, uint64_t nowMs) {
         return nowMs + static_cast<uint64_t>((t.tv_sec - t0.tv_sec) * 1000 +
                                              (t.tv_nsec - t0.tv_nsec) / 1000000);
     };
-    while (!st.shotRaw.empty() || st.job.busy() || st.frameWaiting) {
+    while (!st.shotRaw.empty() || st.job.busy() || st.frameWaiting || st.ask.busy()) {
         st.shotCheckedMs = 0;
         pump(sess, now());
-        if (st.shotRaw.empty() && !st.job.busy() && !st.frameWaiting) break;
-        if (st.job.busy()) {
+        if (st.shotRaw.empty() && !st.job.busy() && !st.frameWaiting && !st.ask.busy()) break;
+        if (st.ask.busy()) {
+            st.ask.wait();
+        } else if (st.job.busy()) {
             st.job.wait();
         } else if (now() - nowMs > kProgramWaitMs + 2000) {
             // Never longer than Screenshot waits, and a little: the leave
@@ -380,23 +398,30 @@ void Watch::finish(GameSession& sess, uint64_t nowMs) {
     st.on = false;
 }
 
+namespace {
+bool askGamescope(const std::string& path) {
+    const proc::Result r = proc::run({"gamescopectl", "screenshot", path}, 5);
+    if (!r.ok()) std::fprintf(stderr, "[save] gamescopectl: %s\n", proc::trimmed(r.err).c_str());
+    return r.ok();
+}
+}  // namespace
+
 Game coreGame() {
     Game g;
     g.battery = [](std::vector<uint8_t>* out) { return cab::Core::shared().readSaveRam(*out); };
     g.frame = [](std::vector<uint8_t>* rgba, unsigned* w, unsigned* h) {
         return cab::Core::shared().snapshot(*rgba, *w, *h, kMaxWidth);
     };
+    // PS2 IN ITS OWN WINDOW (#226): gamescope's picture while it plays, so
+    // the main loop never waits on PCSX2's read-back (the head of this file).
+    // Off gamescope every frame is copied already, and the frame is read.
+    if (cab::Core::shared().isPs2() && ps2::windowed()) g.askProgram = askGamescope;
     return g;
 }
 
 Game programGame() {
     Game g;
-    g.askProgram = [](const std::string& path) {
-        const proc::Result r = proc::run({"gamescopectl", "screenshot", path}, 5);
-        if (!r.ok())
-            std::fprintf(stderr, "[save] gamescopectl: %s\n", proc::trimmed(r.err).c_str());
-        return r.ok();
-    };
+    g.askProgram = askGamescope;
     return g;
 }
 
