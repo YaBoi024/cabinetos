@@ -69,7 +69,24 @@ RomM: keep test launches under a minute, or have his go.
    from before the update; a save still owed from before the update goes
    up as the game's snapshot. Until step 8 a save another emulator made is
    not used, and a push names the console's tag but no core. Next is
-   step 8.
+   step 8. Decided for step 8 on 2026-11-19: step 8 also weighs another
+   app's save that is in no channel, by the same rule as a channel's. The
+   newest save wins, asked of RomM in the console's own form, with the same
+   check and the same "Couldn't use the newest save" when it can't be used;
+   the other app's row is left as it is, and the console deletes nothing on
+   RomM. Today a start reads saves from before channels only under the
+   console's own tag (`savepick::newestOldRow`), and another emulator's
+   save only as a channel's current, so a save sent with no slot is never
+   weighed. RomM's website upload can send none (`SaveDataTab.vue` at
+   5.5.0-alpha.2); one sent with a slot RomM puts into that slot's channel
+   itself (`channel_for_slot`). RomM converts any save by its id
+   (`_convertible_rom_or_400` in `endpoints/saves.py`). Going back from the
+   TV to an app without channels is one way: that app finds its own save
+   unchanged, not the TV's progress, which stays in its channel on RomM.
+   Two questions for MMagTech in step 8, one at a time: whether the start
+   copies such a row into a channel, as step 7 does for the console's own
+   (RomM's `copy_of` takes any of the person's rows); and what the pill
+   does when such a row names no device.
    Each step is a fresh
    session that keeps to CLAUDE.md's seven rules and its piece's files, reuses, removals, docs and
    tests in the plan: Fable for steps 4 and 5 (starting and leaving a
