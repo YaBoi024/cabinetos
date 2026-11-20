@@ -21,6 +21,7 @@
 #include "catalog_internal.h"
 #include "gpu.h"
 #include "wiiremote.h"
+#include "platform.h"
 
 namespace catalog {
 
@@ -152,7 +153,8 @@ std::map<std::string, std::string> optionOverrides(const std::string& core, bool
     if (coreName == "melonds") {
         return {
             {"melonds_threaded_renderer", "enabled"},
-            {"melonds_touch_mode", "Joystick"},
+            // FORK (phones): a finger on the lower screen, where the machine has one.
+            {"melonds_touch_mode", platform::touchesDsScreen() ? "Touch" : "Joystick"},
         };
     }
 

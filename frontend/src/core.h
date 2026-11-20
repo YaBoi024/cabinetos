@@ -331,6 +331,10 @@ public:
     // to a core; the one key pressed is a MAME's menu key
     // (arcadesettings.h). Every key is let go when a game loads.
     void setKey(unsigned retrok, bool down);
+    // FORK (phones): a finger on the picture, for a core that asks for a pointer
+    // (melonDS's Touch mode): down or not, and where, from 0 to 1 across and down
+    // the core's own frame. Let go when a game loads.
+    void setPointer(bool down, float x, float y);
     // How many players there are, so the core is told a controller is in
     // each of their ports. Before loadGame it sets what the game starts with;
     // during a game a higher number plugs the new ports in. Never unplugs: a

@@ -1437,6 +1437,15 @@ struct App {
     uint64_t backDrawnAt = 0;
     bool canGoBackByTouch();
     void drawBackButton(float x, float y, float d, float sc);
+    // FORK (phones): where the game's picture was last drawn, in canvas points, for a
+    // finger on it (touchinput.cpp). Split: the DS's two screens apart, the top half
+    // of the frame in `top` and the bottom half in `bottom`; otherwise all of it in `all`.
+    struct TouchPicture {
+        bool shown = false, split = false;
+        float all[4] = {0, 0, 0, 0}, top[4] = {0, 0, 0, 0}, bottom[4] = {0, 0, 0, 0};
+    };
+    TouchPicture touchPicture;
+    bool touchGamePicture(const SDL_Event& e);
     screens::TapSpots homeTaps;   // FORK (handheld): Home's covers, as last drawn
     screens::TapSpots overlayTaps;   // FORK (handheld): the pause menu's rows, as last drawn
     bool tapOverlay(float x, float y);   // FORK (handheld): a tap on one of them
