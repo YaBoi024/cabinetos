@@ -9,6 +9,7 @@
 
 #include "screens.h"
 #include "tapspots.h"
+#include "touchscroll.h"
 
 namespace screens {
 
@@ -93,6 +94,9 @@ public:
     // FORK (handheld): a finger on the screen. True when it landed on a pill or
     // a tile, with what pressing that would do in `out`. See tapspots.h.
     bool tapAt(float x, float y, Result* out);
+    // FORK (phones): the list under a finger (touchscroll.h).
+    TouchScroll& touch() { return touch_; }
+    float scrollNow() const { return scroll_.value(); }
     void draw(Ctx& c);
     // Glass reads the scene through itself, so anything frosted has to be drawn
     // AFTER Renderer::presentScene. That is a property of the renderer rather
@@ -155,6 +159,8 @@ private:
     void moveFocus(int dx, int dy);
     void focusOn(int row, int slot);   // FORK (handheld)
     TapSpots taps_;                    // FORK (handheld)
+    TouchScroll touch_;                // FORK (phones): touchscroll.h
+    int firstInView_ = -1;             // FORK (phones): the first tile wholly on screen
 
     std::vector<Tile> platforms_;
     std::vector<Tile> collections_;

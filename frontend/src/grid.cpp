@@ -66,6 +66,7 @@ void GridScreen::open(std::string title, LineNames names, std::vector<int> cards
     appear_.retarget(1.0f, 0.280f);
     scroll_.retarget(0.0f, 0.0f);
     scroll_.elapsed = scroll_.duration;
+    touch_ = TouchScroll{};   // FORK (phones)
 }
 
 void GridScreen::append(const std::vector<int>& more,
@@ -181,6 +182,16 @@ Result GridScreen::key(Nav n) {
     const int count = static_cast<int>(cards_.size());
     if (n == Nav::Back) return {Action::Back, 0};
     if (count == 0) return {};
+    // FORK (phones): after a finger moved the list, the first press puts focus
+    // in view and does nothing more (touchscroll.h).
+    if (touch_.free) {
+        touch_.free = false;
+        if (firstInView_ >= 0 && firstInView_ < count && firstInView_ != slot_) {
+            slot_ = firstInView_;
+            sound::play(sound::Cue::Move);
+            return {};
+        }
+    }
     if (n == Nav::Activate) return {Action::OpenGame, cards_[slot_]};
 
     const int cols = columns();
@@ -267,9 +278,14 @@ void GridScreen::draw(Ctx& c) {
         want = std::ceil((rowBottom - (ui::kCanvasHeight - design::kScreenBottomPad)) /
                          rowPitch) * rowPitch;
     want = std::clamp(want, 0.0f, maxScroll);
-    if (std::fabs(want - scroll_.to) > 0.5f)
+    // FORK (phones): a finger has the list; focus does not move it. It stops
+    // where the finger left it, not on a whole row.
+    touch_.max = std::max(0.0f, contentH + design::kScreenBottomPad - ui::kCanvasHeight);
+    if (touch_.free) scroll_.settle(std::clamp(touch_.y, 0.0f, touch_.max));
+    else if (std::fabs(want - scroll_.to) > 0.5f)
         scroll_.retarget(want, design::kFocusDuration);
     const float scroll = scroll_.value();
+    firstInView_ = -1;
 
     for (int pass = 0; pass < 2; ++pass) {
         for (int i = 0; i < count; ++i) {
@@ -287,6 +303,7 @@ void GridScreen::draw(Ctx& c) {
             if (by > ui::kCanvasHeight + rowPitch) break;
 
             taps_.add(i, bx, by, cw, ch, clipTop);
+            if (by >= gridTop - 1.0f && (firstInView_ < 0 || i < firstInView_)) firstInView_ = i;
 
             Card& card = cards[idx];
             card.focus.retarget(isFocused ? 1.0f : 0.0f, design::kFocusDuration);
