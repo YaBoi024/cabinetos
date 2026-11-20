@@ -514,8 +514,8 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
     }
 
     // melonDS writes `<content basename>.sav` through its own SRAM manager, 2
-    // to 3 s after the game last wrote it, and in its libretro build not again
-    // at unload (NDSCart_SRAMManager::DeInit skips the flush there, at our pin).
+    // to 3 s after the game last wrote it, and again at unload through our
+    // patch (cores/build-core.sh, the melonds block).
     if (slug == "nds") {
         SaveFile f;
         f.path = stem + ".sav";
