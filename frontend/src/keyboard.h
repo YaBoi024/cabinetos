@@ -160,7 +160,7 @@ public:
     // takes no typing; only cancel (B) works. It used to close on done and a
     // new one open on a wrong password, and the two cuts of a full-screen
     // scrim read as a strobe (MMagTech on the TV, 2026-09-24).
-    void setBusy(bool on) { busy_ = on; }
+    void setBusy(bool on);
     bool busy() const { return busy_; }
 
     // A MESSAGE IN THE FIELD ITSELF: it empties and says `msg` where the
@@ -262,6 +262,10 @@ private:
     struct KeyRect { float x = 0, y = 0, w = 0, h = 0; int row = 0, col = 0; };
     std::vector<KeyRect> keyRects_;
 
+    // FORK (phones): the machine shows a text field of its own (platform.h,
+    // nativeFieldOpen), and this only keeps value_ in step with it.
+    bool native_ = false;
+    void syncNative();
     bool open_ = false;
     bool ghost_ = false;     // closed, still drawing while it slides away
     float slide_ = 0.0f;
