@@ -134,7 +134,6 @@ public:
     // that went with no `leaving` (a program that quit or fell over) whose
     // save changed since its last picture keeps none. The watch stops.
     void finish(GameSession& sess, uint64_t nowMs);
-    bool watching() const;
 
 private:
     struct State;

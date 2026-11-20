@@ -155,8 +155,6 @@ struct Watch::State {
 Watch::Watch() : s_(std::make_unique<State>()) {}
 Watch::~Watch() = default;
 
-bool Watch::watching() const { return s_->on; }
-
 void Watch::begin(GameSession& sess, const storage::User& who, Game game, uint64_t nowMs) {
     s_->job.wait();
     s_ = std::make_unique<State>();
