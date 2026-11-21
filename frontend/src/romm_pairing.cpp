@@ -72,6 +72,12 @@ bool looksLocal(const std::string& host) {
     return false;
 }
 
+namespace {
+// heardServerVersion's, written by every probe that is answered.
+std::mutex gHeardMu;
+std::string gHeard;
+}  // namespace
+
 // THE CANDIDATE IS ASKED WITHOUT BECOMING THE ADDRESS, and is made the
 // address only once it has answered, so a request on another thread never
 // goes to a candidate that is about to be put back (#398, batch i).
@@ -109,7 +115,16 @@ bool Client::probe(const std::string& candidate, bool report, std::string* why) 
                              "that one is used\n");
     base_ = at.base;
     if (hasSystem) serverVersion_ = version;
+    if (hasSystem && !version.empty()) {
+        std::lock_guard<std::mutex> heard(gHeardMu);
+        gHeard = version;
+    }
     return true;
+}
+
+std::string heardServerVersion() {
+    std::lock_guard<std::mutex> heard(gHeardMu);
+    return gHeard;
 }
 
 bool Client::setAddress(const std::string& address, std::string* err) {

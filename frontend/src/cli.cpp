@@ -234,6 +234,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             gpuChoiceTestMode = true;
         } else if (SDL_strcmp(argv[i], "--tailscale-switch-test") == 0) {
             tailscaleSwitchTestMode = true;
+        } else if (SDL_strcmp(argv[i], "--update-romm-test") == 0) {
+            updateRommTestMode = true;
         } else if (SDL_strcmp(argv[i], "--load-state") == 0 && i + 1 < argc) {
             loadStateAfter = SDL_atoi(argv[++i]);
         } else if (SDL_strcmp(argv[i], "--sync-test") == 0) {

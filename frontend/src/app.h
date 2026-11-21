@@ -371,6 +371,8 @@ struct App {
     bool gpuChoiceTestMode = false;
     // --tailscale-switch-test: Tailscale's own switch (tailscale.h).
     bool tailscaleSwitchTestMode = false;
+    // --update-romm-test: which RomM an update waits for (update.h, #346).
+    bool updateRommTestMode = false;
     // Opens the overlay and takes Exit to Home, so the whole leave-a-game path
     // can be proved on a machine with nothing attached.
     bool overlayExitDemo = false;
@@ -1660,9 +1662,10 @@ struct App {
     // status file (update.h); the frame loop reads it twice a second and this
     // decides what it means on screen. What has to outlive a boot is kept in
     // settings.json: Manual or Weekly, when the last check succeeded and what
-    // it found, the version already announced, and the version waiting for a
-    // restart with the boot it was staged in, which is how the first start
-    // after a restart knows whether it applied.
+    // it found and the RomM that needs, the version already announced, the
+    // version waiting for a restart with the boot it was staged in, which is
+    // how the first start after a restart knows whether it applied, and the
+    // server's RomM version last heard.
     update::Status upd;   // the first poll reads it, so a status already there is acted on
     // A state said on screen before root has written it: "Checking…" the
     // moment the row is pressed, or why systemd refused. Root's next write
@@ -1683,6 +1686,13 @@ struct App {
     static std::string updVersionSize(const std::string& version, int64_t size);
     std::string updChecked();
     bool updFoundNewer();
+    // HELD BACK (#346): an update that needs a newer RomM than the server's
+    // says "Needs RomM 5.5 or newer." and Download is greyed out until the
+    // server is updated.
+    std::string updRommWritten;      // romm_version in settings.json, as last written
+    std::string updRommSeen();
+    bool updHeld(const std::string& needed);
+    static std::string updNeeds(const std::string& needed);
     screens::SettingsRow updateRow();
     files::State filesState;
     int64_t filesSaidAt = 0;

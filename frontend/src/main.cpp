@@ -75,6 +75,7 @@ int App::run(int argc, char** argv) {
                                                   .gpuChoiceTestMode = gpuChoiceTestMode,
                                                   .tailscaleSwitchTestMode =
                                                       tailscaleSwitchTestMode,
+                                                  .updateRommTestMode = updateRommTestMode,
                                                   .padsSeconds = padsSeconds,
                                                   .firstRunRulesMode = firstRunRulesMode,
                                                   .firstRunWriteMode = firstRunWriteMode,

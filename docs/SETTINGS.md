@@ -849,6 +849,18 @@ Network, since 2026-11-15.
     Couldn't update / "Stalled" or the reason; pressing retries. **A failed
     check says "Couldn't check"** / the reason ("No connection"), because it
     was not an update that failed.
+  - **Held back for an older RomM (#346):** the console needs the RomM
+    version the wiki names, or newer, and each image says which it needs.
+    An update that needs a newer RomM than the server's says "Update
+    available" / "Needs RomM 5.5 or newer." in the row and in its panel,
+    whose Download is greyed out, Later the one answer. The line says what
+    is needed, not what the server has (2026-11-17). The server's version is
+    what RomM's heartbeat said, or with RomM out of reach the one last heard;
+    a server never heard, or one that gives no number ("development", a RomM
+    built from its source), counts as too old. The line clears by itself
+    within a minute of the server's update, since the console asks RomM once
+    a minute. A download that meets a newer image than the check found,
+    needing another RomM, fetches nothing and shows that image instead.
   - **PIN:** starting the download asks for it when one is set. Checking,
     the status, Manual or Weekly, and Restart now or Later do not. MMagTech
     reversed "system update open to everyone" (2026-09-24): an update can be

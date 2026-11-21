@@ -381,15 +381,25 @@ the frontend asks for it over the local socket (`linkup_wire.h`, `linkupsession.
    `cabinetos-update-check.service` with `unit::start`, by hand or weekly
    when that setting is on.
 2. The unit runs `/usr/libexec/cabinetos-update check` as root: `bootc
-   upgrade --check` and the size of what is missing. It writes the answer to
-   `/run/cabinetos-update/status`.
+   upgrade --check`, the size of what is missing, and the RomM version the
+   new image needs, its `cabinetos.romm-needed` label (the Justfile puts it
+   on every image, from `cabinetos.env`, and stops the build when
+   `docs/wiki/romm.md` names another). It writes the answer to
+   `/run/cabinetos-update/status`; a label it cannot read fails the check.
 3. The root script decides: it reports an update whenever bootc finds a
    different image (bootc compares digests, not versions), and "ready" when
    one is already staged. The frontend shows what the file says, and between
    checks still offers a version it found earlier if that is not the one
-   running.
-4. Download starts `cabinetos-update-download.service`, which stages the new
-   image; the next restart or power off applies it.
+   running. It holds back an update that needs a newer RomM than the
+   server's (`update::rommFor`): "Needs RomM 5.5 or newer." and Download
+   greyed out. The server's version is the newest heartbeat's from any
+   client this run (`romm::heardServerVersion`), which the frontend writes
+   down in `settings.json` for a start with RomM out of reach.
+4. Download starts `cabinetos-update-download.service`, which checks again
+   and stages the newest image; the next restart or power off applies it. An
+   image newer than the one on screen that needs another RomM is not
+   fetched: the script reports it as available instead, and the frontend
+   decides again.
 
 Where a console takes its updates from is set once, at the first start of a
 new console, however the image reached its drive: the installer ISO, or a
@@ -649,7 +659,7 @@ The area named is the one in `ci/base-watch.txt` whose checks a change asks for.
 | Wi-Fi power saving off | NetworkManager's `wifi.powersave` default in `[connection]` (`system_files/usr/lib/NetworkManager/conf.d/50-cabinetos-wifi.conf`) | The image build stops if NetworkManager does not read it (`build_files/wifi-scan-rule.sh`); `log:` (Network): the card says power saving is off |
 | Tailscale, for Remote Play and RomM away from home | `tailscale status --json`'s fields and state words, `tailscale up` refusing unless every setting is named (`tailscale.cpp`, `tailscaleflow.cpp`), `tailscale set`'s flags (`system_files/usr/lib/systemd/system/tailscaled.service.d/50-cabinetos.conf`) | `log:` and `tv:` (Tailscale, for Remote Play and RomM away from home). Not checked: `up`'s rule |
 | Every root job | Our polkit rules, reading polkit's subject and action fields (`system_files/usr/share/polkit-1/rules.d/`) | `log:` and `tv:` (What the console may do as root) |
-| System update | `bootc status --json`, the text of `bootc upgrade --check` and its progress lines, skopeo and jq, ostree's names for the layers it holds (`cabinetos-update`); `/proc/cmdline`'s `ostree=`, the deployment's `.origin`, `/usr/share/ublue-os/image-info.json`, which no package owns (`update.cpp`) | `log:` and `tv:` (System update) |
+| System update | `bootc status --json`, the text of `bootc upgrade --check` and its progress lines, skopeo and jq, `skopeo inspect --config` giving the image's labels under `.config.Labels`, ostree's names for the layers it holds (`cabinetos-update`); RomM's heartbeat giving its version as numbers and dots, a release's tag after a "-", or "development" for a RomM built from source (`SYSTEM.VERSION`, `romm_pairing.cpp`, read by `update.cpp`); `/proc/cmdline`'s `ostree=`, the deployment's `.origin`, `/usr/share/ublue-os/image-info.json`, which no package owns (`update.cpp`) | `log:` and `tv:` (System update) |
 | A new console's account and update source | systemd-sysusers and `cabinetos-update-source.service`'s `ConditionNeedsUpdate=/etc` holding at the first start of each deployment because ostree leaves `/etc/.updated` out of every new one; `bootc switch --mutate-in-place`, a flag bootc hides, rewriting the newest deployment's `.origin` and needing `/sysroot`, read-only on a running console, remounted read-write in a mount namespace of its own; the installer's own `%post` (bootc-image-builder's `osbuild-base.ks`) pointing a new console at the ISO's tag, unsigned; `bazzite-hardware-setup.service` making a second deployment, with the first one's `.origin`, on a new console's first start, after this step (`cabinetos-update-source`) | `log:` (System update): a console that updated was left as it was. Not checked: a new console's first start, which shows only by installing an ISO in the VM (`tools/installer-vm.sh`) |
 | Games drives | udisks's object paths (the console works out its own disk's, `udisks.cpp`), its properties, Format's `take-ownership` and `mkfs-args`, "busy" in its errors, mounts under `/run/media/<user>` (`drives.cpp`) | `log:` (Games drives): the A9's drive is mounted. Not checked: Format, Eject, the path naming |
 | A portable install hiding the PC's own drives | udev's `UDISKS_IGNORE` becoming udisks's `HintIgnore`, and Steam's Storage page leaving out a drive with it; `lsblk`'s `PKNAME`, `--inverse` and `TYPE`, and sysfs's `removable` (`cabinetos-system-disk`) | Not checked: seen only on a portable with a second drive (`tools/installer-vm.sh portable`) |
