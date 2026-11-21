@@ -180,7 +180,9 @@ public:
     // same string, the same cursor, the same commit, the same screen.
     void typeText(const char* utf8);
 
-    const std::string& value() const { return value_; }
+    // FORK (phones): the machine's own field is read first, so what is returned is
+    // what the person sees, even when it changed this frame.
+    const std::string& value() const;
 
     void draw(Renderer& r, TextRenderer& text, float scale);
 

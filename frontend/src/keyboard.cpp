@@ -400,6 +400,11 @@ void Keyboard::syncNative() {
     fieldMsg_.clear();
 }
 
+const std::string& Keyboard::value() const {
+    const_cast<Keyboard*>(this)->syncNative();   // FORK (phones)
+    return value_;
+}
+
 void Keyboard::setBusy(bool on) {
     busy_ = on;
     if (native_ && open_) platform::nativeFieldBusy(on);
