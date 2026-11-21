@@ -799,6 +799,18 @@ void App::drawGamePicture(cab::Core& core, int dh) {
                 touchPicture.split = true;
                 toCanvas(t, touchPicture.top);
                 toCanvas(b, touchPicture.bottom);
+                // FORK (phones): the handheld's body and a bezel round each screen, under them.
+                {
+                    float body[4], bezel[4];
+                    if (platform::dsLook(body, bezel)) {
+                        renderer.draw(ui::Rect{0, 0, ui::kCanvasWidth, ui::kCanvasHeight, 0,
+                                               ui::Color{body[0], body[1], body[2], body[3]}});
+                        const float mg = 0.014f * pw / ui::gCanvasScale;
+                        for (const float* r : {touchPicture.top, touchPicture.bottom})
+                            renderer.draw(ui::Rect{r[0] - mg, r[1] - mg, r[2] + 2.0f * mg, r[3] + 2.0f * mg,
+                                                   mg * 1.5f, ui::Color{bezel[0], bezel[1], bezel[2], bezel[3]}});
+                    }
+                }
                 const float vm = (v0 + v1) * 0.5f;
                 const float* tr = touchPicture.top;
                 const float* br = touchPicture.bottom;
