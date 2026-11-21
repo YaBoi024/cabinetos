@@ -76,8 +76,9 @@ RomM: keep test launches under a minute, or have his go.
    family only from the same emulator; every push names the core in
    Sigil's spelling; Dreamcast keeps one card per game in the game's
    folder; Wii and 3DS saves go up in Sigil's shape. Decided 2026-11-20
-   (docs/decisions): RomM converts, and the console's Sigil only reads
-   Switch IDs (romm-converts-saves); an arcade game takes no other app's
+   (docs/decisions): RomM converts every system's saves but Switch's,
+   which the console converts itself with a pinned Sigil, writing nothing
+   to RomM (romm-converts-saves); an arcade game takes no other app's
    save (arcade-saves-cabinetos-only); another app's save in no channel is
    not copied into one (other-apps-saves-outside-channels); the pill shows
    for such a save even when it names no device (left to the session,
@@ -96,9 +97,11 @@ RomM: keep test launches under a minute, or have his go.
    what the game wrote and cannot tell the two apart). Next is step 10, words
    and records, from `save-channels-step10-brief.md` in the side-session
    notes beside step 9's.
-   After step 11 comes a Switch step: the console reads a Switch game's ID
-   with Sigil and the player's keys when the game is downloaded and gives
-   it to RomM, as Argosy does, for the dumps RomM cannot read. Four
+   After step 11 comes a Switch step: the console pins Sigil whole and,
+   for Switch only, reads a game's ID with the player's keys and converts
+   its saves on the console. It writes nothing about a game to RomM, since
+   it never asks to change the library (romm-converts-saves, rewritten at
+   the step 10 review). Four
    upstream pieces run outside this plan, in MMagTech's Sigil work, each
    widening what crosses between apps with no change on the console: PS3
    .pkg reading in Sigil (argosy-sigil#5), Switch IDs from a dump's ticket
