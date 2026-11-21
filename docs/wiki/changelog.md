@@ -13,7 +13,8 @@ one you install, so you only ever install the newest.
   for the pause menu. In PlayStation 3 games with "Rock Band" in the name it
   is a Rock Band guitar, in the rest a Guitar Hero guitar. Controllers lists
   it as Guitar. A CRKD Les Paul goes on the PC slider position and mode dial
-  8. ([Guitars](controllers.md#guitars))
+  8. ([Guitars](controllers.md#guitars),
+  [#727](https://github.com/MMagTech/cabinetos/pull/727))
 
 ## 2026.11.18 {#v2026-11-18}
 
