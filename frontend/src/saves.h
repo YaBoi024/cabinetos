@@ -136,8 +136,9 @@ struct StartNotes {
 };
 // A SNAPSHOT'S SAVE AS A CabinetOS CONSOLE READS IT, used as stored: a
 // battery is the core's save memory as it is, or a zip of it as `<game>.srm`
-// with the cartridge's clock as `<game>.rtc` (Game Boy, SaveForm::clock) or
-// the core's files beside it (Saturn's cartridge, SaveForm::batteryFirst);
+// with the cartridge's clock as `<game>.rtc` (Game Boy, SaveForm::clock), or
+// as `backup.ram` with the core's files beside it under Sigil's names
+// (Saturn's cartridge, `cart.ram`; SaveForm::batteryFirst);
 // a core that writes one save file, that file as it is; a core that writes
 // several, a zip holding each under its path in the save folder; a folder
 // save, the zip syncDirSave makes. A restore that cannot read the picked
@@ -199,10 +200,11 @@ void syncSave(GameSession& sess);
 void restoreBatterySave(cab::Core& core, GameSession& session, const std::string& saveDir,
                         const SaveFetch& fetched, StartNotes* notes = nullptr);
 // A BATTERY'S SAVE AS A START READS IT (the snapshot's save, above): the
-// battery alone, or a zip holding it as `<game>.srm`, the cartridge's clock
-// as `<game>.rtc` (catalog::SaveForm::clock) and the core's files beside it
-// (Saturn's cartridge, SaveForm::batteryFirst, which restoreFileSaves
-// takes), each found by the end of its name. `zipped` says which; a zip with
+// battery alone, or a zip holding it as `<game>.srm` or `backup.ram`, the
+// cartridge's clock as `<game>.rtc` (catalog::SaveForm::clock) and the
+// core's files beside it (Saturn's cartridge, `cart.ram` or `<game>.bcr`,
+// SaveForm::batteryFirst, which restoreFileSaves takes), each found by its
+// name or the end of it. `zipped` says which; a zip with
 // no `.srm` holds no battery. False, with why, when a zip would not unpack.
 struct BatteryParts {
     bool zipped = false;

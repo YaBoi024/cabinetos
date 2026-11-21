@@ -236,6 +236,10 @@ struct SaveFile {
     // does not look at it (savepicture.h). Flycast also writes a board's
     // memory whenever a state is made, which is not the game saving.
     bool writtenAtClose = false;
+    // ITS NAME IN A ZIP BESIDE THE BATTERY (SaveForm::batteryFirst), Sigil's
+    // for the device it is: `cart.ram` for Saturn's cartridge. Empty: the
+    // file travels under `path`.
+    std::string unitName;
 };
 
 // --- Firmware a core can actually find --------------------------------------
@@ -411,12 +415,19 @@ struct SaveForm {
     // THE BATTERY IS THE SAVE'S FIRST PART, WITH THE CORE'S FILES BESIDE IT
     // (#346, step 11): Saturn's own memory, which Beetle Saturn exposes, and
     // its backup cartridge, `<game>.bcr`, a file it writes (saveFiles). The
-    // save is then a zip of `<game>.srm` and `<game>.bcr` under those names,
-    // which Sigil matches to the internal memory and the cartridge by name
-    // (its saturn.md), or the battery alone while the cartridge holds no
-    // save: a formatted, empty cartridge is never sent.
+    // save is then a zip of the two under Sigil's names for them,
+    // `backup.ram` (kInternalVolume) and `cart.ram` (SaveFile::unitName), as
+    // Argosy sends them (MMagTech, 2026-11-20): Sigil reads those for every
+    // Saturn emulator it knows, where it matches Beetle Saturn's own names
+    // only for Beetle Saturn. The battery goes alone, as `<game>.srm`,
+    // while the cartridge holds no save: a formatted, empty cartridge is
+    // never sent.
     bool batteryFirst = false;
 };
+
+// Sigil's name for a machine's own memory in a zip of its save (its
+// sync.md, "What syncs"): the battery's, beside a cartridge.
+inline constexpr char kInternalVolume[] = "backup.ram";
 SaveForm saveForm(const char* manifestCoreName, const std::string& platformSlug);
 
 // What another emulator's battery save must be for this system (SaveCheck):

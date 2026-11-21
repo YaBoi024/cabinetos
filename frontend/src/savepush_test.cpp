@@ -2056,10 +2056,11 @@ int test() {
         std::vector<cab::ZipFile> in;
         check(mark(s, u) && cache::owedPush(u, game, &p) && p.saveName == "Game (USA).zip" &&
                   p.saveShape == "MULTI" && (in = zipOf(p.savePath)).size() == 2 &&
-                  in[0].relPath == "Game (USA).srm" && in[0].bytes == one &&
-                  in[1].relPath == "Rally (USA).bcr" && in[1].bytes == saturnCart('A'),
-              "Saturn with a cartridge holding a save: a zip of the internal memory as "
-              "`<game>.srm` and the cartridge as Beetle Saturn names it");
+                  in[0].relPath == "backup.ram" && in[0].bytes == one &&
+                  in[1].relPath == "cart.ram" && in[1].bytes == saturnCart('A'),
+              "Saturn with a cartridge holding a save: a zip of the internal memory and the "
+              "cartridge under Sigil's names, `backup.ram` and `cart.ram`, as Argosy sends "
+              "them");
         // A start on another console: the cartridge before the load, the
         // battery's part left to the battery.
         const std::string other = storage::savesDir(u, "saturn", game + 5000, "beetle_saturn");

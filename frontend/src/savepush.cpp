@@ -193,9 +193,10 @@ std::string nameWithExtensionOf(const std::string& fsStem, const std::string& co
 // core reads it from whatever name it was left under, and the zip is written
 // beside them so a push tried again after a restart sends the same bytes.
 // A BATTERY WITH ITS CLOCK OR ITS CARTRIDGE (#346, step 11; SaveForm::clock,
-// SaveForm::batteryFirst) goes the same way, as `<game>.srm` beside
-// `<game>.rtc` or the cartridge's file, from this console's copies; a
-// cartridge with no save on it is never sent, and the battery goes alone.
+// SaveForm::batteryFirst) goes the same way, from this console's copies:
+// `<game>.srm` beside `<game>.rtc`, or Sigil's `backup.ram` beside
+// `cart.ram`; a cartridge with no save on it is never sent, and the battery
+// goes alone.
 // False when there is no file to send.
 bool gather(const GameSession& sess, cache::OwedPush* p) {
     const catalog::SaveForm form = catalog::saveForm(sess.core.c_str(), sess.platformSlug);
@@ -223,14 +224,16 @@ bool gather(const GameSession& sess, cache::OwedPush* p) {
                 beside.push_back({stem + ".rtc", std::move(clock)});
         for (const cab::FileSaveState& f : sess.fileSaves)
             if (!f.atLaunch.empty() && cab::holdsASave(f.atLaunch, f.spec.untouched))
-                beside.push_back({f.spec.path, f.atLaunch});
+                beside.push_back(
+                    {f.spec.unitName.empty() ? f.spec.path : f.spec.unitName, f.atLaunch});
         p->saveName = stem + ".srm";
         p->savePath = sess.saveDir + "/" + saveRowName(sess.fsStem, "srm");
         p->saveShape = kSingle;
         if (!beside.empty()) {
             std::vector<cab::ZipFile> files;
             if (std::vector<uint8_t> battery = cab::readBytes(p->savePath); !battery.empty())
-                files.push_back({p->saveName, std::move(battery)});
+                files.push_back(
+                    {form.batteryFirst ? catalog::kInternalVolume : p->saveName, std::move(battery)});
             files.insert(files.end(), beside.begin(), beside.end());
             if (!zipBeside(sess, files, p)) return false;
         }

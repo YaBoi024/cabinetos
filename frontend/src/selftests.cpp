@@ -1312,13 +1312,20 @@ int savePickTest() {
         restoreFileSaves(specs, "Rally (USA)", dir, "saturn-native", f, &single);
         check(cab::readBytes(dir + "/Rally (USA).bcr") == saturnCart('B') && !single.tookPick,
               "Saturn: a snapshot's one file is its battery, never written as the cartridge");
+        cab::zipFiles({{"backup.ram", theirs}, {"cart.ram", saturnCart('C')}}, &zip, &zerr);
+        f = fromChannel(36, zip, true);
+        f.romId = 802;
+        StartNotes sigilNames;
+        restoreFileSaves(specs, "Rally (USA)", dir, "saturn-native", f, &sigilNames);
+        check(cab::readBytes(dir + "/Rally (USA).bcr") == saturnCart('C') && sigilNames.tookPick,
+              "Saturn: a zip under Sigil's names, its `cart.ram` to the cartridge");
         cab::zipFiles({{"Rally (USA).srm", theirs}, {"Rally (USA).bcr", saturnCart(0)}}, &zip,
                       &zerr);
         f = fromChannel(35, zip, true);
         f.romId = 802;
         StartNotes blank;
         restoreFileSaves(specs, "Rally (USA)", dir, "saturn-native", f, &blank);
-        check(cab::readBytes(dir + "/Rally (USA).bcr") == saturnCart('B'),
+        check(cab::readBytes(dir + "/Rally (USA).bcr") == saturnCart('C'),
               "Saturn: a cartridge with no save never replaces one with a save");
         check(!cab::holdsASave(saturnCart(0), catalog::Untouched::SaturnCartridge) &&
                   cab::holdsASave(saturnCart('A'), catalog::Untouched::SaturnCartridge),
@@ -1798,13 +1805,18 @@ int savePickTest() {
                                    {"Rally (Japan).bcr", cartOf(524288, true)}),
                             false, sat, &out) &&
                       cab::readZip(out, &in, &zerr) && in.size() == 2 &&
-                      in[0].relPath == "Rally (Japan).srm" && in[0].bytes == internal &&
-                      in[1].relPath == "Rally.bcr" && in[1].bytes == cartOf(524288, true),
-                  "Saturn: RomM's internal memory and a cartridge holding a save, a zip of both, "
-                  "the cartridge under the name this core reads, found by its end");
+                      in[0].relPath == "backup.ram" && in[0].bytes == internal &&
+                      in[1].relPath == "cart.ram" && in[1].bytes == cartOf(524288, true),
+                  "Saturn: RomM's internal memory and a cartridge holding a save (Beetle's names, "
+                  "the cartridge found by its end), a zip of both under Sigil's names");
+            check(takes(zipped({"backup.ram", internal}, {"cart.ram", cartOf(524288, true)}),
+                        false, sat, &out) &&
+                      cab::readZip(out, &in, &zerr) && in.size() == 2 &&
+                      in[1].relPath == "cart.ram" && in[1].bytes == cartOf(524288, true),
+                  "Saturn: an answer under Sigil's names, read as the same two");
             check(takes(answer("Rally (Japan).bcr", cartOf(524288, true)), false, sat, &out) &&
                       cab::readZip(out, &in, &zerr) && in.size() == 1 &&
-                      in[0].relPath == "Rally.bcr",
+                      in[0].relPath == "cart.ram",
                   "Saturn: a cartridge alone, a zip of it alone, never read as the battery");
         }
         check(takes(zipped({"Rally.srm", internal}, {"Rally.bcr", cartOf(524288, false)}), false,
@@ -2024,6 +2036,10 @@ int savePickTest() {
                   parts.clock == clock,
               "a zip: the battery by `.srm`, the clock by `.rtc`, the cartridge left to the "
               "file restores");
+        cab::zipFiles({{"backup.ram", own}, {"cart.ram", theirs}}, &zip, &why);
+        check(batteryParts(zip, &parts, &why) && parts.zipped && parts.battery == own &&
+                  parts.clock.empty(),
+              "a zip under Sigil's names: the battery by `backup.ram`");
         cab::zipFiles({{"Game.bcr", theirs}}, &zip, &why);
         check(batteryParts(zip, &parts, &why) && parts.zipped && parts.battery.empty(),
               "a zip with no `.srm` holds no battery");

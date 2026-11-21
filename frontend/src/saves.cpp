@@ -394,9 +394,9 @@ bool toOwnForm(const romm::SaveAnswer& answer, bool plain, const OwnForm& own,
     // over as stored is it), and its cartridge, found by the end of its name.
     // A cartridge with no save on it is left out, as a push of this
     // console's leaves it; one this core does not read (its size, its mark)
-    // refuses the save. The battery alone goes as it is; else a zip, the
-    // battery under RomM's name and each file under its path in the save
-    // folder.
+    // refuses the save. The battery alone goes as it is; else a zip under
+    // Sigil's names, the battery `backup.ram` and the cartridge `cart.ram`,
+    // the shape a push of this console's makes.
     if (own.form.batteryFirst) {
         auto isFile = [&](const cab::ZipFile& f) {
             for (const catalog::SaveFile& spec : own.files)
@@ -407,17 +407,21 @@ bool toOwnForm(const romm::SaveAnswer& answer, bool plain, const OwnForm& own,
         };
         const cab::ZipFile* battery = nullptr;
         for (const cab::ZipFile& f : sent)
-            if (endsWith(f.relPath, ".srm") || (!zipped && !isFile(f))) battery = &f;
+            if (endsWith(f.relPath, ".srm") || base(f.relPath) == catalog::kInternalVolume ||
+                (!zipped && !isFile(f)))
+                battery = &f;
         if (battery && !cab::passesCheck(battery->bytes, catalog::batteryCheck(own.platform),
                                          catalog::Untouched::Blank, why))
             return false;
         std::vector<cab::ZipFile> mine;
-        if (battery) mine.push_back({base(battery->relPath), battery->bytes});
+        if (battery) mine.push_back({catalog::kInternalVolume, battery->bytes});
         for (const catalog::SaveFile& spec : own.files) {
             const cab::ZipFile* found = nullptr;
             for (const cab::ZipFile& f : sent)
-                if (!found && &f != battery && endsWith(base(f.relPath), spec.captureSuffix) &&
-                    !endsWith(base(f.relPath), spec.captureExclude))
+                if (!found && &f != battery &&
+                    (base(f.relPath) == spec.unitName ||
+                     (endsWith(base(f.relPath), spec.captureSuffix) &&
+                      !endsWith(base(f.relPath), spec.captureExclude))))
                     found = &f;
             if (!found) continue;
             std::string w;
@@ -426,7 +430,7 @@ bool toOwnForm(const romm::SaveAnswer& answer, bool plain, const OwnForm& own,
                 return false;
             }
             if (cab::holdsASave(found->bytes, spec.untouched))
-                mine.push_back({spec.path, found->bytes});
+                mine.push_back({spec.unitName.empty() ? spec.path : spec.unitName, found->bytes});
         }
         if (mine.empty()) {
             *why = "nothing in RomM's answer is a save this emulator reads";
@@ -1109,7 +1113,9 @@ std::vector<cab::FileSaveState> restoreFileSaves(
             } else {
                 const std::string base = spec.path.substr(spec.path.find_last_of('/') + 1);
                 for (const cab::ZipFile& z : pickedFiles)
-                    if (z.relPath == spec.path) incoming = &z.bytes;
+                    if (z.relPath == spec.path ||
+                        (!spec.unitName.empty() && z.relPath == spec.unitName))
+                        incoming = &z.bytes;
                 for (const cab::ZipFile& z : pickedFiles)
                     if (!incoming && z.relPath.substr(z.relPath.find_last_of('/') + 1) == base)
                         incoming = &z.bytes;
@@ -1180,7 +1186,8 @@ std::vector<cab::FileSaveState> restoreFileSaves(
                 }
                 if (fromRomM && oldRow && notes)
                     notes->oldRowsTaken.push_back(
-                        {oldRow->id, savepick::OldRowTaken::As::File, spec.path,
+                        {oldRow->id, savepick::OldRowTaken::As::File,
+                         spec.unitName.empty() ? spec.path : spec.unitName,
                          static_cast<size_t>(&spec - &specs.front()), spec.region == "cart"});
             }
         } else {
@@ -1303,7 +1310,8 @@ bool batteryParts(const std::vector<uint8_t>& save, BatteryParts* out, std::stri
         return s.size() > n && s.compare(s.size() - n, n, end) == 0;
     };
     for (cab::ZipFile& f : files) {
-        if (endsWith(f.relPath, ".srm")) out->battery = std::move(f.bytes);
+        if (endsWith(f.relPath, ".srm") || f.relPath == catalog::kInternalVolume)
+            out->battery = std::move(f.bytes);
         else if (endsWith(f.relPath, ".rtc")) out->clock = std::move(f.bytes);
     }
     return true;
@@ -1358,8 +1366,9 @@ static void restoreClock(cab::Core& core, GameSession& session, const std::strin
 // asked here.
 void restoreBatterySave(cab::Core& core, GameSession& session, const std::string& saveDir,
                         const SaveFetch& fetched, StartNotes* notes) {
-    const bool clock = catalog::saveForm(session.core.c_str(), session.platformSlug).clock &&
-                       core.clockSize() > 0;
+    const catalog::SaveForm form = catalog::saveForm(session.core.c_str(), session.platformSlug);
+    const bool clock = form.clock && core.clockSize() > 0;
+    const bool batteryFirst = form.batteryFirst;
     // The names a battery and its clock have in a zip of them (savepush.cpp,
     // gather), for a start that brings rows from before channels in.
     const std::string zipStem = sanitisedStem(session.fsStem);
@@ -1445,8 +1454,10 @@ void restoreBatterySave(cab::Core& core, GameSession& session, const std::string
                     if (changed) notes->changedOwn = true;
                 }
                 if (oldRow && notes)
-                    notes->oldRowsTaken.push_back({oldRow->id, savepick::OldRowTaken::As::Battery,
-                                                   zipStem + ".srm", 0});
+                    notes->oldRowsTaken.push_back(
+                        {oldRow->id, savepick::OldRowTaken::As::Battery,
+                         batteryFirst ? std::string(catalog::kInternalVolume) : zipStem + ".srm",
+                         0});
                 if (clockRow && notes && incomingClock.size() == core.clockSize())
                     notes->oldRowsTaken.push_back({clockRow->id, savepick::OldRowTaken::As::Clock,
                                                    zipStem + ".rtc", 0});

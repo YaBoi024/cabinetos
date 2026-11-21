@@ -101,12 +101,13 @@ RomM: keep test launches under a minute, or have his go.
    for the whole change sits under "Next" until the testing image's
    version replaces it. Step 11 is built: a Game Boy cartridge's clock
    (Gambatte's) goes with the save as a zip of `<game>.srm` and
-   `<game>.rtc`, and Saturn's backup cartridge as a zip of `<game>.srm` and
-   `<game>.bcr`, never while the cartridge holds no save; a change to the
-   clock alone is no new save. RomM hands the clock to every Game Boy
-   emulator Sigil knows, both ways, and PS Vita converts both ways once a
-   game has its title ID; Saturn's cartridge reaches Beetle Saturn apps but
-   not Kronos or Yabause, and Sega CD's merge into an app's shared memory
+   `<game>.rtc`, and Saturn's backup cartridge as a zip of `backup.ram` and
+   `cart.ram`, Sigil's names, as Argosy sends them (his yes, 2026-11-20),
+   never while the cartridge holds no save; a change to the clock alone is
+   no new save. RomM hands the clock to every Game Boy emulator Sigil
+   knows, both ways, PS Vita converts both ways once a game has its title
+   ID, and Saturn's cartridge reaches Beetle Saturn and Kronos (Yabause
+   keeps no cartridge); Sega CD's merge into an app's shared memory
    works only while the cartridge is empty (#722, step 11's notes). Next
    is step 12, a step of its own after step 11 (his word, 2026-11-20): a
    file added to a game on RomM (a `.cue` beside a `.chd`) moves RomM's

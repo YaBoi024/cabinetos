@@ -611,6 +611,7 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
         cart.region = "cart";
         cart.untouched = Untouched::SaturnCartridge;
         cart.check = {{524288}, "BackUpRam Format", 0, false};
+        cart.unitName = "cart.ram";
         return {cart};
     }
 
