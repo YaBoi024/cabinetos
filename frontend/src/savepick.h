@@ -24,8 +24,9 @@
 // of its own that is still listed, over the newer one on its drive. The note
 // of the snapshot held says when that save was made (savemirror::Held).
 //
-// WHICH SAVES IT CAN USE. The ones filed under the tag this core's saves
-// travel under, which a CabinetOS console made, are used as stored. ANOTHER
+// WHICH SAVES IT CAN USE. The ones a CabinetOS console made, pushed under the
+// tag this core's saves travel under or filed under it (ownForm), are used as
+// stored. ANOTHER
 // EMULATOR'S SAVE IS ASKED OF RomM IN THIS CONSOLE'S OWN FORM AND CHECKED
 // (#346, step 8; decided 2026-10-12): when the newest is one, the pick names
 // it (`other`) and the launch worker asks for it (saves.cpp, fetchSaves);
@@ -164,6 +165,18 @@ std::string savedAt(const romm::Snapshot& s);
 // Each channel's current dated by its save's own row in `rows`, the game's
 // saves as RomM listed them (the row whose id is the save's).
 void dateSaves(std::vector<romm::Channel>* channels, const std::vector<romm::Asset>& rows);
+
+// A SNAPSHOT'S SAVE IS IN THE FORM `tag` NAMES when the device that pushed it
+// named that emulator (romm::Snapshot::emulator), or when the row RomM filed
+// its save under carries that name: the bytes are then what such a device
+// wrote. Never by the row's name alone (#346, phase 5, 2026-11-21): RomM files
+// a snapshot's save under the first of the person's rows with those bytes,
+// which can be another app's, so a CabinetOS console's own save, pushed again
+// with a state after the console took an app's save as stored, read as that
+// app's to every other CabinetOS console. With RomM away such a console could
+// not ask for it, said it could not use the newest, and what it saved was
+// never put on top.
+bool ownForm(const romm::Snapshot& s, const std::string& tag);
 
 // --- RomM's saves from before channels ---------------------------------------
 //

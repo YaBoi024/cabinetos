@@ -1496,6 +1496,26 @@ int test() {
               "states alone while the current's save is another emulator's: aimed as a save "
               "is, on the snapshot held, and left beside where RomM keeps them");
     }
+    {   // States alone and a current another CabinetOS console pushed, its save
+        // filed by RomM under another app's row (phase 5, 2026-11-21).
+        GameSession s = session(++game);
+        hold(game, kChannel, 338);
+        s.startChannelId = kChannel;
+        s.startSnapshotId = 338;
+        markState(s, u, makeState(s, base + 1000, "over a console's"));
+        Stand romm;
+        romm::Snapshot theirs = snapshot(339, kChannel, "eeee", romTime(-60));
+        theirs.emulator = kTag;
+        theirs.save.emulator = "retroarch";
+        romm.channels = {channel(kChannel, kDefaultChannel, theirs)};
+        romm.answers = {made(snapshot(340, kChannel, "eeee", romTime(1)))};
+        const Sent sent = send(romm.server(), u, game, &why);
+        const romm::SnapshotPush sp = romm.pushes.empty() ? romm::SnapshotPush{} : romm.pushes[0];
+        check(sent == Sent::Landed && romm.pushes.size() == 1 && !sp.hasSave &&
+                  sp.expectedCurrentId == 339 && sp.parentId == 0,
+              "states alone while the current is another CabinetOS console's, its save filed "
+              "under an app's row: onto that current, as onto any of this console's form");
+    }
     {   // States alone from a session that could not use the newest save.
         GameSession s = session(++game);
         hold(game, kChannel, 338);

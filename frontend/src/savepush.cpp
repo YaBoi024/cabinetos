@@ -916,7 +916,7 @@ Sent sendOne(const Server& server, const storage::User& who, int romId, std::str
     // onto a save of another emulator's, and then it is aimed as a save is.
     auto onTopOf = [&](const romm::Snapshot& current) {
         return !owed.hasSave && !owed.couldNotUseNewest && !current.hardcore &&
-               (!current.hasSave || current.save.emulator == owed.emulator);
+               (!current.hasSave || savepick::ownForm(current, owed.emulator));
     };
     if (!owed.hasSave) {
         const romm::Channel* target = push.channelId.empty() ? named(channels, push.label)

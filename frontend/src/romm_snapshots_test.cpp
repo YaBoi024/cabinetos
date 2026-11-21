@@ -260,6 +260,8 @@ int snapshotsTest() {
               def->current.save.shape == "SINGLE" && def->current.save.format == "native" &&
               def->current.save.emulator == "snes9x-native" && def->current.save.core == "snes9x",
           "its current's save, by hash, with the names it was pushed with");
+    check(def && def->current.emulator == "snes9x-native",
+          "and the emulator the device that pushed it named (savepick::ownForm)");
     check(def && def->current.states.size() == 1 &&
               def->current.states[0].core == "snes9x-native" &&
               def->current.states[0].slot == "1" &&
@@ -271,6 +273,8 @@ int snapshotsTest() {
           "pushed from this person's CabinetOS device, which no longer holds it (it took the "
           "branch)");
     const Channel* hard = labelled(list, "hardcore test");
+    check(hard && hard->current.emulator == "snes9x",
+          "each snapshot's own emulator, as its push named it");
     check(hard && hard->hardcore && hard->current.hardcore && hard->current.states.empty() &&
               hard->current.heldBy.size() == 1 && hard->current.heldBy[0].client == "cabinetos",
           "a hardcore channel says so");

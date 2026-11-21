@@ -420,6 +420,11 @@ struct Snapshot {
     bool deviceOwn = false;
     std::string deviceId;
     std::string deviceClient;
+    // The emulator the device that pushed it named in its manifest, whose
+    // form its save is in. `save.emulator` is the name on the row RomM filed
+    // the save under: the first of the person's rows with those bytes, which
+    // can be another app's (savepick::ownForm).
+    std::string emulator;
     std::vector<SnapshotHolder> heldBy;
     bool hasSave = false;
     SnapshotFile save;

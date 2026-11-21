@@ -51,7 +51,7 @@ Pick pick(const Facts& f, bool others) {
     const romm::Channel* otherCh = nullptr;
     for (const romm::Channel& c : f.channels) {
         if (!holdsSave(c)) continue;
-        const romm::Channel*& newest = c.current.save.emulator == f.tag ? usable : otherCh;
+        const romm::Channel*& newest = ownForm(c.current, f.tag) ? usable : otherCh;
         if (!newest || madeAt(c) > madeAt(*newest)) newest = &c;
     }
     const romm::Asset* otherRow = nullptr;
@@ -225,6 +225,10 @@ std::string pickedAt(const Pick& pick, const std::string& oldRowAt) {
 }
 
 std::string savedAt(const romm::Snapshot& s) { return s.saveAt.empty() ? s.createdAt : s.saveAt; }
+
+bool ownForm(const romm::Snapshot& s, const std::string& tag) {
+    return !tag.empty() && (s.emulator == tag || s.save.emulator == tag);
+}
 
 void dateSaves(std::vector<romm::Channel>* channels, const std::vector<romm::Asset>& rows) {
     for (romm::Channel& c : *channels) {
@@ -588,6 +592,32 @@ int test() {
         check(other.other && other.from == From::Channel && other.channel.current.id == 1,
               "a newer snapshot than the one it holds, another emulator's: asked for, as "
               "before");
+    }
+    {   // 9a2. A SNAPSHOT ANOTHER CABINETOS CONSOLE PUSHED, ITS SAVE FILED UNDER
+        //      ANOTHER APP'S ROW (phase 5, 2026-11-21): RomM filed the bytes
+        //      under that app's row with the same bytes; the push named this
+        //      console's emulator (ownForm).
+        Facts f;
+        f.tag = kTag;
+        f.channels = {channelWith("default", 5, t3, kPhoneTag, "ffff", console, {console})};
+        f.channels[0].current.emulator = kTag;
+        f.haveHeld = true;
+        f.held = holding("aaaa");
+        const Pick away = pick(f, false);
+        check(away.from == From::Channel && away.channel.current.id == 5 && !away.other &&
+                  !away.couldNotUseNewest,
+              "a snapshot another CabinetOS console pushed, its save under an app's row: with "
+              "RomM away it is used as stored, not a save it could not use");
+        const Pick online = pick(f);
+        check(online.from == From::Channel && online.channel.current.id == 5 && !online.other,
+              "and online: used as stored, nothing asked of RomM");
+        f.channels[0].current.emulator = kPhoneTag;
+        check(pick(f).other && pick(f, false).couldNotUseNewest,
+              "an app's own push, under its own row: another emulator's, asked for, as before");
+        f.channels[0].current.save.emulator = kTag;
+        check(!pick(f).other && pick(f).from == From::Channel,
+              "an app's push whose save RomM filed under this console's row (the same bytes): "
+              "used as stored");
     }
     {   // 9b. ANOTHER APP'S SAVE IN NO CHANNEL (#346, step 8; MMagTech,
         //     2026-11-19): weighed as a channel's is.

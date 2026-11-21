@@ -720,7 +720,7 @@ bool sameSnapshot(const romm::Snapshot& a, const romm::Snapshot& b) {
     if (a.id != b.id || a.digest != b.digest || a.kind != b.kind || a.parentId != b.parentId ||
         a.channelId != b.channelId || a.hardcore != b.hardcore || a.createdAt != b.createdAt ||
         a.deviceOwn != b.deviceOwn || a.deviceId != b.deviceId ||
-        a.deviceClient != b.deviceClient || a.hasSave != b.hasSave ||
+        a.deviceClient != b.deviceClient || a.emulator != b.emulator || a.hasSave != b.hasSave ||
         (a.hasSave && !sameFile(a.save, b.save)) || a.heldBy.size() != b.heldBy.size() ||
         a.states.size() != b.states.size())
         return false;
@@ -837,6 +837,7 @@ int saveNotesTest() {
     run.current.deviceOwn = true;
     run.current.deviceId = "01937a3c-0000-7000-8000-0000000000d1";
     run.current.deviceClient = "cabinetos";
+    run.current.emulator = "gambatte-native";
     run.current.heldBy.push_back({run.current.deviceId, "cabinetos", "2026-11-18T22:42:49Z"});
     run.current.hasSave = true;
     run.current.save = noteFile(31, "Game [2026-11-18_22-42-48-649].srm",

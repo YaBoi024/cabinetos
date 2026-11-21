@@ -232,6 +232,7 @@ bool readSnapshot(json_object* o, Snapshot* s) {
         s->deviceId = jstr(d, "id");
         s->deviceClient = jstr(d, "client");
     }
+    s->emulator = jstr(o, "emulator");
     json_object* held = nullptr;
     if (json_object_object_get_ex(o, "held_by", &held) &&
         json_object_get_type(held) == json_type_array) {
@@ -316,6 +317,7 @@ json_object* snapshotJson(const Snapshot& s) {
     json_object* device = deviceJson(s.deviceId, s.deviceClient);
     json_object_object_add(device, "is_own", json_object_new_boolean(s.deviceOwn));
     json_object_object_add(o, "device", device);
+    addStr(o, "emulator", s.emulator);
     json_object* held = json_object_new_array();
     for (const SnapshotHolder& h : s.heldBy) {
         json_object* one = json_object_new_object();
