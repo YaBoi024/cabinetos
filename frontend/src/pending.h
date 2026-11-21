@@ -79,11 +79,10 @@ struct OwedPush {
     // When this console wrote the save, in seconds since 1970. A push carries
     // no time the save was made, and of two saves the one made later wins.
     int64_t madeAt = 0;
-    // Where it goes (romm::SnapshotPush): the game's channel file; the
-    // channel, or none to make one named `label`; the current it builds on,
-    // 0 for an empty channel; the snapshot it was made from, 0 for that
-    // current.
-    int romFileId = 0;
+    // Where it goes (romm::SnapshotPush): the channel, or none to make one
+    // named `label`; the current it builds on, 0 for an empty channel; the
+    // snapshot it was made from, 0 for that current. The file it names is
+    // the channel's own, found when it is sent (savepush::send).
     std::string channelId;
     std::string label;
     int expectedCurrentId = 0;

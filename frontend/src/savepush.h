@@ -54,7 +54,13 @@
 // that holds none saves into the person's channel named "default", RomM's
 // own and where every other app looks, made when there is none. Every
 // console is one device on RomM, so the console says which current it builds
-// on itself, every time.
+// on itself, every time. A PUSH INTO A CHANNEL NAMES THAT CHANNEL'S OWN FILE
+// (#346, step 12): RomM refuses any other (422), and a file added to the
+// game's folder can move the one RomM makes new channels on (a `.cue` beside
+// a CHD) while the channel stays where it was made. So the person's channels
+// are listed on every game file of the game, as a start lists them, and
+// RomM's file for new channels (`channel_file_id`) is named only for a
+// channel the push makes (romm::ChannelFiles).
 //
 // WHEN RomM SAYS THE CHANNEL MOVED ON (409), it has already kept the push
 // beside the channel's current, as a branch. If this console's save was made
@@ -246,16 +252,19 @@ std::vector<OfferedState> offeredStates(const storage::User& who, int romId,
 // --- The upload queue's half ---------------------------------------------------
 
 // What a push asks of RomM, so the test answers in its place: whether the
-// server has save channels (romm::heardServerChannels); the file a game's
-// channels are keyed to (false when RomM could not be asked, 0 when it names
-// none); this person's channels on that file (`*gone` when RomM no longer
-// knows the file); one push; a game's saves, for the console's copy; and for
-// the states a push names, the game's states and a channel's history.
+// server has save channels (romm::heardServerChannels); the files a game's
+// channels can be on (romm::ChannelFiles), as this console remembers them
+// (`ask` false; none when it never learned them) or asked of RomM, which
+// this console then remembers (`ask` true; false when RomM could not be
+// asked); this person's channels on those files (`*gone` when RomM no
+// longer knows one of them); one push; a game's saves, for the console's
+// copy; and for the states a push names, the game's states and a channel's
+// history.
 struct Server {
     std::function<bool()> hasChannels;
-    std::function<bool(int romId, int* fileId, std::string* err)> channelFile;
-    std::function<bool(int fileId, std::vector<romm::Channel>* out, std::string* err,
-                       bool* gone)> channels;
+    std::function<bool(int romId, bool ask, romm::ChannelFiles* out, std::string* err)> files;
+    std::function<bool(const std::vector<int>& fileIds, std::vector<romm::Channel>* out,
+                       std::string* err, bool* gone)> channels;
     std::function<bool(const romm::SnapshotPush& push, romm::PushAnswer* answer,
                        std::string* err)> push;
     std::function<bool(int romId, std::vector<romm::Asset>* rows, std::string* err)> saves;

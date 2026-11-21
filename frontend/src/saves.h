@@ -44,10 +44,10 @@ struct SaveFetch {
     // take, by row id, when the pick is among them.
     std::vector<romm::Asset> rows;
     std::map<int, std::vector<uint8_t>> bytes;
-    // The file RomM keys this game's save channels to (RomFile::channelFile):
-    // as the caller knew it, or as RomM gave it when it had to be asked; 0
-    // when not known.
-    int channelFileId = 0;
+    // The files this game's save channels can be on (romm::ChannelFiles): as
+    // the caller knew them, or as RomM gave them when it had to be asked;
+    // none when not known.
+    romm::ChannelFiles channelFiles;
     // Which save the start continues from, and when the newest of the old
     // rows was stored (savepick::Facts).
     savepick::Pick pick;
@@ -67,11 +67,11 @@ struct SaveFetch {
     uint64_t mark = 0;
 };
 // What RomM holds of the game's save and the pick, with no bytes: all the
-// game's page reads. `channelFileId` is the file the game's channels are
-// keyed to when the caller knows it, else 0, and RomM is asked. Asks nothing
-// without a tag or a token.
-void listSaves(romm::Client& client, const storage::User& user, int romId, int channelFileId,
-               const char* tag, SaveFetch* out);
+// game's page reads. `known` is the files the game's channels can be on as
+// the caller knows them; RomM is asked for them when there are none. Asks
+// nothing without a tag or a token.
+void listSaves(romm::Client& client, const storage::User& user, int romId,
+               const romm::ChannelFiles& known, const char* tag, SaveFetch* out);
 // THE FORM THIS CONSOLE'S CORE READS ITS SAVE IN, for another emulator's
 // save asked of RomM (#346, step 8): how RomM is asked (catalog::SaveForm),
 // and what the save is: the files the core writes (catalog::saveFiles), a
@@ -97,9 +97,9 @@ struct OwnForm {
 // form and checked; one that cannot be used, or any with `own` null, leaves
 // the start to the newest this console can use as stored, and the pick says
 // it could not use the newest. Stops between requests once `cancel` is set.
-void fetchSaves(romm::Client& client, const storage::User& user, int romId, int channelFileId,
-                const char* tag, const OwnForm* own, const std::atomic<bool>* cancel,
-                SaveFetch* out);
+void fetchSaves(romm::Client& client, const storage::User& user, int romId,
+                const romm::ChannelFiles& known, const char* tag, const OwnForm* own,
+                const std::atomic<bool>* cancel, SaveFetch* out);
 // RomM's answer for another emulator's save, put the way a start reads a
 // snapshot's save in `own`'s form (the head of saves.h), and checked: each
 // file by its catalog::SaveCheck, a battery by batteryCheck, a folder by its

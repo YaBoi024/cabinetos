@@ -757,11 +757,25 @@ std::string gameRecordJson(const romm::Game& g) {
         json_object_object_add(a, "members", list);
         json_object_object_add(o, "archive_members", a);
     }
-    // The file RomM keys the game's save channels to (romm_types.h), under
-    // RomM's own name. Only the game's own entry carries it, so the record
-    // keeps what a launch or the game's page learned (rememberChannelFile).
-    if (const int file = g.channelFileId != 0 ? g.channelFileId : kept.channelFileId)
+    // The files the game's save channels can be on (romm_types.h,
+    // ChannelFiles), under RomM's own names: `channel_file_id`, and `files`
+    // holding each game file's id. Only the game's own entry carries them, so
+    // the record keeps what a launch or the game's page learned
+    // (rememberChannelFiles).
+    const romm::ChannelFiles& files =
+        !g.channelFiles.files.empty() || !haveKept ? g.channelFiles : kept.channelFiles;
+    if (const int file = g.channelFiles.channelFile != 0 ? g.channelFiles.channelFile
+                                                         : kept.channelFiles.channelFile)
         json_object_object_add(o, "channel_file_id", json_object_new_int(file));
+    if (!files.files.empty()) {
+        json_object* list = json_object_new_array();
+        for (const int id : files.files) {
+            json_object* f = json_object_new_object();
+            json_object_object_add(f, "id", json_object_new_int(id));
+            json_object_array_add(list, f);
+        }
+        json_object_object_add(o, "files", list);
+    }
     const std::string out = json_object_to_json_string_ext(o, JSON_C_TO_STRING_PRETTY);
     json_object_put(o);
     return out;
@@ -788,18 +802,19 @@ std::vector<romm::ArchiveMember> rememberedArchive(int romId, const std::string&
     return g.members;
 }
 
-void rememberChannelFile(int romId, int romFileId) {
+void rememberChannelFiles(int romId, const romm::ChannelFiles& files) {
     romm::Game g;
-    if (romFileId <= 0 || !romm::gameFromJson(cache::gameRecord(romId), &g) ||
-        g.channelFileId == romFileId)
+    if (!romm::gameFromJson(cache::gameRecord(romId), &g) ||
+        (g.channelFiles.channelFile == files.channelFile && g.channelFiles.files == files.files))
         return;
-    g.channelFileId = romFileId;
+    g.channelFiles = files;
     cache::rememberGame(romId, gameRecordJson(g));
 }
 
-int rememberedChannelFile(int romId) {
+romm::ChannelFiles rememberedChannelFiles(int romId) {
     romm::Game g;
-    return romm::gameFromJson(cache::gameRecord(romId), &g) ? g.channelFileId : 0;
+    return romm::gameFromJson(cache::gameRecord(romId), &g) ? g.channelFiles
+                                                            : romm::ChannelFiles{};
 }
 
 // ---- The kept badges on the store's cards (#398) --------------------------

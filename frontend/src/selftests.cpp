@@ -16,10 +16,12 @@
 #include <vector>
 
 #include "accounts.h"
+#include "cache.h"
 #include "covercache.h"
 #include "dirsave.h"
 #include "fileio.h"
 #include "firstrun.h"
+#include "library.h"
 #include "pending.h"
 #include "prefs.h"
 #include "romfile.h"
@@ -742,11 +744,11 @@ bool sameChannel(const romm::Channel& a, const romm::Channel& b) {
 }
 
 bool samePush(const cache::OwedPush& a, const cache::OwedPush& b) {
-    if (a.romId != b.romId || a.madeAt != b.madeAt || a.romFileId != b.romFileId ||
-        a.channelId != b.channelId || a.label != b.label ||
-        a.expectedCurrentId != b.expectedCurrentId || a.parentId != b.parentId ||
-        a.couldNotUseNewest != b.couldNotUseNewest || a.emulator != b.emulator ||
-        a.core != b.core || a.hasSave != b.hasSave || a.saveName != b.saveName ||
+    if (a.romId != b.romId || a.madeAt != b.madeAt || a.channelId != b.channelId ||
+        a.label != b.label || a.expectedCurrentId != b.expectedCurrentId ||
+        a.parentId != b.parentId || a.couldNotUseNewest != b.couldNotUseNewest ||
+        a.emulator != b.emulator || a.core != b.core || a.hasSave != b.hasSave ||
+        a.saveName != b.saveName ||
         a.savePath != b.savePath || a.saveShape != b.saveShape ||
         a.states.size() != b.states.size())
         return false;
@@ -783,9 +785,11 @@ romm::SnapshotFile noteFile(int id, const std::string& name, const std::string& 
 // other; forgetting RomM's copy leaves the snapshot this console holds, and
 // a game gone takes it. A game's owed push read back whole; a newer one
 // replaces it; a push that lands clears only the one it sent; a cut write's
-// temporary is no marker. And the markers today's version writes, one per
+// temporary is no marker. The markers today's version writes, one per
 // file, read back beside a game's push as the upload queue sends them
-// (Uploader::resendOwedFor makes its job of these fields).
+// (Uploader::resendOwedFor makes its job of these fields). And the files a
+// game's channels can be on, from its own files and kept in its record
+// (romm::ChannelFiles, library.h).
 int saveNotesTest() {
     int failures = 0;
     auto check = [&](bool ok, const char* what) {
@@ -950,7 +954,6 @@ int saveNotesTest() {
     cache::OwedPush push;
     push.romId = game;
     push.madeAt = 1763505768;
-    push.romFileId = 4410;
     push.channelId = run.id;
     push.label = "default";
     push.expectedCurrentId = 12;
@@ -1035,6 +1038,58 @@ int saveNotesTest() {
     check(!cache::isPushOwed(u, 8) && cache::owed(u).size() == 1,
           "and the push landing leaves the file still owed");
 
+    // 6. The files a game's save channels can be on (romm::ChannelFiles,
+    // step 12), from the game's own files and kept in its record.
+    std::vector<romm::RomFile> rf(5);
+    rf[0].id = 105;
+    rf[0].fileName = "Game.chd";
+    rf[0].category = "game";
+    rf[1].id = 107;
+    rf[1].fileName = "Game.cue";
+    rf[1].channelFile = true;
+    rf[2].id = 108;
+    rf[2].fileName = "Game (Track 1).bin";
+    rf[3].id = 109;
+    rf[3].fileName = "Game.pdf";
+    rf[3].category = "manual";
+    rf[4].id = 110;
+    rf[4].fileName = "v1.1.bin";
+    rf[4].category = "update";
+    const romm::ChannelFiles on = romm::channelFilesOf(rf);
+    check(on.channelFile == 107 && on.files == std::vector<int>({105, 107, 108}),
+          "a game's channels can be on any of its game files, a new one on the file RomM "
+          "names; never on a manual or an update");
+    romm::Game entry;
+    check(romm::gameFromJson("{\"id\": 906, \"platform_slug\": \"psp\", "
+                             "\"channel_file_id\": 107, \"files\": ["
+                             "{\"id\": 105, \"category\": \"game\"}, "
+                             "{\"id\": 107, \"category\": null}, "
+                             "{\"id\": 109, \"category\": \"manual\"}]}",
+                             &entry) &&
+              entry.channelFiles.channelFile == 107 &&
+              entry.channelFiles.files == std::vector<int>({105, 107}),
+          "the game's own entry read for them by the same rule");
+    romm::Game listed;
+    listed.id = 906;
+    listed.platformSlug = "psp";
+    listed.name = "Game";
+    cache::rememberGame(906, gameRecordJson(listed));
+    check(rememberedChannelFiles(906).files.empty(),
+          "a record from RomM's list knows none: its lists send no files");
+    rememberChannelFiles(906, on);
+    romm::ChannelFiles kept = rememberedChannelFiles(906);
+    check(kept.channelFile == 107 && kept.files == on.files,
+          "learned from the game's own entry, kept in its record and read back");
+    cache::rememberGame(906, gameRecordJson(listed));
+    kept = rememberedChannelFiles(906);
+    check(kept.channelFile == 107 && kept.files == on.files,
+          "and kept when the record is written again from RomM's list");
+    rememberChannelFiles(906, romm::ChannelFiles{});
+    rememberChannelFiles(906, romm::ChannelFiles{105, {105}});
+    kept = rememberedChannelFiles(906);
+    check(kept.channelFile == 105 && kept.files == std::vector<int>({105}),
+          "nothing learned changes nothing; what RomM says later replaces it");
+
     storage::removeEntry(root);
     std::printf("\nsave notes: %d failure%s\n", failures, failures == 1 ? "" : "s");
     return failures == 0 ? 0 : 1;
@@ -1095,7 +1150,6 @@ int savePickTest() {
         SaveFetch f;
         f.romId = game;
         f.asked = f.listed = true;
-        f.channelFileId = 4410;
         f.mark = savemirror::mark();
         f.pick.from = savepick::Pick::From::Channel;
         f.pick.madeElsewhere = elsewhere;
@@ -1135,7 +1189,7 @@ int savePickTest() {
                   n.tookPick && n.changedOwn && n.keptAside.empty() && !exists(aside),
               "a console with no save takes the snapshot's, and keeps nothing aside");
         check(pill && sess.startChannelId == f.pick.channel.id && sess.startSnapshotId == 21 &&
-                  sess.channelFileId == 4410 && !sess.couldNotUseNewest &&
+                  !sess.couldNotUseNewest &&
                   savemirror::getHeld(u, game, &held) && held.snapshotId == 21 &&
                   held.saveHash == romm::contentHash(theirs) && held.hashesHad.size() == 1,
               "the start says so, the session knows its channel and snapshot, and the "
@@ -1400,8 +1454,7 @@ int savePickTest() {
             SaveFetch f;
             f.romId = romId;
             f.asked = f.listed = true;
-            f.channelFileId = 4410;
-            f.mark = savemirror::mark();
+                f.mark = savemirror::mark();
             f.pick.from = savepick::Pick::From::OldRows;
             f.rows = std::move(rows);
             return f;
@@ -1432,7 +1485,7 @@ int savePickTest() {
                       p.hasSave && p.fromOldRows() && p.oldRows.size() == 1 &&
                       p.oldRows[0].id == 9 && p.oldRows[0].at == atSec && p.madeAt == atSec &&
                       p.savePath.empty() && p.saveShape == "SINGLE" && p.emulator == tag &&
-                      p.label == "default" && p.channelId.empty() && p.romFileId == 4410,
+                      p.label == "default" && p.channelId.empty(),
                   "a core's one save file from before channels: the game's push names its row "
                   "for RomM to copy, no bytes, into the person's \"default\", made when RomM "
                   "stored it");

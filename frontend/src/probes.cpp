@@ -110,8 +110,10 @@ static int romProbe(const char* address, int romId, const char* validExts) {
 }
 
 // One game's save channels as RomM 5.5 gives them to the console's person
-// (#346): the file they belong to, and each channel with its current
-// snapshot. It only reads, so it may be pointed at the read-only relay.
+// (#346): the game's files, the one RomM makes a new channel on marked, and
+// the channels on every game file (romm::ChannelFiles), each with the file
+// it is on and its current snapshot. It only reads, so it may be pointed at
+// the read-only relay.
 static int channelsProbe(const char* address, int romId) {
     romm::Client client;
     std::string err;
@@ -130,24 +132,24 @@ static int channelsProbe(const char* address, int romId) {
         std::fprintf(stderr, "[romm] the files of %d: %s\n", romId, err.c_str());
         return 1;
     }
-    int fileId = 0;
-    for (const romm::RomFile& f : files) {
-        std::printf("file        %s %s\n", f.channelFile ? "->" : "  ", f.fileName.c_str());
-        if (f.channelFile) fileId = f.id;
-    }
-    if (fileId == 0) {
-        std::fprintf(stderr, "[romm] RomM names no file for this game's channels\n");
+    for (const romm::RomFile& f : files)
+        std::printf("file        %s %d %s\n", f.channelFile ? "->" : "  ", f.id,
+                    f.fileName.c_str());
+    const romm::ChannelFiles on = romm::channelFilesOf(files);
+    if (on.files.empty()) {
+        std::fprintf(stderr, "[romm] RomM lists no game file for this game's channels\n");
         return 1;
     }
     std::vector<romm::Channel> channels;
-    if (!client.fetchChannels({fileId}, &channels, &err)) {
+    if (!client.fetchChannels(on.files, &channels, &err)) {
         std::fprintf(stderr, "[romm] the channels: %s\n", err.c_str());
         return 1;
     }
     std::printf("channels    %zu\n", channels.size());
     for (const romm::Channel& c : channels) {
-        std::printf("channel     \"%s\"%s, %d snapshot(s), changed %s\n", c.label.c_str(),
-                    c.hardcore ? ", hardcore" : "", c.snapshotCount, c.updatedAt.c_str());
+        std::printf("channel     \"%s\"%s, on file %d, %d snapshot(s), changed %s\n",
+                    c.label.c_str(), c.hardcore ? ", hardcore" : "", c.romFileId,
+                    c.snapshotCount, c.updatedAt.c_str());
         if (c.currentId == 0) {
             std::printf("  empty\n");
             continue;

@@ -65,16 +65,16 @@ static bool cancelled(LaunchJob& job) {
 }
 
 // A game's save as RomM holds it, fetched for a start (saves.h, fetchSaves).
-// The file RomM keys the game's save channels to is the one its record
+// The files the game's save channels can be on are the ones its record
 // remembers, so the channels are asked for without asking for the game
-// first; RomM is asked when the record has none or its file no longer
-// answers, and the record then keeps what it said (library.h).
+// first; RomM is asked when the record has none or one no longer answers,
+// and the record then keeps what it said (library.h).
 static void fetchSavesOf(int romId, romm::Client& client, const storage::User& user,
                          const char* tag, const OwnForm* own, const std::atomic<bool>* cancel,
                          SaveFetch* out) {
-    const int known = rememberedChannelFile(romId);
+    const romm::ChannelFiles known = rememberedChannelFiles(romId);
     fetchSaves(client, user, romId, known, tag, own, cancel, out);
-    if (out->channelFileId != known) rememberChannelFile(romId, out->channelFileId);
+    rememberChannelFiles(romId, out->channelFiles);
 }
 
 // THE GAME'S SAVES COME DOWN HERE, ON THE WORKER (#481, LAUNCH-17), once the

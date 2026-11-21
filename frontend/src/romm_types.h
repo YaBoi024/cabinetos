@@ -1,10 +1,10 @@
 // What the RomM client hands back: a platform, a collection, a game and its
 // files, firmware, a save or a state, the person, a pairing in flight, a
 // game's facts, a play session, a save channel with its snapshots, and a
-// snapshot push with RomM's answer, and the two helpers that read a game
-// (tagLabel, gameFromJson). A header that needs only these includes this file
-// rather than the client (romm.h). Moved out of romm.h in the restructure
-// (#398).
+// snapshot push with RomM's answer, and the three helpers that read a game
+// (tagLabel, gameFromJson, channelFilesOf). A header that needs only these
+// includes this file rather than the client (romm.h). Moved out of romm.h in
+// the restructure (#398).
 //
 // A PLATFORM IS NOT ITS SLUG. RomM can hold several platforms with the same
 // name AND the same slug: "Arcade" is the FBNeo, MAME, Naomi and Atomiswave
@@ -79,6 +79,21 @@ struct ArchiveMember {
     std::string name;
     uint32_t crc = 0;
     int64_t size = 0;
+};
+
+// THE FILES A GAME'S SAVE CHANNELS CAN BE ON (RomM 5.5, #346, step 12), as
+// the game's own entry gives them (channelFilesOf). A channel stays on the
+// file it was made on. RomM makes a NEW one on the file it names in
+// `channel_file_id` (`channelFile`), which it picks itself (RomFile::
+// channelFile), so a file added to a game's folder can move that: a `.cue`
+// beside a CHD is picked over it. So a game's channels are listed on every
+// one of its game files (`files`, RomM's category "game", which is where
+// RomM picks from), a push into a channel names that channel's own file
+// (Channel::romFileId), and `channelFile` is only for a channel the console
+// makes.
+struct ChannelFiles {
+    int channelFile = 0;      // 0: RomM names none, or a RomM before 5.5
+    std::vector<int> files;   // empty: not known
 };
 
 struct Game {
@@ -161,13 +176,13 @@ struct Game {
     std::string membersFile;
     int64_t membersSize = 0;
     std::vector<ArchiveMember> members;
-    // THE FILE THIS GAME'S SAVE CHANNELS ARE KEYED TO (RomM 5.5, #346):
-    // RomM's `channel_file_id`, which only the game's own entry carries
-    // (RomFile::channelFile). 0 from RomM's lists and from a RomM before
-    // 5.5. Kept in the game's record once a launch or the game's page has
-    // learned it (rememberChannelFile), so a start asks for the channels
-    // without asking for the game first.
-    int channelFileId = 0;
+    // THE FILES THIS GAME'S SAVE CHANNELS CAN BE ON (RomM 5.5, #346):
+    // RomM's `channel_file_id` and the ids of its game files, which only the
+    // game's own entry carries; none from RomM's lists, which send no files,
+    // and from a RomM before 5.5. Kept in the game's record once a launch or
+    // the game's page has learned them (rememberChannelFiles), so a start
+    // asks for the channels without asking for the game first.
+    ChannelFiles channelFiles;
 };
 
 // RomM's four fields as one line, in RomM's order on its folder structure
@@ -210,12 +225,13 @@ struct RomFile {
     // other file, and for an archive inside a folder game, which RomM does
     // not open.
     std::vector<ArchiveMember> members;
-    // THE FILE THIS GAME'S SAVE CHANNELS BELONG TO (RomM 5.5, #346): the one
-    // whose id the game's own entry gives as `channel_file_id`. RomM picks it
-    // (`sync_file`: the file an emulator loads first, a `.cue` ahead of its
-    // tracks, else the first game file by name), so a game on several discs
-    // or in a folder has one, and the console never works it out itself.
-    // False on every file from a RomM before 5.5.
+    // THE FILE A NEW SAVE CHANNEL OF THIS GAME IS MADE ON (RomM 5.5, #346):
+    // the one whose id the game's own entry gives as `channel_file_id`. RomM
+    // picks it (`sync_file`: the file an emulator loads first, a `.cue` ahead
+    // of its tracks, else the first game file by name), so a game on several
+    // discs or in a folder has one, and the console never works it out
+    // itself. A channel made before a file was added can be on another file
+    // of the game (ChannelFiles). False on every file from a RomM before 5.5.
     bool channelFile = false;
 };
 
@@ -315,8 +331,9 @@ struct PlaySession {
 
 // SAVE CHANNELS AND SNAPSHOTS (RomM 5.5, #346), as RomM's code at
 // 5.5.0-alpha.2 has them: RomM's documentation does not cover them yet. A
-// CHANNEL is one run through a game, keyed to one of its files
-// (RomFile::channelFile), pointing at its current snapshot; most games have
+// CHANNEL is one run through a game, keyed to one of its files (the one
+// RomM named for new channels when it was made, ChannelFiles), pointing at
+// its current snapshot; most games have
 // one, RomM's "default". A SNAPSHOT is one saved moment in it: the game's
 // save and a bank of states, each named by its content hash
 // (romm::contentHash). RomM keeps older snapshots behind the current.
@@ -406,7 +423,7 @@ struct Channel {
     std::string label;       // RomM's own is "default"
     bool hardcore = false;   // its current was saved in hardcore
     int romId = 0;
-    int romFileId = 0;       // the file it is keyed to, when the library has it
+    int romFileId = 0;       // the file it is keyed to, which a push into it names
     int snapshotCount = 0;
     std::string updatedAt;
     // The current snapshot; `currentId` 0 while the channel is empty.
@@ -437,7 +454,9 @@ struct PushState {
 // sends it. It always says which current it builds on, so RomM never works
 // that out from what it last saw of the device.
 struct SnapshotPush {
-    int romFileId = 0;          // the game's channel file
+    // The channel's own file (Channel::romFileId); for a channel it makes,
+    // the file RomM names for new ones (ChannelFiles::channelFile).
+    int romFileId = 0;
     std::string channelId;      // the channel; empty makes one named `label`
     std::string label;          // a new channel's name
     // The channel's current it builds on; 0 expects an empty channel. Not
@@ -495,5 +514,9 @@ struct PushAnswer {
 // Wii U game's `product_code`, the console's own): a keep record, or the
 // console's note of a game it has on its drive. False when it is not one.
 bool gameFromJson(const std::string& json, Game* out);
+
+// The files a game's save channels can be on, from its own files as RomM
+// lists them: the one RomM names for a new channel, and every game file.
+ChannelFiles channelFilesOf(const std::vector<RomFile>& files);
 
 }  // namespace romm

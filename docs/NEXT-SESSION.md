@@ -108,18 +108,16 @@ RomM: keep test launches under a minute, or have his go.
    knows, both ways, PS Vita converts both ways once a game has its title
    ID, and Saturn's cartridge reaches Beetle Saturn and Kronos (Yabause
    keeps no cartridge); Sega CD's merge into an app's shared memory
-   works only while the cartridge is empty (#722, step 11's notes). Next
-   is step 12, a step of its own after step 11 (his word, 2026-11-20): a
+   works only while the cartridge is empty (#722, step 11's notes). Step
+   12 is built (his word, 2026-11-20, a step of its own after step 11): a
    file added to a game on RomM (a `.cue` beside a `.chd`) moves RomM's
-   `channel_file_id`, which RomM documents as the file a NEW channel goes
-   on; the console lists a game's channels on that one file and pushes
-   with it, so a console that played the game has every save refused (422)
-   and one that never played it makes a second `default`. Step 12 pushes
-   into a channel with that channel's own file and lists a game's channels
-   on all its files, proven on the write-test RomM; and it fixes the phase
-   1 test kit, which planted Cabinet's Dreamcast card in Flycast's
-   `dc_nvmem.bin` instead of the card, before its Dreamcast rows are run
-   again. Then, each on his word: phase 5 (the 70 games compared in every
+   `channel_file_id`, the file a NEW channel goes on, so the console now
+   lists a game's channels on every one of its game files and pushes into
+   a channel with that channel's own file
+   (docs/decisions/2026-11-20-channels-on-every-file.md); proven on the
+   write-test RomM. The phase 1 test kit plants Cabinet's Dreamcast card in
+   the game's own card, and its two Dreamcast rows pass (#722, step 12's
+   notes). Next, each on his word: phase 5 (the 70 games compared in every
    app) and phase 6 (his short TV check, then testing).
    After that comes a Switch step: the console pins Sigil whole and,
    for Switch only, reads a game's ID with the player's keys and converts

@@ -87,8 +87,9 @@ void rememberArchive(int romId, const std::string& file, int64_t size,
                      const std::vector<romm::ArchiveMember>& members);
 std::vector<romm::ArchiveMember> rememberedArchive(int romId, const std::string& file,
                                                    int64_t size);
-// The file RomM keys a game's save channels to (romm_types.h,
-// Game::channelFileId), kept in the game's record when it has one and read
-// back; 0 when the record has none. Either may run on a worker.
-void rememberChannelFile(int romId, int romFileId);
-int rememberedChannelFile(int romId);
+// The files a game's save channels can be on (romm_types.h, ChannelFiles),
+// kept in the game's record when it has one, where none learned leaves what
+// it had (gameRecordJson), and read back; none when the record has none.
+// Either may run on a worker.
+void rememberChannelFiles(int romId, const romm::ChannelFiles& files);
+romm::ChannelFiles rememberedChannelFiles(int romId);

@@ -34,66 +34,76 @@ static std::mutex gThreads;
 static std::thread gBackfill;    // under gThreads
 static std::thread gReconnect;   // under gThreads
 
-// The file RomM keys a game's save channels to, asked of RomM and kept in the
-// game's record (library.h). 0 when RomM names none or did not answer.
-static int askChannelFile(romm::Client& c, int romId) {
-    std::vector<romm::RomFile> files;
+// The files a game's save channels can be on, asked of RomM and kept in the
+// game's record (library.h). None when RomM lists none or did not answer.
+static romm::ChannelFiles askChannelFiles(romm::Client& c, int romId) {
+    romm::ChannelFiles files;
     std::string err;
-    if (!c.fetchRomFiles(romId, &files, &err)) return 0;
-    for (const romm::RomFile& f : files) {
-        if (!f.channelFile) continue;
-        rememberChannelFile(romId, f.id);
-        return f.id;
-    }
-    return 0;
+    if (!c.fetchChannelFiles(romId, &files, &err)) return {};
+    rememberChannelFiles(romId, files);
+    return files;
 }
 
-// RomM'S SAVE CHANNELS FOR THE GAMES ON THE DRIVE (#346), a hundred games to
-// a call, by the file each game's record remembers its channels are keyed to;
-// a game whose record has none yet is asked about once. A game RomM lists no
-// channel for is in the answer with none; a game left out is one RomM could
-// not be asked about. RomM refuses a whole call when one file in it is gone
-// or hidden, so then each game is asked alone, and one whose file no longer
-// answers is asked for its file again. Asked only of a RomM that has them
-// (backfillDrive).
+// RomM'S SAVE CHANNELS FOR THE GAMES ON THE DRIVE (#346), on every file each
+// game's record remembers its channels can be on (romm::ChannelFiles), a
+// hundred files to a call; a game whose record has none yet is asked about
+// once. Each channel goes to the game RomM names it under. A game RomM lists
+// no channel for is in the answer with none; a game left out is one RomM
+// could not be asked about. RomM refuses a whole call when one file in it is
+// gone or hidden, so then each game is asked alone, and one whose files no
+// longer answer is asked for its files again. Asked only of a RomM that has
+// them (backfillDrive).
 static std::map<int, std::vector<romm::Channel>> channelsOfGames(romm::Client& c,
                                                                  const std::vector<int>& romIds) {
     std::map<int, std::vector<romm::Channel>> out;
+    std::map<int, romm::ChannelFiles> filesOf;
     std::map<int, int> romOfFile;
     std::vector<int> files;
     for (int romId : romIds) {
         if (gStop.load()) return out;
-        int file = rememberedChannelFile(romId);
-        if (file == 0) file = askChannelFile(c, romId);
-        if (file == 0) continue;
-        romOfFile[file] = romId;
-        files.push_back(file);
+        romm::ChannelFiles known = rememberedChannelFiles(romId);
+        if (known.files.empty()) known = askChannelFiles(c, romId);
+        if (known.files.empty()) continue;
+        for (const int file : known.files) {
+            romOfFile[file] = romId;
+            files.push_back(file);
+        }
+        filesOf[romId] = std::move(known);
     }
+    // Each channel to its game: the one RomM names it under, else the one
+    // whose file it is on.
+    auto sort = [&](std::vector<romm::Channel>& all) {
+        for (romm::Channel& ch : all) {
+            auto game = out.find(ch.romId);
+            if (game == out.end()) {
+                const auto f = romOfFile.find(ch.romFileId);
+                if (f != romOfFile.end()) game = out.find(f->second);
+            }
+            if (game != out.end()) game->second.push_back(std::move(ch));
+        }
+    };
     std::vector<romm::Channel> all;
     std::string err;
     bool gone = false;
     if (files.empty()) return out;
     if (c.fetchChannels(files, &all, &err, &gone)) {
-        for (int file : files) out[romOfFile[file]];
-        for (romm::Channel& ch : all) {
-            const auto f = romOfFile.find(ch.romFileId);
-            const auto game = out.find(f != romOfFile.end() ? f->second : ch.romId);
-            if (game != out.end()) game->second.push_back(std::move(ch));
-        }
+        for (const auto& [romId, known] : filesOf) out[romId];
+        sort(all);
         return out;
     }
     if (!gone) {
         std::fprintf(stderr, "[offline] save channels not fetched: %s\n", err.c_str());
         return out;
     }
-    for (int file : files) {
+    for (const auto& [romId, known] : filesOf) {
         if (gStop.load()) break;
-        const int romId = romOfFile[file];
         std::vector<romm::Channel> one;
-        if (!c.fetchChannels({file}, &one, &err, &gone)) {
+        if (!c.fetchChannels(known.files, &one, &err, &gone)) {
             if (!gone) continue;
-            const int now = askChannelFile(c, romId);
-            if (now == 0 || now == file || !c.fetchChannels({now}, &one, &err)) continue;
+            const romm::ChannelFiles now = askChannelFiles(c, romId);
+            if (now.files.empty() || now.files == known.files ||
+                !c.fetchChannels(now.files, &one, &err))
+                continue;
         }
         out[romId] = std::move(one);
     }

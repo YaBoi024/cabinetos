@@ -217,6 +217,9 @@ public:
     // fetches one of them as it is, for fetchToFile.
     bool fetchRomFiles(int romId, std::vector<RomFile>* out, std::string* err);
     static std::string romFilePath(int romId, const RomFile& f);
+    // The files a game's save channels can be on (ChannelFiles), from the
+    // same entry: fetchRomFiles read by channelFilesOf.
+    bool fetchChannelFiles(int romId, ChannelFiles* out, std::string* err);
 
     bool fetchSaves(int romId, std::vector<Asset>* out, std::string* err);
     // Many games' saves at once (#88): RomM 5.3 takes `rom_ids` repeated, up

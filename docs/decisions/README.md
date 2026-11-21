@@ -125,6 +125,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [romm-converts-saves](2026-11-20-romm-converts-saves.md): RomM converts another app's save for the console for every system but Switch, which the console converts itself with a pinned Sigil; the console writes nothing about a game to RomM.
 - [arcade-saves-cabinetos-only](2026-11-20-arcade-saves-cabinetos-only.md): an arcade game takes no other app's save, whichever emulator it names; saves between CabinetOS consoles travel as before.
 - [other-apps-saves-outside-channels](2026-11-20-other-apps-saves-outside-channels.md): another app's save in no channel stays on RomM as it is; the console copies nothing into a channel.
+- [channels-on-every-file](2026-11-20-channels-on-every-file.md): a game's channels are listed on every one of its files in one request, a push names its channel's own file, and RomM's file for new channels is used only for a new one.
 
 ### Screens and settings
 

@@ -13,6 +13,7 @@
 #include "cache.h"
 #include "dirsave.h"
 #include "fileio.h"
+#include "library.h"
 #include "savemirror.h"
 #include "savepick.h"
 #include "saves.h"
@@ -268,13 +269,10 @@ std::string labelOf(const storage::User& user, int romId, const std::string& cha
 // save still owed wins), so what that one could not go on top of, this one
 // cannot either.
 void aim(const GameSession& sess, const storage::User& user, cache::OwedPush* p) {
-    p->romFileId = sess.channelFileId;
     p->couldNotUseNewest = sess.couldNotUseNewest;
     cache::OwedPush earlier;
-    if (cache::owedPush(user, sess.romId, &earlier)) {
-        if (p->romFileId == 0) p->romFileId = earlier.romFileId;
+    if (cache::owedPush(user, sess.romId, &earlier))
         p->couldNotUseNewest = p->couldNotUseNewest || earlier.couldNotUseNewest;
-    }
     savemirror::Held held;
     std::string channel = sess.startChannelId;
     int base = sess.startSnapshotId;
@@ -391,7 +389,6 @@ bool markState(const GameSession& sess, const storage::User& user, const StateMa
     if (!p.hasSave) {
         cache::OwedPush aimed;
         aim(sess, user, &aimed);
-        p.romFileId = aimed.romFileId;
         p.channelId = aimed.channelId;
         p.label = aimed.label;
         p.expectedCurrentId = aimed.expectedCurrentId;
@@ -668,16 +665,19 @@ bool triedAgain(Sent sent) { return sent == Sent::NotSent || sent == Sent::Waits
 Server serverOf(romm::Client& client) {
     Server s;
     s.hasChannels = [] { return romm::heardServerChannels(); };
-    s.channelFile = [&client](int romId, int* fileId, std::string* err) {
-        std::vector<romm::RomFile> files;
-        if (!client.fetchRomFiles(romId, &files, err)) return false;
-        *fileId = 0;
-        for (const romm::RomFile& f : files)
-            if (f.channelFile) *fileId = f.id;
+    s.files = [&client](int romId, bool ask, romm::ChannelFiles* out, std::string* err) {
+        if (!ask) {
+            *out = rememberedChannelFiles(romId);
+            return true;
+        }
+        if (!client.fetchChannelFiles(romId, out, err)) return false;
+        rememberChannelFiles(romId, *out);
         return true;
     };
-    s.channels = [&client](int fileId, std::vector<romm::Channel>* out, std::string* err,
-                           bool* gone) { return client.fetchChannels({fileId}, out, err, gone); };
+    s.channels = [&client](const std::vector<int>& fileIds, std::vector<romm::Channel>* out,
+                           std::string* err, bool* gone) {
+        return client.fetchChannels(fileIds, out, err, gone);
+    };
     s.push = [&client](const romm::SnapshotPush& push, romm::PushAnswer* answer,
                        std::string* err) { return client.pushSnapshot(push, answer, err); };
     s.saves = [&client](int romId, std::vector<romm::Asset>* rows, std::string* err) {
@@ -748,25 +748,34 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
     std::string err;
     auto unasked = [&] { return stop(refusedForGood(err) ? Sent::Refused : Sent::NotSent, err); };
 
-    // THE FILE THE GAME'S CHANNELS ARE KEYED TO, AND THE CHANNELS ON IT. The
-    // file as the marker has it, asked for when it has none, and asked for
-    // once more when RomM no longer knows that one: a scan of RomM's library
-    // gives a file another id.
-    int fileId = owed.romFileId;
-    bool askedFile = false;
+    // THE FILES THE GAME'S CHANNELS CAN BE ON, AND THIS PERSON'S CHANNELS ON
+    // THEM (romm::ChannelFiles), as a start lists them: the files as this
+    // console remembers them, asked of RomM when it has none, and asked once
+    // more when RomM no longer knows one of them: a scan of RomM's library
+    // gives a file another id, or takes it away.
+    romm::ChannelFiles files;
+    server.files(romId, false, &files, &err);
+    bool askedFiles = false;
     std::vector<romm::Channel> channels;
     for (;;) {
-        if (fileId == 0) {
-            if (!server.channelFile(romId, &fileId, &err)) return unasked();
-            askedFile = true;
-            if (fileId == 0)
-                return stop(Sent::Refused, "RomM names no file of this game for its channels");
+        if (files.files.empty()) {
+            if (!server.files(romId, true, &files, &err)) return unasked();
+            askedFiles = true;
+            if (files.files.empty())
+                return stop(Sent::Refused, "RomM lists no file of this game for its channels");
         }
         bool gone = false;
-        if (server.channels(fileId, &channels, &err, &gone)) break;
-        if (!gone || askedFile) return unasked();
-        fileId = 0;
+        if (server.channels(files.files, &channels, &err, &gone)) break;
+        if (!gone || askedFiles) return unasked();
+        files = romm::ChannelFiles{};
     }
+    // THE FILE A PUSH NAMES (the head of savepush.h): a channel's own, which
+    // RomM checks, when it goes into one RomM lists; else the one RomM makes
+    // a new channel on.
+    auto fileFor = [&](const std::string& channelId) {
+        const romm::Channel* c = channelId.empty() ? nullptr : byId(channels, channelId);
+        return c && c->romFileId != 0 ? c->romFileId : files.channelFile;
+    };
 
     // A SAVE FROM BEFORE CHANNELS IS BROUGHT IN ONLY AS THE START TOOK IT
     // (markOldSave): every row still RomM's, from before channels, at the
@@ -807,7 +816,6 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
     // hardcore one, whose place the person's "softcore" takes, the push made
     // from what it was made from.
     romm::SnapshotPush push;
-    push.romFileId = fileId;
     push.channelId = owed.channelId;
     push.label = owed.label.empty() ? kDefaultChannel : owed.label;
     push.expectedCurrentId = owed.expectedCurrentId;
@@ -1041,6 +1049,9 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
     for (int pushes = 1;; ++pushes) {
         if (pushes > kMostPushes)
             return stop(Sent::NotSent, "RomM's channel kept changing while this was sent");
+        push.romFileId = fileFor(push.channelId);
+        if (push.romFileId == 0)
+            return stop(Sent::Refused, "RomM names no file of this game for a new channel");
         romm::PushAnswer answer;
         if (!server.push(push, &answer, &err)) return stop(Sent::NotSent, err);
         using Kind = romm::PushAnswer::Kind;
@@ -1203,7 +1214,7 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
     std::vector<romm::Asset> rows;
     if (server.saves(romId, &rows, &err)) savemirror::putList(who, romId, rows);
     bool gone = false;
-    if (server.channels(fileId, &channels, &err, &gone)) {
+    if (server.channels(files.files, &channels, &err, &gone)) {
         savemirror::putChannels(who, romId, channels);
         // A row RomM copied: this console's bytes of it, while they are the
         // copy's.

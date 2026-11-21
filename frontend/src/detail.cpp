@@ -36,10 +36,10 @@ void App::startDetailStates() {
     detailStates.worker = std::thread([this, romId, tag, saveTag, stateDir, slug, who]() {
         std::vector<screens::StateChoice> out;
         std::string err, saveWhen;
-        // The file RomM keys the game's save channels to, for the save line
+        // The files the game's save channels can be on, for the save line
         // below: as RomM just said with the game's files, else as the game's
-        // record remembers it.
-        int channelFile = rememberedChannelFile(romId);
+        // record remembers them.
+        romm::ChannelFiles channelFiles = rememberedChannelFiles(romId);
         // YEAR, MAKER, PLAYERS, under the cover. Whatever RomM has.
         screens::DetailScreen::Facts facts;
         {
@@ -48,12 +48,11 @@ void App::startDetailStates() {
             // Offline (#88): as last seen, kept beside the game's record.
             const bool fresh = !romm::serverAway() && liveClient.fetchFacts(romId, &f, &ferr);
             if (fresh) rememberFacts(romId, f);
-            if (fresh)
-                for (const romm::RomFile& file : f.files)
-                    if (file.channelFile && file.id != channelFile) {
-                        channelFile = file.id;
-                        rememberChannelFile(romId, channelFile);
-                    }
+            if (romm::ChannelFiles now = romm::channelFilesOf(f.files);
+                fresh && !now.files.empty()) {
+                channelFiles = std::move(now);
+                rememberChannelFiles(romId, channelFiles);
+            }
             if (fresh || knownFacts(romId, &f)) {
                 if (f.year > 0) facts.year = std::to_string(f.year);
                 facts.maker = f.maker;
@@ -109,10 +108,9 @@ void App::startDetailStates() {
         std::string savedAt;
         if (!saveTag.empty()) {
             SaveFetch onRomm;
-            listSaves(liveClient, who, romId, channelFile, saveTag.c_str(), &onRomm);
+            listSaves(liveClient, who, romId, channelFiles, saveTag.c_str(), &onRomm);
             if (onRomm.listed) savedAt = savepick::pickedAt(onRomm.pick, onRomm.oldRowAt);
-            if (onRomm.channelFileId != channelFile)
-                rememberChannelFile(romId, onRomm.channelFileId);
+            rememberChannelFiles(romId, onRomm.channelFiles);
         }
         for (const cache::Owed& o : cache::owed(who)) {
             if (o.romId != romId || o.isState || o.isScreenshot) continue;

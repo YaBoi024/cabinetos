@@ -89,7 +89,6 @@ bool readPush(const std::string& path, OwedPush* p) {
         if (k == "stamp") p->stamp = v;
         else if (k == "rom") p->romId = std::atoi(v.c_str());
         else if (k == "made") p->madeAt = std::atoll(v.c_str());
-        else if (k == "romfile") p->romFileId = std::atoi(v.c_str());
         else if (k == "channel") p->channelId = v;
         else if (k == "label") p->label = v;
         else if (k == "expected") p->expectedCurrentId = std::atoi(v.c_str());
@@ -221,7 +220,6 @@ std::string markPushOwed(const storage::User& u, const OwedPush& p, int64_t byte
     put("stamp", stamp);
     putId("rom", p.romId);
     putId("made", p.madeAt);
-    putId("romfile", p.romFileId);
     put("channel", p.channelId);
     put("label", p.label);
     putId("expected", p.expectedCurrentId);

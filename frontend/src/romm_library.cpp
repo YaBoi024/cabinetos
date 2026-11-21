@@ -52,6 +52,11 @@ std::vector<std::string> jstrs(json_object* o, const char* key) {
 
 namespace {
 
+// A file RomM may key a game's save channels to: one in its category "game",
+// or in none (`sync_file` at 5.5.0-alpha.2, `handler/snapshots/legacy.py`).
+// A manual, an update or a DLC never is.
+bool isGameFile(const std::string& category) { return category.empty() || category == "game"; }
+
 bool parseGame(json_object* o, Game* g) {
     g->id = static_cast<int>(jint(o, "id"));
     if (g->id == 0) return false;
@@ -64,7 +69,17 @@ bool parseGame(json_object* o, Game* g) {
     g->fsName = jstr(o, "fs_name");
     g->sortKey = jstr(o, "name_sort_key");
     g->sizeBytes = jint(o, "fs_size_bytes");
-    g->channelFileId = static_cast<int>(jint(o, "channel_file_id"));
+    // The files its save channels can be on (ChannelFiles), from the game's
+    // own entry or the console's record of it; RomM's lists carry neither.
+    g->channelFiles.channelFile = static_cast<int>(jint(o, "channel_file_id"));
+    if (json_object* files = nullptr; json_object_object_get_ex(o, "files", &files) &&
+                                      json_object_get_type(files) == json_type_array) {
+        for (size_t i = 0, n = json_object_array_length(files); i < n; ++i) {
+            json_object* f = json_object_array_get_idx(files, i);
+            const int id = static_cast<int>(jint(f, "id"));
+            if (id != 0 && isGameFile(jstr(f, "category"))) g->channelFiles.files.push_back(id);
+        }
+    }
     // A FOLDER BY EITHER OF RomM's NAMES FOR ONE (#400). Since RomM 5.0
     // `has_multiple_files` counts only the files at the top of the folder,
     // so one game file with `manual/` or `soundtrack/` beside it, which
@@ -519,6 +534,23 @@ bool Client::fetchRomFiles(int romId, std::vector<RomFile>* out, std::string* er
     }
     if (out->empty() && err) *err = "the game lists no files";
     return !out->empty();
+}
+
+ChannelFiles channelFilesOf(const std::vector<RomFile>& files) {
+    ChannelFiles out;
+    for (const RomFile& f : files) {
+        if (f.channelFile) out.channelFile = f.id;
+        if (isGameFile(f.category)) out.files.push_back(f.id);
+    }
+    return out;
+}
+
+bool Client::fetchChannelFiles(int romId, ChannelFiles* out, std::string* err) {
+    *out = ChannelFiles{};
+    std::vector<RomFile> files;
+    if (!fetchRomFiles(romId, &files, err)) return false;
+    *out = channelFilesOf(files);
+    return true;
 }
 
 std::string Client::romFilePath(int romId, const RomFile& f) {

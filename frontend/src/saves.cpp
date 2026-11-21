@@ -75,38 +75,38 @@ static std::vector<uint8_t> saveBytesFor(romm::Client& client, const storage::Us
 }
 
 // THE GAME'S SAVE CHANNELS ON RomM, OR THE COPY OF THEM (#346), as savesFor
-// is for the old rows. Online, on a RomM that has channels: asked by the file
-// RomM keys them to, and the copy refreshed. `*fileId` is that file as the
-// caller knows it (0 for not known) and comes back as RomM gave it when RomM
-// had to be asked: the first time, and again when the id no longer answers
-// (RomM's library was scanned since and the file has another). Away, or on a
-// RomM too old for them: the copy, as last seen, or none when they were
-// never seen. False only when RomM was asked and gave nothing to go by.
-static bool channelsFor(romm::Client& client, const storage::User& u, int romId, int* fileId,
-                        std::vector<romm::Channel>* channels, std::string* err) {
+// is for the old rows. Online, on a RomM that has channels: this person's on
+// every game file of the game, in one request (romm::ChannelFiles: a channel
+// stays on the file it was made on when a file added to the game moves the
+// one RomM makes new ones on), and the copy refreshed. Measured on the
+// reference server on 2026-11-20, median of five over six games: 16 to 18 ms
+// on the one file, 17 to 20 ms on all of a game's one to four, against 39 to
+// 59 ms for the game's own entry, whose `user_channels` list them too. A game
+// of more than a hundred files takes a request a hundred. `*files` is the
+// game's files as the caller knows them (none for not known) and comes back
+// as RomM gave them when RomM had to be asked: the first time, and again
+// when one no longer answers (RomM's library was scanned since and a file
+// is gone or has another id). Away, or on a RomM too old for them: the copy,
+// as last seen, or none when they were never seen. False only when RomM was
+// asked and gave nothing to go by.
+static bool channelsFor(romm::Client& client, const storage::User& u, int romId,
+                        romm::ChannelFiles* files, std::vector<romm::Channel>* channels,
+                        std::string* err) {
     channels->clear();
     if (romm::serverTakesSaves()) {
         const uint64_t asked = savemirror::mark();
-        auto askFile = [&]() {
-            std::vector<romm::RomFile> files;
-            if (!client.fetchRomFiles(romId, &files, err)) return false;
-            *fileId = 0;
-            for (const romm::RomFile& f : files)
-                if (f.channelFile) *fileId = f.id;
-            return true;
-        };
-        bool known = *fileId != 0;
-        bool ok = known || askFile();
-        // RomM names no file for the game: nothing of it is in a channel.
-        if (ok && *fileId == 0) return true;
+        bool known = !files->files.empty();
+        bool ok = known || client.fetchChannelFiles(romId, files, err);
+        // RomM lists no game file: nothing of it is in a channel.
+        if (ok && files->files.empty()) return true;
         if (ok) {
             bool gone = false;
-            ok = client.fetchChannels({*fileId}, channels, err, &gone);
+            ok = client.fetchChannels(files->files, channels, err, &gone);
             if (!ok && gone && known) {
                 known = false;
-                ok = askFile();
-                if (ok && *fileId == 0) return true;
-                if (ok) ok = client.fetchChannels({*fileId}, channels, err);
+                ok = client.fetchChannelFiles(romId, files, err);
+                if (ok && files->files.empty()) return true;
+                if (ok) ok = client.fetchChannels(files->files, channels, err);
             }
         }
         if (ok) {
@@ -150,24 +150,24 @@ static std::vector<uint8_t> snapshotSaveFor(romm::Client& client, const storage:
 // about 15, so a start waits about 3 ms longer than before channels, where
 // one after the other it would wait 15. The client is made for it (romm.h),
 // and the two write different files of the console's copy.
-void listSaves(romm::Client& client, const storage::User& user, int romId, int channelFileId,
-               const char* tag, SaveFetch* out) {
+void listSaves(romm::Client& client, const storage::User& user, int romId,
+               const romm::ChannelFiles& known, const char* tag, SaveFetch* out) {
     *out = SaveFetch{};
     out->romId = romId;
-    out->channelFileId = channelFileId;
+    out->channelFiles = known;
     if (!tag || !client.haveToken()) return;
     out->asked = true;
     out->mark = savemirror::mark();
     savepick::Facts facts;
     std::string channelsErr;
     bool channelsOk = false;
-    int channelFile = channelFileId;
+    romm::ChannelFiles files = known;
     std::thread channelsAsk([&]() {
-        channelsOk = channelsFor(client, user, romId, &channelFile, &facts.channels, &channelsErr);
+        channelsOk = channelsFor(client, user, romId, &files, &facts.channels, &channelsErr);
     });
     out->listed = savesFor(client, user, romId, &out->rows, &out->error);
     channelsAsk.join();
-    out->channelFileId = channelFile;
+    out->channelFiles = files;
     if (!out->listed) return;
     if (!channelsOk) {
         out->listed = false;
@@ -543,10 +543,10 @@ static bool takeOther(romm::Client& client, const OwnForm& own, SaveFetch* out,
 // folder save, in each region for a file save and the battery). Until #481
 // each restore asked RomM on the frame thread behind the curtain, and a
 // server that was slow or hung held a black screen with no way out.
-void fetchSaves(romm::Client& client, const storage::User& user, int romId, int channelFileId,
-                const char* tag, const OwnForm* own, const std::atomic<bool>* cancel,
-                SaveFetch* out) {
-    listSaves(client, user, romId, channelFileId, tag, out);
+void fetchSaves(romm::Client& client, const storage::User& user, int romId,
+                const romm::ChannelFiles& known, const char* tag, const OwnForm* own,
+                const std::atomic<bool>* cancel, SaveFetch* out) {
+    listSaves(client, user, romId, known, tag, out);
     if (!out->listed) return;
     if (out->pick.other) {
         if (cancel && cancel->load()) return;
@@ -1478,17 +1478,16 @@ void restoreBatterySave(cab::Core& core, GameSession& session, const std::string
 }
 
 // WHAT A START LEAVES IN THE NOTES (#346), once its restores have run. In the
-// session: the file the game's channels are keyed to, the channel and
-// snapshot the start continued from when one was put in place, and whether
-// the newest save on RomM could not be used, which is also so when the
-// picked snapshot's save did not come or could not be read. On the console:
+// session: the channel and snapshot the start continued from when one was
+// put in place, and whether the newest save on RomM could not be used, which
+// is also so when the picked snapshot's save did not come or could not be
+// read. On the console:
 // that snapshot becomes the one it holds of the game, with its save's hash
 // among those it has had (savepick::heldAfter). A start that put RomM's save
 // from before channels in place marks the game's push that brings it into a
 // channel (savepick::oldSaveToCopy, savepush::markOldSave).
 bool noteStart(const SaveFetch& fetched, const StartNotes& notes, const storage::User& user,
                GameSession* session, bool* bringsOldSave) {
-    session->channelFileId = fetched.channelFileId;
     if (bringsOldSave) *bringsOldSave = false;
     // Nothing listed, or a save of this console's landed since: its own save
     // stood, and nothing on RomM was turned down.

@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
@@ -120,10 +121,18 @@ romm::PushAnswer answerOf(romm::PushAnswer::Kind kind, long status, const char* 
 // answer at all once they run out), and keeps every push it was sent.
 struct Stand {
     bool heard = true;
-    int fileId = kFile;
-    int staleFile = 0;   // a file id RomM no longer knows
+    // The files the game's channels can be on, as RomM lists them, and as
+    // this console remembers them (`known`: none until RomM is asked, and
+    // what RomM said after); `staleFile` is one RomM no longer knows.
+    romm::ChannelFiles files{kFile, {kFile}};
+    romm::ChannelFiles known;
+    int staleFile = 0;
     bool fileAnswers = true;
+    // This person's channels, each on its own file (Channel::romFileId),
+    // listed only when that file is asked for, as RomM lists them; the files
+    // the last list asked for.
     std::vector<romm::Channel> channels;
+    std::vector<int> askedFiles;
     std::deque<romm::PushAnswer> answers;
     std::vector<romm::SnapshotPush> pushes;
     int fileAsks = 0, channelAsks = 0;
@@ -139,29 +148,45 @@ struct Stand {
     Server server() {
         Server s;
         s.hasChannels = [this] { return heard; };
-        s.channelFile = [this](int, int* out, std::string* err) {
+        s.files = [this](int, bool ask, romm::ChannelFiles* out, std::string* err) {
+            if (!ask) {
+                *out = known;
+                return true;
+            }
             ++fileAsks;
             if (!fileAnswers) {
                 *err = "HTTP 404: Rom not found";
                 return false;
             }
-            *out = fileId;
+            known = files;
+            *out = files;
             return true;
         };
-        s.channels = [this](int file, std::vector<romm::Channel>* out, std::string* err,
-                            bool* gone) {
+        s.channels = [this](const std::vector<int>& ids, std::vector<romm::Channel>* out,
+                            std::string* err, bool* gone) {
             ++channelAsks;
-            if (file == staleFile) {
+            askedFiles = ids;
+            if (staleFile != 0 && std::count(ids.begin(), ids.end(), staleFile)) {
                 *gone = true;
                 *err = "HTTP 404: ROM file not found";
                 return false;
             }
-            *out = channels;
+            out->clear();
+            for (const romm::Channel& c : channels)
+                if (std::count(ids.begin(), ids.end(), c.romFileId)) out->push_back(c);
             return true;
         };
         s.push = [this](const romm::SnapshotPush& push, romm::PushAnswer* answer,
                         std::string* err) {
             pushes.push_back(push);
+            // As RomM: a push into a channel names that channel's file, or
+            // nothing is written (422, `endpoints/snapshots.py`, FileMismatch).
+            for (const romm::Channel& c : channels)
+                if (c.id == push.channelId && c.romFileId != push.romFileId) {
+                    *answer = answerOf(romm::PushAnswer::Kind::Refused, 422,
+                                       "the ROM file does not match the channel's");
+                    return true;
+                }
             if (duringPush) duringPush();
             if (answers.empty()) {
                 *err = "could not reach the server";
@@ -241,7 +266,6 @@ int test() {
         s.fsStem = "Game (USA)";
         s.saveTag = kTag;
         s.saveDir = storage::savesDir(u, "gb", romId, "gambatte");
-        s.channelFileId = kFile;
         cab::writeBytes(s.saveDir + "/" + saveRowName(s.fsStem, "srm"), save);
         s.saveAtLaunch = save;
         s.saveChanged = true;
@@ -253,7 +277,7 @@ int test() {
         check(mark(s, u) && cache::owedPush(u, game, &p) && p.hasSave &&
                   p.saveName == "Game (USA).srm" && p.saveShape == "SINGLE" &&
                   cab::readBytes(p.savePath) == one && p.emulator == kTag &&
-                  p.romFileId == kFile && p.channelId.empty() && p.label == kDefaultChannel &&
+                  p.channelId.empty() && p.label == kDefaultChannel &&
                   p.expectedCurrentId == 0 && p.parentId == 0 && !p.couldNotUseNewest &&
                   p.madeAt >= now && p.madeAt <= now + 5 && !s.saveChanged,
               "a battery: the console's copy as it is, under the emulator's own name, into "
@@ -932,15 +956,19 @@ int test() {
               "a refusal waits for the next start; one RomM holds is done");
         if (cache::owedPush(u, g, &p)) cache::clearPushOwed(u, g, p.stamp);
     }
-    {   // The file RomM keys the channels to.
-        const int g = owe([&](GameSession& s) { s.channelFileId = 0; });
+    {   // The files the game's channels can be on (romm::ChannelFiles).
+        const int g = owe();
         Stand romm;
-        romm.fileId = 4477;
+        romm.files = {4477, {4476, 4477}};
         romm.answers = {made(snapshot(121, kChannel, hashOne, romTime(1)))};
         check(send(romm.server(), u, g, &why) == Sent::Landed && romm.fileAsks == 1 &&
+                  romm.known.files == romm.files.files && romm.askedFiles == romm.files.files &&
                   romm.pushes.size() == 1 && romm.pushes[0].romFileId == 4477,
-              "a game whose channel file is not known: RomM is asked, and the push names it");
-        const int g2 = owe([&](GameSession& s) { s.channelFileId = 4400; });
+              "the game's files not known: RomM is asked once and remembered, the channels "
+              "are listed on every game file, and a channel RomM makes is on the file it "
+              "names for new ones");
+        const int g2 = owe();
+        romm.known = {4400, {4400}};
         romm.staleFile = 4400;
         romm.fileAsks = 0;
         romm.pushes.clear();
@@ -948,7 +976,8 @@ int test() {
         check(send(romm.server(), u, g2, &why) == Sent::Landed && romm.fileAsks == 1 &&
                   romm.pushes[0].romFileId == 4477,
               "a file id RomM no longer knows (its library was scanned): asked again, once");
-        const int g3 = owe([&](GameSession& s) { s.channelFileId = 0; });
+        const int g3 = owe();
+        romm.known = {};
         romm.fileAnswers = false;
         romm.pushes.clear();
         check(send(romm.server(), u, g3, &why) == Sent::Refused && romm.pushes.empty() &&
@@ -956,6 +985,93 @@ int test() {
               "a game RomM no longer has (404): refused, nothing pushed, still owed");
         cache::owedPush(u, g3, &p);
         cache::clearPushOwed(u, g3, p.stamp);
+        const int g4 = owe();
+        Stand none;
+        none.files = {0, {4476}};
+        check(send(none.server(), u, g4, &why) == Sent::Refused && none.pushes.empty() &&
+                  cache::isPushOwed(u, g4),
+              "RomM names no file for a new channel and the person has none: refused, "
+              "nothing pushed, still owed");
+        cache::owedPush(u, g4, &p);
+        cache::clearPushOwed(u, g4, p.stamp);
+    }
+    // A FILE ADDED TO THE GAME'S FOLDER MOVES THE FILE RomM MAKES NEW CHANNELS
+    // ON (step 12): a `.cue` (4507) beside the CHD (4505) the person's
+    // "default" is on.
+    const romm::ChannelFiles cueAdded{4507, {4505, 4507}};
+    auto onChd = [&](const romm::Snapshot& current, const char* label = kDefaultChannel,
+                     const char* id = kChannel, bool hardcore = false) {
+        romm::Channel c = channel(id, label, current, hardcore);
+        c.romFileId = 4505;
+        return c;
+    };
+    {
+        const int g = owe([&](GameSession& s) { hold(s.romId, kChannel, 130); });
+        Stand romm;
+        romm.files = cueAdded;
+        romm.known = {4505, {4505}};
+        romm.channels = {onChd(snapshot(130, kChannel, hashOlder, romTime(-3600)))};
+        romm.answers = {made(snapshot(131, kChannel, hashOne, romTime(1)))};
+        check(send(romm.server(), u, g, &why) == Sent::Landed && romm.pushes.size() == 1 &&
+                  romm.pushes[0].channelId == kChannel && romm.pushes[0].romFileId == 4505 &&
+                  romm.pushes[0].expectedCurrentId == 130 && romm.fileAsks == 0 &&
+                  !cache::isPushOwed(u, g) && savemirror::getHeld(u, g, &held) &&
+                  held.snapshotId == 131,
+              "a console that played the game, its file list from before the .cue: the push "
+              "names the channel's own file, the CHD, and lands, with nothing more asked");
+        const int g2 = owe([&](GameSession& s) { hold(s.romId, kChannel, 131); });
+        romm.known = {};
+        romm.channels = {onChd(snapshot(131, kChannel, hashOne, romTime(-60)))};
+        romm.pushes.clear();
+        romm.answers = {made(snapshot(132, kChannel, hashOne, romTime(1)))};
+        check(send(romm.server(), u, g2, &why) == Sent::Landed &&
+                  romm.pushes[0].romFileId == 4505 && romm.askedFiles == cueAdded.files,
+              "and asked afresh, the channels are listed on both files and the push still "
+              "names the CHD");
+    }
+    {
+        const int g = owe();
+        Stand romm;
+        romm.files = cueAdded;
+        romm.channels = {onChd(snapshot(140, kChannel, hashOlder, romTime(-3600)))};
+        romm.answers = {made(snapshot(141, kChannel, hashOne, romTime(1)))};
+        check(send(romm.server(), u, g, &why) == Sent::Landed && romm.pushes.size() == 1 &&
+                  romm.pushes[0].channelId == kChannel && romm.pushes[0].romFileId == 4505 &&
+                  savemirror::getHeld(u, g, &held) && held.channelId == kChannel,
+              "a console that holds nothing of the game: into the person's \"default\" on the "
+              "CHD, by its id and its file, and no second \"default\" on the .cue");
+    }
+    {
+        const int g = owe([&](GameSession& s) {
+            hold(s.romId, kChannel, 150);
+            s.startChannelId = kChannel;
+            s.startSnapshotId = 150;
+            s.startHardcore = true;
+        });
+        Stand romm;
+        romm.files = cueAdded;
+        romm.channels = {onChd(snapshot(150, kChannel, hashOlder, romTime(-3600)),
+                               kDefaultChannel, kChannel, true),
+                         onChd(snapshot(149, kSoftId, hashOlder, romTime(-7200)),
+                               kSoftcoreChannel, kSoftId)};
+        romm.answers = {made(snapshot(151, kSoftId, hashOne, romTime(1)))};
+        check(send(romm.server(), u, g, &why) == Sent::Landed && romm.pushes.size() == 1 &&
+                  romm.pushes[0].channelId == kSoftId && romm.pushes[0].romFileId == 4505,
+              "from a hardcore channel, into the person's \"softcore\" on the CHD: its own "
+              "file");
+        const int g2 = owe([&](GameSession& s) {
+            hold(s.romId, kChannel, 150);
+            s.startChannelId = kChannel;
+            s.startSnapshotId = 150;
+            s.startHardcore = true;
+        });
+        romm.channels.pop_back();
+        romm.pushes.clear();
+        romm.answers = {made(snapshot(152, kSoftId, hashOne, romTime(1)))};
+        check(send(romm.server(), u, g2, &why) == Sent::Landed && romm.pushes.size() == 1 &&
+                  romm.pushes[0].channelId.empty() &&
+                  romm.pushes[0].label == kSoftcoreChannel && romm.pushes[0].romFileId == 4507,
+              "with no \"softcore\" yet: RomM makes it, on the file it names for new channels");
     }
     {   // The save's file gone; a newer save marked while this one was sent.
         const int g = owe();
@@ -1058,7 +1174,7 @@ int test() {
                   p.states[0].pictureName == first.pictureName &&
                   p.states[0].picturePath == first.picturePath &&
                   p.states[0].madeMs == base + 1000 && p.label == kDefaultChannel &&
-                  p.romFileId == kFile && !cache::saveOwed(u, game),
+                  !cache::saveOwed(u, game),
               "Save state: owed at once in the game's push, states alone, under the console's "
               "own name, with its picture; no save owed, so a start is not held back");
         for (int k = 2; k <= 4; ++k)
