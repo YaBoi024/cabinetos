@@ -529,16 +529,17 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
         // MAME 0.289 WRITES SEVERAL FILES A GAME, all in this person's save
         // folder for it: `mame/nvram/<set>/`, `mame/cfg/<set>.cfg`, a hard
         // disk game's `mame/diff/<set>.dif`, and the high scores
-        // (mamehome.h). None reaches RomM: a game's one save on RomM is one
-        // file, and these wait for RomM's save channels with the other arcade
-        // extras (#353). They stay on the console, never in cache/.
+        // (mamehome.h). None reaches RomM: they wait with the other arcade
+        // extras (#353) until Sigil collects and restores an arcade game's
+        // files, since how a channel will carry them is not known yet. They
+        // stay on the console, never in cache/.
         if (core == "mame_libretro") return {};
         // FLYCAST'S BOARD MEMORY, `reicast/<the zip's own name>.nvmem`, named
         // after the whole file it was handed (hostfs::getArcadeFlashPath at
         // our pin; cores/build-core.sh stops when it moves). The one file of
         // a game's that reaches RomM, as FinalBurn Neo and 2003-Plus send one:
         // a board's `.eeprom` and Atomiswave's `.nvmem2` stay on the console
-        // with the other arcade extras until RomM's save channels (#353).
+        // with the other arcade extras (#353), as MAME 0.289's do above.
         if (core == "flycast") {
             f.path = "reicast/" + fileName + ".nvmem";
             return {f};
