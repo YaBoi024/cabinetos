@@ -97,6 +97,7 @@ void putList(const storage::User& u, int romId, const std::vector<romm::Asset>& 
         json_object_object_add(o, "emulator", json_object_new_string(a.emulator.c_str()));
         json_object_object_add(o, "updated_at", json_object_new_string(a.updatedAt.c_str()));
         json_object_object_add(o, "channel_id", json_object_new_string(a.channelId.c_str()));
+        json_object_object_add(o, "slot", json_object_new_string(a.slot.c_str()));
         json_object_array_add(arr, o);
         keep.insert(bytesName(a));
     }
@@ -122,6 +123,7 @@ bool getList(const storage::User& u, int romId, std::vector<romm::Asset>* rows) 
             if (json_object_object_get_ex(o, "emulator", &v)) a.emulator = json_object_get_string(v);
             if (json_object_object_get_ex(o, "updated_at", &v)) a.updatedAt = json_object_get_string(v);
             if (json_object_object_get_ex(o, "channel_id", &v)) a.channelId = json_object_get_string(v);
+            if (json_object_object_get_ex(o, "slot", &v)) a.slot = json_object_get_string(v);
             a.romId = romId;
             if (a.id != 0) rows->push_back(std::move(a));
         }

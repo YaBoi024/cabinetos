@@ -178,7 +178,7 @@ void listSaves(romm::Client& client, const storage::User& user, int romId,
     savepick::dateSaves(&facts.channels, out->rows);
     if (const romm::Asset* newest = savepick::newestOldRow(out->rows, tag))
         facts.oldRowAt = newest->updatedAt;
-    facts.otherRows = savepick::otherRows(out->rows, tag);
+    facts.otherRows = savepick::otherRows(out->rows, tag, facts.channels);
     facts.owed = cache::saveOwed(user, romId);
     facts.haveHeld = savemirror::getHeld(user, romId, &facts.held);
     out->oldRowAt = facts.oldRowAt;
@@ -1516,13 +1516,16 @@ bool noteStart(const SaveFetch& fetched, const StartNotes& notes, const storage:
         if (bringsOldSave) *bringsOldSave = marked;
     }
     if (!picked || !notes.tookPick) return false;
-    // ANOTHER APP'S SAVE IN NO CHANNEL (savepick.h): no snapshot to hold, so
+    // ANOTHER APP'S SAVE OUTSIDE CHANNELS' SNAPSHOTS (savepick.h): in no
+    // channel, or kept out of one by RomM. No snapshot to hold, so
     // what the game saves goes where this console's saves go, onto the
     // snapshot it holds or into "default", and the row stays as it is.
     if (fetched.pick.from == From::OtherRow) {
         const bool elsewhere = savepick::continuingElsewhere(fetched.pick, !notes.changedOwn);
-        std::fprintf(stderr, "[save] started from save %d (%s), another app's in no channel%s%s\n",
+        std::fprintf(stderr, "[save] started from save %d (%s), another app's %s%s%s\n",
                      fetched.pick.row.id, fetched.pick.row.emulator.c_str(),
+                     fetched.pick.row.channelId.empty() ? "in no channel"
+                                                        : "that RomM kept out of its channel",
                      notes.changedOwn ? "" : ", which this console already had",
                      elsewhere ? "; it was made on another device" : "");
         return elsewhere;

@@ -73,7 +73,8 @@ Pick pick(const Facts& f, bool others) {
         : otherInChannel ? "snapshot " + std::to_string(otherCh->current.id) + " (" +
                                otherCh->current.save.emulator + ")"
                          : "save " + std::to_string(otherRow->id) + " (" + otherRow->emulator +
-                               "), in no channel";
+                               (otherRow->channelId.empty() ? "), in no channel"
+                                                            : "), kept out of its channel");
     if (f.owed) {
         p.why = "a save of this game has not reached RomM yet; this console's stands";
         return p;
@@ -157,10 +158,22 @@ bool continuingElsewhere(const Pick& pick, bool sameAsOwn) {
            pick.madeElsewhere && !sameAsOwn;
 }
 
-std::vector<romm::Asset> otherRows(const std::vector<romm::Asset>& rows, const std::string& tag) {
+std::vector<romm::Asset> otherRows(const std::vector<romm::Asset>& rows, const std::string& tag,
+                                   const std::vector<romm::Channel>& channels) {
     std::vector<romm::Asset> out;
-    for (const romm::Asset& a : rows)
-        if (a.channelId.empty() && a.emulator != tag) out.push_back(a);
+    for (const romm::Asset& a : rows) {
+        if (a.emulator == tag) continue;
+        if (a.channelId.empty()) {
+            out.push_back(a);
+            continue;
+        }
+        if (a.slot.empty()) continue;   // a snapshot's: weighed through its channel
+        for (const romm::Channel& c : channels)
+            if (c.id == a.channelId && c.currentId != 0 &&
+                !(c.current.hasSave && c.current.save.id == a.id) &&
+                isoMicros(a.updatedAt) > isoMicros(c.current.createdAt))
+                out.push_back(a);
+    }
     return out;
 }
 
@@ -590,7 +603,7 @@ int test() {
                                                [&] { romm::Asset a = row(72, "gambatte", t3);
                                                      a.channelId = "channel-x";
                                                      return a; }()};
-        const std::vector<romm::Asset> others = otherRows(rows, kTag);
+        const std::vector<romm::Asset> others = otherRows(rows, kTag, {});
         check(others.size() == 1 && others[0].id == 70,
               "another app's saves in no channel: not this console's tag, and not a snapshot's");
         Facts f;
@@ -608,6 +621,38 @@ int test() {
         f.channels = {channelWith("default", 40, t3, kPhoneTag, "ffff", "argosy", {"argosy"})};
         check(pick(f).from == From::Channel && pick(f).channel.current.id == 40,
               "a channel's and a row's made at the same moment: the channel's");
+    }
+    {   // 9c. AN APP'S SAVE THAT RomM KEPT OUT OF ITS CHANNEL (phase 5,
+        // 2026-11-21): filed the old way under a slot after this console's
+        // save went on top, and left with no snapshot (RomM's
+        // hold_legacy_upload), as Ludo's saves are.
+        Facts f;
+        f.tag = kTag;
+        f.channels = {channelWith("default", 50, t2, kTag, "aaaa", console, {console})};
+        auto row = [&](int id, const char* at, const char* slot) {
+            romm::Asset a;
+            a.id = id;
+            a.romId = 1;
+            a.emulator = "sameboy";
+            a.updatedAt = at;
+            a.channelId = "channel-default";
+            a.slot = slot;
+            return a;
+        };
+        const std::vector<romm::Asset> rows = {row(80, t3, "autosave"), row(81, t1, "autosave"),
+                                               row(82, t3, ""), row(500, t3, "autosave")};
+        f.channels[0].current.save.id = 500;
+        f.otherRows = otherRows(rows, kTag, f.channels);
+        check(f.otherRows.size() == 1 && f.otherRows[0].id == 80,
+              "an app's save filed under a slot, in a channel but newer than its current and "
+              "not its save: weighed as outside channels; an older one, a snapshot's, and the "
+              "current's own row are not");
+        const Pick p = pick(f);
+        check(p.other && p.from == From::OtherRow && p.row.id == 80 && p.madeElsewhere,
+              "and when it is the newest, the start asks for it, and it was made elsewhere");
+        f.otherRows = otherRows(rows, kTag, {});
+        check(f.otherRows.empty() && pick(f).from == From::Channel,
+              "a channel this console was not told of keeps its rows out of the weighing");
         f.channels = {channelWith("default", 12, t3, kTag, "aaaa", console, {console})};
         check(!pick(f).other && pick(f).from == From::Channel,
               "this console's own as new: this console's");

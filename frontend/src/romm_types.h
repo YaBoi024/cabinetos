@@ -270,6 +270,14 @@ struct Asset {
     // from before channels, the kind the console uploads one file at a time,
     // and on a RomM before 5.5.
     std::string channelId;
+    // The slot an app that saves the old way (RomM's legacy save API) filed
+    // it under; empty for a save a snapshot brought and for one with none.
+    // RomM files such a save in the slot's channel and makes it that
+    // channel's current only when its app may load the current save
+    // (`hold_legacy_upload` in its handler/snapshots/bridge.py at
+    // 5.5.0-alpha.2); else it stays in the channel with no snapshot
+    // (savepick::otherRows).
+    std::string slot;
 };
 
 // Who the token belongs to.

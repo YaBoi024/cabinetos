@@ -34,7 +34,8 @@
 // (`couldNotUseNewest`). AND ANOTHER APP'S SAVE IN NO CHANNEL IS WEIGHED THE
 // SAME WAY (MMagTech, 2026-11-19): a row from before channels that another
 // emulator made, from an app that does not use channels or uploaded by hand
-// on RomM's website. Its row is left as it is. BUT THE SNAPSHOT THIS CONSOLE
+// on RomM's website, and one RomM kept out of a channel's snapshots
+// (otherRows). Its row is left as it is. BUT THE SNAPSHOT THIS CONSOLE
 // HOLDS IS NEVER ANOTHER EMULATOR'S TO IT (#346, phase 5, 2026-11-21): RomM
 // files a snapshot's save under the first of the person's rows with those
 // bytes, which can be another app's, and a save this console took from
@@ -79,7 +80,8 @@ struct Facts {
     // stored (its `updated_at`); empty when there is none or they are not
     // known.
     std::string oldRowAt;
-    // RomM's saves in no channel that another emulator made (otherRows).
+    // RomM's saves outside channels' snapshots that another emulator made
+    // (otherRows).
     std::vector<romm::Asset> otherRows;
     // This console still owes RomM a save of the game, as a snapshot or as a
     // file from before channels (pending.h), and could not send it before the
@@ -122,9 +124,16 @@ Pick pick(const Facts& facts, bool others = true);
 // this console already had.
 bool continuingElsewhere(const Pick& pick, bool sameAsOwn);
 
-// The saves of `rows` in no channel that another emulator made: not under
-// `tag`, the one every CabinetOS console files them under.
-std::vector<romm::Asset> otherRows(const std::vector<romm::Asset>& rows, const std::string& tag);
+// The saves of `rows` outside channels' snapshots that another emulator made
+// (not under `tag`, the one every CabinetOS console files them under): in no
+// channel, or KEPT OUT OF ONE (#346, phase 5, 2026-11-21): a save an app
+// filed the old way under a slot, which RomM put in the slot's channel but
+// did not make its current because that app may not load the current save
+// (RomM's `hold_legacy_upload`: Ludo's saves after a CabinetOS console's, its
+// emulator's name never the console's). Such a row is newer than its
+// channel's current (`channels`) and is not that current's save.
+std::vector<romm::Asset> otherRows(const std::vector<romm::Asset>& rows, const std::string& tag,
+                                   const std::vector<romm::Channel>& channels);
 
 // RomM'S OWN RULE FOR WHO MAY LOAD A SAVE AS STORED (`may_load` in its
 // handler/snapshots/legacy.py at 5.5.0-alpha.2): the save's core against this
