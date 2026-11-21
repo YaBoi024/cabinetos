@@ -155,6 +155,16 @@ enum class Untouched {
     // data file, 0xCC for a game and 0x00 for a free slot. So "this card holds
     // a save" is a fact the bytes state outright.
     VmuDirectory,
+    // A Saturn backup cartridge with no save on it (#346, step 11). Beetle
+    // Saturn puts one in almost every game (`beetle_saturn_cart` = Auto
+    // Detect, libretro.c at our pin) and formats it as the Saturn does: the
+    // format's name, `BackUpRam Format`, over the first 512-byte block, and
+    // nothing after (CART_Backup_Init, mednafen/ss/cart/backup.c). A save
+    // begins at a block from the third on whose first four bytes are 0x80 00
+    // 00 00, the mark Sigil lists a volume's saves by (src/card_saturn.c at
+    // RomM's pin); a save deleted on the Saturn loses that mark. So "holds a
+    // save" is one such block.
+    SaturnCartridge,
 };
 
 // WHAT ANOTHER EMULATOR'S SAVE MUST BE BEFORE THIS CONSOLE USES IT (#346, step
@@ -191,10 +201,14 @@ struct SaveFile {
     // this the cartridge and the internal RAM overwrite each other.
     std::string captureExclude;
     // Which of a game's saves this file is: "srm" for the game's own save,
-    // "cart" for Sega CD's external RAM cartridge, "ps2" for a PlayStation 2
-    // card. It is the extension of this console's own copy (saveRowName) and
-    // of the row a save from before save channels has on RomM, one row a
-    // region, which is how a start tells them apart (savepick.h, regionOfRow).
+    // "cart" for a cartridge beside the machine's own memory (Sega CD's
+    // external RAM cartridge, Saturn's backup cartridge), "ps2" for a
+    // PlayStation 2 card. It is the extension of this console's own copy
+    // (saveRowName) and of the row a save from before save channels has on
+    // RomM, one row a region, which is how a start tells them apart
+    // (savepick.h, regionOfRow). A CARTRIDGE IS NEVER A SAVE'S ONE FILE: a
+    // snapshot's save that is one file is the machine's own memory, and a
+    // cartridge travels only in a zip beside it.
     std::string region = "srm";
     Untouched untouched = Untouched::Blank;
     // What another emulator's save of this file must be (SaveCheck).
@@ -278,7 +292,8 @@ bool needsBios(const std::string& slug);
 FirmwareAliases firmwareAliases(const std::string& slug, const std::string& fsSlug);
 
 // What this platform's core writes, or empty for the cores that expose a
-// battery and need none of this.
+// battery and need none of this. Saturn has both: its battery, and its
+// backup cartridge beside it (SaveForm::batteryFirst).
 //
 // Keyed on the platform rather than the core, because one core serves several
 // systems and only some of them are in this class: Genesis Plus GX writes a
@@ -382,6 +397,25 @@ struct SaveForm {
     // `may_load` rule: the core first, else the emulator). When RomM converts
     // these systems, the same rule lets them through with no change here.
     bool sameCoreOnly = false;
+    // THE CARTRIDGE'S CLOCK TRAVELS WITH THE SAVE (#346, step 11; the
+    // decision of 2026-10-12): Gambatte's, for Game Boy and Game Boy Color,
+    // its `RETRO_MEMORY_RTC`, 8 bytes, the time the game's clock counts
+    // from. A clock game's save is then a zip of Gambatte's own two files,
+    // `<game>.srm` and `<game>.rtc`, a shape Sigil reads as one from before
+    // it (Sigil's sync.md, "Units from before sigil") and converts for other
+    // emulators; the console writes no Sigil `clock.rtc` of its own. A
+    // change to the clock alone is no new save: Sigil's identity covers the
+    // RAM only. Snes9x's clock stays on the console (two games): Sigil does
+    // not convert it (its snes.md, open items).
+    bool clock = false;
+    // THE BATTERY IS THE SAVE'S FIRST PART, WITH THE CORE'S FILES BESIDE IT
+    // (#346, step 11): Saturn's own memory, which Beetle Saturn exposes, and
+    // its backup cartridge, `<game>.bcr`, a file it writes (saveFiles). The
+    // save is then a zip of `<game>.srm` and `<game>.bcr` under those names,
+    // which Sigil matches to the internal memory and the cartridge by name
+    // (its saturn.md), or the battery alone while the cartridge holds no
+    // save: a formatted, empty cartridge is never sent.
+    bool batteryFirst = false;
 };
 SaveForm saveForm(const char* manifestCoreName, const std::string& platformSlug);
 

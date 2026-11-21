@@ -6,9 +6,12 @@
 // words are RomM's, in romm_types.h.
 //
 // WHAT GOES UP. One save, in the form a CabinetOS console's start reads a
-// snapshot's save (saves.h): a battery as it is; the one file a core writes
-// as it is; several files as a zip, each under the path its core reads it
-// from; a save folder as the zip syncDirSave makes. Under the tag the core's
+// snapshot's save (saves.h): a battery as it is, or zipped with the
+// cartridge's clock (Game Boy) or the cartridge (Saturn) beside it (#346,
+// step 11), a cartridge with no save on it never sent and a change to the
+// clock alone no new save; the one file a core writes as it is; several
+// files as a zip, each under the path its core reads it from; a save folder
+// as the zip syncDirSave makes. Under the tag the core's
 // saves travel under (catalog::saveTag), which is what lets another console
 // use it as stored (savepick.h), with the core's own name in Sigil's spelling
 // beside it (catalog::SaveForm; answer 7 of 2026-11-17), from which RomM

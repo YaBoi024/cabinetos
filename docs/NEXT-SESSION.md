@@ -99,10 +99,18 @@ RomM: keep test launches under a minute, or have his go.
    to docs/wiki/romm.md by the build), and README, the website and the wiki
    say so; the wiki's saves page is rewritten; the changelog's one entry
    for the whole change sits under "Next" until the testing image's
-   version replaces it. Next is step 11, cartridge clocks and Saturn's
-   backup cartridge, from `save-channels-step11-brief.md` in the
-   side-session notes beside step 10's.
-   After step 11 comes a Switch step: the console pins Sigil whole and,
+   version replaces it. Step 11 is built: a Game Boy cartridge's clock
+   (Gambatte's) goes with the save as a zip of `<game>.srm` and
+   `<game>.rtc`, and Saturn's backup cartridge as a zip of `<game>.srm` and
+   `<game>.bcr`, never while the cartridge holds no save; a change to the
+   clock alone is no new save. RomM hands the clock to every Game Boy
+   emulator Sigil knows, both ways, and PS Vita converts both ways once a
+   game has its title ID; Saturn's cartridge reaches Beetle Saturn apps but
+   not Kronos or Yabause, and Sega CD's merge into an app's shared memory
+   works only while the cartridge is empty (#722, step 11's notes). Next,
+   each on his word: phase 5 (the 70 games compared in every app) and
+   phase 6 (his short TV check, then testing).
+   After that comes a Switch step: the console pins Sigil whole and,
    for Switch only, reads a game's ID with the player's keys and converts
    its saves on the console. It writes nothing about a game to RomM, since
    it never asks to change the library (romm-converts-saves, rewritten at
@@ -119,8 +127,7 @@ RomM: keep test launches under a minute, or have his go.
    session that keeps to CLAUDE.md's seven rules and its piece's files, reuses, removals, docs and
    tests in the plan: Fable for steps 4 and 5 (starting and leaving a
    game, the two that can lose a save; his choice, 2026-11-18), Opus for
-   the rest. Step 11 is #353's cartridge clocks and Saturn
-   cartridge; its arcade high scores wait.
+   the rest. #353's arcade files wait for an arcade form in RomM.
 2. **LinkUp: two server tidy-ups, no issue.** The internet test, step 6 of
    #654, passed twice: his console and his friend's, two servers linking up
    and playing a game (his word, 2026-11-10). Left: `.dockerignore` lets

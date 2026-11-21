@@ -352,16 +352,22 @@ bool toOwnForm(const romm::SaveAnswer& answer, bool plain, const OwnForm& own,
         return true;
     }
 
-    // THE BATTERY: the one file, or a clock's zip's `.srm`. The clock waits
-    // for its own step (#353).
+    // THE BATTERY: the one file, or RomM's zip's `.srm`, with the
+    // cartridge's clock beside it where it travels (SaveForm::clock, #346,
+    // step 11): then a zip of the two under the names RomM gave them, the
+    // shape a push of this console's makes. Its size, and the clock's, are
+    // the loaded core's to check (saves.cpp, restoreBatterySave).
     if (own.files.empty()) {
         if (asStored && zipped) {
             *why = "it is a zip, and RomM converted nothing";
             return false;
         }
         const cab::ZipFile* battery = sent.size() == 1 ? &sent.front() : nullptr;
-        for (const cab::ZipFile& f : sent)
+        const cab::ZipFile* clock = nullptr;
+        for (const cab::ZipFile& f : sent) {
             if (sent.size() > 1 && endsWith(f.relPath, ".srm")) battery = &f;
+            if (sent.size() > 1 && endsWith(f.relPath, ".rtc")) clock = &f;
+        }
         if (!battery) {
             *why = "RomM's answer holds no battery save";
             return false;
@@ -369,7 +375,72 @@ bool toOwnForm(const romm::SaveAnswer& answer, bool plain, const OwnForm& own,
         if (!cab::passesCheck(battery->bytes, catalog::batteryCheck(own.platform),
                               catalog::Untouched::Blank, why))
             return false;
-        *out = battery->bytes;
+        if (!own.form.clock || !clock || clock->bytes.empty()) {
+            *out = battery->bytes;
+            return true;
+        }
+        std::string zerr;
+        if (!cab::zipFiles({{base(battery->relPath), battery->bytes},
+                            {base(clock->relPath), clock->bytes}},
+                           out, &zerr)) {
+            *why = "could not zip it: " + zerr;
+            return false;
+        }
+        return true;
+    }
+
+    // THE BATTERY FIRST, THE CORE'S FILES BESIDE IT (SaveForm::batteryFirst,
+    // #346, step 11): Saturn's own memory, RomM's `.srm` (one file handed
+    // over as stored is it), and its cartridge, found by the end of its name.
+    // A cartridge with no save on it is left out, as a push of this
+    // console's leaves it; one this core does not read (its size, its mark)
+    // refuses the save. The battery alone goes as it is; else a zip, the
+    // battery under RomM's name and each file under its path in the save
+    // folder.
+    if (own.form.batteryFirst) {
+        auto isFile = [&](const cab::ZipFile& f) {
+            for (const catalog::SaveFile& spec : own.files)
+                if (endsWith(base(f.relPath), spec.captureSuffix) &&
+                    !endsWith(base(f.relPath), spec.captureExclude))
+                    return true;
+            return false;
+        };
+        const cab::ZipFile* battery = nullptr;
+        for (const cab::ZipFile& f : sent)
+            if (endsWith(f.relPath, ".srm") || (!zipped && !isFile(f))) battery = &f;
+        if (battery && !cab::passesCheck(battery->bytes, catalog::batteryCheck(own.platform),
+                                         catalog::Untouched::Blank, why))
+            return false;
+        std::vector<cab::ZipFile> mine;
+        if (battery) mine.push_back({base(battery->relPath), battery->bytes});
+        for (const catalog::SaveFile& spec : own.files) {
+            const cab::ZipFile* found = nullptr;
+            for (const cab::ZipFile& f : sent)
+                if (!found && &f != battery && endsWith(base(f.relPath), spec.captureSuffix) &&
+                    !endsWith(base(f.relPath), spec.captureExclude))
+                    found = &f;
+            if (!found) continue;
+            std::string w;
+            if (!cab::passesCheck(found->bytes, spec.check, catalog::Untouched::Blank, &w)) {
+                *why = base(found->relPath) + ": " + w;
+                return false;
+            }
+            if (cab::holdsASave(found->bytes, spec.untouched))
+                mine.push_back({spec.path, found->bytes});
+        }
+        if (mine.empty()) {
+            *why = "nothing in RomM's answer is a save this emulator reads";
+            return false;
+        }
+        if (battery && mine.size() == 1) {
+            *out = battery->bytes;
+            return true;
+        }
+        std::string zerr;
+        if (!cab::zipFiles(mine, out, &zerr)) {
+            *why = "could not zip it: " + zerr;
+            return false;
+        }
         return true;
     }
 
@@ -969,8 +1040,9 @@ std::string saveRowName(const std::string& fsStem, const std::string& region) {
 // aside first (keepAside). Failing both, whatever is on this disk plays.
 //
 // A SNAPSHOT'S SAVE, FOR THESE CORES (saves.h): one file as it is, which is
-// the first of the core's save files; or a zip, each of the core's files in
-// it under its path in the save folder (or under its name alone).
+// the first of the core's save files and never a cartridge (Saturn's one
+// file is its battery, restoreBatterySave's); or a zip, each of the core's
+// files in it under its path in the save folder (or under its name alone).
 //
 // RomM's saves are what the launch worker fetched (fetchSaves); nothing is
 // asked here.
@@ -1033,13 +1105,25 @@ std::vector<cab::FileSaveState> restoreFileSaves(
         } else if (usesPicked(source)) {
             incomingName = pickedName(fetched);
             if (!pickedIsZip) {
-                if (&spec == &specs.front()) incoming = &fetched.picked;
+                if (&spec == &specs.front() && spec.region != "cart") incoming = &fetched.picked;
             } else {
                 const std::string base = spec.path.substr(spec.path.find_last_of('/') + 1);
                 for (const cab::ZipFile& z : pickedFiles)
                     if (z.relPath == spec.path) incoming = &z.bytes;
                 for (const cab::ZipFile& z : pickedFiles)
                     if (!incoming && z.relPath.substr(z.relPath.find_last_of('/') + 1) == base)
+                        incoming = &z.bytes;
+                // By the end of its name, as the scan after a session finds
+                // it (cab::writtenFile): Saturn's cartridge is named after
+                // the file the core was handed, which another console's may
+                // name otherwise.
+                auto endsWith = [](const std::string& s, const std::string& end) {
+                    return !end.empty() && s.size() >= end.size() &&
+                           s.compare(s.size() - end.size(), end.size(), end) == 0;
+                };
+                for (const cab::ZipFile& z : pickedFiles)
+                    if (!incoming && endsWith(z.relPath, spec.captureSuffix) &&
+                        !endsWith(z.relPath, spec.captureExclude))
                         incoming = &z.bytes;
                 incomingName += ", " + spec.path;
             }
@@ -1097,7 +1181,7 @@ std::vector<cab::FileSaveState> restoreFileSaves(
                 if (fromRomM && oldRow && notes)
                     notes->oldRowsTaken.push_back(
                         {oldRow->id, savepick::OldRowTaken::As::File, spec.path,
-                         static_cast<size_t>(&spec - &specs.front())});
+                         static_cast<size_t>(&spec - &specs.front()), spec.region == "cart"});
             }
         } else {
             std::fprintf(stderr, "[save] no save anywhere for %s yet\n", spec.path.c_str());
@@ -1169,11 +1253,28 @@ void syncFileSaves(GameSession& sess) {
 // nothing, which is a normal answer and not a failure. A change is left in
 // the session for the snapshot that goes up once the game has closed
 // (savepush.h); the copy written here is what that sends.
+//
+// THE CARTRIDGE'S CLOCK (#346, step 11; catalog::SaveForm::clock) is read
+// out beside it, and this console's copy of it written when it changed. A
+// change to the clock alone is no new save, so it sends nothing: it goes up
+// with the game's next save, and this console's next start keeps it.
 void syncSave(GameSession& sess) {
     // The one platform whose save is a tree. It never reaches the save-RAM path
     // below, because PPSSPP answers RETRO_MEMORY_SAVE_RAM with nothing at all.
     if (!sess.dirSaveRoot.empty()) { syncDirSave(sess); return; }
     cab::Core& core = cab::Core::shared();
+    if (std::vector<uint8_t> clock;
+        catalog::saveForm(sess.core.c_str(), sess.platformSlug).clock && core.readClock(clock) &&
+        !clock.empty() && clock != sess.clockAtLaunch) {
+        const std::string path = sess.saveDir + "/" + saveRowName(sess.fsStem, "rtc");
+        if (cab::writeBytes(path, clock)) {
+            std::fprintf(stderr, "[save] the clock (%zu bytes) to %s; no new save by itself\n",
+                         clock.size(), path.c_str());
+            sess.clockAtLaunch = std::move(clock);
+        } else {
+            std::fprintf(stderr, "[save] could not write %s\n", path.c_str());
+        }
+    }
     std::vector<uint8_t> ram;
     if (!core.readSaveRam(ram) || ram.empty()) return;
     if (ram == sess.saveAtLaunch) return;     // nothing happened worth sending
@@ -1188,6 +1289,61 @@ void syncSave(GameSession& sess) {
     sess.saveChanged = true;
 }
 
+bool batteryParts(const std::vector<uint8_t>& save, BatteryParts* out, std::string* why) {
+    *out = BatteryParts{};
+    if (!cab::looksLikeZip(save)) {
+        out->battery = save;
+        return true;
+    }
+    out->zipped = true;
+    std::vector<cab::ZipFile> files;
+    if (!cab::readZip(save, &files, why)) return false;
+    auto endsWith = [](const std::string& s, const char* end) {
+        const size_t n = std::strlen(end);
+        return s.size() > n && s.compare(s.size() - n, n, end) == 0;
+    };
+    for (cab::ZipFile& f : files) {
+        if (endsWith(f.relPath, ".srm")) out->battery = std::move(f.bytes);
+        else if (endsWith(f.relPath, ".rtc")) out->clock = std::move(f.bytes);
+    }
+    return true;
+}
+
+const std::vector<uint8_t>* clockToSet(const std::vector<uint8_t>& incoming,
+                                       const std::vector<uint8_t>& local, size_t size,
+                                       bool tookNewBattery) {
+    const bool localFits = size > 0 && local.size() == size;
+    if (size > 0 && incoming.size() == size && (tookNewBattery || !localFits)) return &incoming;
+    return localFits ? &local : nullptr;
+}
+
+// THE CARTRIDGE'S CLOCK, beside the battery (#346, step 11): the one
+// clockToSet names, written into the core, and this console's copy of it
+// following it when it came with RomM's battery; the copy it replaces is
+// kept aside with its battery.
+static void restoreClock(cab::Core& core, GameSession& session, const std::string& saveDir,
+                         const std::vector<uint8_t>& incoming, const std::string& incomingName,
+                         bool tookNewBattery, StartNotes* notes) {
+    const std::string name = saveRowName(session.fsStem, "rtc");
+    const std::vector<uint8_t> local = cab::readBytes(saveDir + "/" + name);
+    const size_t size = core.clockSize();
+    if (!incoming.empty() && incoming.size() != size)
+        std::fprintf(stderr, "[save] %s's clock is %zu bytes where this core's is %zu: left "
+                             "out\n", incomingName.c_str(), incoming.size(), size);
+    const std::vector<uint8_t>* set = clockToSet(incoming, local, size, tookNewBattery);
+    if (set && core.writeClock(*set)) {
+        if (set == &incoming && incoming != local) {
+            if (!local.empty()) keepAside(notes, name, local);
+            if (!cab::writeBytes(saveDir + "/" + name, incoming))
+                std::fprintf(stderr, "[save] could not write %s/%s\n", saveDir.c_str(),
+                             name.c_str());
+        }
+        std::fprintf(stderr, "[save] the clock from %s\n",
+                     set == &incoming ? incomingName.c_str() : name.c_str());
+    }
+    core.readClock(session.clockAtLaunch);
+}
+
 // THE BATTERY SAVE: the save the pick names (savepick.h), which is none while
 // this console's own copy is still owed, and this console's copy whenever
 // RomM has none to give (#259). Until 2026-10-05 the local `.srm` syncSave
@@ -1195,18 +1351,28 @@ void syncSave(GameSession& sess) {
 // server away began with an empty battery, and one started while its upload
 // was still owed got RomM's OLDER copy over the newer one. What RetroArch
 // does: the frontend loads the local `.srm`. This console's own `.srm`, when
-// RomM's differs from it, is kept aside first (keepAside).
+// RomM's differs from it, is kept aside first (keepAside). The cartridge's
+// clock with it (restoreClock), where it travels.
 // Stage 8 of a launch (launch.cpp), after the load and before the first frame.
 // RomM's saves are what the launch worker fetched (fetchSaves); nothing is
 // asked here.
 void restoreBatterySave(cab::Core& core, GameSession& session, const std::string& saveDir,
                         const SaveFetch& fetched, StartNotes* notes) {
+    const bool clock = catalog::saveForm(session.core.c_str(), session.platformSlug).clock &&
+                       core.clockSize() > 0;
+    // The names a battery and its clock have in a zip of them (savepush.cpp,
+    // gather), for a start that brings rows from before channels in.
+    const std::string zipStem = sanitisedStem(session.fsStem);
+    std::vector<uint8_t> incomingClock;
+    std::string incomingName;
+    bool tookNewBattery = false;
     if (core.saveRamSize() > 0) {
         const std::string name = saveRowName(session.fsStem, "srm");
         const std::vector<uint8_t> local = cab::readBytes(saveDir + "/" + name);
+        BatteryParts parts;
         const std::vector<uint8_t>* incoming = nullptr;
-        std::string incomingName;
         const romm::Asset* oldRow = nullptr;
+        const romm::Asset* clockRow = nullptr;
         From source = From::Own;
         if (!session.saveTag.empty() && fetched.asked) {
             if (!fetched.listed)
@@ -1214,32 +1380,43 @@ void restoreBatterySave(cab::Core& core, GameSession& session, const std::string
                              fetched.error.c_str());
             source = sourceOf(fetched);
             if (source == From::OldRows) {
-                // THE BATTERY ROW ONLY. Cabinet filed a Game Boy clock as its
-                // own 8-byte `.rtc` row under the same tag; taken as the
-                // newest, its bytes went over the start of the save (#346,
-                // found in the audit).
+                // THE BATTERY ROW, and the clock's beside it. Cabinet filed a
+                // Game Boy clock as its own 8-byte `.rtc` row under the same
+                // tag; taken as the battery, its bytes went over the start of
+                // the save (#346, found in the audit). It is Gambatte's own
+                // clock, which goes in as the clock, the newest of its row as
+                // the battery is (#346, step 11).
                 if ((oldRow = savepick::newestOldRow(fetched.rows, session.saveTag, "srm"))) {
                     incoming = &fetchedBytes(fetched, *oldRow);
                     incomingName = oldRow->fileName;
+                    if (clock &&
+                        (clockRow = savepick::newestOldRow(fetched.rows, session.saveTag, "rtc")))
+                        incomingClock = fetchedBytes(fetched, *clockRow);
                 }
             } else if (usesPicked(source)) {
                 incomingName = pickedName(fetched);
-                // A battery travels as it is (saves.h). A zip is no battery,
-                // and copied into the core's memory it would be the save lost.
-                if (cab::looksLikeZip(fetched.picked))
-                    std::fprintf(stderr, "[save] %s is a zip, which no battery is; this "
-                                         "console's save stands\n", incomingName.c_str());
+                std::string why;
+                // A battery travels as it is, or in a zip with its clock or
+                // its cartridge (saves.h). A zip copied into the core's
+                // memory as it is would be the save lost.
+                if (!batteryParts(fetched.picked, &parts, &why))
+                    std::fprintf(stderr, "[save] %s would not unpack: %s; this console's save "
+                                         "stands\n", incomingName.c_str(), why.c_str());
+                else if (parts.zipped && parts.battery.empty())
+                    std::fprintf(stderr, "[save] %s holds no battery; this console's stands\n",
+                                 incomingName.c_str());
                 // ANOTHER EMULATOR'S IS THE CORE'S OWN SIZE OR NOTHING (#346,
                 // step 8): the rest of its check was the worker's
                 // (toOwnForm), and this is the part only the loaded core can
                 // say. This console's own saves keep the rule below.
-                else if (fetched.converted && fetched.picked.size() != core.saveRamSize())
+                else if (fetched.converted && parts.battery.size() != core.saveRamSize())
                     std::fprintf(stderr, "[save] %s is %zu bytes where this core's save is "
                                          "%zu: not a save it reads; this console's stands\n",
-                                 incomingName.c_str(), fetched.picked.size(),
+                                 incomingName.c_str(), parts.battery.size(),
                                  core.saveRamSize());
                 else
-                    incoming = &fetched.picked;
+                    incoming = &parts.battery;
+                if (incoming) incomingClock = parts.clock;
             }
         }
         bool fromServer = false;
@@ -1249,6 +1426,7 @@ void restoreBatterySave(cab::Core& core, GameSession& session, const std::string
             if (core.writeSaveRam(*incoming)) {
                 session.saveAtLaunch = *incoming;
                 fromServer = true;
+                tookNewBattery = changed;
                 std::fprintf(stderr, "[save] restored %s (%zu bytes)\n", incomingName.c_str(),
                              incoming->size());
                 // THIS CONSOLE'S COPY FOLLOWS THE SAVE IT STARTED FROM, as a
@@ -1267,10 +1445,14 @@ void restoreBatterySave(cab::Core& core, GameSession& session, const std::string
                     if (changed) notes->changedOwn = true;
                 }
                 if (oldRow && notes)
-                    notes->oldRowsTaken.push_back(
-                        {oldRow->id, savepick::OldRowTaken::As::Battery, "", 0});
+                    notes->oldRowsTaken.push_back({oldRow->id, savepick::OldRowTaken::As::Battery,
+                                                   zipStem + ".srm", 0});
+                if (clockRow && notes && incomingClock.size() == core.clockSize())
+                    notes->oldRowsTaken.push_back({clockRow->id, savepick::OldRowTaken::As::Clock,
+                                                   zipStem + ".rtc", 0});
             }
         }
+        if (!fromServer) incomingClock.clear();
         if (!fromServer && !local.empty() && core.writeSaveRam(local)) {
             session.saveAtLaunch = local;
             std::fprintf(stderr, "[save] restored this console's %s (%zu bytes)\n",
@@ -1278,7 +1460,10 @@ void restoreBatterySave(cab::Core& core, GameSession& session, const std::string
         }
     }
     if (session.saveAtLaunch.empty()) core.readSaveRam(session.saveAtLaunch);
-    std::fprintf(stderr, "[save] battery is %zu bytes\n", core.saveRamSize());
+    if (clock)
+        restoreClock(core, session, saveDir, incomingClock, incomingName, tookNewBattery, notes);
+    std::fprintf(stderr, "[save] battery is %zu bytes%s\n", core.saveRamSize(),
+                 clock ? (", clock " + std::to_string(core.clockSize())).c_str() : "");
 }
 
 // WHAT A START LEAVES IN THE NOTES (#346), once its restores have run. In the

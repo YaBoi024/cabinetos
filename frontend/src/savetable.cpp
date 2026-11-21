@@ -336,6 +336,10 @@ SaveForm saveForm(const char* core, const std::string& slug) {
     // cartridge systems: RomM converts Sega CD.
     f.sameCoreOnly = name == "melonds" || name == "mgba" || name == "picodrive" ||
                      (name == "genesis_plus_gx" && slug != "segacd");
+    // The clock beside the battery, and the battery beside the files (#346,
+    // step 11).
+    f.clock = name == "gambatte";
+    f.batteryFirst = name == "beetle_saturn" && slug == "saturn";
     return f;
 }
 
@@ -589,6 +593,25 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
         cart.untouched = Untouched::SegaCDBackup;
         cart.check = {{524288}, format, 32, true};
         return {internal, cart};
+    }
+
+    // SATURN'S BACKUP CARTRIDGE, beside its own memory, which is the battery
+    // Beetle Saturn exposes (#346, step 11; SaveForm::batteryFirst). Beetle
+    // Saturn writes `<what it was handed>.bcr` itself (MDFN_MakeFName,
+    // MDFNMKF_CART), a 512 KB cartridge, reads it once as the game is built,
+    // and writes it again about three seconds after the game writes to it
+    // and as the game closes (SS_SaveCartNV, libretro.c's flush at our pin):
+    // not only at the close, so the save's picture and a game that never
+    // ended both see it. Found by its end, as RomM's answer names it after
+    // RomM's file.
+    if (slug == "saturn") {
+        SaveFile cart;
+        cart.path = stem + ".bcr";
+        cart.captureSuffix = ".bcr";
+        cart.region = "cart";
+        cart.untouched = Untouched::SaturnCartridge;
+        cart.check = {{524288}, "BackUpRam Format", 0, false};
+        return {cart};
     }
 
     if (slug == "neo-geo-pocket-color") {

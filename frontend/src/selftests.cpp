@@ -1268,6 +1268,72 @@ int savePickTest() {
                   cab::readBytes(dir + "/4Mbit_cart.brm") == own,
               "a snapshot's one file: the first of the core's files, the other left");
     }
+    {
+        // SATURN'S CARTRIDGE BESIDE ITS BATTERY (#346, step 11): a zip's
+        // cartridge to the cartridge, found by the end of its name; a
+        // snapshot's one file is the battery, never the cartridge.
+        auto saturnCart = [](uint8_t save) {
+            std::vector<uint8_t> b(524288, 0x00);
+            const char* format = "BackUpRam Format";
+            for (size_t i = 0; i < 512; ++i) b[i] = static_cast<uint8_t>(format[i % 16]);
+            if (save) {
+                b[1024] = 0x80;
+                b[1028] = save;
+            }
+            return b;
+        };
+        const std::vector<catalog::SaveFile> specs =
+            catalog::saveFiles("saturn", "beetle_saturn", "Rally (USA).chd", false);
+        const std::string dir = storage::savesDir(u, "Saturn", 802, "beetle_saturn");
+        cab::writeBytes(dir + "/Rally (USA).bcr", saturnCart('A'));
+        std::vector<uint8_t> zip;
+        std::string zerr;
+        cab::zipFiles({{"Rally (Japan).srm", theirs}, {"Rally (Japan).bcr", saturnCart('B')}},
+                      &zip, &zerr);
+        SaveFetch f = fromChannel(33, zip, true);
+        f.romId = 802;
+        StartNotes n;
+        n.asideDir = storage::replacedSaveDir(u, "Saturn", 802);
+        restoreFileSaves(specs, "Rally (USA)", dir, "saturn-native", f, &n);
+        check(specs.size() == 1 && specs[0].region == "cart" && specs[0].path == "Rally (USA).bcr" &&
+                  cab::readBytes(dir + "/Rally (USA).bcr") == saturnCart('B') && n.tookPick &&
+                  cab::readBytes(n.asideDir + "/Rally (USA).bcr") == saturnCart('A'),
+              "Saturn: a zip's cartridge, named after another file, to the cartridge by its "
+              "end; this console's kept aside");
+        // The internal memory, with a save's mark where a cartridge's would be,
+        // so only the rule keeps it off the cartridge.
+        std::vector<uint8_t> internal(32768, 0x00);
+        for (size_t i = 0; i < 64; ++i)
+            internal[i] = static_cast<uint8_t>("BackUpRam Format"[i % 16]);
+        internal[1024] = 0x80;
+        f = fromChannel(34, internal, true);
+        f.romId = 802;
+        StartNotes single;
+        restoreFileSaves(specs, "Rally (USA)", dir, "saturn-native", f, &single);
+        check(cab::readBytes(dir + "/Rally (USA).bcr") == saturnCart('B') && !single.tookPick,
+              "Saturn: a snapshot's one file is its battery, never written as the cartridge");
+        cab::zipFiles({{"Rally (USA).srm", theirs}, {"Rally (USA).bcr", saturnCart(0)}}, &zip,
+                      &zerr);
+        f = fromChannel(35, zip, true);
+        f.romId = 802;
+        StartNotes blank;
+        restoreFileSaves(specs, "Rally (USA)", dir, "saturn-native", f, &blank);
+        check(cab::readBytes(dir + "/Rally (USA).bcr") == saturnCart('B'),
+              "Saturn: a cartridge with no save never replaces one with a save");
+        check(!cab::holdsASave(saturnCart(0), catalog::Untouched::SaturnCartridge) &&
+                  cab::holdsASave(saturnCart('A'), catalog::Untouched::SaturnCartridge),
+              "Saturn: a formatted cartridge holds no save; one with a save's mark does");
+        std::vector<uint8_t> deleted = saturnCart('A');
+        deleted[1024] = 0x00;
+        std::vector<uint8_t> reserved = saturnCart(0);
+        reserved[512] = 0x80;
+        check(!cab::holdsASave(deleted, catalog::Untouched::SaturnCartridge) &&
+                  !cab::holdsASave(reserved, catalog::Untouched::SaturnCartridge) &&
+                  !cab::holdsASave(std::vector<uint8_t>(1024, 0x80),
+                                   catalog::Untouched::SaturnCartridge),
+              "Saturn: a save deleted on the Saturn, a mark in the two blocks the format keeps, "
+              "and a file shorter than them hold none");
+    }
 
     // 2. A save folder (PSP's memory stick).
     {
@@ -1624,9 +1690,22 @@ int savePickTest() {
         check(takes(answer("Pokemon Red.srm", unmarked(32768)), false, gb, &out) &&
                   out == unmarked(32768),
               "Game Boy: the converted battery as it is");
-        check(takes(zipped({"Pokemon Gold.rtc", unmarked(8)}, {"Pokemon Gold.srm", unmarked(32768)}),
-                    false, gb, &out) && out == unmarked(32768),
-              "Game Boy: a cartridge with a clock, its battery out of RomM's zip");
+        {
+            std::vector<cab::ZipFile> in;
+            std::string zerr;
+            check(takes(zipped({"Pokemon Gold.rtc", unmarked(8)},
+                               {"Pokemon Gold.srm", unmarked(32768)}),
+                        false, gb, &out) &&
+                      cab::readZip(out, &in, &zerr) && in.size() == 2 &&
+                      in[0].relPath == "Pokemon Gold.srm" && in[0].bytes == unmarked(32768) &&
+                      in[1].relPath == "Pokemon Gold.rtc" && in[1].bytes == unmarked(8),
+                  "Game Boy: a cartridge with a clock, RomM's battery and clock both kept, a "
+                  "zip of the two under RomM's names (#346, step 11)");
+        }
+        check(takes(zipped({"M.rtc", unmarked(16)}, {"M.srm", unmarked(8192)}), false,
+                    form("snes9x", "snes", "M.sfc", false), &out) &&
+                  out == unmarked(8192),
+              "Super Nintendo: a clock in RomM's zip left out; Snes9x's stays on the console");
         check(!takes(answer("Pokemon Red.srm", {}), false, gb), "Game Boy: an empty file refused");
         check(!takes(answer("Pokemon Red.srm", std::vector<uint8_t>(32768, 0xFF)), false, gb),
               "Game Boy: one that holds no save refused");
@@ -1702,6 +1781,46 @@ int savePickTest() {
                   !takes(answer("Lunar.brm", unmarked(8192)), false, scd) &&
                   !takes(answer("Lunar.brm", {}), false, scd),
               "Sega CD: wrong size, no format block, empty: refused");
+        // Saturn's cartridge beside its battery (#346, step 11).
+        auto cartOf = [&](size_t n, bool save) {
+            std::vector<uint8_t> b(n, 0x00);
+            const char* format = "BackUpRam Format";
+            for (size_t i = 0; i < 512 && i < n; ++i) b[i] = static_cast<uint8_t>(format[i % 16]);
+            if (save && n > 1024) b[1024] = 0x80;
+            return b;
+        };
+        const std::vector<uint8_t> internal = marked(32768, "BackUpRam Format");
+        {
+            std::vector<cab::ZipFile> in;
+            std::string zerr;
+            check(sat.form.batteryFirst && sat.files.size() == 1 &&
+                      takes(zipped({"Rally (Japan).srm", internal},
+                                   {"Rally (Japan).bcr", cartOf(524288, true)}),
+                            false, sat, &out) &&
+                      cab::readZip(out, &in, &zerr) && in.size() == 2 &&
+                      in[0].relPath == "Rally (Japan).srm" && in[0].bytes == internal &&
+                      in[1].relPath == "Rally.bcr" && in[1].bytes == cartOf(524288, true),
+                  "Saturn: RomM's internal memory and a cartridge holding a save, a zip of both, "
+                  "the cartridge under the name this core reads, found by its end");
+            check(takes(answer("Rally (Japan).bcr", cartOf(524288, true)), false, sat, &out) &&
+                      cab::readZip(out, &in, &zerr) && in.size() == 1 &&
+                      in[0].relPath == "Rally.bcr",
+                  "Saturn: a cartridge alone, a zip of it alone, never read as the battery");
+        }
+        check(takes(zipped({"Rally.srm", internal}, {"Rally.bcr", cartOf(524288, false)}), false,
+                    sat, &out) &&
+                  out == internal,
+              "Saturn: a formatted, empty cartridge left out; the battery alone, as it is");
+        check(!takes(zipped({"Rally.srm", internal}, {"Rally.bcr", cartOf(262144, true)}), false,
+                     sat) &&
+                  !takes(zipped({"Rally.srm", internal}, {"Rally.bcr", unmarked(524288)}), false,
+                         sat) &&
+                  !takes(zipped({"Rally.srm", unmarked(32768)}, {"Rally.bcr", cartOf(524288, true)}),
+                         false, sat),
+              "Saturn: a cartridge of another size or with no format's name, or a battery this "
+              "core does not read: refused");
+        check(takes(answer("", internal), true, sat, &out) && out == internal,
+              "Saturn handed over as stored: the one file is the battery");
         const OwnForm ps2 = form("pcsx2", "ps2", "Burnout 3.chd", false);
         const std::string ps2Mark = "Sony PS2 Memory Card Format ";
         check(takes(answer("Burnout 3.ps2", marked(8650752, ps2Mark)), false, ps2) &&
@@ -1887,6 +2006,50 @@ int savePickTest() {
         check(!noteStart(g, StartNotes{}, u, &again) && again.couldNotUseNewest,
               "one that could not be used: the console's own stands, and the session says so "
               "(\"Couldn't use the newest save\")");
+    }
+
+    // A BATTERY'S SAVE AND ITS CLOCK AS A START READS THEM (#346, step 11;
+    // saves.h, batteryParts and clockToSet), with no core.
+    std::printf("\na battery's save, its clock and its cartridge\n");
+    {
+        BatteryParts parts;
+        std::string why;
+        const std::vector<uint8_t> clock = bytesOf("clock 8", 8);
+        check(batteryParts(own, &parts, &why) && !parts.zipped && parts.battery == own &&
+                  parts.clock.empty(),
+              "a battery alone, as it is, with no clock");
+        std::vector<uint8_t> zip;
+        cab::zipFiles({{"Game.srm", own}, {"Game.rtc", clock}, {"Game.bcr", theirs}}, &zip, &why);
+        check(batteryParts(zip, &parts, &why) && parts.zipped && parts.battery == own &&
+                  parts.clock == clock,
+              "a zip: the battery by `.srm`, the clock by `.rtc`, the cartridge left to the "
+              "file restores");
+        cab::zipFiles({{"Game.bcr", theirs}}, &zip, &why);
+        check(batteryParts(zip, &parts, &why) && parts.zipped && parts.battery.empty(),
+              "a zip with no `.srm` holds no battery");
+        const std::vector<uint8_t> mine = bytesOf("this console's clock", 8);
+        const std::vector<uint8_t> none;
+        check(clockToSet(clock, mine, 8, true) == &clock,
+              "RomM's battery put in place, not what this console had: its clock with it");
+        check(clockToSet(clock, mine, 8, false) == &mine,
+              "RomM's battery is what this console had: this console's own clock, which a "
+              "change to the clock alone left");
+        check(clockToSet(clock, none, 8, false) == &clock,
+              "this console keeps no clock: RomM's");
+        check(clockToSet(none, mine, 8, true) == &mine,
+              "a save that carries no clock leaves this console's as it is");
+        check(clockToSet(bytesOf("x", 16), mine, 8, true) == &mine &&
+                  clockToSet(bytesOf("x", 16), bytesOf("y", 4), 8, true) == nullptr &&
+                  clockToSet(clock, mine, 0, true) == nullptr,
+              "a clock of another size is none this core keeps; a core with no clock sets none");
+        const catalog::SaveForm gbForm = catalog::saveForm("gambatte", "gbc");
+        const catalog::SaveForm satForm = catalog::saveForm("beetle_saturn", "saturn");
+        check(gbForm.clock && !gbForm.batteryFirst && satForm.batteryFirst && !satForm.clock &&
+                  !catalog::saveForm("snes9x", "snes").clock &&
+                  !catalog::saveForm("mgba", "gba").clock &&
+                  catalog::saveFiles("gb", "gambatte", "Pokemon Gold.gbc", false).empty(),
+              "the clock travels for Gambatte only, Saturn's battery comes first; no other "
+              "system's changes");
     }
 
     // RomM'S SHAPE FOR WII AND 3DS ZIPS (dirsave.h, ZipShape): Sigil's, and

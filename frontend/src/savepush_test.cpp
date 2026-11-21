@@ -1965,6 +1965,194 @@ int test() {
               "a save folder with nothing written after the note sends nothing");
     }
 
+    // ---- A battery with its clock or its cartridge (#346, step 11) ------------
+    std::printf("\na battery with its clock or its cartridge (step 11)\n");
+    auto zipOf = [](const std::string& path) {
+        std::vector<cab::ZipFile> in;
+        std::string zerr;
+        cab::readZip(cab::readBytes(path), &in, &zerr);
+        return in;
+    };
+    // A Saturn cartridge as Beetle Saturn formats it, with a save's mark on
+    // its third block when `save`.
+    auto saturnCart = [](uint8_t save) {
+        std::vector<uint8_t> b(524288, 0x00);
+        const char* format = "BackUpRam Format";
+        for (size_t i = 0; i < 512; ++i) b[i] = static_cast<uint8_t>(format[i % 16]);
+        if (save) {
+            b[1024] = 0x80;
+            b[1028] = save;
+        }
+        return b;
+    };
+    const std::vector<uint8_t> clock = bytesOf("clock 8", 8);
+    {
+        // Game Boy: Gambatte's clock beside the battery, this console's copy.
+        GameSession s = battery(++game, one);
+        s.core = "gambatte";
+        s.platformSlug = "gbc";
+        cab::writeBytes(s.saveDir + "/" + saveRowName(s.fsStem, "rtc"), clock);
+        std::vector<cab::ZipFile> in;
+        check(mark(s, u) && cache::owedPush(u, game, &p) && p.saveName == "Game (USA).zip" &&
+                  p.saveShape == "MULTI" && (in = zipOf(p.savePath)).size() == 2 &&
+                  in[0].relPath == "Game (USA).srm" && in[0].bytes == one &&
+                  in[1].relPath == "Game (USA).rtc" && in[1].bytes == clock,
+              "Game Boy with a clock: a zip of Gambatte's own two files, `<game>.srm` and "
+              "`<game>.rtc`");
+        Stand romm;
+        romm.answers = {made(snapshot(1101, kChannel, "x", romTime(1)))};
+        check(send(romm.server(), u, game, &why) == Sent::Landed && romm.pushes.size() == 1 &&
+                  romm.pushes[0].saveShape == "MULTI" && romm.pushes[0].core == "gambatte" &&
+                  romm.pushes[0].save.fileName == "Game (USA).zip" &&
+                  romm.pushes[0].save.bytes == cab::readBytes(p.savePath),
+              "sent as a zip, naming `gambatte`, which is what makes Sigil read its clock");
+        s.saveChanged = false;
+        cab::writeBytes(s.saveDir + "/" + saveRowName(s.fsStem, "rtc"), bytesOf("ticked", 8));
+        check(!mark(s, u) && !cache::isPushOwed(u, game),
+              "the clock changed alone: no new save, nothing owed");
+    }
+    {
+        GameSession s = battery(++game, one);
+        s.core = "gambatte";
+        s.platformSlug = "gb";
+        check(mark(s, u) && cache::owedPush(u, game, &p) && p.saveName == "Game (USA).srm" &&
+                  p.saveShape == "SINGLE" && cab::readBytes(p.savePath) == one,
+              "Game Boy with no clock: the battery as it is");
+        cache::clearPushOwed(u, game, p.stamp);
+        GameSession snes = battery(++game, one);
+        snes.core = "snes9x";
+        snes.platformSlug = "snes";
+        cab::writeBytes(snes.saveDir + "/" + saveRowName(snes.fsStem, "rtc"), clock);
+        check(mark(snes, u) && cache::owedPush(u, game, &p) && p.saveShape == "SINGLE" &&
+                  cab::readBytes(p.savePath) == one,
+              "Super Nintendo: a clock on the console stays there; the battery alone");
+        cache::clearPushOwed(u, game, p.stamp);
+    }
+    // Saturn: the battery first, the cartridge beside it.
+    auto saturn = [&](int romId, const std::vector<uint8_t>& cart) {
+        GameSession s = battery(romId, one);
+        s.core = "beetle_saturn";
+        s.platformSlug = "saturn";
+        s.romFile = "Rally (USA).chd";
+        s.saveDir = storage::savesDir(u, "saturn", romId, "beetle_saturn");
+        cab::writeBytes(s.saveDir + "/" + saveRowName(s.fsStem, "srm"), one);
+        for (const catalog::SaveFile& spec :
+             catalog::saveFiles("saturn", "beetle_saturn", s.romFile, false)) {
+            cab::FileSaveState f;
+            f.spec = spec;
+            f.path = s.saveDir + "/" + spec.path;
+            if (!cart.empty()) {
+                cab::writeBytes(f.path, cart);
+                f.atLaunch = cart;
+                f.hadOne = true;
+                f.kept = f.path;
+            }
+            s.fileSaves.push_back(f);
+        }
+        return s;
+    };
+    {
+        GameSession s = saturn(++game, saturnCart('A'));
+        std::vector<cab::ZipFile> in;
+        check(mark(s, u) && cache::owedPush(u, game, &p) && p.saveName == "Game (USA).zip" &&
+                  p.saveShape == "MULTI" && (in = zipOf(p.savePath)).size() == 2 &&
+                  in[0].relPath == "Game (USA).srm" && in[0].bytes == one &&
+                  in[1].relPath == "Rally (USA).bcr" && in[1].bytes == saturnCart('A'),
+              "Saturn with a cartridge holding a save: a zip of the internal memory as "
+              "`<game>.srm` and the cartridge as Beetle Saturn names it");
+        // A start on another console: the cartridge before the load, the
+        // battery's part left to the battery.
+        const std::string other = storage::savesDir(u, "saturn", game + 5000, "beetle_saturn");
+        SaveFetch fetched;
+        fetched.romId = game + 5000;
+        fetched.asked = fetched.listed = true;
+        fetched.mark = savemirror::mark();
+        fetched.pick.from = savepick::Pick::From::Channel;
+        fetched.pick.channel.current.save.fileName = p.saveName;
+        fetched.picked = cab::readBytes(p.savePath);
+        restoreFileSaves(catalog::saveFiles("saturn", "beetle_saturn", "Rally (USA).chd", false),
+                         "Rally (USA)", other, "saturn-native", fetched);
+        BatteryParts parts;
+        check(cab::readBytes(other + "/Rally (USA).bcr") == saturnCart('A') &&
+                  batteryParts(fetched.picked, &parts, &why) && parts.battery == one,
+              "which a start on another console writes back: the cartridge as its file, the "
+              "battery as the core's memory");
+        cache::clearPushOwed(u, game, p.stamp);
+    }
+    {
+        GameSession s = saturn(++game, saturnCart(0));
+        check(mark(s, u) && cache::owedPush(u, game, &p) && p.saveName == "Game (USA).srm" &&
+                  p.saveShape == "SINGLE" && cab::readBytes(p.savePath) == one,
+              "Saturn with a formatted, empty cartridge: never sent; the battery as it is");
+        cache::clearPushOwed(u, game, p.stamp);
+        GameSession none = saturn(++game, {});
+        check(mark(none, u) && cache::owedPush(u, game, &p) && p.saveShape == "SINGLE",
+              "Saturn with no cartridge file yet: the battery as it is");
+        cache::clearPushOwed(u, game, p.stamp);
+    }
+    {
+        // The game saved to its cartridge and not its own memory.
+        GameSession s = saturn(++game, saturnCart(0));
+        s.saveChanged = false;
+        cab::writeBytes(s.fileSaves[0].path, saturnCart('C'));
+        syncFileSaves(s);
+        std::vector<cab::ZipFile> in;
+        check(s.saveChanged && mark(s, u) && cache::owedPush(u, game, &p) &&
+                  (in = zipOf(p.savePath)).size() == 2 && in[0].bytes == one &&
+                  in[1].bytes == saturnCart('C'),
+              "a save to the cartridge alone: the zip, the battery as this console last had it");
+        cache::clearPushOwed(u, game, p.stamp);
+    }
+    {
+        // A Saturn game that never ended: Beetle Saturn writes its cartridge
+        // while the game runs, so the cartridge it wrote after the note goes
+        // up beside the battery this console last had.
+        GameSession s = saturn(++game, saturnCart(0));
+        s.title = "Rally";
+        s.saveTag = "saturn-native";
+        notePlaying(s);
+        check(cab::standalone::hasPlayingNote(s.saveDir),
+              "Saturn notes it is playing: its cartridge is a file the core writes");
+        noteAgo(s, 60);
+        cab::writeBytes(s.fileSaves[0].path, saturnCart('D'));
+        age(s.fileSaves[0].path, 30);
+        Uploader up;
+        std::vector<cab::ZipFile> in;
+        check(finishInterruptedPlay(s.saveDir, up) && cache::owedPush(u, game, &p) &&
+                  (in = zipOf(p.savePath)).size() == 2 && in[0].bytes == one &&
+                  in[1].bytes == saturnCart('D') && cache::saveOwed(u, game),
+              "a Saturn game that never ended: the cartridge it wrote goes up with the battery");
+        cache::clearPushOwed(u, game, p.stamp);
+    }
+    {
+        // A start that took a battery and its clock from before channels
+        // (Cabinet's `.rtc` row): the push zips the two rows' bytes.
+        GameSession s = battery(++game, older);
+        s.core = "gambatte";
+        s.platformSlug = "gbc";
+        s.saveChanged = false;
+        romm::Asset srm = oldRow(1201, oldAt);
+        romm::Asset rtc = oldRow(1202, oldAt);
+        rtc.fileName = "Game (USA) (Cabinet).rtc";
+        savepick::Pick pick;
+        pick.from = savepick::Pick::From::OldRows;
+        savepick::OldSaveCopy copy;
+        using As = savepick::OldRowTaken::As;
+        std::vector<cab::ZipFile> in;
+        const std::vector<romm::Asset> rows = {srm, rtc};
+        const std::vector<savepick::OldRowTaken> taken = {
+            {1201, As::Battery, "Game (USA).srm", 0}, {1202, As::Clock, "Game (USA).rtc", 0}};
+        check(savepick::oldSaveToCopy(pick, rows, taken, &copy) &&
+                  markOldSave(s, u, copy, {older, clock}) && cache::owedPush(u, game, &p) &&
+                  p.saveShape == "MULTI" && p.oldRows.size() == 2 &&
+                  (in = zipOf(p.savePath)).size() == 2 && in[0].relPath == "Game (USA).srm" &&
+                  in[0].bytes == older && in[1].relPath == "Game (USA).rtc" &&
+                  in[1].bytes == clock,
+              "a battery and its clock from before channels: one zip of the two rows, as the "
+              "session's push makes it");
+        cache::clearPushOwed(u, game, p.stamp);
+    }
+
     storage::removeEntry(root);
     std::printf("\n%s\n", failures ? "FAILED" : "passed");
     return failures ? 1 : 0;

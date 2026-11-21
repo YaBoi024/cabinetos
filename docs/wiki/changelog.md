@@ -33,6 +33,11 @@ one you install, so you only ever install the newest.
   game had just made. It is kept and sent now.
 - **Improved:** on RomM's website, a save from the console shows a picture of
   the game from the moment it saved.
+- **New:** a Game Boy game with a clock, such as Pokémon Gold or Silver,
+  keeps its clock with its save, on this console, your other consoles and
+  other apps. A Saturn game saved to its backup cartridge takes the cartridge
+  with it. ([Saves](saves.md),
+  [#353](https://github.com/MMagTech/cabinetos/issues/353))
 
 ## 2026.11.18 {#v2026-11-18}
 

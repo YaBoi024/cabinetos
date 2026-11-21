@@ -76,7 +76,8 @@ void listSaves(romm::Client& client, const storage::User& user, int romId, int c
 // save asked of RomM (#346, step 8): how RomM is asked (catalog::SaveForm),
 // and what the save is: the files the core writes (catalog::saveFiles), a
 // folder (its directorySaveRoot, or an emulator run as a program), or else
-// the battery the core exposes.
+// the battery the core exposes, with its clock where that travels; Saturn's
+// battery with its cartridge beside it.
 struct OwnForm {
     catalog::SaveForm form;
     std::string tag;   // the tag this core's saves travel under (catalog::saveTag)
@@ -134,11 +135,13 @@ struct StartNotes {
     std::vector<savepick::OldRowTaken> oldRowsTaken;
 };
 // A SNAPSHOT'S SAVE AS A CabinetOS CONSOLE READS IT, used as stored: a
-// battery is the core's save memory as it is; a core that writes one save
-// file, that file as it is; a core that writes several, a zip holding each
-// under its path in the save folder; a folder save, the zip syncDirSave
-// makes. A restore that cannot read the picked save that way leaves the
-// console's own in place.
+// battery is the core's save memory as it is, or a zip of it as `<game>.srm`
+// with the cartridge's clock as `<game>.rtc` (Game Boy, SaveForm::clock) or
+// the core's files beside it (Saturn's cartridge, SaveForm::batteryFirst);
+// a core that writes one save file, that file as it is; a core that writes
+// several, a zip holding each under its path in the save folder; a folder
+// save, the zip syncDirSave makes. A restore that cannot read the picked
+// save that way leaves the console's own in place.
 // A ZIP IN SIGIL'S SHAPE (dirsave.h, ZipShape) is put back in the folder's
 // own; `shape` and `wiiKind` from zipShapeOf and wiiKindOf.
 void restoreDirSave(const SaveFetch& fetched, const char* tag, const std::string& root,
@@ -195,6 +198,29 @@ void syncFileSaves(GameSession& sess);
 void syncSave(GameSession& sess);
 void restoreBatterySave(cab::Core& core, GameSession& session, const std::string& saveDir,
                         const SaveFetch& fetched, StartNotes* notes = nullptr);
+// A BATTERY'S SAVE AS A START READS IT (the snapshot's save, above): the
+// battery alone, or a zip holding it as `<game>.srm`, the cartridge's clock
+// as `<game>.rtc` (catalog::SaveForm::clock) and the core's files beside it
+// (Saturn's cartridge, SaveForm::batteryFirst, which restoreFileSaves
+// takes), each found by the end of its name. `zipped` says which; a zip with
+// no `.srm` holds no battery. False, with why, when a zip would not unpack.
+struct BatteryParts {
+    bool zipped = false;
+    std::vector<uint8_t> battery;
+    std::vector<uint8_t> clock;
+};
+bool batteryParts(const std::vector<uint8_t>& save, BatteryParts* out, std::string* why);
+// THE CLOCK A START SETS (#346, step 11; restoreBatterySave): `incoming`,
+// the one that came with RomM's battery, when that battery was put in place
+// and was not what this console had (`tookNewBattery`) or this console keeps
+// no clock of its own; else `local`, this console's own, the one a save that
+// changed only its clock left (syncSave). A save that carries no clock leaves
+// this console's as it is, as Sigil's restore does (its gb.md, "Sync"). Null
+// when neither is `size` bytes, the core's clock.
+const std::vector<uint8_t>* clockToSet(const std::vector<uint8_t>& incoming,
+                                       const std::vector<uint8_t>& local, size_t size,
+                                       bool tookNewBattery);
+
 // The pill a start says when the save it continued from was made on another
 // device (#346, decision 5; MMagTech's wording).
 inline constexpr char kContinuingElsewhere[] = "Continuing from another device";

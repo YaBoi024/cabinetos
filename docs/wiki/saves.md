@@ -29,15 +29,19 @@ app. When you leave the game, its save goes up once, if it changed.
 - If the console crashes or the power goes out during a game, a save the game
   had already made is kept and sent when the console next starts, on the
   systems whose emulator writes the save while you play: DS, Dreamcast, PS2,
-  PSP, 3DS, GameCube, Wii and the systems run as separate programs (Switch,
-  PS3, Wii U, Xbox, Xbox 360, Vita, Model 2, Model 3). The other systems keep
-  the save inside the emulator until you leave, so what was saved in that
-  session is lost.
+  PSP, 3DS, GameCube, Wii, a Saturn game's backup cartridge, and the systems
+  run as separate programs (Switch, PS3, Wii U, Xbox, Xbox 360, Vita, Model 2,
+  Model 3). The other systems keep the save inside the emulator until you
+  leave, so what was saved in that session is lost.
 - The game's page shows when it was last saved: *Saved today, 8:17 PM*.
 - On RomM's website a save from the console shows a picture of the game from
   the moment it saved. Sega CD, Neo Geo Pocket Color, 3DO, Xbox and arcade
   games keep their save inside the emulator until you leave, so theirs show
   RomM's own save icon instead.
+- A Game Boy game with a clock, such as Pokémon Gold and Silver, keeps its
+  clock with its save. A Saturn game saved to the backup cartridge takes the
+  cartridge with its save; a cartridge with nothing on it stays on the
+  console.
 - PS2 and Dreamcast use one memory card per game. GameCube keeps each save as
   its own `.gci` file, as Dolphin does.
 - Your Miis are copied into every Wii game.

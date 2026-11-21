@@ -72,6 +72,10 @@ struct GameSession {
     std::string saveDir;
     std::string stateDir;
     std::vector<uint8_t> saveAtLaunch;   // to tell whether it actually changed
+    // The cartridge's clock as the start set it, for a core whose clock
+    // travels with its save (catalog::SaveForm::clock); empty for any other.
+    // A change to it alone is kept on this console and sends nothing.
+    std::vector<uint8_t> clockAtLaunch;
     // THE SAVE CHANGED AND IS WRITTEN ON THIS CONSOLE, and RomM has not been
     // told yet: set by whichever of the three gatherings found a change
     // (saves.cpp: syncSave, syncDirSave, syncFileSaves), and taken by the one

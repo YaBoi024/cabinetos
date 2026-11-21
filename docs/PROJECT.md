@@ -1131,7 +1131,8 @@ Three sizing traps, all confirmed on hardware, all of which CabinetOS inherits:
   exact match, because of the two above.
 - **Game Boy's real-time clock is a separate region** (`RETRO_MEMORY_RTC`).
   Saving only the save RAM silently loses the clock Pokémon Gold and Silver
-  depend on. It travels as its own `.rtc` file.
+  depend on. Cabinet sent it as its own `.rtc` row; CabinetOS sends it in
+  one zip with the save (docs/decisions/2026-11-15-save-channels.md).
 
 **Save states** are `retro_serialize`/`retro_unserialize`, taken on the thread
 that drives `runFrame` — a snapshot taken mid-`retro_run` is corrupt by

@@ -275,15 +275,19 @@ bool oldSaveToCopy(const Pick& pick, const std::vector<romm::Asset>& rows,
     }
     using As = OldRowTaken::As;
     // One row RomM copies: a battery, a save folder's zip, or the one file of
-    // a core's that a snapshot's single file is read as (its first).
-    if (each.size() == 1 && (each[0]->as != As::File || each[0]->file == 0)) {
+    // a core's that a snapshot's single file is read as (its first, never a
+    // cartridge).
+    if (each.size() == 1 &&
+        (each[0]->as == As::Battery || each[0]->as == As::Folder ||
+         (each[0]->as == As::File && each[0]->file == 0 && !each[0]->cart))) {
         out->shape = each[0]->as == As::Folder ? "FOLDER" : "SINGLE";
         return true;
     }
-    // Several files of a core, or its second alone: one zip, each under the
-    // path its core reads it at, as a push of the session's would make it.
+    // Several parts (a core's files, a battery with its clock or its
+    // cartridge), or one a single file is never read as: one zip, each under
+    // its path, as a push of the session's would make it.
     for (const OldRowTaken* t : each)
-        if (t->as != As::File || t->path.empty()) {
+        if (t->as == As::Folder || t->path.empty()) {
             *out = OldSaveCopy{};
             return false;
         }
@@ -772,6 +776,29 @@ int test() {
               "a core's second file alone: a zip, so a start never reads it as the first");
         check(oldSaveToCopy(old, rows, {battery, battery}, &c) && c.rows.size() == 1 && !c.zipped,
               "a row taken twice is one row");
+        // A battery with its clock, Saturn's cartridge (#346, step 11).
+        const std::vector<romm::Asset> clockRows = {row(5, "Gold (Cabinet).srm"),
+                                                    row(6, "Gold (Cabinet).rtc")};
+        const OldRowTaken gold{5, As::Battery, "Gold.srm", 0};
+        const OldRowTaken goldClock{6, As::Clock, "Gold.rtc", 0};
+        check(oldSaveToCopy(old, clockRows, {gold, goldClock}, &c) && c.rows.size() == 2 &&
+                  c.zipped && c.shape == "MULTI" && c.paths.size() == 2 &&
+                  c.paths[0] == "Gold.srm" && c.paths[1] == "Gold.rtc",
+              "a battery with its clock (Cabinet's `.rtc` row): one zip of both, `<game>.srm` "
+              "and `<game>.rtc`");
+        check(oldSaveToCopy(old, clockRows, {goldClock}, &c) && c.zipped && c.paths.size() == 1,
+              "a clock alone: a zip, so a start never reads it as the battery");
+        check(oldSaveToCopy(old, clockRows, {gold}, &c) && !c.zipped && c.shape == "SINGLE",
+              "a battery alone, its clock not taken: RomM copies it in, as before");
+        const OldRowTaken saturnCart{2, As::File, "Rally.bcr", 0, true};
+        check(oldSaveToCopy(old, rows, {saturnCart}, &c) && c.zipped && c.paths.size() == 1 &&
+                  c.paths[0] == "Rally.bcr",
+              "a cartridge alone, though its core's first file (Saturn's): a zip, never read as "
+              "the battery");
+        const std::vector<OldRowTaken> withCart = {{1, As::Battery, "Rally.srm", 0}, saturnCart};
+        check(oldSaveToCopy(old, rows, withCart, &c) && c.zipped && c.paths.size() == 2 &&
+                  c.paths[0] == "Rally.srm",
+              "a battery with its cartridge: one zip of both");
         Pick own;
         Pick fromChannel;
         fromChannel.from = From::Channel;

@@ -436,6 +436,16 @@ public:
     bool writeSaveRam(const std::vector<uint8_t>& data);
     size_t saveRamSize() const;
 
+    // THE CARTRIDGE'S CLOCK BESIDE THE BATTERY (#346, step 11):
+    // RETRO_MEMORY_RTC, a region of its own. Gambatte's is 8 bytes, the time
+    // the game's clock counts from, for a cartridge with one; 0 for any other.
+    // Live as the battery is: written before the first frame, it is the clock
+    // the game reads. A clock of another size is no clock this core keeps,
+    // and is refused.
+    bool readClock(std::vector<uint8_t>& out) const;
+    bool writeClock(const std::vector<uint8_t>& data);
+    size_t clockSize() const;
+
     // --- In-game saves, read by --state-test ---------------------------------
     //
     // A different mechanism from save states, and the one people assume is

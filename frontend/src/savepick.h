@@ -181,16 +181,22 @@ std::vector<const romm::Asset*> oldRowsAStartMayTake(const std::vector<romm::Ass
 // version goes on reading and writing it. A save that was several rows
 // (Sega CD's own memory and its cartridge) has to be one zip in a snapshot,
 // as a start reads one (saves.h), which RomM cannot make of two rows: the
-// console sends that zip.
+// console sends that zip. So does a battery with its clock (Cabinet's Game
+// Boy `.rtc` row beside the battery's, #346, step 11).
 
 // One row a restore put in place, and as what.
 struct OldRowTaken {
     int rowId = 0;
-    enum class As { Battery, File, Folder } as = As::Battery;
-    // A file save's: the path its core reads it at, and its place among the
-    // core's save files (0 the first, which a snapshot's one file is read as).
+    enum class As { Battery, Clock, File, Folder } as = As::Battery;
+    // Its path in a zip of the save's parts: a file's, where its core reads
+    // it; a battery's and its clock's, `<game>.srm` and `<game>.rtc`. Empty
+    // for a folder.
     std::string path;
+    // A file's place among the core's save files: 0 the first, which a
+    // snapshot's one file is read as, unless it is a cartridge
+    // (catalog::SaveFile::region), which only ever travels in a zip.
     size_t file = 0;
+    bool cart = false;
 };
 
 // What the push brings in: the rows, and how they travel.

@@ -154,6 +154,25 @@ void trimStates(const std::string& dir, const std::set<std::string>& keepNames,
     }
 }
 
+// Several files of a save, zipped as a snapshot holds them (saves.h), each
+// under the path given, and written beside this console's copies as
+// `<game> (Cabinet).zip`; the push names it `<game>.zip`. False when it
+// could not be.
+bool zipBeside(const GameSession& sess, const std::vector<cab::ZipFile>& files,
+               cache::OwedPush* p) {
+    std::vector<uint8_t> zip;
+    std::string zerr;
+    p->saveName = sanitisedStem(sess.fsStem) + ".zip";
+    p->savePath = sess.saveDir + "/" + saveRowName(sess.fsStem, "zip");
+    p->saveShape = kMulti;
+    if (!cab::zipFiles(files, &zip, &zerr) || !cab::writeBytes(p->savePath, zip)) {
+        std::fprintf(stderr, "[save] could not write %s: %s\n", p->savePath.c_str(),
+                     zerr.empty() ? "the write failed" : zerr.c_str());
+        return false;
+    }
+    return true;
+}
+
 // The game's name on RomM with the extension the core gave its own file:
 // `Contra 4.sav` for melonDS's `<what it was handed>.sav`. The core's whole
 // file name when it has no extension.
@@ -173,35 +192,48 @@ std::string nameWithExtensionOf(const std::string& fsStem, const std::string& co
 // restores look in. Several files are zipped here, each under the path its
 // core reads it from whatever name it was left under, and the zip is written
 // beside them so a push tried again after a restart sends the same bytes.
+// A BATTERY WITH ITS CLOCK OR ITS CARTRIDGE (#346, step 11; SaveForm::clock,
+// SaveForm::batteryFirst) goes the same way, as `<game>.srm` beside
+// `<game>.rtc` or the cartridge's file, from this console's copies; a
+// cartridge with no save on it is never sent, and the battery goes alone.
 // False when there is no file to send.
 bool gather(const GameSession& sess, cache::OwedPush* p) {
+    const catalog::SaveForm form = catalog::saveForm(sess.core.c_str(), sess.platformSlug);
     if (!sess.dirSaveRoot.empty()) {
         p->saveName = dirSaveZipName(sess.title);
         p->savePath = sess.saveDir + "/" + p->saveName;
         p->saveShape = kFolder;
-    } else if (sess.fileSaves.size() == 1) {
+    } else if (!form.batteryFirst && sess.fileSaves.size() == 1) {
         const cab::FileSaveState& f = sess.fileSaves.front();
         p->saveName = nameWithExtensionOf(sess.fsStem, f.spec.path);
         p->savePath = f.kept;
         p->saveShape = kSingle;
-    } else if (!sess.fileSaves.empty()) {
+    } else if (!form.batteryFirst && !sess.fileSaves.empty()) {
         std::vector<cab::ZipFile> files;
         for (const cab::FileSaveState& f : sess.fileSaves)
             if (!f.atLaunch.empty()) files.push_back({f.spec.path, f.atLaunch});
-        std::vector<uint8_t> zip;
-        std::string zerr;
-        p->saveName = sanitisedStem(sess.fsStem) + ".zip";
-        p->savePath = sess.saveDir + "/" + saveRowName(sess.fsStem, "zip");
-        p->saveShape = kMulti;
-        if (!cab::zipFiles(files, &zip, &zerr) || !cab::writeBytes(p->savePath, zip)) {
-            std::fprintf(stderr, "[save] could not write %s: %s\n", p->savePath.c_str(),
-                         zerr.empty() ? "the write failed" : zerr.c_str());
-            return false;
-        }
+        if (!zipBeside(sess, files, p)) return false;
     } else {
-        p->saveName = sanitisedStem(sess.fsStem) + ".srm";
+        const std::string stem = sanitisedStem(sess.fsStem);
+        std::vector<cab::ZipFile> beside;
+        if (form.clock)
+            if (std::vector<uint8_t> clock =
+                    cab::readBytes(sess.saveDir + "/" + saveRowName(sess.fsStem, "rtc"));
+                !clock.empty())
+                beside.push_back({stem + ".rtc", std::move(clock)});
+        for (const cab::FileSaveState& f : sess.fileSaves)
+            if (!f.atLaunch.empty() && cab::holdsASave(f.atLaunch, f.spec.untouched))
+                beside.push_back({f.spec.path, f.atLaunch});
+        p->saveName = stem + ".srm";
         p->savePath = sess.saveDir + "/" + saveRowName(sess.fsStem, "srm");
         p->saveShape = kSingle;
+        if (!beside.empty()) {
+            std::vector<cab::ZipFile> files;
+            if (std::vector<uint8_t> battery = cab::readBytes(p->savePath); !battery.empty())
+                files.push_back({p->saveName, std::move(battery)});
+            files.insert(files.end(), beside.begin(), beside.end());
+            if (!zipBeside(sess, files, p)) return false;
+        }
     }
     return !p->savePath.empty() && sizeOf(p->savePath) > 0;
 }

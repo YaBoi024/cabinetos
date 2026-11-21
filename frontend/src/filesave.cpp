@@ -81,6 +81,17 @@ bool gameCubeHoldsASave(const std::vector<uint8_t>& d) {
     return false;
 }
 
+// A Saturn backup cartridge with a save on it (catalog::Untouched): a block
+// from the third on, of 512 bytes, that begins with a save's mark. Anything
+// shorter than its two reserved blocks holds none.
+bool saturnCartHoldsASave(const std::vector<uint8_t>& d) {
+    constexpr size_t kBlock = 512;
+    for (size_t at = 2 * kBlock; at + 4 <= d.size(); at += kBlock)
+        if (d[at] == 0x80 && d[at + 1] == 0x00 && d[at + 2] == 0x00 && d[at + 3] == 0x00)
+            return true;
+    return false;
+}
+
 bool anyRealByte(const std::vector<uint8_t>& d, size_t skipFront, size_t skipBack) {
     if (d.size() <= skipFront + skipBack) return false;
     for (size_t i = skipFront; i < d.size() - skipBack; ++i)
@@ -108,6 +119,8 @@ bool holdsASave(const std::vector<uint8_t>& d, catalog::Untouched rule) {
             return ps2IsFormatted(d);
         case catalog::Untouched::GameCubeDirectory:
             return gameCubeHoldsASave(d);
+        case catalog::Untouched::SaturnCartridge:
+            return saturnCartHoldsASave(d);
     }
     return anyRealByte(d, 0, 0);
 }
