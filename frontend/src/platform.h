@@ -155,6 +155,11 @@ bool touchesDsScreen();
 // of the window. False, and the picture is drawn as usual, the two stacked.
 bool dsScreens(float top[4], float bottom[4]);
 
+// FORK (phones): THE HANDHELD'S LOOK for a DS game with its screens apart: the colour of
+// its body and of the bezel round each screen, as red, green, blue and alpha. Drawn under
+// the two screens, in the picture, so the pause menu goes over it. False: no look.
+bool dsLook(float body[4], float bezel[4]);
+
 // --- A game running -------------------------------------------------------------
 
 // Told when a game starts (true) and when it ends (false), on the thread that

@@ -35,6 +35,7 @@ bool hidesSystemsWithoutACore() { return false; }
 bool showsBackButton() { return false; }
 bool touchesDsScreen() { return false; }
 bool dsScreens(float*, float*) { return false; }
+bool dsLook(float*, float*) { return false; }
 void gamePlaying(bool, const char*) {}
 bool runsInAnotherApp(const char*) { return false; }
 bool openInAnotherApp(const char*, const std::string&) { return false; }
