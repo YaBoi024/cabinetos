@@ -1,5 +1,6 @@
 #include "vpad.h"
 
+#include "guitar.h"
 #include "players.h"
 #include "rumble.h"
 #include "tilt.h"
@@ -18,6 +19,7 @@
 #include <cstdio>
 #include <cstring>
 #include <initializer_list>
+#include <vector>
 
 namespace cab::vpad {
 namespace {
@@ -95,6 +97,10 @@ int gMotionFd[kMaxPlayers] = {-1, -1, -1, -1};
 constexpr int kMotionAxes = 6;
 constexpr int kMotionCodes[kMotionAxes] = {ABS_X, ABS_Y, ABS_Z, ABS_RX, ABS_RY, ABS_RZ};
 int gMotionSaid[kMaxPlayers][kMotionAxes] = {};
+
+// THE GUITARS' SHAPES (guitar.h), one per seat: a seat that is not a guitar's
+// has no layout and is sent its pad as it is.
+::guitar::Ps3Shape gGuitar[kMaxPlayers];
 
 // THE DUALSHOCK 3'S UNITS, turned from SDL's the way RPCS3 itself turns them
 // for a pad it reads through SDL (Input/sdl_pad_handler.cpp,
@@ -217,11 +223,21 @@ int createMotion(int index) {
     return fd;
 }
 
+// A guitar's, which has no sensors: lying flat, its neck raised as far as its
+// tilt says, X lower by a g with the neck straight up (guitar::Ps3Shape).
+void guitarSample(int player, int64_t nowMs, int out[kMotionAxes]) {
+    std::copy(kAtRest, kAtRest + kMotionAxes, out);
+    out[0] = motionUnits(kMotionMid - gGuitar[player].motionTilt(static_cast<uint64_t>(nowMs)) * kPerG);
+}
+
 // Player `p`'s tilt, into its motion device: only the axes that changed,
 // then one report.
-void writeMotion(int p) {
+void writeMotion(int p, int64_t nowMs) {
     int now[kMotionAxes];
-    motionSample(p, now);
+    if (gGuitar[p].layout())
+        guitarSample(p, nowMs, now);
+    else
+        motionSample(p, now);
     bool changed = false;
     for (int i = 0; i < kMotionAxes; ++i) {
         if (now[i] == gMotionSaid[p][i]) continue;
@@ -237,6 +253,17 @@ void writeMotion(int p) {
 // (tilt.h), so the pad there when pump() reads it is the one read.
 void openMotion(int players) {
     for (int i = 0; i < players; ++i) {
+        // A GUITAR'S SEAT gets one though the guitar has no sensors: its tilt.
+        if (gGuitar[i].layout()) {
+            gMotionFd[i] = createMotion(i);
+            if (gMotionFd[i] >= 0)
+                std::fprintf(stderr, "[vpad] player %d's motion: \"%s\", the guitar's tilt\n", i + 1,
+                             motionNameOf(i).c_str());
+            else
+                std::fprintf(stderr, "[vpad] could not create player %d's motion device: %s\n", i + 1,
+                             std::strerror(errno));
+            continue;
+        }
         const bool accel = tilt::set(i, tilt::Sensor::Accel, true);
         const bool gyro = tilt::set(i, tilt::Sensor::Gyro, true);
         if (accel || gyro) gMotionFd[i] = createMotion(i);
@@ -296,9 +323,29 @@ void pumpDualSense() {
     }
 }
 
+// The plain controller's axis `a`, at `value`.
+void plainAxis(int player, SDL_GamepadAxis a, int value) {
+    for (const Abs& x : kAxes) {
+        if (x.axis != a) continue;
+        emit(gFd[player], EV_ABS, x.code, value);
+        sync(gFd[player]);
+        return;
+    }
+}
+
+// What a guitar's shape says its seat's plain controller is sent.
+void send(int player, const std::vector<::guitar::Change>& changes) {
+    for (const ::guitar::Change& c : changes) {
+        if (c.isAxis)
+            plainAxis(player, static_cast<SDL_GamepadAxis>(c.code), c.value);
+        else
+            button(player, static_cast<SDL_GamepadButton>(c.code), c.value != 0);
+    }
+}
+
 }  // namespace
 
-bool open(int players, bool motion, bool dualsense, bool onlyPlayerOneTilts) {
+bool open(int players, bool motion, bool dualsense, bool onlyPlayerOneTilts, bool guitars) {
     close();
     if (players < 1) players = 1;
     if (players > kMaxPlayers) players = kMaxPlayers;
@@ -342,12 +389,19 @@ bool open(int players, bool motion, bool dualsense, bool onlyPlayerOneTilts) {
     for (int& p : gPlaying) p = -1;
     rumble::reset();
     std::fprintf(stderr, "[vpad] %d virtual controller(s)\n", gCount);
+    for (int i = 0; i < players; ++i) {
+        gGuitar[i].reset(guitars ? ::guitar::seated(i) : nullptr);
+        if (gGuitar[i].layout())
+            std::fprintf(stderr, "[vpad] player %d holds a guitar (%s): sent as a PS3 guitar\n", i + 1,
+                         gGuitar[i].layout()->name);
+    }
     if (motion) openMotion(players);
     return true;
 }
 
 void close() {
     if (gCount > 0) rumble::reset();
+    for (::guitar::Ps3Shape& g : gGuitar) g.reset(nullptr);
     if (gDualSense) {
         vdualsense::closeAll();
         closeSenses();
@@ -377,6 +431,10 @@ int count() { return gCount; }
 
 bool carriesMotion(int player) {
     return gDualSense && player >= 0 && player < gCount && gTilt[player];
+}
+
+bool carriesGuitar(int player) {
+    return !gDualSense && player >= 0 && player < gCount && gGuitar[player].layout();
 }
 
 std::string motionName(int player) {
@@ -418,12 +476,13 @@ void axis(int player, SDL_GamepadAxis a, int16_t value) {
         vdualsense::axis(player, a, value);
         return;
     }
-    for (const Abs& x : kAxes) {
-        if (x.axis != a) continue;
-        emit(gFd[player], EV_ABS, x.code, value);
-        sync(gFd[player]);
+    if (gGuitar[player].layout()) {
+        std::vector<::guitar::Change> out;
+        gGuitar[player].axis(a, value, SDL_GetTicks(), out);
+        send(player, out);
         return;
     }
+    plainAxis(player, a, value);
 }
 
 void releaseAll() {
@@ -439,6 +498,7 @@ void releaseAll() {
         emit(fd, EV_ABS, ABS_HAT0Y, 0);
         sync(fd);
         std::memset(gDpad[p], 0, sizeof gDpad[p]);
+        gGuitar[p].release();
     }
 }
 
@@ -498,7 +558,12 @@ void pump(int64_t nowMs) {
             rumble::set(static_cast<unsigned>(p), 0, 0);
             rumble::set(static_cast<unsigned>(p), 1, 0);
         }
-        if (gMotionFd[p] >= 0) writeMotion(p);
+        if (gGuitar[p].layout()) {
+            std::vector<::guitar::Change> out;
+            gGuitar[p].tick(static_cast<uint64_t>(nowMs), out);
+            send(p, out);
+        }
+        if (gMotionFd[p] >= 0) writeMotion(p, nowMs);
     }
 }
 
@@ -663,7 +728,7 @@ int motionTest() {
           "three test pads seated: players 1 and 2 with both sensors, player 3 with none");
 
     // AN EMULATOR THAT READS NO MOTION DEVICE.
-    if (!open(3, /*motion=*/false, /*dualsense=*/false, /*onlyPlayerOneTilts=*/false)) {
+    if (!open(3, /*motion=*/false, /*dualsense=*/false, /*onlyPlayerOneTilts=*/false, /*guitars=*/false)) {
         std::printf("  FAIL  no virtual controllers: /dev/uinput cannot be opened\n");
         players::setInGame(false);
         SDL_Quit();
@@ -674,7 +739,7 @@ int motionTest() {
     close();
 
     // RPCS3.
-    check(open(3, /*motion=*/true, /*dualsense=*/false, /*onlyPlayerOneTilts=*/false),
+    check(open(3, /*motion=*/true, /*dualsense=*/false, /*onlyPlayerOneTilts=*/false, /*guitars=*/false),
           "three virtual controllers, motion asked");
     check(motionName(0) == "CabinetOS player 1 motion" && motionName(1) == "CabinetOS player 2 motion" &&
               motionName(2).empty(),

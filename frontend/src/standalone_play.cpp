@@ -41,9 +41,10 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     // Beside them, for an emulator that reads one, a motion device for each
     // player whose pad has the sensors (PS3, #683); or, for an emulator that
     // reads a pad's own sensors, the stand-in DualSense in place of the plain
-    // controller (Switch, Wii U and Vita, #669).
+    // controller (Switch, Wii U and Vita, #669). A guitar's seat is a guitar's
+    // for an emulator that takes one (PS3, guitar.h).
     const int pads = std::max(1, players::count());
-    if (!cab::vpad::open(pads, emu.motion, emu.dualsense, emu.onlyPlayerOneTilts)) {
+    if (!cab::vpad::open(pads, emu.motion, emu.dualsense, emu.onlyPlayerOneTilts, emu.guitars)) {
         refuseLaunch("Couldn't start this game");
         return;
     }
@@ -65,7 +66,7 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
                                fightstick::programButtons(buttons));
     }
     if (!cab::standalone::prepare(emu, launchJob.entryPath, launchJob.romPath, saveDir,
-                                  user.name, pads, level, &missingKeys, &err)) {
+                                  user.name, launchJob.title, pads, level, &missingKeys, &err)) {
         cab::vpad::close();
         if (!err.empty()) std::fprintf(stderr, "[standalone] %s\n", err.c_str());
         refuseLaunch(missingKeys ? "No " + launchJob.systemName + " " + emu.needs +
@@ -306,7 +307,8 @@ void App::openStandaloneMenu() {
 //
 // AND THE PAUSE MENU OPENS THE WAY IT DOES FOR EVERY SYSTEM: both
 // stick clicks, always, or a tap of the shortcut button with the
-// in-game shortcuts on, or HOME held on a Wii Remote (watchStandalone). The shortcut button (Home, unless set) is
+// in-game shortcuts on, or of a fight stick's or a guitar's Home, switch or
+// not (play.cpp), or HOME held on a Wii Remote (watchStandalone). The shortcut button (Home, unless set) is
 // never passed to the emulator at all: its Home is its own menu
 // and a set of Home+button shortcuts, one of which leaves
 // fullscreen, and none of them belong on a console.
@@ -339,7 +341,8 @@ bool App::takeStandaloneEvent(const SDL_Event& e) {
                 // A streaming device's Home always opens the menu, as
                 // in the built-in path (players::streaming()).
                 if (p >= 0 && p < cab::vpad::kMaxPlayers &&
-                    (shortcuts::enabled() || players::streaming())) {
+                    (shortcuts::enabled() || players::streaming() ||
+                     players::stick(e.gbutton.which) || players::guitar(e.gbutton.which))) {
                     auto& sh = standaloneShortcut[p];
                     if (sh.down && sh.pad != e.gbutton.which) sh = {};
                     // THE SHORTCUT BUTTON'S OWN PRESS IS NOT A

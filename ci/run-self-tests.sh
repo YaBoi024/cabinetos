@@ -50,6 +50,7 @@ TESTS=(
     --players-test
     --tilt-test
     --fightstick-test
+    --guitar-test
     --arcade-settings-test
     --arcade-match-test
     --arcade-tile-test

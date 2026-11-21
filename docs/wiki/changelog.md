@@ -4,6 +4,17 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## Next
+
+- **New:** Guitar Hero and Rock Band guitars play PlayStation 2 and
+  PlayStation 3 games as guitars: frets, strum, whammy, star power and tilt,
+  over Bluetooth, a cable or the guitar's receiver. Turn the guitar on, then
+  start the game; tilt the neck or press View for star power, and tap Home
+  for the pause menu. In PlayStation 3 games with "Rock Band" in the name it
+  is a Rock Band guitar, in the rest a Guitar Hero guitar. Controllers lists
+  it as Guitar. A CRKD Les Paul goes on the PC slider position and mode dial
+  8. ([Guitars](controllers.md#guitars))
+
 ## 2026.11.18 {#v2026-11-18}
 
 - **New:** an update that needs a newer RomM than your server runs says so

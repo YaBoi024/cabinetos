@@ -19,6 +19,7 @@
 #include "disc.h"
 #include "discs.h"
 #include "fightstick.h"
+#include "guitar.h"
 #include "files.h"
 #include "firstrun.h"
 #include "gonegames.h"
@@ -311,6 +312,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             return cab::vdualsense::test();
         } else if (SDL_strcmp(argv[i], "--fightstick-test") == 0) {
             return fightstick::test();
+        } else if (SDL_strcmp(argv[i], "--guitar-test") == 0) {
+            return guitar::test();
         } else if (SDL_strcmp(argv[i], "--arcade-settings-test") == 0) {
             return arcadesettings::test();
         } else if (SDL_strcmp(argv[i], "--arcade-match-test") == 0) {
