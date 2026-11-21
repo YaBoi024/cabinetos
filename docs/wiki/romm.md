@@ -4,7 +4,7 @@ Everything CabinetOS plays comes from [RomM](https://github.com/rommapp/romm):
 games, covers, BIOS, firmware and keys. Your saves, states, screenshots and play
 time go back to it. CabinetOS ships none of them.
 
-- **RomM 5.1 or newer.** Tested with 5.1.0 and 5.3.1.
+- **RomM 5.5 or newer.** Tested with 5.5.0-alpha.2.
 - One server per console. Every person on the console is a user on that server.
 
 ## Setting RomM up for the console
@@ -49,8 +49,9 @@ It never changes or deletes your games, platforms, firmware or users.
 
 - Saves made in **Cabinet**, the retired Apple TV app, carry on here: they
   use the same names.
-- Saves made in RomM's web player or in other apps are not read, and the
-  console leaves them alone on the server.
+- A save made in RomM's web player or another app carries on here when it
+  is the newest and the console's emulator can use it. See
+  [Saves from other apps](saves.md#saves-from-other-apps).
 
 ## A game you delete in RomM
 

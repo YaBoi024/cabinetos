@@ -674,11 +674,17 @@ here, not reworded; follow the link for the full text.
   longer a constraint" (docs/PROJECT.md, open question 12b, the GameCube save
   decision, #344, "GameCube: a save restored from RomM never reaches Dolphin
   (card.raw vs card.USA.raw)"); it is newer than the rule above. One thing
-  stays: the save tags already on RomM (`savetable.cpp`, many in Cabinet's
-  spelling) are what existing saves are filed under, and Cabinet Go, its
-  unfinished pocket version, will read them, so changing one hides those
-  saves. docs/CABINET.md says what Cabinet is now; docs/history/CABINET.md
-  is worth reading for how a problem was solved before.
+  stays: save labels never change. Every save the console sends carries a
+  label naming the emulator that made it (`savetable.cpp`, many spelled as
+  Cabinet spelled them), and beside it the emulator's name as Sigil spells
+  it, so other apps can use the save
+  (`docs/decisions/2026-11-15-save-channels.md`). The console knows its own
+  saves and states by that label: rename one and it takes them for another
+  app's, which go through RomM's conversion and, where RomM can't convert
+  yet, are refused. Cabinet Go, Cabinet's unfinished pocket version, will
+  read the same labels.
+  docs/CABINET.md says what Cabinet is now; docs/history/CABINET.md is
+  worth reading for how a problem was solved before.
 - **Emulators favour stability over the newest version**: a pin moves only
   for one of five named reasons, with its evidence, and the question is
   asked out loud on the issue or pull request

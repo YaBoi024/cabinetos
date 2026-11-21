@@ -89,24 +89,32 @@ RomM: keep test launches under a minute, or have his go.
    within a minute of the server gaining them; a save a core wrote before a
    crash or a power cut (DS, Dreamcast, PS2, PSP, 3DS, GameCube, Wii) is kept
    and sent, as the programs' already were; every file the console replaces
-   now has its name on the drive before the write returns. Step 10 records
-   step 9's two calls of 2026-11-20 with the others: a save a core wrote
-   before a crash is kept and sent (it is the player's progress), and a
-   game's own write after a session where nothing was saved still makes a
-   snapshot (Battletoads' board counters, Gex's record: the console sends
-   what the game wrote and cannot tell the two apart). Next is step 10, words
-   and records, from `save-channels-step10-brief.md` in the side-session
-   notes beside step 9's.
+   now has its name on the drive before the write returns. Step 10 is
+   built: every decision of the switch is in
+   docs/decisions/2026-11-15-save-channels.md (PROJECT.md's save-model
+   passages point to it), the documentation rule in
+   docs/decisions/2026-11-17-follow-romm-and-sigil-docs.md, and
+   romm-version-needed says a release goes out when ready, not when RomM is
+   stable; the image needs RomM 5.5 (`ROMM_NEEDED` in cabinetos.env, held
+   to docs/wiki/romm.md by the build), and README, the website and the wiki
+   say so; the wiki's saves page is rewritten; the changelog's one entry
+   for the whole change sits under "Next" until the testing image's
+   version replaces it. Next is step 11, cartridge clocks and Saturn's
+   backup cartridge, from `save-channels-step11-brief.md` in the
+   side-session notes beside step 10's.
    After step 11 comes a Switch step: the console pins Sigil whole and,
    for Switch only, reads a game's ID with the player's keys and converts
    its saves on the console. It writes nothing about a game to RomM, since
    it never asks to change the library (romm-converts-saves, rewritten at
-   the step 10 review). Four
-   upstream pieces run outside this plan, in MMagTech's Sigil work, each
-   widening what crosses between apps with no change on the console: PS3
-   .pkg reading in Sigil (argosy-sigil#5), Switch IDs from a dump's ticket
-   in Sigil (no keys), RomM's scan reading .zip games, and RomM's Convert
-   library moving a game's channels to its new file.
+   the step 10 review). Six
+   upstream pieces run outside this plan, in MMagTech's Sigil window
+   ("6. Sigil review fixes"), each widening what crosses between apps with
+   no change on the console: PS3 .pkg reading in Sigil (argosy-sigil#28),
+   Switch IDs from a dump's ticket in Sigil (argosy-sigil#30), RomM's scan
+   reading .zip games (rommapp/romm#5694), RomM's Convert library moving a
+   game's channels to its new file (rommapp/romm#5681), and two cards from
+   the step 10 review: why his PS3 game folders get no title ID, and
+   whether the Dreamcast cards RomM refuses are Ludo's fault or the check's.
    Each step is a fresh
    session that keeps to CLAUDE.md's seven rules and its piece's files, reuses, removals, docs and
    tests in the plan: Fable for steps 4 and 5 (starting and leaving a

@@ -217,8 +217,8 @@ down. "Look now at" is where the code or a later decision moved on.
 - **22. What the console does when the server is away** (it comes after 23
   in the file). "Partly decided" 2026-09-19; "Offline play built 2026-10-05
   (#88)" ("Offline: kept games play with no server"). Switching people
-  offline was allowed later. Two devices' saves wait on #346 ("Move saves to
-  RomM's save channels (Sigil) when they reach a stable RomM release").
+  offline was allowed later. Two devices' saves: moved to
+  [decisions/2026-11-15-save-channels.md](decisions/2026-11-15-save-channels.md).
 - **24. Will gamescope composite our overlay over a window we do not own?**
   "ANSWERED THE SAME DAY" (2026-09-21): "YES", in the `STEAM_OVERLAY` slot;
   "TWO PATHS ARE ACCEPTED". Built for the separate programs 2026-09-28 and
@@ -1790,10 +1790,9 @@ proposal changed it without his agreement (it dropped the deletion and put
 the list in the pause menu). His purpose, in his words: *"sort of like save
 slots"* without *"having to pick which slot you save to."*
 
-- **Save is one press and never asks.** Each save fills the next of three
-  places; once there are three, a new save replaces the oldest, **on the
-  console and on RomM** (`POST /api/states/delete`). The same whether the save
-  came from the pause menu or a shortcut.
+- **Save is one press and never asks**, from the pause menu or a shortcut.
+  Which three are kept, and that none is deleted on RomM: moved to
+  [decisions/2026-11-15-save-channels.md](decisions/2026-11-15-save-channels.md).
 - **In a game, Load is always the newest.** No list in the pause menu.
 - **The three are chosen on the game's launch screen**, with picture and time,
   newest first, as Cabinet's tvOS *Continue from* row does
@@ -1804,26 +1803,15 @@ slots"* without *"having to pick which slot you save to."*
   (`get_states` filters on `request.user.id`), and the console keeps each
   person's in their own folder, so one person's saves never push out
   another's.
-- **Only Cabinet's states count.** The console lists, loads and rotates only
+- **Only Cabinet's states count.** The console lists and loads only
   states under Cabinet's emulator tags (`catalog::emulatorTag`). States from
   RomM's web player or any other app are never shown and never deleted, which
   answers what happens to a new user's existing states on first install.
-- **The cost, accepted:** a state saved by Cabinet on the Apple TV for the same
-  game and emulator is one of the three, so a save on the console can rotate
-  it out. The Apple TV itself never deletes, so its states pile up until the
-  console next saves; giving Cabinet the same rule is MMagTech/cabinet#8.
-  **Including on the first save:** a new user's older Cabinet states for that
-  game are cut to three at once (seen here: five August states went on the
-  first save in DoDonPachi). Protecting states that existed before the
-  console's first save was offered and declined (MMagTech: *"it's all an
-  alpha build anyway"*).
 - **Why three and not more:** the job is undoing a bad save (saved a moment
   before dying, twice in a row, and still one good one left); more becomes a
   history to scroll, which is the slot-picking this avoids. One constant,
   cheap to raise if three ever feels short.
-- **Rejected:** keeping every state on RomM and showing three (nothing lost,
-  but RomM holds states the console never shows and the "three" is not true);
-  a Load earlier state list in the pause menu.
+- **Rejected:** a Load earlier state list in the pause menu.
 
 **After any state loads, the game waits on that frame until a button is
 pressed** (decided 2026-09-27). MMagTech, after starting from a state on the
@@ -10395,13 +10383,7 @@ What it does **not** solve is saves: those are server-side, so a game continued
 on a different server starts from that server's save history. That is correct
 behaviour rather than a bug, but the UI should not pretend otherwise.
 
-**Follow Cabinet's save model rather than designing one.** Saves write locally
-first, into a pending queue, and upload afterwards — losing signal mid-save
-never loses the save. Conflicts are designed out by giving each queued file
-RomM's own timestamped name, so uploads never overwrite and syncing is only
-"finish the uploads". Grout instead surfaces conflicts for the user to resolve,
-which is the right call for a client that cannot write the filename — and the
-wrong one here, since we can.
+**The save model:** moved to [decisions/2026-11-15-save-channels.md](decisions/2026-11-15-save-channels.md), which replaces following Cabinet's.
 
 ### 15. A phone companion page for first run
 **Raised 2026-09-13 as a design proposal. NOT ADOPTED YET — deferred, with
@@ -13061,19 +13043,7 @@ from a hidden system still opens to a page that says why. A system whose core
 should be installed and is not (NotInstalled) keeps its greyed tile: that is a
 fault, and hiding it would hide the fault.
 
-#### DECIDED, MMagTech 2026-10-04: other apps' saves are not read (#124, closed)
-
-The console loads only saves and states tagged as Cabinet's or CabinetOS's
-(`main.cpp`, every fetch filters on the tag). Reading RomM's web player's or
-other apps' saves means too many emulator, version and format combinations to
-test, and a save that loads wrongly is worse than none. Considered and
-rejected: a best-effort fallback to another app's newest save, which would
-promise something unsupported. The README says plainly that such progress
-does not carry over and is left untouched on the server.
-
-Since the restructure (#398, 2026-10-17): each fetch filters in its own file,
-states.cpp:248 for states and saves.cpp:83, 378 and 564 for saves; the tags
-come from `catalog::emulatorTag` (savetable.cpp:23).
+#### Other apps' saves (#124): moved to [decisions/2026-11-15-save-channels.md](decisions/2026-11-15-save-channels.md), which replaces the decision of 2026-10-04 not to read them
 
 #### Saves offline: the disk always wins first
 
@@ -13109,15 +13079,8 @@ server takes about 5–10 seconds longer (never more than the stop script's 45);
 and **retry the owed saves when the server returns**, which is the missing
 bookkeeping above.
 
-**The accepted trade, so it is a decision rather than a discovery.** Rule 1
-means an unsent local save always beats the server, so playing offline on the
-console and then playing the same game on an Apple TV before the console
-reconnects loses the Apple TV's save. **MMagTech's reasoning, 2026-09-19, and
-it is why this is accepted: saves are per person and this console switches
-users, so two people on two devices are two different rows and never
-collide.** What remains needs one person, two devices, sequentially, with the
-console offline in between. Rare, and the alternative is asking someone to
-resolve a merge conflict on a television.
+**The accepted trade** (an unsent save beating a newer one made elsewhere,
+2026-09-19): moved to [decisions/2026-11-15-save-channels.md](decisions/2026-11-15-save-channels.md), where RomM keeps both.
 
 #### Who the console is with no server — DECIDED 2026-09-19
 
@@ -13146,7 +13109,7 @@ order); switching people works offline and adding one is greyed; Search works
 over the same games; a small "Offline" chip sits by the account chip; the
 server is retried in the background, quickly at first and then about once a
 minute; there is no Offline switch. Two devices saving the same game across an
-outage is deferred to #261 (the console's save still wins, as before).
+outage: moved to [decisions/2026-11-15-save-channels.md](decisions/2026-11-15-save-channels.md).
 
 What does it, and where:
 
@@ -13181,9 +13144,7 @@ What does it, and where:
   call while online and again every quarter of an hour: offline, a launch
   reads that copy exactly as it reads the server online, so a game last
   played on another device starts from its newest save (the vacation case,
-  moved here from #261). The copy is forgotten whenever a save of ours lands,
-  then read again, so it can never be older than a save the console sent.
-  Its size grows with the saves of the games on the drive: 44 MB for 47 games
+  moved here from #261). Its size grows with the saves of the games on the drive: 44 MB for 47 games
   with saves on the A9 (2026-10-05); a drive of hundreds of PS2 or GameCube
   games (8 to 16 MB a card) would hold a few GB. Not capped: the price of the
   vacation case, small beside the games.
