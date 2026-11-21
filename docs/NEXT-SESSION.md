@@ -117,8 +117,10 @@ RomM: keep test launches under a minute, or have his go.
    (docs/decisions/2026-11-20-channels-on-every-file.md); proven on the
    write-test RomM. The phase 1 test kit plants Cabinet's Dreamcast card in
    the game's own card, and its two Dreamcast rows pass (#722, step 12's
-   notes). Next, each on his word: phase 5 (the 70 games compared in every
-   app) and phase 6 (his short TV check, then testing).
+   notes). Phase 5 is run (2026-11-21, #722's "Phase 5"): the 70 games
+   compared with today's console in every app, five save faults fixed.
+   Next: the save pictures cropped to each game's shape (his ask), then,
+   on his word, phase 6 (his short TV check, then testing).
    After that comes a Switch step: the console pins Sigil whole and,
    for Switch only, reads a game's ID with the player's keys and converts
    its saves on the console. It writes nothing about a game to RomM, since
