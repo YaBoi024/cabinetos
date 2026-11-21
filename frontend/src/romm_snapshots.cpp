@@ -30,7 +30,8 @@
 //        and the push is not; nothing was written. The console never
 //        approves that downgrade (#346, decision 10).
 //   Anything else (404 for a game or channel this person cannot see, 422
-//   for a hash the bytes do not match) is refused, and nothing was written.
+//   for a hash the bytes do not match, naming that part) is refused, and
+//   nothing was written.
 
 #include "romm.h"
 
@@ -526,12 +527,23 @@ void readPushAnswer(long status, const std::string& body, PushAnswer* out) {
             read = true;
         }
     }
+    // A part whose bytes RomM could not hash to the manifest's value:
+    // {"detail":{"manifest":"<part> does not hash to the manifest's value"}}.
+    std::string unhashed;
+    if (object && status == 422) {
+        static const std::string kTail = " does not hash to the manifest's value";
+        const std::string said = jstr(jobj(root, "detail"), "manifest");
+        if (said.size() > kTail.size() &&
+            said.compare(said.size() - kTail.size(), kTail.size(), kTail) == 0)
+            unhashed = said.substr(0, said.size() - kTail.size());
+    }
     if (root) json_object_put(root);
     if (!read) {
         out->kind = PushAnswer::Kind::Refused;
         out->snapshot = Snapshot{};
         out->missing.clear();
         out->detail = body.substr(0, 180);
+        out->unhashed = unhashed;
     }
 }
 

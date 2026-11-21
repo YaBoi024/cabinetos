@@ -521,6 +521,10 @@ struct PushAnswer {
     std::vector<std::string> missing;
     // Refused: what RomM said, cut short.
     std::string detail;
+    // Refused with 422 because a part's bytes do not hash to the value the
+    // manifest names (RomM's `ContentMismatch`): that part, "save" or
+    // "state:<core>:<slot>". Empty for any other refusal.
+    std::string unhashed;
 };
 
 // A game read back from a record written in RomM's own field names (plus a

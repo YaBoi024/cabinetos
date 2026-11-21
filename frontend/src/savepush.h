@@ -280,7 +280,8 @@ enum class Sent {
     Beside,        // RomM holds it beside the current, where it stays
     NothingOwed,   // no marker, or the file it named is gone: nothing to send
     NotSent,       // no answer, or not asked: still owed, tried again later
-    Refused,       // RomM answered and will not take it: still owed
+    Refused,       // RomM answered and will not take it: still owed (a state
+                   // RomM cannot hash is left out and the rest sent instead)
     Waits,         // RomM is too old for save channels: still owed, nothing asked
 };
 // RomM holds it, or nothing is owed: the push is done with.

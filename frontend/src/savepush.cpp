@@ -1106,8 +1106,9 @@ Sent sendOne(const Server& server, const storage::User& who, int romId, std::str
 
     bool beside = false, retargeted = false;
     romm::Snapshot held;
+    int leftOut = 0;   // states RomM could not hash, each a push of its own
     for (int pushes = 1;; ++pushes) {
-        if (pushes > kMostPushes)
+        if (pushes > kMostPushes + leftOut)
             return stop(Sent::NotSent, "RomM's channel kept changing while this was sent");
         push.romFileId = fileFor(push.channelId);
         if (push.romFileId == 0)
@@ -1206,6 +1207,32 @@ Sent sendOne(const Server& server, const storage::User& who, int romId, std::str
             continue;
         }
         if (answer.kind == Kind::BytesMissing && supply(answer.missing)) continue;
+        // A STATE RomM COULD NOT HASH (422 naming `state:<core>:<slot>`; #346,
+        // phase 5, 2026-11-21) goes no further, and the push goes again
+        // without it, so the save and the other states still reach RomM; the
+        // state stays on this console (it is among what this push was made
+        // from, which the trim below keeps). RomM 5.5.0-alpha.2 hashes any
+        // file whose last 64 KB hold a zip's end record as a zip
+        // (`compute_content_hash`), and Flycast's Naomi states carry the end
+        // of the game's own zip: RomM finds no hash and refused the whole
+        // snapshot at every start. A save RomM cannot hash is never left out:
+        // it stays owed.
+        if (answer.status == 422 && answer.unhashed.rfind("state:", 0) == 0) {
+            auto at = std::find_if(push.states.begin(), push.states.end(),
+                                   [&](const romm::PushState& s) {
+                                       return answer.unhashed == "state:" + s.core + ":" + s.slot;
+                                   });
+            if (at != push.states.end()) {
+                std::fprintf(stderr, "[state] game %d: RomM could not store %s (its bytes do not "
+                                     "hash to the value named), so it stays on this console and "
+                                     "the game's snapshot goes without it\n",
+                             romId, at->file.fileName.c_str());
+                push.states.erase(at);
+                for (size_t i = 0; i < push.states.size(); ++i) push.states[i].slot = slotOf(i);
+                ++leftOut;
+                continue;
+            }
+        }
         // REFUSED. A channel or a snapshot the marker names that RomM no
         // longer has (404; a channel deleted on RomM's website takes its
         // older snapshots with it) is asked once more as a save of its own,

@@ -1516,6 +1516,43 @@ int test() {
               "states alone while the current is another CabinetOS console's, its save filed "
               "under an app's row: onto that current, as onto any of this console's form");
     }
+    {   // A state RomM could not hash (phase 5, 2026-11-21: Flycast's Naomi
+        // states hold the end of the game's zip, which RomM reads as a zip).
+        GameSession s = session(++game);
+        hold(game, kChannel, 343);
+        s.startChannelId = kChannel;
+        s.startSnapshotId = 343;
+        const StateMade bad = makeState(s, base + 2000, "ends like a zip");
+        markState(s, u, bad);
+        markState(s, u, makeState(s, base + 1000, "an ordinary state"));
+        Stand romm;
+        romm.channels = {
+            channel(kChannel, kDefaultChannel, snapshot(343, kChannel, hashOlder, romTime(-60)))};
+        romm::PushAnswer unhashed = answerOf(romm::PushAnswer::Kind::Refused, 422,
+                                             "state does not hash to the manifest's value");
+        unhashed.unhashed = std::string("state:") + kTag + ":1";
+        romm.answers = {unhashed, made(snapshot(344, kChannel, hashOlder, romTime(1)))};
+        const Sent sent = send(romm.server(), u, game, &why);
+        const romm::SnapshotPush again =
+            romm.pushes.size() == 2 ? romm.pushes[1] : romm::SnapshotPush{};
+        struct stat st;
+        check(sent == Sent::Landed && romm.pushes.size() == 2 &&
+                  romm.pushes[0].states.size() == 2 && again.states.size() == 1 &&
+                  again.states[0].slot == "1" &&
+                  again.states[0].file.hash == stateHash("an ordinary state") &&
+                  !cache::isPushOwed(u, game) && ::stat(bad.path.c_str(), &st) == 0,
+              "a state RomM could not hash: the snapshot goes again without it and lands, the "
+              "others renumbered, and the state stays on this console");
+        const int g = owe([&](GameSession& o) { hold(o.romId, kChannel, 345); });
+        Stand saveRefused;
+        romm::PushAnswer saveUnhashed = answerOf(romm::PushAnswer::Kind::Refused, 422,
+                                                 "save does not hash to the manifest's value");
+        saveUnhashed.unhashed = "save";
+        saveRefused.answers = {saveUnhashed};
+        check(send(saveRefused.server(), u, g, &why) == Sent::Refused &&
+                  saveRefused.pushes.size() == 1 && cache::isPushOwed(u, g),
+              "the save RomM could not hash: never left out, it stays owed");
+    }
     {   // States alone from a session that could not use the newest save.
         GameSession s = session(++game);
         hold(game, kChannel, 338);

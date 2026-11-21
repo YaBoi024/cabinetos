@@ -326,10 +326,21 @@ int snapshotsTest() {
           "409: a softcore save refused over a hardcore current");
     readPushAnswer(422, kWrongHash, &a);
     check(a.kind == PushAnswer::Kind::Refused && a.status == 422 &&
-              a.detail.find("does not hash") != std::string::npos,
-          "422: a hash the bytes do not match is refused");
+              a.detail.find("does not hash") != std::string::npos && a.unhashed == "save",
+          "422: a hash the bytes do not match is refused, naming the part");
+    readPushAnswer(422,
+                   R"({"detail":{"manifest":"state:flycast-native:1 does not hash to the )"
+                   R"(manifest's value"}})",
+                   &a);
+    check(a.kind == PushAnswer::Kind::Refused && a.unhashed == "state:flycast-native:1",
+          "and a state's, by its core and slot (phase 5: a Naomi state RomM reads as a zip)");
+    readPushAnswer(422, R"({"detail":{"rom_file_id":"the ROM file does not match the channel's"}})",
+                   &a);
+    check(a.kind == PushAnswer::Kind::Refused && a.unhashed.empty(),
+          "another 422 names no part");
     readPushAnswer(404, kNoFile, &a);
-    check(a.kind == PushAnswer::Kind::Refused && a.status == 404, "404: a file RomM does not have");
+    check(a.kind == PushAnswer::Kind::Refused && a.status == 404 && a.unhashed.empty(),
+          "404: a file RomM does not have");
     readPushAnswer(400, R"({"detail":"A manifest part is required"})", &a);
     check(a.kind == PushAnswer::Kind::Refused && a.missing.empty(),
           "a 400 that names no missing bytes is refused");
