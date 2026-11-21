@@ -78,6 +78,21 @@ Pick pick(const Facts& f, bool others) {
         p.why = "a save of this game has not reached RomM yet; this console's stands";
         return p;
     }
+    // THE NEWEST IS THE SNAPSHOT THIS CONSOLE HOLDS, filed under another
+    // emulator's name (#346, phase 5, 2026-11-21). RomM files a snapshot's
+    // save under the first of the person's rows with those bytes, which can be
+    // another app's, and a start this console took from another app's save was
+    // converted on the way in. Either way this console's own copy is that
+    // snapshot's save in its own form, or what it played on from it: nothing
+    // to ask for, and nothing it could not use. Until this, a start with RomM
+    // away said it could not use the newest, and what the session saved was
+    // never put on top (savepush.h).
+    if (otherNewest && otherInChannel && f.haveHeld && !f.held.beside &&
+        otherCh->id == f.held.channelId && otherCh->current.id == f.held.snapshotId) {
+        p.why = otherWords + " is the newest save on RomM and the snapshot this console holds: "
+                             "its own copy stands";
+        return p;
+    }
     // A save made before one of this console's own that RomM kept beside a
     // channel's current is never started from (the head of savepick.h).
     const int64_t ownAt = f.haveHeld && f.held.beside ? f.held.madeAt * 1000000 : 0;
@@ -536,6 +551,30 @@ int test() {
         check(!pick(f).other && pick(f).channel.current.id == 12,
               "made at the same moment as this console's: this console's, which needs no "
               "asking");
+    }
+    {   // 9a. THE NEWEST IS THE SNAPSHOT THIS CONSOLE HOLDS, under another
+        // emulator's name (phase 5, 2026-11-21): RomM filed this console's own
+        // bytes under an app's row with the same bytes, or this console took
+        // that app's save, converted, and holds its snapshot.
+        Facts f;
+        f.tag = kTag;
+        f.channels = {channelWith("default", 1, t3, kPhoneTag, "ffff", console, {console})};
+        f.oldRowAt = t1;
+        f.haveHeld = true;
+        f.held = holding("ffff");
+        const Pick held = pick(f);
+        check(held.from == From::Own && !held.other && !held.couldNotUseNewest &&
+                  !held.madeElsewhere,
+              "the newest is the snapshot this console holds, filed under another emulator's "
+              "name: its own copy stands, nothing asked, nothing it could not use");
+        check(pick(f, false).from == From::Own && !pick(f, false).couldNotUseNewest,
+              "and with RomM away (nothing could be asked): the same, so what it saves can go "
+              "on top");
+        f.held.snapshotId = 2;
+        const Pick other = pick(f);
+        check(other.other && other.from == From::Channel && other.channel.current.id == 1,
+              "a newer snapshot than the one it holds, another emulator's: asked for, as "
+              "before");
     }
     {   // 9b. ANOTHER APP'S SAVE IN NO CHANNEL (#346, step 8; MMagTech,
         //     2026-11-19): weighed as a channel's is.

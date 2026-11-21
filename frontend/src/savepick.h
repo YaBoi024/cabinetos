@@ -34,7 +34,12 @@
 // (`couldNotUseNewest`). AND ANOTHER APP'S SAVE IN NO CHANNEL IS WEIGHED THE
 // SAME WAY (MMagTech, 2026-11-19): a row from before channels that another
 // emulator made, from an app that does not use channels or uploaded by hand
-// on RomM's website. Its row is left as it is.
+// on RomM's website. Its row is left as it is. BUT THE SNAPSHOT THIS CONSOLE
+// HOLDS IS NEVER ANOTHER EMULATOR'S TO IT (#346, phase 5, 2026-11-21): RomM
+// files a snapshot's save under the first of the person's rows with those
+// bytes, which can be another app's, and a save this console took from
+// another app was converted on the way in, so its own copy is that save in
+// its own form, or what it played on from it.
 //
 // THE PILL IS NEVER A GUESS (MMagTech, 2026-11-17: the console shows no
 // message that is wrong; one missed is accepted). It shows only when the
