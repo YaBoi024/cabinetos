@@ -751,8 +751,8 @@ static bool RunOnCPUThread(const CabinetPS2::Config& config, std::string* error)
 	// catalog::optionOverrides for exactly this reason.
 	//
 	// A GUITAR'S PORT HOLDS PCSX2'S GUITAR instead (frontend/src/guitar.h),
-	// which has no analogue mode. Pad::LoadConfig makes a new pad whenever a
-	// port's type changes (SIO/Pad/Pad.cpp), so a port goes back to a
+	// which has no analogue mode. PCSX2 makes a new pad whenever a port's
+	// type changes (LoadConfig in SIO/Pad/Pad.cpp), so a port goes back to a
 	// DualShock 2 at the next game without a guitar.
 	for (u32 port = 0; port < 2; port++)
 	{
