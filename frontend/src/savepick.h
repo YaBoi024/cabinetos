@@ -9,7 +9,10 @@
 // THE RULE. The game starts from the newest save RomM holds for this person
 // that this console can use, in any of their channels or among the saves from
 // before channels (RomM's old rows, under the console's tag as before). A
-// save this console has not sent yet still wins, whatever RomM holds. When
+// save this console has not sent yet is sent first, when RomM answers
+// (savepush::settleBeforeStart), and then weighed like any other, so a
+// console back from a trip continues from a newer save made elsewhere
+// meanwhile; one it could not send still wins, whatever RomM holds. When
 // the newest save on RomM is one the console cannot use, it starts from the
 // newest it can, or its own, and the session says so (`couldNotUseNewest`),
 // so what it saves is kept RomM's way beside the newer one.
@@ -74,8 +77,8 @@ struct Facts {
     // RomM's saves in no channel that another emulator made (otherRows).
     std::vector<romm::Asset> otherRows;
     // This console still owes RomM a save of the game, as a snapshot or as a
-    // file from before channels, so its own copy is newer than anything RomM
-    // holds (pending.h).
+    // file from before channels (pending.h), and could not send it before the
+    // start (savepush::settleBeforeStart): its own copy stands.
     bool owed = false;
     // The snapshot this console holds of the game; `haveHeld` false when it
     // holds none.

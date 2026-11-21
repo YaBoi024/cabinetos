@@ -298,9 +298,27 @@ bool triedAgain(Sent sent);
 // holds; the marker is cleared; and the copy is fetched again for offline.
 // `inPlay`, when given, is asked once the bytes are read: true leaves the
 // push owed and unsent (uploader.cpp). `*why` says what happened when it did
-// not land. Blocks: off the frame thread.
+// not land. Blocks: off the frame thread. ONE PUSH OF A GAME AT A TIME: the
+// upload queue's and a start's (settleBeforeStart) are never in flight
+// together, so the second finds the marker the first cleared and sends
+// nothing twice.
 Sent send(const Server& server, const storage::User& who, int romId, std::string* why,
           const std::function<bool()>& inPlay = {});
+
+// A START SENDS WHAT THIS CONSOLE STILL OWES OF THE GAME BEFORE IT PICKS
+// (#346, phase 5, 2026-11-21), when RomM answered its lists: a console back
+// from a trip, its save made there still owed, while another console saved
+// the game since. Until this the owed save won whatever RomM held
+// (savepick.h), so the console played on from the older save and its next
+// save went on top of the newer one: the fault phase 2 recorded, still
+// there whenever Play came before the queue had sent it (a start right after
+// the console noticed RomM again). Sent, the push settles the usual way
+// (the head of this file): on top when this console's save was made later,
+// else kept beside, and the start lists again and picks by the one rule.
+// True when nothing is owed any more; false leaves it owed, and this
+// console's own save stands, as before. On the launch worker (saves.cpp,
+// fetchSaves).
+bool settleBeforeStart(const Server& server, const storage::User& who, int romId);
 
 // `--save-push-test` (savepush_test.cpp): what a session left for each kind
 // of save, where each push is aimed, every answer RomM gives, and the states

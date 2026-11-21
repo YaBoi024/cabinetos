@@ -12,11 +12,13 @@
 #include <sys/stat.h>
 
 #include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
 #include <deque>
 #include <map>
+#include <thread>
 
 #include "cache.h"
 #include "dirsave.h"
@@ -800,6 +802,74 @@ int test() {
         f.oldRowAt = romTime(-7200);
         check(savepick::pick(f).from == savepick::Pick::From::Own,
               "but never a save made before this console's own, kept beside");
+    }
+    {   // BACK FROM A TRIP (phase 5, 2026-11-21): the save made there still owed,
+        // another console's made since on top. As the start found it, its own
+        // would stand; settled first, the newer is what it continues from.
+        const int g = owe([&](GameSession& s) { hold(s.romId, kChannel, 2100); });
+        Stand romm;
+        const romm::Snapshot theirs = snapshot(2101, kChannel, "ffff", romTime(600));
+        savepick::Facts f;
+        f.tag = kTag;
+        f.channels = {channel(kChannel, kDefaultChannel, theirs)};
+        f.owed = cache::saveOwed(u, g);
+        f.haveHeld = savemirror::getHeld(u, g, &f.held);
+        check(f.owed && savepick::pick(f).from == savepick::Pick::From::Own,
+              "back from a trip, its save still owed: as listed, this console's own would "
+              "stand over the newer save another console made since");
+        romm.answers = {movedOn(snapshot(2102, kChannel, hashOne, romTime(601)), &theirs)};
+        check(settleBeforeStart(romm.server(), u, g) && romm.pushes.size() == 1 &&
+                  !cache::saveOwed(u, g),
+              "so the start sends it first, and it is owed no longer");
+        f.owed = cache::saveOwed(u, g);
+        f.haveHeld = savemirror::getHeld(u, g, &f.held);
+        const savepick::Pick after = savepick::pick(f);
+        check(f.held.beside && f.held.snapshotId == 2102 &&
+                  after.from == savepick::Pick::From::Channel && after.channel.current.id == 2101,
+              "and the start continues from the newer save, the trip's kept beside it on RomM");
+    }
+    {   // Back from a trip, its save made later than the one on top: on top.
+        const int g = owe([&](GameSession& s) { hold(s.romId, kChannel, 2110); });
+        Stand romm;
+        const romm::Snapshot theirs = snapshot(2111, kChannel, "ffff", romTime(-600));
+        romm.answers = {movedOn(snapshot(2112, kChannel, hashOne, romTime(0)), &theirs),
+                        made(snapshot(2113, kChannel, hashOne, romTime(1)))};
+        check(settleBeforeStart(romm.server(), u, g) && romm.pushes.size() == 2 &&
+                  !cache::saveOwed(u, g) && savemirror::getHeld(u, g, &held) &&
+                  held.snapshotId == 2113 && !held.beside,
+              "a trip's save made later than the one on top goes on top before the start "
+              "picks, so the start continues from it");
+    }
+    {   // RomM does not answer the push: still owed, its own stands.
+        const int g = owe([&](GameSession& s) { hold(s.romId, kChannel, 2120); });
+        Stand romm;
+        cache::OwedPush before;
+        cache::owedPush(u, g, &before);
+        check(!settleBeforeStart(romm.server(), u, g) && cache::saveOwed(u, g) &&
+                  romm.pushes.size() == 1,
+              "a push RomM does not answer before the start: still owed, and this console's "
+              "own stands, as before");
+        cache::clearPushOwed(u, g, before.stamp);
+    }
+    {   // ONE PUSH OF A GAME AT A TIME: the queue's in flight, a start's waits
+        // for it and then finds nothing owed.
+        const int g = owe([&](GameSession& s) { hold(s.romId, kChannel, 2130); });
+        Stand romm;
+        romm.answers = {made(snapshot(2131, kChannel, hashOne, romTime(1))),
+                        made(snapshot(2132, kChannel, hashOne, romTime(2)))};
+        std::thread start;
+        bool startSettled = false;
+        romm.duringPush = [&] {
+            if (start.joinable()) return;
+            start = std::thread([&] { startSettled = settleBeforeStart(romm.server(), u, g); });
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        };
+        const Sent queued = send(romm.server(), u, g, &why);
+        start.join();
+        check(queued == Sent::Landed && startSettled && romm.pushes.size() == 1 &&
+                  !cache::saveOwed(u, g),
+              "a start while the queue sends the same game's push waits for it, then finds "
+              "nothing owed: one push, not two");
     }
     {   // Moved on, a session that could not use the newest: always left.
         const int g = owe([&](GameSession& s) {

@@ -548,6 +548,16 @@ void fetchSaves(romm::Client& client, const storage::User& user, int romId,
                 const std::atomic<bool>* cancel, SaveFetch* out) {
     listSaves(client, user, romId, known, tag, out);
     if (!out->listed) return;
+    // WHAT THIS CONSOLE STILL OWES GOES FIRST, while RomM answers (savepush.h,
+    // settleBeforeStart): a save made on a trip and not sent yet is older than
+    // one another console made since, and won here until it had gone.
+    if (out->facts.owed && romm::serverTakesSaves() && !romm::serverAway()) {
+        if (cancel && cancel->load()) return;
+        if (savepush::settleBeforeStart(savepush::serverOf(client), user, romId)) {
+            listSaves(client, user, romId, out->channelFiles, tag, out);
+            if (!out->listed) return;
+        }
+    }
     if (out->pick.other) {
         if (cancel && cancel->load()) return;
         std::string why = !own                        ? "this start reads no other emulator's save"

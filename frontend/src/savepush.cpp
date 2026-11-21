@@ -4,10 +4,12 @@
 #include <sys/stat.h>
 
 #include <algorithm>
+#include <condition_variable>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
 #include <map>
+#include <mutex>
 #include <set>
 
 #include "cache.h"
@@ -693,8 +695,66 @@ Server serverOf(romm::Client& client) {
     return s;
 }
 
+namespace {
+
+// ONE PUSH OF A GAME AT A TIME (send, savepush.h): the person's folder and the
+// game of every push in flight, under sendingMutex.
+std::mutex sendingMutex;
+std::condition_variable sendingDone;
+std::set<std::string> sending;
+
+class OnePushOfAGame {
+public:
+    OnePushOfAGame(const storage::User& who, int romId)
+        : key_(storage::userDir(who) + "|" + std::to_string(romId)) {
+        std::unique_lock<std::mutex> lock(sendingMutex);
+        sendingDone.wait(lock, [this] { return sending.count(key_) == 0; });
+        sending.insert(key_);
+    }
+    ~OnePushOfAGame() {
+        {
+            std::lock_guard<std::mutex> lock(sendingMutex);
+            sending.erase(key_);
+        }
+        sendingDone.notify_all();
+    }
+    OnePushOfAGame(const OnePushOfAGame&) = delete;
+    OnePushOfAGame& operator=(const OnePushOfAGame&) = delete;
+
+private:
+    const std::string key_;
+};
+
+Sent sendOne(const Server& server, const storage::User& who, int romId, std::string* why,
+             const std::function<bool()>& inPlay);
+
+}  // namespace
+
 Sent send(const Server& server, const storage::User& who, int romId, std::string* why,
           const std::function<bool()>& inPlay) {
+    OnePushOfAGame one(who, romId);
+    return sendOne(server, who, romId, why, inPlay);
+}
+
+bool settleBeforeStart(const Server& server, const storage::User& who, int romId) {
+    std::string why;
+    const Sent sent = send(server, who, romId, &why);
+    if (!settled(sent)) {
+        std::fprintf(stderr, "[save] game %d: its save waiting on this console could not go to "
+                             "RomM before the start (%s); this console's stands\n",
+                     romId, why.c_str());
+        return false;
+    }
+    std::fprintf(stderr, "[save] game %d: its save waiting on this console went to RomM before "
+                         "the start picked%s\n",
+                 romId, sent == Sent::NothingOwed ? " (already sent)" : "");
+    return true;
+}
+
+namespace {
+
+Sent sendOne(const Server& server, const storage::User& who, int romId, std::string* why,
+             const std::function<bool()>& inPlay) {
     auto stop = [&](Sent sent, const std::string& reason) {
         if (why) *why = reason;
         return sent;
@@ -1225,5 +1285,7 @@ Sent send(const Server& server, const storage::User& who, int romId, std::string
     }
     return stop(beside ? Sent::Beside : Sent::Landed, std::string());
 }
+
+}  // namespace
 
 }  // namespace savepush
