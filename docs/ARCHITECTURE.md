@@ -136,6 +136,12 @@ is in the file named for its feature, and
   under the same bwrap (`noNetworkInstall`; `rpcs3Headless`, `vitaHeadless`).
   A new core or emulator program is covered by going through those, with
   nothing of its own.
+- **No emulator run as a program leaves a core file**
+  (`docs/decisions/2026-11-22-no-core-file-for-emulators.md`): `proc::spawn`
+  sets its core-file limit to 0 for it and everything it starts, so a crash
+  as it closes ends it at once rather than holding the console while the
+  system copies its memory. The console's own program, and the cores inside
+  it, keep theirs.
 - **Storage** (`storage.h`) decides where everything lives. Eviction only ever
   walks `cache/`; kept games (`roms/`) and save data are never evicted. The
   one other removal is a game RomM no longer has, kept or played, at a start

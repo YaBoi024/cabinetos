@@ -105,6 +105,10 @@ RomM: keep test launches under a minute, or have his go.
   2026-11-11 to wait for RomM 5.5), #534 (the Azahar patch,
   azahar-emu/azahar#2694),
   eden-emulator/Issue-Reports#739 (a Switch controller connected mid-game),
+  Eden's close crash and hang, fixed in its development code on 2026-09-11
+  (`c95ad020fb`, Eden's pull request 4395) and in no release yet: move the Flathub pin
+  when flathub/dev.eden_emu.eden builds a release after v0.2.1 (lessons,
+  emulators, "Switch (Eden)"),
   #203 closed until libretro/dolphin#508 moves.
 - **Filed, not scheduled:** #675, "Arcade: a Naomi or Atomiswave game with
   a plain joystick moves only on the d-pad", the fix agreed in principle on
