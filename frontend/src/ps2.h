@@ -98,6 +98,14 @@ void setPaused(bool paused);
 void setPad(int port, uint32_t buttons, float leftX, float leftY, float rightX, float rightY,
             float leftTrigger, float rightTrigger);
 
+// A GUITAR IN `port` (guitar.h), 0 or 1, for the next startGame: PCSX2 is
+// told the port holds its guitar rather than a DualShock 2, and setPad is
+// then handed the guitar's state (guitar::ps2State). False, and a DualShock
+// 2 in the port, when the library is older than this.
+bool setGuitar(int port, bool on);
+// Whether the game now running was told `port` holds a guitar.
+bool guitar(int port);
+
 // Hands what the game last asked of each DualShock 2's motors to rumble.h.
 // Once a frame; PCSX2 runs on its own thread, so this is read, not told.
 void pollRumble();

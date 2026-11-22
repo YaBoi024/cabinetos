@@ -397,14 +397,15 @@ bool App::readGameInput(cab::Core& core) {
         // back_button_timeout), so it is the one way to pause from any
         // app (MMagTech, 2026-10-08). The shortcuts themselves stay
         // the switch's. The pads seated during a stream are only the
-        // stream's, so nothing changes at the TV. A FIGHT STICK'S HOME
-        // OPENS IT THE SAME WAY, in every game: the stick has no stick
-        // clicks for the pair (fightstick.h).
+        // stream's, so nothing changes at the TV. A FIGHT STICK'S HOME,
+        // AND A GUITAR'S, OPEN IT THE SAME WAY, in every game: neither has
+        // the stick clicks for the pair to hand (fightstick.h, guitar.h).
         const bool combos = shortcuts::enabled();
         // LinkUp's friend pauses on their own console: player two's pad holds no shortcut here.
         if (SDL_Gamepad* gp = players::gamepad(p);
             gp && !players::setAside(SDL_GetGamepadID(gp)) &&
-            (combos || players::streaming() || players::stick(SDL_GetGamepadID(gp)))) {
+            (combos || players::streaming() || players::stick(SDL_GetGamepadID(gp)) ||
+             players::guitar(SDL_GetGamepadID(gp)))) {
             ShortcutHold& h = shortcutHold[p];
             const SDL_JoystickID who = SDL_GetGamepadID(gp);
             if (h.down && h.pad != who) h = {};

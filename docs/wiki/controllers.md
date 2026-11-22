@@ -7,7 +7,8 @@
 **Officially supported: Xbox, PlayStation (PS4 and PS5) and Switch
 controllers**, over Bluetooth or USB, and the **8BitDo Arcade Stick** (see
 [Fight sticks](#fight-sticks)). These are the ones CabinetOS is built and
-tested around.
+tested around. Guitar Hero and Rock Band guitars play PlayStation 2 and 3
+games as guitars (see [Guitars](#guitars)).
 
 Other pads in the [SDL controller list](https://github.com/mdqinc/SDL_GameControllerDB)
 usually work too, with no setup; the console knows hundreds of pads from
@@ -101,6 +102,42 @@ stick. To put a game's buttons elsewhere, use [Controls](pause-menu.md#controls)
 in its pause menu. Tap **Home** for the pause menu in any game. Other
 games play it as an Xbox pad. Wired, or on its 2.4G receiver, it is treated as
 an ordinary pad everywhere.
+
+## Guitars
+
+A Guitar Hero or Rock Band guitar plays every **PlayStation 2** and
+**PlayStation 3** game as a guitar: the frets, the strum bar, Start, star
+power, the whammy bar and tilt, over Bluetooth, a cable or the guitar's own
+receiver. There is nothing to set: turn the guitar on, then start the game.
+Two guitars work the same way, one per player. In every other system the
+guitar plays as the controller it says it is, and it moves through the menus
+like any pad.
+
+- **Star power:** tilt the neck up, or press the guitar's View or Select
+  button.
+- **Pause menu:** tap **Home**, in any game.
+- **Turn it on first.** A guitar turned on after the game has started plays
+  as a pad until you start the game again.
+- **Rock Band or Guitar Hero.** PlayStation 3 games see a Rock Band guitar,
+  which every Rock Band and every Guitar Hero from World Tour on takes, so
+  tilt works in all of them. Guitar Hero III and Guitar Hero: Aerosmith,
+  which came before the two kinds worked together, see a Guitar Hero guitar.
+  Guitar Hero Live needs its own six-button guitar.
+- Settings, Controllers, **Controllers** lists it as **Guitar**.
+
+The console knows a guitar when it says it is one: an Xbox 360 guitar, or a
+controller with "Guitar" in its name.
+
+**CRKD Les Paul (Multi Platform edition):** set the platform slider to **PC**
+and the mode dial to **8**. After moving the dial, pair it again over
+Bluetooth (Settings, Controllers, **Controllers**, **Add a controller**).
+Dial 1 works too, but there its tilt can send nothing (always over
+Bluetooth), so use View for star power.
+
+RedOctane's Xbox 360 **Guitar Hero X-plorer** should play the same way, from
+how it is documented; it has not been tried on a console yet. A wireless Xbox
+360 guitar on Microsoft's own Xbox 360 receiver shows as a pad and plays as
+one.
 
 ## Wii Remotes
 
