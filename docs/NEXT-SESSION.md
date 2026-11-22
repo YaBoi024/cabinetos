@@ -122,13 +122,15 @@ RomM: keep test launches under a minute, or have his go.
    The save pictures gamescope takes are cut to each game's shape
    (2026-11-21, #722's "Save pictures cropped"): the black bars down
    both sides go when the picture proves they are bars, and a dark
-   scene goes whole. Next, on his word, phase 6 (his short TV check,
-   then testing).
-   After that comes a Switch step: the console pins Sigil whole and,
-   for Switch only, reads a game's ID with the player's keys and converts
-   its saves on the console. It writes nothing about a game to RomM, since
-   it never asks to change the library (romm-converts-saves, rewritten at
-   the step 10 review). Six
+   scene goes whole. The Switch step is built (2026-11-22, #722's
+   "Switch step"; MMagTech's word: Switch crosses before alpha testers
+   get the build): the console carries Sigil at the commit RomM builds in
+   (`frontend/third_party/sigil`) and, for Switch only, reads a game's ID
+   with the player's keys and converts another app's save itself, writing
+   nothing about a game to RomM (romm-converts-saves); a Switch save now
+   carries the device's save beside the profile's (Animal Crossing's
+   island). Next, on his word, phase 6 (his short TV check, a Switch game
+   among the games, then testing). Six
    upstream pieces run outside this plan, in MMagTech's Sigil window
    ("6. Sigil review fixes"), each widening what crosses between apps with
    no change on the console: PS3 .pkg reading in Sigil (argosy-sigil#28),

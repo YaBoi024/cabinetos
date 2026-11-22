@@ -150,15 +150,31 @@ bool looksLikeZip(const std::vector<uint8_t>& data);
 //   3DS: `<high>/<low>/data/...`, and the title's extra data as
 //   `<high>/<low>/extdata/...`, without the SD card's `<id0>/<id1>/title/`
 //   and `<id0>/<id1>/extdata/00000000/<low / 256>/` above them.
-// A save holding any file that has no place in it travels in the folder's
-// own shape, so nothing is ever left out. The zips already on RomM keep the
-// folder's shape, which a start still reads (MMagTech's rule of 2026-10-28:
-// no update breaks a save).
-enum class ZipShape { Folder, Wii, ThreeDS };
-std::vector<ZipFile> toZipShape(ZipShape shape, std::vector<ZipFile> files);
+//   Switch (the Switch step): `<title>/...` for the profile's own saves and
+//   `device/<title>/...` for the device's, which every profile shares,
+//   without Eden's `<profile>/` and all-zero folder above them.
+// A Wii or 3DS save holding any file that has no place in it travels in the
+// folder's own shape, so nothing is ever left out. A Switch save is only
+// what Sigil's unit holds: the profile's and the device's folders, without
+// the size file each Switch emulator keeps beside a save
+// (`.yuzu_save_size`), which Sigil never moves (inSwitchUnit). The zips
+// already on RomM keep the folder's shape, which a start still reads
+// (MMagTech's rule of 2026-10-28: no update breaks a save); a Switch zip
+// from before was rooted in the profile's folder, `<title>/...`, the unit's
+// own shape, and goes there whole.
+enum class ZipShape { Folder, Wii, ThreeDS, Switch };
+// `place`: Switch's profile folder (standalone::saveProfile); the other
+// shapes take none.
+std::vector<ZipFile> toZipShape(ZipShape shape, std::vector<ZipFile> files,
+                                const std::string& place = std::string());
 // Back to the folder's own paths; a zip in the folder's shape comes back as
-// it is. `wiiKind`: the Wii title's kind folder, `00010000` for a disc.
-std::vector<ZipFile> fromZipShape(ZipShape shape, const std::string& wiiKind,
+// it is. `place`: the Wii title's kind folder, `00010000` for a disc; Switch's
+// profile folder.
+std::vector<ZipFile> fromZipShape(ZipShape shape, const std::string& place,
                                   std::vector<ZipFile> files);
+// Whether a file under Eden's save root (standalone::saveRoot) is in the
+// Switch unit: in `profile`'s folder or the device's, in a game's folder
+// named by its title ID, and not a size file.
+bool inSwitchUnit(const std::string& profile, const std::string& relPath);
 
 }  // namespace cab

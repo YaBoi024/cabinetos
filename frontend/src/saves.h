@@ -89,6 +89,10 @@ struct OwnForm {
     // wrote it (MMagTech, 2026-11-20). CabinetOS consoles' saves travel
     // under the tag and are never asked for in this form.
     bool arcade = false;
+    // A Switch game's dump, whose title ID Sigil reads with the player's keys
+    // when another app's save is converted on this console rather than by
+    // RomM (switchsave.h). Empty for every other system.
+    std::string switchDump;
 };
 // The worker's half of a restore: listSaves, then the bytes of the save the
 // pick names: the snapshot's, or of RomM's old rows the newest under `tag` in
@@ -144,13 +148,14 @@ struct StartNotes {
 // save, the zip syncDirSave makes. A restore that cannot read the picked
 // save that way leaves the console's own in place.
 // A ZIP IN SIGIL'S SHAPE (dirsave.h, ZipShape) is put back in the folder's
-// own; `shape` and `wiiKind` from zipShapeOf and wiiKindOf.
+// own; `shape` from zipShapeOf, `place` from wiiKindOf for a Wii game and
+// standalone::saveProfile for a Switch game.
 void restoreDirSave(const SaveFetch& fetched, const char* tag, const std::string& root,
                     const std::string& title, const std::string& oldCard = std::string(),
                     StartNotes* notes = nullptr, cab::ZipShape shape = cab::ZipShape::Folder,
-                    const std::string& wiiKind = std::string());
+                    const std::string& place = std::string());
 // RomM's shape for this core's folder save (dirsave.h): Sigil's for a Wii
-// game (the Mii Channel's stays the folder's) and a 3DS game.
+// game (the Mii Channel's stays the folder's), a 3DS game and a Switch game.
 cab::ZipShape zipShapeOf(const std::string& core, const std::string& platform,
                          const std::string& titleId);
 // A Wii title's kind folder from RomM's `title_id`: the first eight of a

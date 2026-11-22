@@ -76,8 +76,12 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     }
     // THE SAVE COMES DOWN FIRST, as PSP's does: a zip of the game's save
     // folder, unpacked where the emulator will look. The folder inside is
-    // named by the game's title ID, so the console never has to know it.
+    // named by the game's title ID, so the console never has to know it. A
+    // Switch game's is Sigil's unit, put back under Eden's profile and the
+    // device's folders (dirsave.h, ZipShape::Switch).
     const std::string root = cab::standalone::saveRoot(emu, saveDir);
+    const std::string profile = cab::standalone::saveProfile(emu);
+    const cab::ZipShape shape = zipShapeOf(launchJob.coreName, launchJob.platformSlug, "");
     const char* tag = catalog::saveTag(launchJob.coreName.c_str());
     // A LAST GAME HERE THAT NEVER GOT ITS SAVES ZIPPED goes up first, so
     // the restore below keeps it (finishInterruptedSave); for an Xbox game
@@ -104,7 +108,8 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     StartNotes startNotes;
     startNotes.asideDir = storage::replacedSaveDir(user, launchJob.platformFsSlug, launchJob.romId);
     if (!root.empty() && tag && launchJob.saves.asked)
-        restoreDirSave(launchJob.saves, tag, root, launchJob.title, std::string(), &startNotes);
+        restoreDirSave(launchJob.saves, tag, root, launchJob.title, std::string(), &startNotes,
+                       shape, profile);
     const SaveFetch startedFrom = std::move(launchJob.saves);
     launchJob.saves = SaveFetch{};
     // Where its save came from (saves.h, noteStart), before the note below,
@@ -170,6 +175,9 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     // game saved. See GameSession.
     if (!root.empty()) {
         session.dirSaveRoot = root;
+        session.dirSaveCore = launchJob.coreName;
+        session.dirSavePlatform = launchJob.platformSlug;
+        session.dirSaveProfile = profile;
         session.dirAtLaunch = cab::listTree(root);
         std::fprintf(stderr, "[save] %s holds %zu file(s) at launch\n", root.c_str(),
                      session.dirAtLaunch.size());

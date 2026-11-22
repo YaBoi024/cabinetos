@@ -234,8 +234,10 @@ const char* saveTag(const char* core) {
         {"dolphin", "dolphin"},
         // Switch, in Eden. No Cabinet app plays Switch, so there is no row to
         // match and the name is this console's to choose: the emulator's own,
-        // as the two above are. The save is a zip of the game's save folder,
-        // travelling the way PSP's does (open question 32, decision D).
+        // as the two above are. The save is a zip of the game's save folder
+        // and the device's, Sigil's unit for Eden (dirsave.h,
+        // ZipShape::Switch), travelling the way PSP's does (open question 32,
+        // decision D).
         {"eden", "eden"},
         // PlayStation 3, in RPCS3, the same way and for the same reason: no
         // Cabinet app plays it. A zip of the game's save folders.
@@ -314,7 +316,9 @@ SaveForm saveForm(const char* core, const std::string& slug) {
 
     // The one profile each of these emulators keeps on this console. Eden's
     // is the folder of the profile standalone_eden.cpp makes (kProfileId,
-    // "CabinetOS player", its bytes backwards in hex, as Eden names it).
+    // "CabinetOS player", its bytes backwards in hex, as Eden names it); its
+    // saves are converted on this console, where Sigil restores into this
+    // profile (switchsave.h).
     if (name == "eden") f.profile = "726579616C7020534F74656E69626143";
     if (name == "cemu") f.profile = "80000001";
     if (name == "vita3k") f.profile = "00";
@@ -326,7 +330,6 @@ SaveForm saveForm(const char* core, const std::string& slug) {
     if (name == "azahar") f.answerRoot = "sdmc/Nintendo 3DS/";
     if (name == "dolphin" && slug == "ngc") f.answerRoot = "User/GC/*/Card A/";
     if (name == "dolphin" && slug == "wii") f.answerRoot = "User/Wii/title/";
-    if (name == "eden") f.answerRoot = "nand/user/save/0000000000000000/*/";
     if (name == "cemu") f.answerRoot = "mlc01/usr/save/*/";
     if (name == "vita3k") f.answerRoot = "ux0/user/*/savedata/";
     if (name == "rpcs3") f.answerRoot = "dev_hdd0/home/*/savedata/";

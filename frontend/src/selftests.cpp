@@ -6,11 +6,14 @@
 #include <sys/time.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <atomic>
 #include <csignal>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
+#include <map>
 #include <string>
 #include <thread>
 #include <vector>
@@ -31,8 +34,11 @@
 #include "saves.h"
 #include "server.h"
 #include "storage.h"
+#include "switchsave.h"
 #include "timewords.h"
 #include "unsettled.h"
+
+#include <sigil.h>
 
 // Does completing setup actually STICK?
 //
@@ -1096,6 +1102,74 @@ int saveNotesTest() {
     return failures == 0 ? 0 : 1;
 }
 
+// SIGIL'S OWN UNIT OF A SWITCH SAVE ROOT, for the rows that hold this
+// console's Switch push to it (dirsave.h, ZipShape::Switch): Sigil's collect
+// for Eden over `tree`, files by their paths under Eden's save root, with
+// `profile`'s saves taken for `title`, read back as its zip's files by name.
+// Empty when Sigil refuses.
+static std::map<std::string, std::vector<uint8_t>> sigilsUnit(
+    const std::vector<cab::ZipFile>& tree, const std::string& profile, const std::string& title) {
+    using Files = std::map<std::string, std::vector<uint8_t>>;
+    Files files;
+    for (const cab::ZipFile& f : tree) files["nand/user/save/0000000000000000/" + f.relPath] = f.bytes;
+    struct Reading {
+        std::vector<uint8_t> bytes;
+    };
+    sigil_save_open_fn open = [](void* ctx, const char* rel) -> sigil_io* {
+        const Files& fs = *static_cast<const Files*>(ctx);
+        const auto it = fs.find(rel);
+        if (it == fs.end()) return nullptr;
+        auto* io = static_cast<sigil_io*>(std::malloc(sizeof(sigil_io)));
+        io->read = [](void* c, uint64_t off, void* buf, size_t len) -> int {
+            const auto& b = static_cast<Reading*>(c)->bytes;
+            if (off >= b.size()) return 0;
+            const size_t n = std::min(len, b.size() - static_cast<size_t>(off));
+            std::memcpy(buf, b.data() + off, n);
+            return static_cast<int>(n);
+        };
+        io->size = [](void* c) -> int64_t {
+            return static_cast<int64_t>(static_cast<Reading*>(c)->bytes.size());
+        };
+        io->close = [](void* c) { delete static_cast<Reading*>(c); };
+        io->ctx = new Reading{it->second};
+        return io;
+    };
+    std::vector<const char*> listing;
+    for (const auto& [path, bytes] : files) listing.push_back(path.c_str());
+    sigil_result r{};
+    r.struct_version = SIGIL_RESULT_V4;
+    std::snprintf(r.title_id, sizeof r.title_id, "%s", title.c_str());
+    std::snprintf(r.save_id, sizeof r.save_id, "%s", title.c_str());
+    r.platform = SIGIL_PLATFORM_SWITCH;
+    r.usage = SIGIL_USAGE_FOLDER_EXACT;
+    const char* ids[] = {title.c_str()};
+    sigil_sync_request req{};
+    req.struct_version = SIGIL_SYNC_REQUEST_V1;
+    req.save.struct_version = SIGIL_SAVE_REQUEST_V1;
+    req.save.layout = "eden";
+    req.save.platform = "switch";
+    req.save.content_path = "game.nsp";
+    req.save.result = &r;
+    req.save.listing = listing.data();
+    req.save.listing_count = listing.size();
+    req.save.open = open;
+    req.save.open_ctx = &files;
+    req.save.profile = profile.c_str();
+    req.game_ids = ids;
+    req.game_id_count = 1;
+    req.mode = SIGIL_SYNC_MANAGED;
+    sigil_sync_result* res = nullptr;
+    Files unit;
+    if (sigil_collect(&req, &res) == SIGIL_OK && res->data) {
+        std::vector<cab::ZipFile> members;
+        std::string err;
+        if (cab::readZip(std::vector<uint8_t>(res->data, res->data + res->len), &members, &err))
+            for (cab::ZipFile& m : members) unit[m.relPath] = std::move(m.bytes);
+    }
+    sigil_sync_result_free(res);
+    return unit;
+}
+
 // `--save-pick-test` (#346): which save a start continues from. The rule's
 // own table first (savepick::test, no disk), then the restores that write the
 // picked save, in a scratch root with no core: a core's save file and a save
@@ -1985,25 +2059,13 @@ int savePickTest() {
                          n3ds) &&
                   !takes(answer("", {}), false, n3ds),
               "3DS: a title's save on the SD card; anything else, empty: refused");
-        const OwnForm sw = form("eden", "switch", "", true);
-        check(sw.form.profile.size() == 32 &&
-                  takes(zipped({"nand/user/save/0000000000000000/" + sw.form.profile +
-                                     "/0100AC10085CE000/save.dat",
-                                 unmarked(64)}),
-                        false, sw, &out) &&
-                  cab::readZip(out, &files, &zerr) &&
-                  files[0].relPath == "0100AC10085CE000/save.dat" &&
-                  !takes(zipped({"nand/user/save/0000000000000000/" + sw.form.profile +
-                                      "/save.dat",
-                                  unmarked(64)}),
-                         false, sw) &&
-                  !takes(answer("", {}), false, sw),
-              "Switch: the title's folder under the console's one profile; anything else, "
-              "empty: refused");
-        check(!takes(zipped({"0100AC10085CE000/save.dat", unmarked(64)}), true, sw, nullptr,
-                     "Ryujinx") &&
-                  takes(zipped({"0100AC10085CE000/save.dat", unmarked(64)}), true, sw, nullptr,
-                        "Eden"),
+        // Switch is converted on the console, not by RomM: switchsave.h, and
+        // its rows under "Switch saves through Sigil" below.
+        const OwnForm x360 = form("xenia", "xbox360", "", true);
+        check(!takes(zipped({"0000000000000000/4D5307E6/00000001/save", unmarked(64)}), true,
+                     x360, nullptr, "Xbox 360 web") &&
+                  takes(zipped({"0000000000000000/4D5307E6/00000001/save", unmarked(64)}), true,
+                        x360, nullptr, "Xenia"),
               "a folder handed over as stored: only one this emulator made, as it is");
         const OwnForm wiiu = form("cemu", "wiiu", "", true);
         check(takes(zipped({"mlc01/usr/save/00050000/1016e100/user/80000001/saveData.bin",
@@ -2161,8 +2223,148 @@ int savePickTest() {
               "a 3DS zip from before is read as it is");
         check(zipShapeOf("dolphin", "wii", "52474C45") == ZipShape::Wii &&
                   zipShapeOf("azahar", "3ds", "") == ZipShape::ThreeDS &&
+                  zipShapeOf("eden", "switch", "") == ZipShape::Switch &&
                   zipShapeOf("ppsspp", "psp", "") == ZipShape::Folder,
-              "which systems' zips take Sigil's shape: Wii and 3DS");
+              "which systems' zips take Sigil's shape: Wii, 3DS and Switch");
+    }
+
+    // SWITCH SAVES THROUGH SIGIL (switchsave.h; the Switch step of #346): the
+    // console's push in Sigil's unit, the device's save with it, held to the
+    // pinned Sigil's own collect; another app's save put in Eden's form by
+    // Sigil, and only this game's; the game's ID read.
+    std::printf("\nSwitch saves through Sigil\n");
+    {
+        using cab::ZipShape;
+        const std::string me = catalog::saveForm("eden", "switch").profile;
+        const std::string device(32, '0');
+        const std::string other = "DCBBA091F26FED8D81F84676E37C281C";
+        const std::string game = "0100AC10085CE000";
+        const std::string island = "01006F8002326000";   // Animal Crossing: New Horizons
+        const std::vector<cab::ZipFile> tree = {
+            {me + "/" + game + "/main.dat", {1, 2, 3}},
+            {me + "/" + game + "/sub/slot1.dat", {4}},
+            {me + "/" + game + "/.yuzu_save_size", {8, 0, 0, 0}},
+            {device + "/" + game + "/island.dat", {5, 6}},
+            {other + "/" + game + "/old.dat", {7}}};
+        const std::vector<cab::ZipFile> unit = cab::toZipShape(ZipShape::Switch, tree, me);
+        std::map<std::string, std::vector<uint8_t>> mine;
+        for (const cab::ZipFile& f : unit) mine[f.relPath] = f.bytes;
+        check(mine.size() == 3 && mine.count(game + "/main.dat") &&
+                  mine.count(game + "/sub/slot1.dat") &&
+                  mine.count("device/" + game + "/island.dat"),
+              "a push holds <title>/... and the device's device/<title>/..., without Eden's "
+              "folders above them, the size file or another profile's saves");
+        check(mine == sigilsUnit(tree, me, game),
+              "the push is the pinned Sigil's own unit of the same saves, name for name and "
+              "byte for byte");
+        const std::vector<cab::ZipFile> back = cab::fromZipShape(ZipShape::Switch, me, unit);
+        bool placed = back.size() == unit.size();
+        for (const cab::ZipFile& f : back)
+            placed = placed && (f.relPath.compare(0, 33, me + "/") == 0 ||
+                                f.relPath == device + "/" + game + "/island.dat");
+        check(placed, "and a start puts the profile's under Eden's profile, the device's "
+                      "under the folder every profile shares");
+        const std::vector<cab::ZipFile> before =
+            cab::fromZipShape(ZipShape::Switch, me, {{game + "/main.dat", {1}}, {"stray.bin", {2}}});
+        check(before.size() == 2 && before[0].relPath == me + "/" + game + "/main.dat" &&
+                  before[1].relPath == me + "/stray.bin",
+              "a Switch zip from before goes under the profile, a file beside its title folders "
+              "too, as it was unpacked before");
+        check(cab::inSwitchUnit(me, me + "/" + game + "/a") &&
+                  cab::inSwitchUnit(me, device + "/" + game + "/a") &&
+                  !cab::inSwitchUnit(me, other + "/" + game + "/a") &&
+                  !cab::inSwitchUnit(me, me + "/" + game + "/.citron_save_size") &&
+                  !cab::inSwitchUnit(me, me + "/notatitle/a") && !cab::inSwitchUnit("", game),
+              "which files are the save: the profile's and the device's, never a size file");
+
+        // Another app's save, as RomM stores it.
+        const switchsave::Game g{game, game};
+        std::vector<cab::ZipFile> got;
+        std::string why;
+        std::vector<uint8_t> argosy;
+        std::string zerr;
+        cab::zipFiles({{game + "/main.dat", {9, 9}}}, &argosy, &zerr);
+        check(switchsave::fromOtherApp(argosy, g, "game.nsp", me, &got, &why) &&
+                  got.size() == 1 && got[0].relPath == game + "/main.dat" &&
+                  got[0].bytes == std::vector<uint8_t>({9, 9}),
+              "another app's unit (Argosy's and Ludo's shape) comes back in the console's");
+        std::vector<uint8_t> both;
+        cab::zipFiles({{game + "/main.dat", {9}}, {"device/" + game + "/island.dat", {8}}}, &both,
+                      &zerr);
+        check(switchsave::fromOtherApp(both, g, "game.nsp", me, &got, &why) && got.size() == 2 &&
+                  (got[0].relPath == "device/" + game + "/island.dat" ||
+                   got[1].relPath == "device/" + game + "/island.dat"),
+              "with its device save");
+        std::vector<uint8_t> elsewhere;
+        cab::zipFiles({{"0100F2C0115B6000/main.dat", {9}}}, &elsewhere, &zerr);
+        // A zip with no files: its end record alone.
+        std::vector<uint8_t> noFiles = {'P', 'K', 5, 6};
+        noFiles.resize(22, 0);
+        check(!switchsave::fromOtherApp(elsewhere, g, "game.nsp", me, &got, &why) &&
+                  !switchsave::fromOtherApp({}, g, "game.nsp", me, &got, &why) &&
+                  !switchsave::fromOtherApp(noFiles, g, "game.nsp", me, &got, &why),
+              "another game's save, an empty zip, or nothing: refused");
+        std::vector<uint8_t> oldIsland;
+        cab::zipFiles({{island + "/main.dat", {7}}}, &oldIsland, &zerr);
+        check(switchsave::fromOtherApp(oldIsland, {island, island}, "game.nsp", me, &got, &why) &&
+                  got.size() == 1 && got[0].relPath == "device/" + island + "/main.dat",
+              "Animal Crossing's island as Argosy sent it before Sigil, <title>/..., goes to "
+              "the device's folder, as Sigil places it");
+
+        // A start and a leave, through the folder save's own paths.
+        const std::string saves = std::string(root) + "/switch-saves";
+        std::vector<uint8_t> unitZip;
+        cab::zipFiles(unit, &unitZip, &zerr);
+        const SaveFetch sf = fromChannel(41, unitZip, true);
+        StartNotes sn;
+        restoreDirSave(sf, "eden", saves, "Game", std::string(), &sn, ZipShape::Switch, me);
+        check(cab::readBytes(saves + "/" + me + "/" + game + "/main.dat") ==
+                      std::vector<uint8_t>({1, 2, 3}) &&
+                  cab::readBytes(saves + "/" + device + "/" + game + "/island.dat") ==
+                      std::vector<uint8_t>({5, 6}),
+              "a start unpacks the unit into Eden's profile and the device's folders");
+        cab::writeBytes(saves + "/" + me + "/" + game + "/.yuzu_save_size",
+                        std::vector<uint8_t>({8, 0, 0, 0}));
+        cab::writeBytes(saves + "/" + other + "/" + game + "/old.dat", std::vector<uint8_t>({7}));
+        GameSession leaving;
+        leaving.title = "Game";
+        leaving.saveDir = saves + "-zip";
+        storage::makeDirs(leaving.saveDir);
+        leaving.dirSaveRoot = saves;
+        leaving.dirSaveCore = "eden";
+        leaving.dirSavePlatform = "switch";
+        leaving.dirSaveProfile = me;
+        syncDirSave(leaving);
+        std::vector<cab::ZipFile> sent;
+        std::map<std::string, std::vector<uint8_t>> sentByName;
+        if (cab::readZip(cab::readBytes(leaving.saveDir + "/Game.zip"), &sent, &zerr))
+            for (cab::ZipFile& f : sent) sentByName[f.relPath] = std::move(f.bytes);
+        check(leaving.saveChanged && sentByName == mine,
+              "and leaving sends that unit back, name for name: the size file and another "
+              "profile's saves stay on the console");
+        leaving.saveChanged = false;
+        cab::writeBytes(saves + "/" + me + "/" + game + "/.yuzu_save_size",
+                        std::vector<uint8_t>({9, 0, 0, 0}));
+        cab::writeBytes(saves + "/" + other + "/" + game + "/old.dat", std::vector<uint8_t>({6}));
+        syncDirSave(leaving);
+        check(!leaving.saveChanged,
+              "a game that changed only a size file, or another profile's folder, saved nothing");
+
+        // The game's ID: with no keys, from a name that carries it.
+        char dir[] = "/tmp/cabinetos-switch-XXXXXX";
+        if (mkdtemp(dir)) {
+            const std::string named = std::string(dir) + "/Game [" + game + "][v0].nsp";
+            const std::string plain = std::string(dir) + "/Game.nsp";
+            cab::writeBytes(named, std::vector<uint8_t>(4096, 0x5a));
+            cab::writeBytes(plain, std::vector<uint8_t>(4096, 0x5a));
+            switchsave::Game read;
+            check(switchsave::readGame(named, "", &read, &why) && read.titleId == game &&
+                      read.saveId == game && !switchsave::readGame(plain, "", &read, &why),
+                  "the game's ID: a dump Sigil cannot open gives the one in its name, else none");
+            std::remove(named.c_str());
+            std::remove(plain.c_str());
+            ::rmdir(dir);
+        }
     }
     std::printf("\n%s\n", failures ? "FAILED" : "passed");
     return failures ? 1 : 0;

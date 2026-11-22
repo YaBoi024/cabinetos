@@ -558,6 +558,11 @@ std::string saveRoot(const Emulator& e, const std::string& saveDir) {
     return {};
 }
 
+std::string saveProfile(const Emulator& e) {
+    if (std::strcmp(e.core, "eden") == 0) return edenProfileFolder(e);
+    return {};
+}
+
 bool beforeStart(const Emulator& e, const std::string& entryPath, const std::string& saveDir,
                  const std::string& player, const std::string& note, std::string* err) {
     // The note first, in the person's folder: from here until the save is

@@ -457,11 +457,37 @@ bool sdCardIds(const std::string& p) {
     return hexRun(p, 0, 32) && p.size() > 66 && p[32] == '/' && hexRun(p, 33, 32) && p[65] == '/';
 }
 
+// The folder every profile on a Switch shares, a device's saves.
+constexpr char kSwitchDevice[] = "00000000000000000000000000000000";
+
 }  // namespace
 
-std::vector<ZipFile> toZipShape(ZipShape shape, std::vector<ZipFile> files) {
+bool inSwitchUnit(const std::string& profile, const std::string& relPath) {
+    const std::string& p = relPath;
+    if (profile.size() != 32 || p.size() <= 50 || p[32] != '/' || p[49] != '/') return false;
+    if (p.compare(0, 32, profile) != 0 && p.compare(0, 32, kSwitchDevice) != 0) return false;
+    if (!hexRun(p, 33, 16)) return false;
+    // `.yuzu_save_size`, `.citron_save_size`, `.sudachi_save_size`,
+    // `.suyu_save_size`: never collected, written or removed (Sigil's Switch
+    // page).
+    const std::string base = p.substr(p.find_last_of('/') + 1);
+    const std::string end = "_save_size";
+    return !(base.size() > end.size() + 1 && base[0] == '.' &&
+             base.compare(base.size() - end.size(), end.size(), end) == 0);
+}
+
+std::vector<ZipFile> toZipShape(ZipShape shape, std::vector<ZipFile> files,
+                                const std::string& place) {
     if (shape == ZipShape::Folder) return files;
     std::vector<ZipFile> out;
+    if (shape == ZipShape::Switch) {
+        for (ZipFile& f : files) {
+            if (!inSwitchUnit(place, f.relPath)) continue;
+            const bool device = f.relPath.compare(0, 32, kSwitchDevice) == 0;
+            out.push_back({(device ? "device/" : "") + f.relPath.substr(33), std::move(f.bytes)});
+        }
+        return out;
+    }
     if (shape == ZipShape::Wii) {
         // `<kind>/<title>/data/...` to `<title>/data/...`.
         for (const ZipFile& f : files) {
@@ -500,16 +526,30 @@ std::vector<ZipFile> toZipShape(ZipShape shape, std::vector<ZipFile> files) {
     return out;
 }
 
-std::vector<ZipFile> fromZipShape(ZipShape shape, const std::string& wiiKind,
+std::vector<ZipFile> fromZipShape(ZipShape shape, const std::string& place,
                                   std::vector<ZipFile> files) {
     if (shape == ZipShape::Folder || files.empty()) return files;
     std::vector<ZipFile> out;
+    if (shape == ZipShape::Switch) {
+        // `device/<title>/...` into the device's folder; everything else into
+        // the profile's, where a zip from before was rooted, whatever it
+        // holds beside its title folders.
+        if (place.size() != 32) return files;
+        for (const ZipFile& f : files) {
+            const std::string& p = f.relPath;
+            if (p.compare(0, 7, "device/") == 0 && hexRun(p, 7, 16) && p.size() > 24 && p[23] == '/')
+                out.push_back({std::string(kSwitchDevice) + "/" + p.substr(7), f.bytes});
+            else
+                out.push_back({place + "/" + p, f.bytes});
+        }
+        return out;
+    }
     if (shape == ZipShape::Wii) {
         // `<title>/data/...` is Sigil's; `<kind>/<title>/data/...` the folder's.
         for (const ZipFile& f : files) {
             const bool sigil = hexRun(f.relPath, 0, 8) && f.relPath.compare(8, 6, "/data/") == 0;
             if (!sigil) return files;
-            out.push_back({wiiKind + "/" + f.relPath, f.bytes});
+            out.push_back({place + "/" + f.relPath, f.bytes});
         }
         return out;
     }

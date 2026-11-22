@@ -103,6 +103,7 @@ static void fetchLaunchSaves(LaunchJob& job, romm::Client& client, const storage
         own.files = catalog::saveFiles(job.platformSlug, job.coreName,
                                        job.romPath.substr(job.romPath.find_last_of('/') + 1),
                                        job.arcade);
+    if (own.form.sigil == "eden") own.switchDump = job.romPath;
     fetchSavesOf(job.romId, client, user, tag, &own, &job.cancel, &job.saves);
     job.miiSaves = SaveFetch{};
     if (job.cancel.load() || job.platformSlug != "wii" || job.coreName != "dolphin" ||

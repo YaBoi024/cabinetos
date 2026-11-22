@@ -17,6 +17,11 @@ one you install, so you only ever install the newest.
   game. This needs RomM 5.5 or newer: System update waits until your server
   has it. ([Saves](saves.md),
   [#346](https://github.com/MMagTech/cabinetos/issues/346))
+- **Fixed:** a Switch game's save that every profile on the console shares,
+  such as Animal Crossing's island, never reached your RomM server, so
+  another console, or this one after a reinstall, started without it. It now
+  goes up and comes back with the rest of the game's save.
+  ([Saves](saves.md))
 - **Fixed:** a console that had been offline, or away on a trip, put its
   older save over newer progress made on another device. Now the save made
   later wins, and the other stays on RomM, where **Restore as current** on

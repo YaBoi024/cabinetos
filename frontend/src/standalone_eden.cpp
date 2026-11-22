@@ -1,7 +1,8 @@
 // Switch, through Eden from Flathub: its keys and firmware out of `bios/`, its
 // profile, each player's controls and the settings the console lays over
-// Eden's own before every start (prepareEden), and where its saves are
-// (edenSaveRoot). What every emulator shares is standalone.cpp. Moved out of
+// Eden's own before every start (prepareEden), where its saves are
+// (edenSaveRoot, edenProfileFolder), and which keys file it is given
+// (switchKeys). What every emulator shares is standalone.cpp. Moved out of
 // standalone.cpp in the restructure (#398).
 
 #include "standalone_internal.h"
@@ -321,7 +322,7 @@ bool prepareEden(const Emulator& e, const std::string& saveDir, const std::strin
     // opens its own "Install them now?" box over the game, so the console
     // refuses first and says why. title.keys is optional: most games carry
     // their own ticket.
-    const std::string prod = newestKeys(storage::biosDir(), "prod");
+    const std::string prod = switchKeys();
     if (prod.empty()) {
         *missingKeys = true;
         return false;
@@ -412,20 +413,33 @@ bool prepareEden(const Emulator& e, const std::string& saveDir, const std::strin
     return true;
 }
 
-// Where its saves are (saveRoot): under the first profile's folder in Eden's
-// profiles.dat (edenProfile), or empty when Eden has none.
-std::string edenSaveRoot(const Emulator& e, const std::string& saveDir) {
+// The folder of the first profile in Eden's profiles.dat (edenProfile), the
+// one its saves go under, or empty when Eden has none.
+std::string edenProfileFolder(const Emulator& e) {
     const std::string data = readFile(home(e) + kEdenProfiles);
     for (size_t at = 0x10; data.size() == kProfilesSize && at + kUserSize <= kProfilesSize;
          at += kUserSize) {
         bool zero = true;
         for (size_t i = 0; i < 16; ++i)
             if (data[at + i] != '\0') { zero = false; break; }
-        if (!zero)
-            return saveDir + "/user/save/0000000000000000/" +
-                   profileFolder(reinterpret_cast<const uint8_t*>(&data[at]));
+        if (!zero) return profileFolder(reinterpret_cast<const uint8_t*>(&data[at]));
     }
     return {};
 }
 
+// Where its saves are (saveRoot): the folder holding the profile's own,
+// `<profile>/<title ID>/`, and the device's, which every profile shares,
+// `00000000000000000000000000000000/<title ID>/` (Animal Crossing's island
+// is one), or empty when Eden has no profile.
+std::string edenSaveRoot(const Emulator& e, const std::string& saveDir) {
+    if (edenProfileFolder(e).empty()) return {};
+    return saveDir + "/user/save/0000000000000000";
+}
+
 }  // namespace cab::standalone::detail
+
+namespace cab::standalone {
+
+std::string switchKeys() { return detail::newestKeys(storage::biosDir(), "prod"); }
+
+}  // namespace cab::standalone

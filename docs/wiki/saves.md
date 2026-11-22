@@ -134,8 +134,15 @@ What crosses between apps depends on the system, by what RomM's save library
 
 - **RomM converts the save:** Game Boy, Game Boy Color, Nintendo 64,
   PlayStation, PlayStation 2, PSP, PS Vita, PlayStation 3, Saturn, Sega CD,
-  Dreamcast, GameCube, Wii, Wii U, 3DS and Switch. A 3DS or Switch save
-  converts only when RomM knows the game's title ID.
+  Dreamcast, GameCube, Wii, Wii U and 3DS. A 3DS save converts only when RomM
+  knows the game's title ID.
+- **The console converts the save itself:** Switch. RomM converts a Switch
+  save only when it knows the game's title ID, which it can't read from an
+  encrypted game, so the console reads it from the game with the keys on your
+  server, the ones Eden uses, and converts the save with the same library
+  RomM uses. Nothing about the game is written to RomM. A Switch save
+  carries the part every profile on the device shares too, such as Animal
+  Crossing's island.
 - **The save travels as it is,** and the console's check decides whether its
   emulator reads it: NES, Super Nintendo, TurboGrafx-16, TurboGrafx-CD, Neo Geo
   Pocket Color, 3DO, Virtual Boy, Atari 2600, Atari 7800 and Vectrex.

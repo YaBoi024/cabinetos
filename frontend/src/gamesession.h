@@ -136,6 +136,10 @@ struct GameSession {
     std::string dirSaveCore;
     std::string dirSavePlatform;
     std::string dirSaveTitleId;   // the Mii Channel's is rooted higher (#275)
+    // Switch: Eden's profile folder under the root, the person's own saves
+    // beside the device's (standalone::saveProfile, dirsave.h's
+    // ZipShape::Switch).
+    std::string dirSaveProfile;
 
     // --- Saves the core writes as a FILE ----------------------------------
     //

@@ -18,6 +18,7 @@
 #include "savemirror.h"
 #include "savepush.h"
 #include "storage.h"
+#include "switchsave.h"
 #include "wii.h"
 
 using From = savepick::Pick::From;
@@ -270,7 +271,9 @@ bool folderFits(const OwnForm& own, const std::vector<cab::ZipFile>& files, std:
                 (!startsWith(p.substr(66), "title/") && !startsWith(p.substr(66), "extdata/")))
                 return no(p + " is not in a 3DS title's save");
         } else if (core == "eden") {
-            if (!isHex(p, 0, 16) || p.size() < 18 || p[16] != '/')
+            // Sigil's unit: `<title>/...`, the device's `device/<title>/...`.
+            const size_t at = startsWith(p, "device/") ? 7 : 0;
+            if (!isHex(p, at, 16) || p.size() < at + 18 || p[at + 16] != '/')
                 return no(p + " is not in a Switch title's save folder");
         } else if (core == "cemu") {
             if (!isHex(p, 0, 8) || p.size() < 10 || p[8] != '/' ||
@@ -491,6 +494,41 @@ bool toOwnForm(const romm::SaveAnswer& answer, bool plain, const OwnForm& own,
     return true;
 }
 
+// ANOTHER APP'S SWITCH SAVE, CONVERTED ON THIS CONSOLE (switchsave.h): asked
+// of RomM as stored, the game's ID read from its dump with the keys Eden is
+// given, Sigil's restore for Eden, and the same check as any folder save. RomM
+// would refuse to convert it without the game's title ID, which it reads from
+// no encrypted dump; the console tells RomM nothing about the game.
+static bool takeOtherSwitch(romm::Client& client, const OwnForm& own, int saveId,
+                            SaveFetch* out, std::string* why) {
+    romm::SaveAnswer a = client.fetchSaveAs(saveId, std::string());
+    if (a.status != 200) {
+        *why = a.status == 0 ? "RomM did not answer: " + a.error
+                             : "RomM answered " + std::to_string(a.status) + " (" + a.error + ")";
+        return false;
+    }
+    switchsave::Game game;
+    if (!switchsave::readGame(own.switchDump, cab::standalone::switchKeys(), &game, why))
+        return false;
+    std::vector<cab::ZipFile> files;
+    const std::string content = own.switchDump.substr(own.switchDump.find_last_of('/') + 1);
+    if (!switchsave::fromOtherApp(a.bytes, game, content, own.form.profile, &files, why))
+        return false;
+    if (!folderFits(own, files, why)) return false;
+    std::vector<uint8_t> mine;
+    std::string zerr;
+    if (!cab::zipFiles(files, &mine, &zerr)) {
+        *why = "could not zip it: " + zerr;
+        return false;
+    }
+    std::fprintf(stderr, "[save] %s from RomM, converted here for Eden (title %s, %zu file(s), "
+                         "%zu bytes)\n",
+                 pickedName(*out).c_str(), game.titleId.c_str(), files.size(), mine.size());
+    out->picked = std::move(mine);
+    out->converted = true;
+    return true;
+}
+
 // ANOTHER EMULATOR'S SAVE, ASKED OF RomM IN THIS CONSOLE'S FORM AND CHECKED
 // (#346, step 8; decided 2026-10-12; savepick.h). Which systems convert is
 // RomM's own list: it converts a save through Sigil for the emulator named,
@@ -509,6 +547,7 @@ static bool takeOther(romm::Client& client, const OwnForm& own, SaveFetch* out,
     const std::string emulator = row ? p.row.emulator : p.channel.current.save.emulator;
     const std::string core = row ? std::string() : p.channel.current.save.core;
     if (arcadeRefuses(own, emulator, why)) return false;
+    if (!own.switchDump.empty()) return takeOtherSwitch(client, own, saveId, out, why);
     std::string query = "core=" + romm::encodeSegment(own.form.sigil);
     for (const auto& [key, value] : own.form.options)
         query += "&option=" + romm::encodeSegment(key + ":" + value);
@@ -690,6 +729,7 @@ cab::ZipShape zipShapeOf(const std::string& core, const std::string& platform,
     if (core == "dolphin" && platform == "wii" && !wii::isMiiChannel(titleId))
         return cab::ZipShape::Wii;
     if (core == "azahar") return cab::ZipShape::ThreeDS;
+    if (core == "eden") return cab::ZipShape::Switch;
     return cab::ZipShape::Folder;
 }
 
@@ -704,7 +744,7 @@ std::string wiiKindOf(const std::string& titleId) {
 
 void restoreDirSave(const SaveFetch& fetched, const char* tag, const std::string& root,
                     const std::string& title, const std::string& oldCard, StartNotes* notes,
-                    cab::ZipShape shape, const std::string& wiiKind) {
+                    cab::ZipShape shape, const std::string& place) {
     const From from = sourceOf(fetched);
     const std::vector<uint8_t>* picked = nullptr;
     std::string fileName;
@@ -737,7 +777,7 @@ void restoreDirSave(const SaveFetch& fetched, const char* tag, const std::string
         // Sigil's shape back to the folder's own (dirsave.h).
         std::vector<uint8_t> reshaped;
         if (shape != cab::ZipShape::Folder) {
-            files = cab::fromZipShape(shape, wiiKind, std::move(files));
+            files = cab::fromZipShape(shape, place, std::move(files));
             if (!cab::zipFiles(files, &reshaped, &uerr)) {
                 std::fprintf(stderr, "[save] %s would not unpack: %s\n", fileName.c_str(),
                              uerr.c_str());
@@ -797,13 +837,17 @@ void restoreDirSave(const SaveFetch& fetched, const char* tag, const std::string
     }
 }
 
-// The save's files under a directory-save root, and only those.
+// The save's files under a directory-save root, and only those: for a Switch
+// game the profile's and the device's (dirsave.h, inSwitchUnit).
 std::vector<cab::DirEntry> listDirSave(const GameSession& sess) {
     std::vector<cab::DirEntry> all = cab::listTree(sess.dirSaveRoot);
+    const bool unit = zipShapeOf(sess.dirSaveCore, sess.dirSavePlatform, sess.dirSaveTitleId) ==
+                      cab::ZipShape::Switch;
     std::vector<cab::DirEntry> out;
     for (cab::DirEntry& e : all)
         if (catalog::inDirectorySave(sess.dirSaveCore.c_str(), sess.dirSavePlatform,
-                                     sess.dirSaveTitleId, e.relPath))
+                                     sess.dirSaveTitleId, e.relPath) &&
+            (!unit || cab::inSwitchUnit(sess.dirSaveProfile, e.relPath)))
             out.push_back(std::move(e));
     return out;
 }
@@ -859,7 +903,8 @@ void syncDirSave(GameSession& sess) {
         std::vector<cab::ZipFile> files;
         for (const std::string& rel : paths)
             files.push_back({rel, cab::readBytes(sess.dirSaveRoot + "/" + rel)});
-        zipped = cab::zipFiles(cab::toZipShape(shape, std::move(files)), &zip, &zerr);
+        zipped = cab::zipFiles(cab::toZipShape(shape, std::move(files), sess.dirSaveProfile),
+                               &zip, &zerr);
     }
     if (!zipped) {
         std::fprintf(stderr, "[save] could not archive the save folder: %s\n", zerr.c_str());
@@ -896,6 +941,9 @@ void finishInterruptedSave(const cab::standalone::Emulator& emu,
     GameSession owed = sessionOfPlayingNote(cab::standalone::playingNote(saveDir));
     owed.saveDir = saveDir;
     owed.dirSaveRoot = cab::standalone::saveRoot(emu, saveDir);   // no baseline: all of it
+    owed.dirSaveCore = emu.core;
+    owed.dirSavePlatform = owed.platformSlug;
+    owed.dirSaveProfile = cab::standalone::saveProfile(emu);
     std::fprintf(stderr, "[save] %s was never zipped after its last game; sending it all\n",
                  saveDir.c_str());
     if (owed.romId > 0 && !owed.title.empty()) {
