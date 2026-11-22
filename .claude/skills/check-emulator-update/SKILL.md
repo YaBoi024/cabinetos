@@ -42,7 +42,8 @@ moved its bundled core from a version of 2025-02 to one of 2026-09 (89
 commits, 111 files) and made it 3.0, with no release or tag.
 
 **Sigil**, the save library compiled into the console for Switch saves,
-follows the commit RomM builds in (its `VERSION`): read `SIGIL_VERSION` in
+follows the commit RomM builds in (its `VERSION`, and
+`docs/decisions/2026-11-22-sigil-pin-follows-romm.md`): read `SIGIL_VERSION` in
 `docker/Dockerfile` of the newest RomM release the console needs, and when
 it differs from ours, say so and how many commits apart they are, and
 whether any of them touch Sigil's Switch files (`src/switch_*`,

@@ -19,9 +19,10 @@ unlicense.txt. Left out: Sigil's bindings, CLI, docs, tests and fuzzers, its
 CMakeLists (frontend/Makefile builds the same files with the same flags), and
 everything else of the two submodules.
 
-The pin follows RomM's: it moves when the RomM release the console needs
-builds in another commit, in the pull request that checks the console's other
-systems against that commit, or ahead of RomM for one of the five reasons of
+The pin follows RomM's (docs/decisions/2026-11-22-sigil-pin-follows-romm.md):
+it moves when the RomM release the console needs builds in another commit, in
+the pull request that checks the console's other systems against that commit,
+or ahead of RomM for one of the five reasons of
 docs/decisions/2026-10-23-when-an-emulator-pin-moves.md. To move it, copy the
 same files from the new commit and its submodules' commits, and change this
 note.
