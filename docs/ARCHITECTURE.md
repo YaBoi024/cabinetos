@@ -492,10 +492,11 @@ the frontend asks for it over the local socket (`linkup_wire.h`, `linkupsession.
    system's over as stored, and says when it converts nothing for a
    system, whose file then travels as it is; the answer is checked for
    the size, the marks and a save in it (`catalog::SaveCheck`,
-   `cab::passesCheck`). One that fails leaves the start to the newest this
-   console can use as stored, and the start says "Couldn't use the newest
-   save" (the session's `couldNotUseNewest`); one RomM says holds none of
-   the game's saves, such as another app's blank memory card, is no save
+   `cab::passesCheck`), a battery for being no longer than the loaded
+   core's as the game starts (`coreReadsBattery`). One that fails leaves
+   the start to the newest this console can use as stored, and the start
+   says "Couldn't use the newest save" (the session's
+   `couldNotUseNewest`); one RomM says holds none of the game's saves, such as another app's blank memory card, is no save
    of it, and the start says nothing (`holdsNoneOfTheGame`,
    `savepick::Others::HoldsNone`). Where Sigil names a
    difference RomM does not convert yet (DS, Game Boy Advance, the Mega

@@ -123,6 +123,11 @@ bool toOwnForm(const romm::SaveAnswer& answer, bool plain, const OwnForm& own,
 // Sigil's code NOT_FOUND, "a unit holding none of the game's saves" (Sigil's
 // sync page), such as a memory card with no save on it.
 bool holdsNoneOfTheGame(const romm::SaveAnswer& answer);
+// Whether the loaded core reads another emulator's battery of `bytes`, the
+// part of its check only the loaded core can answer (#346, step 8): one no
+// longer than `coreBytes`, the core's battery as the game starts
+// (Core::saveRamSize), which is the most it reads.
+bool coreReadsBattery(size_t bytes, size_t coreBytes);
 // The pill a start says when the newest save on RomM was another emulator's
 // and could not be used (#346, decision 5; MMagTech's wording, 2026-11-17).
 inline constexpr char kCouldNotUseNewest[] = "Couldn't use the newest save";

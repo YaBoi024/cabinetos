@@ -1880,6 +1880,21 @@ int savePickTest() {
                   !takes(answer("Wave Race.srm", unmarked(32768)), false, n64) &&
                   !takes(answer("Wave Race.srm", {}), false, n64),
               "N64: 296960 bytes; wrong size, empty refused");
+        // The loaded core's part (coreReadsBattery): no longer than its
+        // battery as the game starts, which for mGBA and Genesis Plus GX is
+        // the most they hold, not the game's size.
+        check(coreReadsBattery(512, 131072) && coreReadsBattery(8192, 131072) &&
+                  coreReadsBattery(32768, 131072) && coreReadsBattery(65536, 131072) &&
+                  coreReadsBattery(131072, 131072),
+              "Game Boy Advance in mGBA: every chip's save, 512 bytes to 128 KB, read in the "
+              "128 KB mGBA holds until the game touches its chip");
+        check(coreReadsBattery(128, 65536) && coreReadsBattery(604, 65536) &&
+                  coreReadsBattery(8193, 65536) && coreReadsBattery(65536, 65536),
+              "Mega Drive, Master System, Game Gear in Genesis Plus GX: a save trimmed of its "
+              "last blank bytes, read in the 64 KB it holds before the first frame");
+        check(coreReadsBattery(2048, 2048) && !coreReadsBattery(131088, 131072) &&
+                  !coreReadsBattery(0, 131072),
+              "a core's own size read; one longer than the core's, or an empty one, not");
         check(!takes(zipped({"a.srm", unmarked(512)}), true, form("snes9x", "snes", "M.sfc", false)),
               "a battery handed over as stored that is a zip: refused, the console converts "
               "nothing");
