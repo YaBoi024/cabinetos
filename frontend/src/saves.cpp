@@ -2,6 +2,7 @@
 
 #include <sys/stat.h>
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
@@ -549,6 +550,21 @@ bool holdsNoneOfTheGame(const romm::SaveAnswer& answer) {
 // #731, the first report).
 bool coreReadsBattery(size_t bytes, size_t coreBytes) {
     return bytes > 0 && bytes <= coreBytes;
+}
+
+// THE SAME SAVE IN TWO LENGTHS, for the same reason (coreReadsBattery): read
+// before the game touches its chip and after, mGBA's battery is 128 KiB and
+// then the chip's size, and Genesis Plus GX's 64 KiB and then trimmed. The
+// shorter one's missing end is blank, as Sigil's GBA and Mega Drive pages
+// count it. Until 2026-11-22 a length alone was a change: a GBA game left
+// before it read its save sent that save again, 128 KiB long, as a new save,
+// and the save's picture took its shrink for a save being made.
+bool sameBattery(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) {
+    const std::vector<uint8_t>& shorter = a.size() <= b.size() ? a : b;
+    const std::vector<uint8_t>& longer = a.size() <= b.size() ? b : a;
+    return std::equal(shorter.begin(), shorter.end(), longer.begin()) &&
+           std::all_of(longer.begin() + static_cast<std::ptrdiff_t>(shorter.size()), longer.end(),
+                       [](uint8_t x) { return x == 0xFF; });
 }
 
 // ANOTHER EMULATOR'S SAVE, ASKED OF RomM IN THIS CONSOLE'S FORM AND CHECKED
@@ -1373,7 +1389,7 @@ void syncSave(GameSession& sess) {
     }
     std::vector<uint8_t> ram;
     if (!core.readSaveRam(ram) || ram.empty()) return;
-    if (ram == sess.saveAtLaunch) return;     // nothing happened worth sending
+    if (sameBattery(ram, sess.saveAtLaunch)) return;   // nothing happened worth sending
 
     const std::string path = sess.saveDir + "/" + saveRowName(sess.fsStem, "srm");
     if (!cab::writeBytes(path, ram)) {

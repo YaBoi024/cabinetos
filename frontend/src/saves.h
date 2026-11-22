@@ -128,6 +128,10 @@ bool holdsNoneOfTheGame(const romm::SaveAnswer& answer);
 // longer than `coreBytes`, the core's battery as the game starts
 // (Core::saveRamSize), which is the most it reads.
 bool coreReadsBattery(size_t bytes, size_t coreBytes);
+// Whether two reads of a battery hold the same save: the same bytes, the
+// shorter one's missing end counted as blank (0xFF). What the leave sends
+// (syncSave) and the save's picture (savepicture.h) both go by it.
+bool sameBattery(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b);
 // The pill a start says when the newest save on RomM was another emulator's
 // and could not be used (#346, decision 5; MMagTech's wording, 2026-11-17).
 inline constexpr char kCouldNotUseNewest[] = "Couldn't use the newest save";

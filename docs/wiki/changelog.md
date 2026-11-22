@@ -12,6 +12,8 @@ one you install, so you only ever install the newest.
   save*. Most Mega Drive, Master System and Game Gear saves from other apps
   met the same. A save from the same emulator now carries on.
   ([Saves from other apps](saves.md#saves-from-other-apps))
+- **Fixed:** leaving a Game Boy Advance game before it loaded its save sent
+  the same save to RomM again, as a new save in the game's history.
 
 ## 2026.11.22.2 {#v2026-11-22-2}
 
