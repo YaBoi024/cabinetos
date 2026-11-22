@@ -4,7 +4,7 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## Next
+## 2026.11.22.3 {#v2026-11-22-3}
 
 - **New:** Guitar Hero and Rock Band guitars play PlayStation 2 and
   PlayStation 3 games as guitars: frets, strum, whammy, star power and tilt,
