@@ -25,7 +25,7 @@ the pull request that checks the console's other systems against that commit,
 or ahead of RomM for one of the five reasons of
 docs/decisions/2026-10-23-when-an-emulator-pin-moves.md. To move it, copy the
 same files from the new commit and its submodules' commits, and change this
-note. ci/check-sigil-copy.sh holds every file here but this one to Sigil's
+note. ci/check-vendored-copies.sh holds every file here but this one to Sigil's
 own at the commits named above, on every pull request;
 ci/check-sigil-follows-romm.sh compares the commit with RomM's on the 1st of
 each month.

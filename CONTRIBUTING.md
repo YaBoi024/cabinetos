@@ -501,12 +501,13 @@ runs `checks.yml`, a few seconds each:
   RPCS3's per-game settings, must be the `RPCS3_VERSION` of
   `build_files/install-rpcs3.sh`: a pin moved without running the tool
   fails. Nothing is downloaded. Report only until 2026-11-13.
-- **Sigil's copy** (`ci/check-sigil-copy.sh`): every file in
-  `frontend/third_party/sigil` but its `VERSION` must be, byte for byte, the
-  file at the same path in Sigil, or in the submodule it is under, at the
-  commits `VERSION` names, so a file edited by hand or copied from another
-  commit fails. It fetches Sigil's and its submodules' trees from GitHub,
-  without the files' contents. Report only until 2026-11-29.
+- **Vendored copies** (`ci/check-vendored-copies.sh`): every file in each
+  folder of `frontend/third_party` (rcheevos, Sigil) but its `VERSION` must
+  be, byte for byte, the file at the same path in that library, or in the
+  submodule it is under, at the commits its `VERSION` names, so a file edited
+  by hand in this repository, or copied from another commit, fails. It
+  fetches each library's trees from GitHub, without the files' contents.
+  Report only until 2026-11-29.
 - **Sigil's pin** (`ci/check-sigil-follows-romm.sh`, in `sigil-pin.yml`), on
   a pull request that changes Sigil's `VERSION`, `cabinetos.env` or the
   check: the newest release of the RomM the console needs (`ROMM_NEEDED`)

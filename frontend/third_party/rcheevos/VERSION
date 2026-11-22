@@ -7,3 +7,5 @@ rhash and rc_libretro. Left out: the RAIntegration and external-client glue
 aes.c, compiled out by RC_HASH_NO_ENCRYPTED), the tests, the validator and
 the build files.
 To update, copy the same files from a newer tag and change this note.
+ci/check-vendored-copies.sh holds every file here but this one to rcheevos's
+own at the commit named above, on every pull request.
