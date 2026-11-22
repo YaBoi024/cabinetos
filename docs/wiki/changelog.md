@@ -4,7 +4,7 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## 2026.11.22 {#v2026-11-22}
+## 2026.11.22.2 {#v2026-11-22-2}
 
 - **New:** your saves follow you between devices and apps. A game now starts
   from your newest save on your RomM server, wherever you made it: this
