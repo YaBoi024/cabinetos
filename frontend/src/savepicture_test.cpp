@@ -38,6 +38,22 @@ std::vector<uint8_t> plain(unsigned w, unsigned h, uint8_t shade) {
     return px;
 }
 
+// The game's area lit in a frame of black: columns [x0, x1) of rows
+// [y0, y1), `shade` in red.
+void fill(std::vector<uint8_t>& px, unsigned w, unsigned x0, unsigned y0, unsigned x1, unsigned y1,
+          uint8_t shade) {
+    for (unsigned y = y0; y < y1; ++y)
+        for (unsigned x = x0; x < x1; ++x) px[(static_cast<size_t>(y) * w + x) * 4] = shade;
+}
+
+// The red of the picture's leftmost pixel half way down, which bars leave black.
+int leftRed(const std::string& path) {
+    std::vector<uint8_t> rgba;
+    int w = 0, h = 0;
+    if (!ui::decodeImage(cab::readBytes(path), rgba, w, h) || w <= 0 || h <= 0) return -1;
+    return rgba[static_cast<size_t>(h / 2) * w * 4];
+}
+
 // The picture's size and the red of its middle pixel; false when it is no
 // picture.
 bool readPicture(const std::string& path, int* w, int* h, int* red) {
@@ -588,6 +604,135 @@ int test() {
                   red == 240,
               "as it is left, saved within the second: PCSX2's frame, read before its window goes");
         savepicture::prune(u, 507);
+    }
+
+    std::printf("\ngamescope's picture cut to the game\n");
+    {
+        // ONE SITTING of an emulator run as a program whose save changes
+        // once, gamescope's picture made of `px`: the size of the save's
+        // picture it leaves and the red of its leftmost pixel half way down.
+        GameSession base;
+        base.romId = 508;
+        base.title = "Arcade Archives VIPER PHASE 1";
+        base.fsStem = "Arcade Archives VIPER PHASE 1";
+        base.saveTag = "eden";
+        base.standaloneCore = "eden";
+        base.saveDir = storage::savesDir(u, "switch", 508, "eden");
+        base.dirSaveRoot = base.saveDir + "/nand/user/save";
+        cab::writeBytes(base.dirSaveRoot + "/0000/progress.bin", std::string("0"));
+        base.dirAtLaunch = listDirSave(base);
+        int sitting = 0;
+        auto cut = [&](const std::vector<uint8_t>& px, unsigned w, unsigned h, int* pw, int* ph,
+                       int* left) {
+            std::vector<uint8_t> png;
+            ui::encodePNG(px, w, h, png);
+            Game prog;
+            prog.askProgram = [png](const std::string& path) { return cab::writeBytes(path, png); };
+            Watch wa;
+            GameSession s = base;
+            wa.begin(s, u, prog, 0);
+            cab::writeBytes(s.dirSaveRoot + "/0000/progress.bin", std::to_string(++sitting));
+            wa.tick(s, 1000);
+            wa.tick(s, 2000);
+            for (uint64_t t = 2500; t <= 4000; t += 500) later(wa, s, t);
+            settle(wa, s, 4000);
+            int red = 0;
+            *pw = *ph = 0;
+            const bool ok = readPicture(s.savePicture, pw, ph, &red);
+            *left = leftRed(s.savePicture);
+            wa.finish(s, 4100);
+            savepicture::prune(u, base.romId);
+            return ok;
+        };
+        int pw = 0, ph = 0, left = 0;
+        std::vector<uint8_t> px = plain(1920, 1080, 0);
+        fill(px, 1920, 240, 0, 1680, 1080, 200);
+        check(cut(px, 1920, 1080, &pw, &ph, &left) && pw == 640 && ph == 480 && left == 200,
+              "a 4:3 game on a 16:9 screen: the black bars down both sides cut off, 4:3 kept");
+        std::vector<uint8_t> ps2 = plain(3840, 2160, 0);
+        fill(ps2, 3840, 480, 0, 3360, 2160, 201);
+        check(cut(ps2, 3840, 2160, &pw, &ph, &left) && pw == 640 && ph == 480 && left == 201,
+              "PlayStation 2 in its own window at 4K, a 4:3 game: cut to the game");
+        px = plain(1920, 1080, 0);
+        fill(px, 1920, 239, 0, 1679, 1080, 202);
+        check(cut(px, 1920, 1080, &pw, &ph, &left) && pw == 640 && ph == 480 && left == 202,
+              "bars two pixels apart, as an emulator rounds: each cut at the game's own edge");
+        px = plain(1920, 1080, 0);
+        fill(px, 1920, 240, 6, 1680, 1074, 203);
+        check(cut(px, 1920, 1080, &pw, &ph, &left) && pw == 640 && ph == 480 && left == 203,
+              "a game with a few black lines of its own above and below: still cut");
+        // FlatOut's title (2026-11-21): bands across the top and bottom, and
+        // a border of the game's own beside the picture between them.
+        px = plain(1920, 1080, 0);
+        fill(px, 1920, 240, 0, 1680, 200, 211);
+        fill(px, 1920, 240, 880, 1680, 1080, 211);
+        fill(px, 1920, 252, 200, 1680, 880, 211);
+        check(cut(px, 1920, 1080, &pw, &ph, &left) && pw == 640 && ph == 480,
+              "a border of the game's own down one side of its picture: its edge still found, "
+              "cut");
+        px = plain(1920, 1080, 0);
+        fill(px, 1920, 252, 0, 1680, 1080, 212);
+        check(cut(px, 1920, 1080, &pw, &ph, &left) && pw == 640 && ph == 484 && left == 212,
+              "a black stripe of the game's own down one side, the whole height: cut there, "
+              "nothing lit lost");
+        px = plain(1920, 1080, 204);
+        check(cut(px, 1920, 1080, &pw, &ph, &left) && pw == 640 && ph == 360 && left == 204,
+              "a widescreen game fills the screen: nothing cut");
+        // DARK SCENES WITH BLACK EDGES, as the save pictures RomM holds from
+        // phase 5 show them: kept whole, never cut to what is lit.
+        px = plain(1920, 1080, 0);
+        fill(px, 1920, 810, 440, 1110, 640, 205);
+        check(cut(px, 1920, 1080, &pw, &ph, &left) && pw == 640 && ph == 360 && left == 0,
+              "a logo in the middle of black, the same black each side: kept whole");
+        px = plain(1920, 1080, 0);
+        fill(px, 1920, 216, 96, 220, 954, 206);
+        fill(px, 1920, 1700, 96, 1704, 954, 206);
+        fill(px, 1920, 216, 96, 1704, 100, 206);
+        fill(px, 1920, 216, 950, 1704, 954, 206);
+        fill(px, 1920, 600, 300, 1300, 700, 206);
+        check(cut(px, 1920, 1080, &pw, &ph, &left) && pw == 640 && ph == 360 && left == 0,
+              "a framed panel in the middle of black, its sides lit most of the way down but "
+              "not reaching the top and bottom: kept whole");
+        px = plain(1920, 1080, 0);
+        fill(px, 1920, 100, 0, 1600, 1080, 207);
+        check(cut(px, 1920, 1080, &pw, &ph, &left) && pw == 640 && ph == 360 && left == 0,
+              "black of different widths each side: kept whole");
+        px = plain(1920, 1080, 0);
+        check(cut(px, 1920, 1080, &pw, &ph, &left) && pw == 640 && ph == 360,
+              "a black picture: kept whole");
+        px = plain(1920, 1080, 0);
+        fill(px, 1920, 240, 200, 1680, 880, 208);
+        check(cut(px, 1920, 1080, &pw, &ph, &left) && pw == 640 && ph == 360 && left == 0,
+              "a 4:3 game showing a film with black above and below: its edges unproven, "
+              "kept whole");
+        px = plain(1920, 1080, 0);
+        fill(px, 1920, 0, 140, 1920, 940, 209);
+        check(cut(px, 1920, 1080, &pw, &ph, &left) && pw == 640 && ph == 360 && left == 209,
+              "black above and below is the game's own: never cut");
+        // A CORE'S OWN FRAME is the game's shape already, its own black sides
+        // and all (the head of savepicture.h).
+        Watch wc;
+        GameSession sc = battery(509);
+        Game core;
+        core.battery = game.battery;
+        core.frame = [&](std::vector<uint8_t>* rgba, unsigned* w, unsigned* h) {
+            *rgba = plain(800, 600, 0);
+            fill(*rgba, 800, 100, 0, 700, 600, 210);
+            *w = 800;
+            *h = 600;
+            return true;
+        };
+        wc.begin(sc, u, core, 0);
+        ram[700] = 0x77;
+        wc.tick(sc, 1000);
+        wc.tick(sc, 2000);
+        settle(wc, sc, 2000);
+        int red = 0;
+        check(readPicture(sc.savePicture, &pw, &ph, &red) && pw == 640 && ph == 480 &&
+                  leftRed(sc.savePicture) == 0,
+              "a core's own frame with black sides of its own: sent as it is");
+        wc.finish(sc, 2100);
+        savepicture::prune(u, 509);
     }
 
     std::printf("\nthe shrink\n");

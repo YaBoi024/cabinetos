@@ -4,6 +4,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <ctime>
 
@@ -92,7 +93,89 @@ bool writePicture(std::vector<uint8_t> rgba, unsigned w, unsigned h, const std::
     return true;
 }
 
+// A pixel no brighter than this in red, green and blue is black. A bar is
+// drawn at 0 (PCSX2's and xemu's, read at 4K on the reference console,
+// 2026-11-21); a little above lets a game's near-black count as black, which
+// makes black sides look wider, never a game's edge look like a bar.
+constexpr uint8_t kBlack = 4;
+
+bool lit(const uint8_t* px) { return px[0] > kBlack || px[1] > kBlack || px[2] > kBlack; }
+
 }  // namespace
+
+bool cutBars(std::vector<uint8_t>& rgba, unsigned& width, unsigned height, std::string* why) {
+    auto keep = [&](const char* reason) {
+        if (why) *why = reason;
+        return false;
+    };
+    const unsigned w = width, h = height;
+    if (w < 2 || h < 2 || rgba.size() < static_cast<size_t>(w) * h * 4) return keep("no picture");
+    auto px = [&](unsigned x, unsigned y) {
+        return rgba.data() + (static_cast<size_t>(y) * w + x) * 4;
+    };
+    auto black = [&](unsigned x) {
+        for (unsigned y = 0; y < h; ++y)
+            if (lit(px(x, y))) return false;
+        return true;
+    };
+    // THE BLACK DOWN EACH SIDE, a whole column at a time.
+    unsigned left = 0;
+    while (left < w && black(left)) ++left;
+    if (left == w) return keep("all black");
+    unsigned right = 0;
+    while (black(w - 1 - right)) ++right;
+    // Bars worth the name, a hundredth of the width each side at least:
+    // thinner is a game's own border, or nothing a picture 640 wide shows.
+    if (left < w / 100 || right < w / 100) return keep("no bars");
+    // AS WIDE AS EACH OTHER, give or take a hundredth of the width: a game
+    // is put in the middle of the screen, and a game's own border a few
+    // pixels wide down one side (many PS2 and Xbox games draw one) adds to
+    // that side's black.
+    const unsigned apart = left > right ? left - right : right - left;
+    if (apart > std::max(2u, w / 100)) return keep("black of different widths each side");
+    // THE GAME'S OWN EDGES, beside each bar: something lit within a
+    // fiftieth of the picture's width of the bar, in half the rows at least,
+    // so a border of the game's own beside its picture does not hide its
+    // edge (FlatOut's title). What is lit in the middle of a dark scene (a logo,
+    // a line of words, a box of words) has no edge as tall as that.
+    const unsigned x0 = left, x1 = w - 1 - right;
+    const unsigned band = std::max(1u, w / 50);
+    auto litRows = [&](unsigned from, unsigned to) {
+        unsigned n = 0;
+        for (unsigned y = 0; y < h; ++y)
+            for (unsigned x = from; x <= to; ++x)
+                if (lit(px(x, y))) {
+                    ++n;
+                    break;
+                }
+        return n;
+    };
+    if (litRows(x0, std::min(x0 + band - 1, x1)) * 2 < h ||
+        litRows(x1 - std::min(band - 1, x1 - x0), x1) * 2 < h)
+        return keep("the game's edges are dark");
+    // THE GAME FROM TOP TO BOTTOM: a game narrower than the screen is
+    // fitted to its height, so something of it is lit within a sixteenth of
+    // the top and of the bottom. A panel in the middle of a dark scene is
+    // not.
+    auto rowLit = [&](unsigned y) {
+        for (unsigned x = x0; x <= x1; ++x)
+            if (lit(px(x, y))) return true;
+        return false;
+    };
+    unsigned top = 0, bottom = 0;
+    while (top < h && !rowLit(top)) ++top;
+    while (bottom < h && !rowLit(h - 1 - bottom)) ++bottom;
+    if (top > h / 16 || bottom > h / 16) return keep("the game does not reach the top and bottom");
+    // PROVEN: the bars go. Black above and below stays, as the game drew it.
+    const unsigned cw = x1 - x0 + 1;
+    std::vector<uint8_t> out(static_cast<size_t>(cw) * h * 4);
+    for (unsigned y = 0; y < h; ++y)
+        std::copy(px(x0, y), px(x0, y) + static_cast<size_t>(cw) * 4,
+                  out.data() + static_cast<size_t>(y) * cw * 4);
+    rgba = std::move(out);
+    width = cw;
+    return true;
+}
 
 std::string prefixFor(int romId) { return std::to_string(romId) + ".picture."; }
 
@@ -296,8 +379,9 @@ void Watch::pump(GameSession& sess, uint64_t nowMs) {
             st.shotRaw.clear();
         } else if (there && fs.st_size == st.shotSize) {
             const std::string raw = st.shotRaw, path = st.shotPath;
+            const int romId = st.romId;
             st.shotRaw.clear();
-            st.job.start([raw, path](std::string& out, std::string& e) {
+            st.job.start([raw, path, romId](std::string& out, std::string& e) {
                 out = path;
                 std::vector<uint8_t> rgba;
                 int w = 0, h = 0;
@@ -307,8 +391,17 @@ void Watch::pump(GameSession& sess, uint64_t nowMs) {
                     e = "gamescope's picture could not be read";
                     return false;
                 }
-                return writePicture(std::move(rgba), static_cast<unsigned>(w),
-                                    static_cast<unsigned>(h), path, &e);
+                // The whole screen's picture cut to the game (cutBars).
+                unsigned uw = static_cast<unsigned>(w), uh = static_cast<unsigned>(h);
+                std::string kept;
+                if (cutBars(rgba, uw, uh, &kept))
+                    std::fprintf(stderr,
+                                 "[save] game %d: gamescope's %dx%d cut to the game, %ux%u\n",
+                                 romId, w, h, uw, uh);
+                else
+                    std::fprintf(stderr, "[save] game %d: gamescope's %dx%d kept whole: %s\n",
+                                 romId, w, h, kept.c_str());
+                return writePicture(std::move(rgba), uw, uh, path, &e);
             });
         } else if (there) {
             st.shotSize = fs.st_size;

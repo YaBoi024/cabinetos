@@ -51,6 +51,24 @@
 // window goes the moment the game unloads. A PNG, as RomM's web player sends
 // and this console's states carry, encoded off the game's thread.
 //
+// GAMESCOPE'S PICTURE CUT TO THE GAME (cutBars). It is of the whole screen,
+// so a game narrower than the screen (a 4:3 game on a 16:9 television) comes
+// with black bars down both sides, where the other apps send the emulator's
+// own frame, the game's shape and nothing else (RomM's web player, Argosy).
+// The bars are cut off, so the picture follows each game's own shape: a
+// widescreen game fills the screen and nothing is cut. One rule for every
+// game, read from the picture alone, and only when the picture proves the
+// black is bars: black down both sides as wide as each other, give or take a
+// hundredth of the width, something of the game lit beside each in half the
+// rows, and the game lit within a sixteenth of the top and the bottom, as a
+// game fitted to the screen's height is. A dark scene (a logo in the middle
+// of black, a box of words, a framed panel, a film letterboxed inside a 4:3
+// game) proves none of it and goes whole, bars and all, as it did before.
+// Only the sides are cut: no system here draws wider than the television,
+// so black above and below is the game's own (a film's letterbox), and the
+// other apps keep it too. A core's frame is the game's shape already and is
+// never cut.
+//
 // AS THE GAME IS LEFT, while it is still on screen (leaving): a save that
 // changed since the last picture and has not settled takes its picture then,
 // as RomM's web player does on leaving. A program that went by itself (it
@@ -118,6 +136,13 @@ std::string prefixFor(int romId);
 
 // The game's pictures on this console that no owed push names, deleted.
 void prune(const storage::User& who, int romId);
+
+// Gamescope's picture of the whole screen (straight RGBA) cut to the game:
+// the black bars down both sides cut off when the picture proves they are
+// bars (the head of this file). False, the picture as it was, otherwise, and
+// `why` says what was not proven. `width` becomes the game's; the height
+// stays.
+bool cutBars(std::vector<uint8_t>& rgba, unsigned& width, unsigned height, std::string* why);
 
 // ONE GAME'S WATCH, owned by the App and used on the frame thread.
 class Watch {
