@@ -2152,6 +2152,20 @@ int savePickTest() {
         check(!noteStart(g, StartNotes{}, u, &again) && again.couldNotUseNewest,
               "one that could not be used: the console's own stands, and the session says so "
               "(\"Couldn't use the newest save\")");
+        romm::SaveAnswer blank;
+        blank.status = 422;
+        blank.error = "NOT_FOUND";
+        check(holdsNoneOfTheGame(blank),
+              "RomM's 422 NOT_FOUND for another app's save (Sigil: a unit holding none of the "
+              "game's saves, as a blank memory card): it holds none of this game's saves");
+        romm::SaveAnswer damaged = blank;
+        damaged.error = "DAMAGED";
+        romm::SaveAnswer gone;
+        gone.status = 404;
+        gone.error = "NOT_FOUND";
+        check(!holdsNoneOfTheGame(damaged) && !holdsNoneOfTheGame(gone),
+              "any other refusal (a damaged card; a save RomM no longer has): one it could not "
+              "use");
     }
 
     // A BATTERY'S SAVE AND ITS CLOCK AS A START READS THEM (#346, step 11;

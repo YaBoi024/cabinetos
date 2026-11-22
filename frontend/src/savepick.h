@@ -32,11 +32,20 @@
 // it (`other`) and the launch worker asks for it (saves.cpp, fetchSaves);
 // one that cannot be used leaves the start to the newest this console can
 // use as stored, the pick with others left out, which says so
-// (`couldNotUseNewest`). AND ANOTHER APP'S SAVE IN NO CHANNEL IS WEIGHED THE
-// SAME WAY (MMagTech, 2026-11-19): a row from before channels that another
-// emulator made, from an app that does not use channels or uploaded by hand
-// on RomM's website, and one RomM kept out of a channel's snapshots
-// (otherRows). Its row is left as it is. BUT THE SNAPSHOT THIS CONSOLE
+// (`couldNotUseNewest`). ONE THAT HOLDS NONE OF THIS GAME'S SAVES IS NO SAVE
+// OF THE GAME (#346, fault 22, 2026-11-22): a memory card or a backup volume
+// with nothing of the game on it, as an app uploads when the game was started
+// there and never saved (RomM's web player sends the core's blank card as the
+// game boots, and again as the player leaves). RomM refuses it in this
+// console's form as Sigil does, NOT_FOUND ("a unit holding none of the game's
+// saves", Sigil's sync page). The start goes on as if it were not there:
+// nothing is said, since nothing could be lost, and what the game saves goes
+// on top of it by the usual rule (savepush.h), so the other apps continue
+// from this console's progress. AND ANOTHER APP'S SAVE IN NO CHANNEL IS
+// WEIGHED THE SAME WAY (MMagTech, 2026-11-19): a row from before channels
+// that another emulator made, from an app that does not use channels or
+// uploaded by hand on RomM's website, and one RomM kept out of a channel's
+// snapshots (otherRows). Its row is left as it is. BUT THE SNAPSHOT THIS CONSOLE
 // HOLDS IS NEVER ANOTHER EMULATOR'S TO IT (#346, phase 5, 2026-11-21): RomM
 // files a snapshot's save under the first of the person's rows with those
 // bytes, which can be another app's, and a save this console took from
@@ -115,9 +124,15 @@ struct Pick {
     std::string why;
 };
 
-// With `others` false, another emulator's save is never named: the start
-// after one could not be used.
-Pick pick(const Facts& facts, bool others = true);
+// What a start does with another emulator's save when it is the newest.
+enum class Others {
+    Ask,        // named (`other`), to be asked of RomM in this console's form
+    Unusable,   // never named: the start after one could not be used, which
+                // says so (`couldNotUseNewest`), or a start with RomM away
+    HoldsNone,  // never named: the start after RomM said it holds none of
+                // this game's saves, which says nothing (the head of this file)
+};
+Pick pick(const Facts& facts, Others others = Others::Ask);
 
 // Whether a start that put `pick`'s save in place says "Continuing from
 // another device": only for a channel's save the notes say was made

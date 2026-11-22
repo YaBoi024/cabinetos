@@ -494,7 +494,10 @@ the frontend asks for it over the local socket (`linkup_wire.h`, `linkupsession.
    the size, the marks and a save in it (`catalog::SaveCheck`,
    `cab::passesCheck`). One that fails leaves the start to the newest this
    console can use as stored, and the start says "Couldn't use the newest
-   save" (the session's `couldNotUseNewest`). Where Sigil names a
+   save" (the session's `couldNotUseNewest`); one RomM says holds none of
+   the game's saves, such as another app's blank memory card, is no save
+   of it, and the start says nothing (`holdsNoneOfTheGame`,
+   `savepick::Others::HoldsNone`). Where Sigil names a
    difference RomM does not convert yet (DS, Game Boy Advance, the Mega
    Drive family), a save handed over as stored is used only when this
    core made it, RomM's own `may_load` rule (`savepick::mayLoad`); an

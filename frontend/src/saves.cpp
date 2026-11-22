@@ -529,6 +529,10 @@ static bool takeOtherSwitch(romm::Client& client, const OwnForm& own, int saveId
     return true;
 }
 
+bool holdsNoneOfTheGame(const romm::SaveAnswer& answer) {
+    return answer.status == 422 && answer.error == "NOT_FOUND";
+}
+
 // ANOTHER EMULATOR'S SAVE, ASKED OF RomM IN THIS CONSOLE'S FORM AND CHECKED
 // (#346, step 8; decided 2026-10-12; savepick.h). Which systems convert is
 // RomM's own list: it converts a save through Sigil for the emulator named,
@@ -538,9 +542,10 @@ static bool takeOtherSwitch(romm::Client& client, const OwnForm& own, int saveId
 // yet, or for a folder RomM cannot convert, a save handed over as stored is
 // used only when this core made it (savepick::mayLoad). An arcade game's is
 // refused before RomM is asked (OwnForm::arcade). False, with why, when it
-// cannot be used.
+// cannot be used, and `holdsNone` set when RomM said it holds none of this
+// game's saves (holdsNoneOfTheGame).
 static bool takeOther(romm::Client& client, const OwnForm& own, SaveFetch* out,
-                      std::string* why) {
+                      std::string* why, bool* holdsNone) {
     const savepick::Pick& p = out->pick;
     const bool row = p.from == From::OtherRow;
     const int saveId = row ? p.row.id : p.channel.current.save.id;
@@ -562,6 +567,7 @@ static bool takeOther(romm::Client& client, const OwnForm& own, SaveFetch* out,
     if (a.status != 200) {
         *why = a.status == 0 ? "RomM did not answer: " + a.error
                              : "RomM answered " + std::to_string(a.status) + " (" + a.error + ")";
+        *holdsNone = holdsNoneOfTheGame(a);
         return false;
     }
     std::vector<uint8_t> mine;
@@ -602,12 +608,16 @@ void fetchSaves(romm::Client& client, const storage::User& user, int romId,
         std::string why = !own                        ? "this start reads no other emulator's save"
                           : !romm::serverTakesSaves() ? notAsked()
                                                       : std::string();
-        if (why.empty() && takeOther(client, *own, out, &why)) return;
+        bool holdsNone = false;
+        if (why.empty() && takeOther(client, *own, out, &why, &holdsNone)) return;
         // THE NEWEST THIS CONSOLE CAN USE, and the start says it could not
-        // use the newest (savepick.h).
-        std::fprintf(stderr, "[save] game %d: could not use %s: %s\n", romId,
+        // use the newest; never for one holding none of this game's saves,
+        // which is no save of it (savepick.h).
+        std::fprintf(stderr, "[save] game %d: %s %s: %s\n", romId,
+                     holdsNone ? "no save of this game in" : "could not use",
                      pickedName(*out).c_str(), why.c_str());
-        out->pick = savepick::pick(out->facts, false);
+        out->pick = savepick::pick(out->facts, holdsNone ? savepick::Others::HoldsNone
+                                                         : savepick::Others::Unusable);
         std::fprintf(stderr, "[save] game %d: %s\n", romId, out->pick.why.c_str());
     }
     if (out->pick.from == From::Channel) {

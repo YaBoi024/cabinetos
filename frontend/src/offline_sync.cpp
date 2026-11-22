@@ -220,7 +220,7 @@ void backfillDrive(const std::string& address) {
                 // The save a start with the server away goes by: it cannot
                 // ask RomM for another emulator's in this console's form
                 // (saves.cpp, fetchSaves), so never that one.
-                const savepick::Pick pick = savepick::pick(facts, false);
+                const savepick::Pick pick = savepick::pick(facts, savepick::Others::Unusable);
                 if (pick.from == savepick::Pick::From::Channel) {
                     const romm::SnapshotFile& save = pick.channel.current.save;
                     if (savemirror::hasSnapshotSave(who, romId, save)) continue;

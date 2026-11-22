@@ -100,7 +100,9 @@ struct OwnForm {
 // save). ANOTHER EMULATOR'S SAVE (savepick.h) is asked of RomM in `own`'s
 // form and checked; one that cannot be used, or any with `own` null, leaves
 // the start to the newest this console can use as stored, and the pick says
-// it could not use the newest. Stops between requests once `cancel` is set.
+// it could not use the newest, unless RomM said it holds none of this game's
+// saves (holdsNoneOfTheGame), which the pick leaves out unsaid. Stops between
+// requests once `cancel` is set.
 void fetchSaves(romm::Client& client, const storage::User& user, int romId,
                 const romm::ChannelFiles& known, const char* tag, const OwnForm* own,
                 const std::atomic<bool>* cancel, SaveFetch* out);
@@ -116,6 +118,11 @@ void fetchSaves(romm::Client& client, const storage::User& user, int romId,
 bool toOwnForm(const romm::SaveAnswer& answer, bool plain, const OwnForm& own,
                const std::string& madeBy, const std::string& madeByCore,
                std::vector<uint8_t>* out, std::string* why);
+// Whether RomM's refusal of another emulator's save in this console's form
+// says it holds none of this game's saves (savepick.h, the head): 422 with
+// Sigil's code NOT_FOUND, "a unit holding none of the game's saves" (Sigil's
+// sync page), such as a memory card with no save on it.
+bool holdsNoneOfTheGame(const romm::SaveAnswer& answer);
 // The pill a start says when the newest save on RomM was another emulator's
 // and could not be used (#346, decision 5; MMagTech's wording, 2026-11-17).
 inline constexpr char kCouldNotUseNewest[] = "Couldn't use the newest save";
