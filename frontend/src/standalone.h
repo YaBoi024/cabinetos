@@ -159,6 +159,9 @@ struct Emulator {
     // controller never moves the game: Vita3K reads every controller's
     // motion into the one Vita. Never set without `dualsense`.
     bool onlyPlayerOneTilts;
+    // IT IS TOLD A GUITAR'S SEAT HOLDS A GUITAR (guitar.h): that seat's virtual
+    // controller carries a guitar's shape and its controls say so. RPCS3.
+    bool guitars;
 };
 
 // The emulator for a catalog core name, or nullptr for an ordinary core.
@@ -202,7 +205,9 @@ bool installGame(const Emulator& e, const std::string& entryPath,
 //
 // `saveDir` is this person's folder for this game (storage::savesDir), and
 // the emulator writes the game's save inside it, so two people and two games
-// never share one. `player` is the name a game shows for the person playing.
+// never share one. `player` is the name a game shows for the person playing,
+// and `title` the game's name as the console shows it (RPCS3 picks a guitar's
+// kind by it, guitar.h).
 //
 // False with `*missingKeys` when what it cannot run without (`needs`) is not
 // on the console; false with an `*err` for anything else.
@@ -213,8 +218,8 @@ bool installGame(const Emulator& e, const std::string& entryPath,
 // `level` is the picture quality this game runs at (quality.h), written into
 // the emulator's settings with everything else.
 bool prepare(const Emulator& e, const std::string& entryPath, const std::string& romPath,
-             const std::string& saveDir, const std::string& player, int players,
-             quality::Level level, bool* missingKeys, std::string* err);
+             const std::string& saveDir, const std::string& player, const std::string& title,
+             int players, quality::Level level, bool* missingKeys, std::string* err);
 
 // Where, inside `saveDir`, the game's own save folders are: the root of what
 // travels to RomM as a zip, whose top-level folders are one per game. For

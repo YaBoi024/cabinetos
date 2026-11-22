@@ -7,6 +7,7 @@
 
 #include "standalone_internal.h"
 
+#include "guitar.h"
 #include "proc.h"
 #include "storage.h"
 #include "vpad.h"
@@ -277,7 +278,15 @@ constexpr const char* kRpcs3Settings =
 // DualShock 3's units, so nothing is mirrored or shifted. Every PS3 game gets
 // them. A player whose pad has no sensor has no motion device, and "Null",
 // RPCS3's word for none, leaves that player's pad lying still as before.
-std::string rpcs3Controls(int players) {
+//
+// A PLAYER HOLDING A GUITAR (guitar.h) is told so: the pad's class, vendor
+// and product are a PS3 guitar's, which RPCS3 hands the game
+// (Emu/Io/pad_config.h, "Device Class Type", "Vendor ID", "Product ID"), the
+// Rock Band one, or the Guitar Hero one for the two games made before the
+// series shared instruments (guitar::rpcs3For); and Square and Triangle are
+// where that guitar has its yellow and blue frets. Its virtual controller already sends the guitar's shape (vpad.h).
+std::string rpcs3Controls(int players, const std::string& title) {
+    const guitar::Rpcs3Guitar kind = guitar::rpcs3For(title);
     std::string out;
     for (int p = 1; p <= 7; ++p) {
         out += "Player " + std::to_string(p) + " Input:\n";
@@ -290,6 +299,7 @@ std::string rpcs3Controls(int players) {
         const std::string motion = cab::vpad::motionName(p - 1);
         out += "  Buddy Device: " + yamlQuote(motion.empty() ? std::string("Null") : motion) + "\n";
         out += "  Config:\n";
+        const bool holdsGuitar = cab::vpad::carriesGuitar(p - 1);
         const char* map[][2] = {
             {"Left Stick Left", "LX-"},   {"Left Stick Down", "LY+"},
             {"Left Stick Right", "LX+"},  {"Left Stick Up", "LY-"},
@@ -297,8 +307,10 @@ std::string rpcs3Controls(int players) {
             {"Right Stick Right", "RX+"}, {"Right Stick Up", "RY-"},
             {"Start", "Start"},           {"Select", "Select"},
             {"PS Button", "Mode"},
-            {"Square", "Y"},              {"Cross", "A"},
-            {"Circle", "B"},              {"Triangle", "X"},
+            {"Square", holdsGuitar ? kind.square : "Y"},
+            {"Cross", "A"},
+            {"Circle", "B"},
+            {"Triangle", holdsGuitar ? kind.triangle : "X"},
             {"Left", "Hat0 X-"},          {"Down", "Hat0 Y+"},
             {"Right", "Hat0 X+"},         {"Up", "Hat0 Y-"},
             {"R1", "TR"},                 {"R2", "RZ+"},
@@ -313,6 +325,7 @@ std::string rpcs3Controls(int players) {
         for (const auto& s : sensors)
             out += std::string("    ") + s[0] + ":\n      Axis: " + yamlQuote(s[1]) +
                    "\n      Mirrored: false\n      Shift: 0\n";
+        if (holdsGuitar) out += guitar::rpcs3Lines(kind);
     }
     return out;
 }
@@ -320,8 +333,8 @@ std::string rpcs3Controls(int players) {
 }  // namespace
 
 bool prepareRpcs3(const Emulator& e, const std::string& entryPath, const std::string& saveDir,
-                  const std::string& player, int players, quality::Level level, bool* missing,
-                  std::string* err) {
+                  const std::string& player, const std::string& title, int players,
+                  quality::Level level, bool* missing, std::string* err) {
     // The download installs it; without it RPCS3 opens its own "no firmware"
     // box over the game, so the console refuses first.
     if (readFile(firmwareNote(e)).empty()) {
@@ -385,7 +398,7 @@ bool prepareRpcs3(const Emulator& e, const std::string& entryPath, const std::st
     if (!writeFile(config + "/vfs.yml", vfs) || !writeFile(config + "/config.yml",
                    std::string(kRpcs3Settings) + video) ||
         !writeFile(gui, gui_text) ||
-        !writeFile(config + "/input_configs/global/Default.yml", rpcs3Controls(players)) ||
+        !writeFile(config + "/input_configs/global/Default.yml", rpcs3Controls(players, title)) ||
         (imageHasDatabase && !placeFile(kImageDatabase, database))) {
         *err = "could not write RPCS3's settings in " + config;
         return false;
