@@ -1251,9 +1251,13 @@ Sent sendOne(const Server& server, const storage::User& who, int romId, std::str
 
     // RomM HOLDS IT. In this order (the head of savepush.h): the copy of
     // RomM's saves forgotten, the snapshot noted as the one held, the marker
-    // cleared, the copy fetched again.
+    // cleared, the copy fetched again. A start fetching meanwhile is told this
+    // console's own is the newest only when its save went on top, never when
+    // RomM kept it beside a newer one or sent states alone (saves.cpp,
+    // fetchIsStale).
     const std::string channelId = held.channelId.empty() ? push.channelId : held.channelId;
     savemirror::forget(who, romId);
+    if (owed.hasSave && !beside) savemirror::ownSaveWentOnTop(romId);
     savemirror::Held before;
     const bool hadNote = savemirror::getHeld(who, romId, &before);
     savemirror::Held now = savepick::heldAfter(before, channelId, held,

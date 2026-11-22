@@ -679,6 +679,9 @@ int test() {
                   held.hashesHad.size() == 1 && savemirror::forgottenSince(g, before),
               "it landed: no longer owed, the snapshot is the one this console holds with its "
               "save's hash, and the copy of RomM's saves a start may be reading is stale");
+        check(savemirror::ownSaveOnTopSince(g, before),
+              "and this console's save went on top: a start that fetched before it keeps its "
+              "own copy, the newest");
         check(send(romm.server(), u, g, &why) == Sent::NothingOwed && romm.pushes.size() == 1,
               "asked again with nothing owed: nothing is sent");
     }
@@ -783,12 +786,17 @@ int test() {
         Stand romm;
         const romm::Snapshot theirs = snapshot(75, kChannel, "ffff", romTime(600));
         romm.answers = {movedOn(snapshot(76, kChannel, hashOne, romTime(601)), &theirs)};
+        const uint64_t before = savemirror::mark();
         const Sent sent = send(romm.server(), u, g, &why);
         check(sent == Sent::Beside && romm.pushes.size() == 1 && !cache::isPushOwed(u, g) &&
                   savemirror::getHeld(u, g, &held) && held.snapshotId == 76 && held.beside &&
                   held.madeAt == p.madeAt && held.saveHash == hashOne,
               "the channel moved on and the other save was made later: left as RomM kept it, "
               "no second push, no longer owed, and noted as kept beside the current");
+        check(savemirror::forgottenSince(g, before) && !savemirror::ownSaveOnTopSince(g, before),
+              "kept beside: the copy for offline is stale, but a start that fetched meanwhile "
+              "is not told its own is the newest (back from a trip, the start's own resend "
+              "landing as it lists: it continues from the other console's newer save)");
         // What the next start makes of it (savepick.h).
         savepick::Facts f;
         f.tag = kTag;
@@ -1430,7 +1438,10 @@ int test() {
                        {inBank("mgba", "auto", 512, base + 9000, "their app's")});
         romm.channels = {channel(kChannel, kDefaultChannel, theirs)};
         romm.answers = {made(snapshot(513, kChannel, "ffff", romTime(1)))};
+        const uint64_t marked = savemirror::mark();
         const Sent sent = send(romm.server(), u, game, &why);
+        check(!savemirror::ownSaveOnTopSince(game, marked),
+              "states alone onto another device's save: this console's save did not go on top");
         const romm::SnapshotPush sp = romm.pushes.empty() ? romm::SnapshotPush{} : romm.pushes[0];
         check(sent == Sent::Landed && romm.pushes.size() == 1 && !sp.hasSave &&
                   sp.channelId == kChannel && sp.expectedCurrentId == 511 && sp.parentId == 0 &&

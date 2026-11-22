@@ -622,15 +622,18 @@ void fetchSaves(romm::Client& client, const storage::User& user, int romId,
 }
 
 // WHAT WAS FETCHED IS OLDER THAN A SAVE OF THIS GAME THAT LEFT THIS CONSOLE.
-// The game's copy of RomM's saves is forgotten as each push of its save
-// lands (savepush.cpp, send), so one landing after the worker's mark makes
-// what was fetched older than what this console just sent: a game left and started
-// again at once, its save still on its way up when the worker asked and there
-// by the time the curtain was down. The console's own copy stands, as it
-// would have had the upload still been owed; asked again, the server would
-// only hand that copy back.
+// A push that puts this console's save on top marks the game (savepush.cpp,
+// send; savemirror::ownSaveWentOnTop), so one landing after the worker's mark
+// makes what was fetched older than what this console just sent: a game left
+// and started again at once, its save still on its way up when the worker
+// asked and there by the time the curtain was down. The console's own copy
+// stands, as it would have had the upload still been owed; asked again, the
+// server would only hand that copy back. A push RomM kept beside a newer save
+// marks nothing: back from a trip, the console's own resend can land as the
+// start lists, and what was fetched still names the other console's newer
+// save, which the start then takes.
 static bool fetchIsStale(const SaveFetch& f) {
-    if (!savemirror::forgottenSince(f.romId, f.mark)) return false;
+    if (!savemirror::ownSaveOnTopSince(f.romId, f.mark)) return false;
     std::fprintf(stderr, "[save] a save of this game reached the server after its saves were "
                  "fetched; this console's copy is the newer\n");
     return true;
@@ -1547,10 +1550,10 @@ void restoreBatterySave(cab::Core& core, GameSession& session, const std::string
 bool noteStart(const SaveFetch& fetched, const StartNotes& notes, const storage::User& user,
                GameSession* session, bool* bringsOldSave) {
     if (bringsOldSave) *bringsOldSave = false;
-    // Nothing listed, or a save of this console's landed since: its own save
-    // stood, and nothing on RomM was turned down.
+    // Nothing listed, or a save of this console's went on top since: its own
+    // save stood, and nothing on RomM was turned down (fetchIsStale).
     if (!fetched.asked || !fetched.listed ||
-        savemirror::forgottenSince(fetched.romId, fetched.mark))
+        savemirror::ownSaveOnTopSince(fetched.romId, fetched.mark))
         return false;
     const bool picked = usesPicked(fetched.pick.from);
     session->couldNotUseNewest =

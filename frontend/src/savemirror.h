@@ -112,4 +112,14 @@ void forgetHeld(const storage::User& u, int romId);
 uint64_t mark();
 bool forgottenSince(int romId, uint64_t mark);
 
+// A SAVE OF THIS CONSOLE'S WENT ON TOP: a push carrying it landed as its
+// channel's current (savepush.cpp). A start whose fetch began before that
+// keeps this console's own copy, the newest on RomM (saves.cpp,
+// fetchIsStale). A push RomM kept beside a newer save, or states alone, mark
+// nothing: what the start fetched still names the newest. On the same marks as
+// forgottenSince, which every landing moves, so the copy for offline is never
+// put back older either way.
+void ownSaveWentOnTop(int romId);
+bool ownSaveOnTopSince(int romId, uint64_t mark);
+
 }  // namespace savemirror

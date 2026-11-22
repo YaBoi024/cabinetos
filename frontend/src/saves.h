@@ -62,8 +62,8 @@ struct SaveFetch {
     // emulator's save cannot be used.
     savepick::Facts facts;
     // savemirror::mark() taken before the ask. A save of this game that this
-    // console sends after it makes what was fetched older than the console's
-    // own copy (saves.cpp, fetchIsStale).
+    // console sends after it and that goes on top makes what was fetched older
+    // than the console's own copy (saves.cpp, fetchIsStale).
     uint64_t mark = 0;
 };
 // What RomM holds of the game's save and the pick, with no bytes: all the

@@ -294,8 +294,9 @@ bool triedAgain(Sent sent);
 // ONE GAME'S OWED PUSH, SENT AND SETTLED (the head of this file), as `who`.
 // Reads the marker and the save's bytes off the disk, so what goes is what
 // the newest session left. When RomM holds it: the game's copy of RomM's
-// saves is forgotten first, so a start already fetching sees its list is
-// stale (saves.cpp, fetchIsStale); the snapshot becomes the one this console
+// saves is forgotten first, and when this console's save went on top a start
+// already fetching keeps its own copy (saves.cpp, fetchIsStale; never for a
+// save kept beside a newer one); the snapshot becomes the one this console
 // holds; the marker is cleared; and the copy is fetched again for offline.
 // `inPlay`, when given, is asked once the bytes are read: true leaves the
 // push owed and unsent (uploader.cpp). `*why` says what happened when it did

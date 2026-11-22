@@ -21,6 +21,7 @@ namespace {
 std::mutex gLock;
 uint64_t gSeq = 0;
 std::map<int, uint64_t> gForgotAt;   // rom id -> gSeq when last forgotten
+std::map<int, uint64_t> gOnTopAt;    // rom id -> gSeq when this console's save last went on top
 
 const char kHeld[] = "held.json";
 const char kSnapshotPrefix[] = "snapshot-";
@@ -237,6 +238,17 @@ bool forgottenSince(int romId, uint64_t m) {
     std::lock_guard<std::mutex> lk(gLock);
     auto it = gForgotAt.find(romId);
     return it != gForgotAt.end() && it->second > m;
+}
+
+void ownSaveWentOnTop(int romId) {
+    std::lock_guard<std::mutex> lk(gLock);
+    gOnTopAt[romId] = ++gSeq;
+}
+
+bool ownSaveOnTopSince(int romId, uint64_t m) {
+    std::lock_guard<std::mutex> lk(gLock);
+    auto it = gOnTopAt.find(romId);
+    return it != gOnTopAt.end() && it->second > m;
 }
 
 void forget(const storage::User& u, int romId) {

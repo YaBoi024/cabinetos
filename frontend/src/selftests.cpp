@@ -1350,16 +1350,34 @@ int savePickTest() {
               "a pick of this console's own save leaves it, whatever RomM listed");
     }
     {
-        // A fetch that went stale: a save of this game landed after it.
+        // A fetch that went stale: a save of this console's went on top after
+        // it (savepush.cpp, as its push lands).
         cab::writeBytes(file, own);
         const SaveFetch f = fromChannel(26, theirs, true);
         savemirror::forget(u, game);
+        savemirror::ownSaveWentOnTop(game);
         StartNotes n = notesFor();
         restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
         GameSession sess;
         check(cab::readBytes(file) == own && !n.tookPick && !noteStart(f, n, u, &sess) &&
                   !sess.couldNotUseNewest,
-              "a save of this console's that reached RomM after the fetch: its own stands");
+              "a save of this console's that went on top on RomM after the fetch: its own "
+              "stands");
+    }
+    {
+        // A save of this console's that RomM kept beside a newer one after the
+        // fetch (back from a trip, its resend landing as the start lists):
+        // what was fetched still names the newest, the other console's.
+        cab::writeBytes(file, own);
+        const SaveFetch f = fromChannel(27, theirs, true);
+        savemirror::forget(u, game);
+        StartNotes n = notesFor();
+        restoreFileSaves({spec}, "kof98", saveDir, tag, f, &n);
+        GameSession sess;
+        check(cab::readBytes(file) == theirs && n.tookPick && noteStart(f, n, u, &sess) &&
+                  sess.startSnapshotId == 27,
+              "a save of this console's kept beside a newer one after the fetch: the start "
+              "continues from the newer one it picked");
     }
     {
         // Two files in one snapshot: a zip, each under its path.
