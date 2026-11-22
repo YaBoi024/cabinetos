@@ -58,10 +58,11 @@
 // The bars are cut off, so the picture follows each game's own shape: a
 // widescreen game fills the screen and nothing is cut. One rule for every
 // game, read from the picture alone, and only when the picture proves the
-// black is bars: black down both sides as wide as each other, give or take a
-// hundredth of the width, something of the game lit beside each in half the
-// rows, and the game lit within a sixteenth of the top and the bottom, as a
-// game fitted to the screen's height is. A dark scene (a logo in the middle
+// black is bars: black down both sides as wide as each other, something of
+// the game lit beside each in half the rows, both allowing for a border of
+// the game's own up to a hundredth of the width, and the game lit within a
+// sixteenth of the top and the bottom, as a game fitted to the screen's
+// height is. A dark scene (a logo in the middle
 // of black, a box of words, a framed panel, a film letterboxed inside a 4:3
 // game) proves none of it and goes whole, bars and all, as it did before.
 // Only the sides are cut: no system here draws wider than the television,

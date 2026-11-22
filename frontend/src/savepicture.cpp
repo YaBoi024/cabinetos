@@ -127,19 +127,19 @@ bool cutBars(std::vector<uint8_t>& rgba, unsigned& width, unsigned height, std::
     // Bars worth the name, a hundredth of the width each side at least:
     // thinner is a game's own border, or nothing a picture 640 wide shows.
     if (left < w / 100 || right < w / 100) return keep("no bars");
-    // AS WIDE AS EACH OTHER, give or take a hundredth of the width: a game
-    // is put in the middle of the screen, and a game's own border a few
-    // pixels wide down one side (many PS2 and Xbox games draw one) adds to
-    // that side's black.
+    // A GAME'S OWN BORDER, black down one side of its picture, up to a
+    // hundredth of the width (FlatOut's title has one): allowed for in the
+    // two tests that follow.
+    const unsigned border = std::max(2u, w / 100);
+    // AS WIDE AS EACH OTHER, give or take that border: a game is put in the
+    // middle of the screen.
     const unsigned apart = left > right ? left - right : right - left;
-    if (apart > std::max(2u, w / 100)) return keep("black of different widths each side");
-    // THE GAME'S OWN EDGES, beside each bar: something lit within a
-    // fiftieth of the picture's width of the bar, in half the rows at least,
-    // so a border of the game's own beside its picture does not hide its
-    // edge (FlatOut's title). What is lit in the middle of a dark scene (a logo,
-    // a line of words, a box of words) has no edge as tall as that.
+    if (apart > border) return keep("black of different widths each side");
+    // THE GAME'S OWN EDGES, beside each bar: something lit within that
+    // border's width of the bar, in half the rows at least. What is lit in
+    // the middle of a dark scene (a logo, a line of words, a box of words)
+    // has no edge as tall as that.
     const unsigned x0 = left, x1 = w - 1 - right;
-    const unsigned band = std::max(1u, w / 50);
     auto litRows = [&](unsigned from, unsigned to) {
         unsigned n = 0;
         for (unsigned y = 0; y < h; ++y)
@@ -150,8 +150,8 @@ bool cutBars(std::vector<uint8_t>& rgba, unsigned& width, unsigned height, std::
                 }
         return n;
     };
-    if (litRows(x0, std::min(x0 + band - 1, x1)) * 2 < h ||
-        litRows(x1 - std::min(band - 1, x1 - x0), x1) * 2 < h)
+    if (litRows(x0, std::min(x0 + border - 1, x1)) * 2 < h ||
+        litRows(x1 - std::min(border - 1, x1 - x0), x1) * 2 < h)
         return keep("the game's edges are dark");
     // THE GAME FROM TOP TO BOTTOM: a game narrower than the screen is
     // fitted to its height, so something of it is lit within a sixteenth of
