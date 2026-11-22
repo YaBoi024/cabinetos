@@ -129,30 +129,67 @@ save stays on RomM. Your saves from the console carry on in those apps the
 same way. An app that does not use RomM's save channels can't see them, but
 its saves still carry on here.
 
-What crosses between apps depends on the system, by what RomM's save library
-(Sigil) does for it:
+Saves and states cross between CabinetOS consoles. With other apps, RomM's web
+player and the apps that keep their saves on RomM such as Argosy and Ludo, it
+depends on the system, by what RomM's save library (Sigil) does for it:
 
-- **RomM converts the save:** Game Boy, Game Boy Color, Nintendo 64,
-  PlayStation, PlayStation 2, PSP, PS Vita, PlayStation 3, Saturn, Sega CD,
-  Dreamcast, GameCube, Wii, Wii U and 3DS. A 3DS save converts only when RomM
-  knows the game's title ID.
-- **The console converts the save itself:** Switch. RomM converts a Switch
-  save only when it knows the game's title ID, which it can't read from an
-  encrypted game, so the console reads it from the game with the keys on your
-  server, the ones Eden uses, and converts the save with the same library
-  RomM uses. Nothing about the game is written to RomM. A Switch save
-  carries the part every profile on the device shares too, such as Animal
-  Crossing's island.
-- **The save travels as it is,** and the console's check decides whether its
-  emulator reads it: NES, Super Nintendo, TurboGrafx-16, TurboGrafx-CD, Neo Geo
-  Pocket Color, 3DO, Virtual Boy, Atari 2600, Atari 7800 and Vectrex.
-- **Only from the same emulator, until RomM converts them:** DS, Game Boy
-  Advance, Mega Drive, Master System, Game Gear, 32X, Xbox and Xbox 360. Their
-  emulators keep different files.
-- **Arcade games, between CabinetOS consoles only:** FinalBurn Neo, MAME
-  2003-Plus, Naomi, Atomiswave, Model 2 and Model 3. A board's memory carries
-  nothing that says which emulator, or which version of it, wrote it, so a
-  save from another app is never used. MAME keeps its saves on the console.
+| System | With other apps |
+|---|---|
+| 3DO | Yes, the same file |
+| Arcade: FinalBurn Neo, MAME 2003-Plus, Naomi, Atomiswave, Model 2, Model 3 | No |
+| Atari 2600 | Yes, the same file |
+| Atari 7800 | Yes, the same file |
+| Dreamcast | Yes, RomM converts it |
+| Game Boy | Yes, RomM converts it |
+| Game Boy Color | Yes, RomM converts it |
+| Game Boy Advance | Same emulator only |
+| Game Gear | Same emulator only |
+| Genesis / Mega Drive | Same emulator only |
+| Master System | Same emulator only |
+| Sega 32X | Same emulator only |
+| Sega CD | Yes, RomM converts it |
+| Saturn | Yes, RomM converts it |
+| NES | Yes, the same file |
+| SNES | Yes, the same file |
+| Nintendo 64 | Yes, RomM converts it |
+| Nintendo DS | Same emulator only |
+| Nintendo 3DS | Yes, when RomM knows the title ID |
+| GameCube | Yes, RomM converts it |
+| Wii | Yes, RomM converts it |
+| Wii U | Yes, RomM converts it |
+| Switch | Yes, the console converts it |
+| Neo Geo Pocket Color | Yes, the same file |
+| PlayStation | Yes, RomM converts it |
+| PlayStation 2 | Yes, RomM converts it |
+| PSP | Yes, RomM converts it |
+| PlayStation Vita | Yes, RomM converts it |
+| PlayStation 3 | Yes, RomM converts it |
+| TurboGrafx-16 | Yes, the same file |
+| TurboGrafx-CD | Yes, the same file |
+| Vectrex | Yes, the same file |
+| Virtual Boy | Yes, the same file |
+| Xbox | Same emulator only |
+| Xbox 360 | Same emulator only |
+| Save states, on every system that has them | No |
+
+- **RomM converts it:** RomM turns the other app's save into the file the
+  console's emulator reads, and the console checks it before using it. A 3DS
+  save converts only when RomM knows the game's title ID.
+- **The console converts it (Switch):** RomM converts a Switch save only
+  when it knows the game's title ID, which it can't read from an encrypted
+  game, so the console reads it from the game with the keys on your server,
+  the ones Eden uses, and converts the save with the same library RomM uses.
+  Nothing about the game is written to RomM. A Switch save carries the part
+  every profile on the device shares too, such as Animal Crossing's island.
+- **The same file:** these saves travel as they are, and the console's check
+  decides whether its emulator reads one.
+- **Same emulator only, until RomM converts them:** these systems' emulators
+  keep different files.
+- **Arcade:** a board's memory carries nothing that says which emulator, or
+  which version of it, wrote it, so a save from another app is never used.
+  MAME keeps its saves on the console.
+- **Save states:** a state loads only in the emulator that made it, so states
+  made in other apps stay on RomM as they are.
 
 ## Each person's own
 

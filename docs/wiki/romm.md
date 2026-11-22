@@ -4,7 +4,7 @@ Everything CabinetOS plays comes from [RomM](https://github.com/rommapp/romm):
 games, covers, BIOS, firmware and keys. Your saves, states, screenshots and play
 time go back to it. CabinetOS ships none of them.
 
-- **RomM 5.5 or newer.** Tested with 5.5.0-alpha.2.
+- **RomM 5.5 or newer.** Tested with 5.5.0-beta.1.
 - One server per console. Every person on the console is a user on that server.
 
 ## Setting RomM up for the console
