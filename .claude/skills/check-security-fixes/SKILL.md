@@ -22,13 +22,16 @@ With one pin named, check that one. With none, check them all.
 ## What it reads, and what it leaves out
 
 The pins are the ones `.claude/skills/check-emulator-update/SKILL.md`, "The
-list, when none is named", finds, and rcheevos, whose version and commit are
-in `frontend/third_party/rcheevos/VERSION`.
+list, when none is named", finds, and rcheevos and Sigil, whose versions and
+commits are in `frontend/third_party/rcheevos/VERSION` and
+`frontend/third_party/sigil/VERSION` (Sigil's names its libchdr, zlib, zstd,
+LZMA SDK and tiny-AES-c too).
 
 | Pin | The outside data it reads | Faces the network |
 |---|---|---|
 | Sunshine (`cores/build-sunshine.sh`, `VERSION` and `COMMIT`) | Requests from devices on the local network, while Remote Play is on | Yes |
 | rcheevos | RetroAchievements' answers; also the game files it hashes and the progress kept in a state | Yes |
+| Sigil, with the libraries it carries | A Switch game's file, decrypted with the player's keys, and another app's Switch save from RomM | No: it runs inside the console's own program, which holds the RomM sign-in |
 | Every emulator and core, the Flathub apps (Eden, xemu) among them | Game files, saves and states, from RomM | No (`docs/decisions/2026-10-26-emulators-get-no-network.md`) |
 
 Where a hole lands matters to what it reaches. The libretro cores and PS2 run

@@ -120,6 +120,14 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [game-gone-from-romm](2026-11-01-game-gone-from-romm.md): a game deleted in RomM leaves the console at the next start with the server there, a played copy or a download, with its saves, states and screenshots.
 - [one-download-or-one-game-at-a-time](2026-11-09-one-download-or-one-game-at-a-time.md): the console does one download or one game at a time, no queue, no download behind a game and none pausing for one; Stop on the row gets the console back.
 - [power-cut-caught-at-the-next-start](2026-11-14-power-cut-caught-at-the-next-start.md): a game starts at once after a download, unpacking or install; what its drive may not have yet is listed on the console's own drive and fetched again at its next start after a power cut.
+- [save-channels](2026-11-15-save-channels.md): saves and states live in RomM's save channels; a game starts from the newest save from any device, the one made later goes on top, nothing is deleted on RomM, and the console builds no converter of its own.
+- [follow-romm-and-sigil-docs](2026-11-17-follow-romm-and-sigil-docs.md): every save that leaves or reaches the console follows RomM's and Sigil's documentation; other apps are only tested against, and a gap in Sigil is closed in Sigil.
+- [romm-converts-saves](2026-11-20-romm-converts-saves.md): RomM converts another app's save for the console for every system but Switch, which the console converts itself with a pinned Sigil; the console writes nothing about a game to RomM.
+- [sigil-pin-follows-romm](2026-11-22-sigil-pin-follows-romm.md): the console builds in the Sigil commit the RomM release it needs builds in, moving with that release or ahead of it only for one of the five pin reasons.
+- [arcade-saves-cabinetos-only](2026-11-20-arcade-saves-cabinetos-only.md): an arcade game takes no other app's save, whichever emulator it names; saves between CabinetOS consoles travel as before.
+- [another-apps-blank-card-is-no-save](2026-11-22-another-apps-blank-card-is-no-save.md): another app's save that RomM says holds none of the game's saves, such as a blank memory card, is no save: the console starts from its own, says nothing, and saves on top of it.
+- [other-apps-saves-outside-channels](2026-11-20-other-apps-saves-outside-channels.md): another app's save in no channel stays on RomM as it is; the console copies nothing into a channel.
+- [channels-on-every-file](2026-11-20-channels-on-every-file.md): a game's channels are listed on every one of its files in one request, a push names its channel's own file, and RomM's file for new channels is used only for a new one.
 
 ### Screens and settings
 

@@ -139,6 +139,23 @@ bool Core::writeSaveRam(const std::vector<uint8_t>& data) {
     return true;
 }
 
+size_t Core::clockSize() const {
+    if (!gameLoaded_ || !g.get_memory_size || !g.get_memory_data) return 0;
+    return g.get_memory_data(RETRO_MEMORY_RTC) ? g.get_memory_size(RETRO_MEMORY_RTC) : 0;
+}
+
+bool Core::readClock(std::vector<uint8_t>& out) const {
+    out.clear();
+    return memoryRegion(RETRO_MEMORY_RTC, out);
+}
+
+bool Core::writeClock(const std::vector<uint8_t>& data) {
+    const size_t n = clockSize();
+    if (n == 0 || data.size() != n) return false;
+    std::memcpy(g.get_memory_data(RETRO_MEMORY_RTC), data.data(), n);
+    return true;
+}
+
 bool Core::loadState(const std::vector<uint8_t>& data) {
     if (!gameLoaded_ || !g.unserialize || data.empty()) return false;
     bool loaded;

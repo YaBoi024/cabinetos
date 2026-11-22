@@ -165,6 +165,13 @@ nothing: a red run means a pin is gone or near the end of what Flathub keeps,
 so try a newer build on the A9 and move the pin in
 `system_files/usr/share/cabinetos/flatpaks.list`.
 
+**Also on the 1st, `sigil-pin.yml`** checks that the console builds in the
+Sigil commit that the RomM it needs builds in. It opens nothing: a red run
+means RomM builds in a newer Sigil, and its summary lists the commits
+between and which files the console's Switch saves go through changed. The
+pin moves in the pull request that checks the console against that RomM
+(`frontend/third_party/sigil/VERSION` says how).
+
 **`build-disk.yml`**, by hand only: the installer ISO (`anaconda-iso`, an
 artifact kept 90 days, repacked in CabinetOS's look by
 `ci/brand-installer-iso.sh`, its SHA-256 beside it), a qcow2, or the file a

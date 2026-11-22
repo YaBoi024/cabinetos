@@ -14,9 +14,10 @@ source of truth for anything on RomM's data.
 
 ## Where things stand
 
-**2026-11-15.** The newest release is 2026.10.10. The newest image promoted
-to consoles is 2026.11.15: #715, "Tailscale gets its own switch in Network,
-apart from Remote Play", merged on 2026-11-15. docs/wiki/changelog.md lists
+**2026-11-18.** The newest release is 2026.11.13.2. The newest image
+promoted to consoles is 2026.11.18: #721, "System update holds back an
+update the server's RomM is too old for", merged on 2026-11-18.
+docs/wiki/changelog.md lists
 every image before it. Open: #528 waits on RomM. #590, "A Wii Remote turned
 on after a Wii game starts is ignored by the game", waits in Later; fix it
 only in the console's own code, never by patching Dolphin (MMagTech,
@@ -36,36 +37,26 @@ RomM: keep test launches under a minute, or have his go.
 ## Next
 
 1. **Save channels, #346, "Move saves to RomM's save channels (Sigil)".**
-   Built in the eleven steps of the plan posted on the issue on 2026-11-17,
-   every step approved; nothing in it is decided again. Step 1, System
-   update holding back an update that needs a newer RomM than the server's,
-   went out alone in 2026.11.18 (PR #721), since only a version already on
-   a console can hold back the next one. Steps 2 to 11 go on one draft pull
-   request, cut from main, each step in a fresh Opus session that keeps to
-   CLAUDE.md's seven rules and its piece's files, reuses, removals, docs and
-   tests in the plan; before steps 4 and 5 (starting and leaving a game)
-   he is asked about Fable. Step 11 is #353's cartridge clocks and Saturn
-   cartridge; its arcade high scores wait.
-2. **Game events, #716, "Game events: tell an app at home what is happening
-   in a game".** The issue is the whole plan, settled on 2026-11-15; nothing
-   in it is decided again. PR #717, "Game events: tell an app at home what is
-   happening in a game (#716)", carries it, open and not merged. Steps 1 (the
-   build) and 2 (the real run, 2026-11-15, on testing image 2026.11.15.2 with
-   MMagTech's n8n and Discord; its findings are on #716; the wiki page is
-   `docs/wiki/game-events.md`) are done. Added during the run, his call:
-   every game message says `linkup_game` (`none`, `hosting`, `joined`) and
-   never names the other person; two achievements unlocked on the A9
-   reached Discord. **Step 3:** his TV check on `testing`, which already
-   holds this build: the row, the keyboard, the panel, every line the field
-   can show (while "Checking…" shows, the keyboard's focus goes back to its
-   first key), then merge on his go. The Discord webhooks in his n8n are
-   throwaways he replaces.
-3. **LinkUp: two server tidy-ups, no issue.** The internet test, step 6 of
+   Built on the draft pull request #722, "Save channels: the console's
+   saves move to RomM's channels (#346, steps 2 to 11)": steps 2 to 12 of
+   the plan posted on the issue on 2026-11-17, the save's own picture cut
+   to each game's shape, the Switch step, phase 5's fixes, and two faults
+   found after RomM 5.5.0-beta.1 (2026-11-22): fault 27, a console back
+   from a trip that carried on from its older save when its own resend
+   landed as the game started, and fault 22, another app's memory card
+   with no save of the game on it taken for a save the TV could not use
+   (docs/decisions/2026-11-22-another-apps-blank-card-is-no-save.md).
+   What each part does is in #722's description; nothing in it is decided
+   again. Next, in order, each on his word: phase 6, the build pushed to
+   testing on his "push to testing" and his short TV check, a Switch game
+   among the games; then phase 7, outside testers on the testing channel
+   with RomM 5.5, and the merge into main on his "merge".
+2. **LinkUp: two server tidy-ups, no issue.** The internet test, step 6 of
    #654, passed twice: his console and his friend's, two servers linking up
    and playing a game (his word, 2026-11-10). Left: `.dockerignore` lets
    `docs/` into the server's build stage, and the relay's block list lacks
    3fff::/20.
-4. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
+3. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
    Kirby: Planet Robobot saved into Mario Kart 7's folder. Read on RomM on
    2026-10-25: Mario Kart 7's save (uploaded 2026-10-22) still carries
    Kirby's save data and its extra data, four files. He wants them gone
@@ -73,7 +64,7 @@ RomM: keep test launches under a minute, or have his go.
    folder, so deleting them on the A9 alone does not last: Mario Kart 7's
    save on RomM has to be replaced. Restate exactly what goes and wait for
    his yes before anything is deleted.
-5. **Words from him, one at a time, no work:** which of the 36 faults the
+4. **Words from him, one at a time, no work:** which of the 36 faults the
    PROJECT.md scan found with no issue (2026-10-22) become issues, none
    filed until he says. That list is in the
    notes of the session that made it ("Faults recorded in PROJECT.md with no

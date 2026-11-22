@@ -150,6 +150,22 @@ jobs:
       - name: RPCS3's settings snapshot taken against the pinned build
         run: ci/check-rpcs3-snapshot.sh
 
+  # THE COPIES IN frontend/third_party (rcheevos, and Sigil since #346's
+  # Switch step), added 2026-11-22: the one check here that fetches anything,
+  # each library's trees from GitHub, in a few seconds. Its report-only week
+  # is its own.
+  vendored-copies:
+    name: Vendored copies
+    runs-on: ubuntu-24.04
+    env:
+      REPORT_ONLY_UNTIL: '2026-11-29'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: Each library's own files, unchanged, at the commits its VERSION names
+        run: ci/check-vendored-copies.sh
+
   # THE MECHANICAL HALF OF THE AUDIT OF 2026-11-03: only what a pull request
   # touches, so the old tree never fails it. Its report-only week is its own.
   code-and-docs-agree:

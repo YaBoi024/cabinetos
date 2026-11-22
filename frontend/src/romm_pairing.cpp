@@ -1,5 +1,7 @@
 // Reaching a RomM server and pairing with it: the address and its probe
-// (setAddress, looksLocal), the token read back from an account's file
+// (setAddress, looksLocal), what the heartbeat says (readHeartbeat: the
+// version, and whether the server has save channels), the token read back
+// from an account's file
 // (loadToken), the device flow and the scopes it asks for (beginPairing,
 // pollPairing), and who the token belongs to (fetchCurrentUser). Moved out of
 // romm.cpp in the restructure (#398).
@@ -73,10 +75,26 @@ bool looksLocal(const std::string& host) {
 }
 
 namespace {
-// heardServerVersion's, written by every probe that is answered.
+// heardServerVersion's and heardServerChannels', written together by every
+// probe that is answered with a version.
 std::mutex gHeardMu;
 std::string gHeard;
+bool gHeardChannels = false;
 }  // namespace
+
+bool readHeartbeat(const std::string& body, Heartbeat* out) {
+    *out = Heartbeat{};
+    json_object* root = json_tokener_parse(body.c_str());
+    if (!root) return false;
+    json_object* sys = nullptr;
+    out->hasSystem = json_object_object_get_ex(root, "SYSTEM", &sys);
+    if (out->hasSystem) out->version = jstr(sys, "VERSION");
+    json_object* sync = nullptr;
+    out->channels = json_object_object_get_ex(root, "SAVE_SYNC", &sync) &&
+                    json_object_get_type(sync) == json_type_object;
+    json_object_put(root);
+    return true;
+}
 
 // THE CANDIDATE IS ASKED WITHOUT BECOMING THE ADDRESS, and is made the
 // address only once it has answered, so a request on another thread never
@@ -103,21 +121,18 @@ bool Client::probe(const std::string& candidate, bool report) {
         at.base = movedTo.substr(0, movedTo.size() - kHeartbeat.size());
     }
 
-    json_object* root = json_tokener_parse(body.c_str());
-    if (!root) return false;
-    json_object* sys = nullptr;
-    const bool hasSystem = json_object_object_get_ex(root, "SYSTEM", &sys);
-    const std::string version = hasSystem ? jstr(sys, "VERSION") : std::string();
-    json_object_put(root);
+    Heartbeat beat;
+    if (!readHeartbeat(body, &beat)) return false;
     std::lock_guard<std::mutex> lock(mu_);
     if (at.base != candidate && at.base != base_)
         std::fprintf(stderr, "[romm] the server sent the console to another address; "
                              "that one is used\n");
     base_ = at.base;
-    if (hasSystem) serverVersion_ = version;
-    if (hasSystem && !version.empty()) {
+    if (beat.hasSystem) serverVersion_ = beat.version;
+    if (beat.hasSystem && !beat.version.empty()) {
         std::lock_guard<std::mutex> heard(gHeardMu);
-        gHeard = version;
+        gHeard = beat.version;
+        gHeardChannels = beat.channels;
     }
     return true;
 }
@@ -126,6 +141,13 @@ std::string heardServerVersion() {
     std::lock_guard<std::mutex> heard(gHeardMu);
     return gHeard;
 }
+
+bool heardServerChannels() {
+    std::lock_guard<std::mutex> heard(gHeardMu);
+    return gHeardChannels;
+}
+
+bool serverTakesSaves() { return !serverAway() && heardServerChannels(); }
 
 bool Client::setAddress(const std::string& address, std::string* err) {
     std::string a = address;
@@ -183,7 +205,7 @@ bool Client::beginPairing(Pairing* out, std::string* err) {
     json_object_object_add(req, "client_device_identifier",
                            json_object_new_string("cabinetos"));
     json_object_object_add(req, "name", json_object_new_string("CabinetOS"));
-    json_object_object_add(req, "client", json_object_new_string("cabinetos"));
+    json_object_object_add(req, "client", json_object_new_string(kConsoleClient));
     json_object_object_add(req, "platform", json_object_new_string("linux"));
     json_object* scopes = json_object_new_array();
     for (const char* s : kScopes) json_object_array_add(scopes, json_object_new_string(s));

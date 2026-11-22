@@ -69,6 +69,8 @@ constexpr Credit kCredits[] = {
     {"json-c", "RomM's answers \xC2\xB7 MIT"},
     {"libarchive", "Game archives \xC2\xB7 BSD 2-clause"},
     {"rcheevos", "RetroAchievements \xC2\xB7 MIT"},
+    {"Sigil", "Switch saves \xC2\xB7 MPL 2.0"},
+    {"libchdr, zstd, LZMA SDK, tiny-AES-c", "Inside Sigil \xC2\xB7 BSD, public domain"},
     {"zlib", "Compression \xC2\xB7 zlib"},
     {"Noto Sans", "The type \xC2\xB7 OFL 1.1"},
 };

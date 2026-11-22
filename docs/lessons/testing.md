@@ -52,7 +52,7 @@ the loop deploy restarted the session and ended the game.
   in-game at 11:14 was on the console but never uploaded, because the upload
   happens when a game is left. At the next start RomM's older card (two days
   old) would have been put over it: the launch takes RomM's newest save
-  unless the console's is marked as still owed (`cache::isPending`). It was
+  unless the console's is marked as still owed (`pending.h`). It was
   saved by uploading the console's card to RomM on his go.
 - **Check for a game that is running now:** the newest `[pace]` or
   `[ps2] .. fps` lines within the last minute, or the cores mapped into the

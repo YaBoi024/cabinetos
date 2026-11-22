@@ -40,6 +40,7 @@
 #include "prefs.h"
 #include "quality.h"
 #include "samplelibrary.h"
+#include "savepush.h"
 #include "saves.h"
 #include "storage.h"
 #include "vkhost.h"
@@ -797,6 +798,7 @@ void App::startSync() {
         if (!libFromDrive) backfillDrive(rommAddress);
     }
     shownAway = romm::serverAway();
+    shownChannels = romm::heardServerVersion().empty() ? -1 : romm::heardServerChannels();
 }
 
 // SAVES A POWER CUT LEFT ON A DRIVE: an Xbox game's folder still holding
@@ -815,19 +817,27 @@ void App::recoverPowerCutSaves() {
         }
     }
     // AND THE NOTES IN THIS PERSON'S OWN FOLDERS, `saves/<platform>/<rom
-    // id>/<core>/`: an Xbox 360, Wii U, Switch or PS3 game's (`notesPlaying`,
-    // the emulator writes there), and an Xbox game's whose saves another
-    // person's start brought off the drive for them (recoverDriveSaves,
-    // below). Only this person's, since the upload goes as them; anyone
-    // else's is finished when they next start a game of that kind here, or
-    // the console starts as them.
+    // id>/<core>/`: an Xbox 360, Wii U, Switch, PS3, Vita, Model 2 or Model 3
+    // game's (`notesPlaying`, the emulator writes there), an Xbox game's
+    // whose saves another person's start brought off the drive for them
+    // (recoverDriveSaves, below), and a game's in a core whose save is files
+    // (notePlaying: DS, Dreamcast, PlayStation 2, PSP, 3DS, GameCube, Wii).
+    // Only this person's, since the upload goes as them; anyone else's is
+    // finished when they next start that game here, or the console starts as
+    // them.
     const std::string saves = storage::userDir(storage::currentUser()) + "/saves";
     for (const std::string& platform : listNames(saves))
         for (const std::string& rom : listNames(saves + "/" + platform))
-            for (const cab::standalone::Emulator* emu : cab::standalone::all()) {
-                const std::string dir = saves + "/" + platform + "/" + rom + "/" + emu->core;
-                if (cab::standalone::hasPlayingNote(dir))
-                    finishInterruptedSave(*emu, dir, uploader);
+            for (const std::string& core : listNames(saves + "/" + platform + "/" + rom)) {
+                const std::string dir = saves + "/" + platform + "/" + rom + "/" + core;
+                if (!cab::standalone::hasPlayingNote(dir)) continue;
+                const cab::standalone::Emulator* program = nullptr;
+                for (const cab::standalone::Emulator* emu : cab::standalone::all())
+                    if (emu->core == core) program = emu;
+                if (program)
+                    finishInterruptedSave(*program, dir, uploader);
+                else
+                    finishInterruptedPlay(dir, uploader);
             }
 }
 
@@ -851,12 +861,8 @@ void App::recoverPowerCutSaves() {
 bool App::recoverDriveSaves(const cab::standalone::Emulator& xemu, const std::string& path) {
     if (!cab::standalone::hasPlayingNote(path)) return true;
     const std::string text = cab::standalone::playingNote(path);
-    std::istringstream note(text);
-    std::string id, dir, title, tag;
-    std::getline(note, id);
-    std::getline(note, dir);
-    std::getline(note, title);
-    std::getline(note, tag);
+    std::string dir;
+    GameSession owed = sessionOfPlayingNote(text, &dir);
     const std::string mine = storage::userDir(storage::currentUser()) + "/";
     const bool theirs = dir.compare(0, mine.size(), mine) != 0;
     if (theirs) {
@@ -883,11 +889,7 @@ bool App::recoverDriveSaves(const cab::standalone::Emulator& xemu, const std::st
             return false;
         }
     }
-    GameSession owed;
-    owed.romId = std::atoi(id.c_str());
-    owed.title = title;
     owed.saveDir = dir;
-    owed.saveTag = tag;
     owed.dirSaveRoot = cab::standalone::saveRoot(xemu, dir);
     owed.dirAtLaunch = cab::listTree(owed.dirSaveRoot);
     std::string aerr;
@@ -901,7 +903,8 @@ bool App::recoverDriveSaves(const cab::standalone::Emulator& xemu, const std::st
         return true;
     }
     std::fprintf(stderr, "[xbox] finished what a stop left on %s\n", path.c_str());
-    syncDirSave(owed, uploader);
+    syncDirSave(owed);
+    savepush::leave(owed, storage::currentUser(), uploader);
     return true;
 }
 

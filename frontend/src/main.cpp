@@ -97,6 +97,7 @@ int App::run(int argc, char** argv) {
                           .rommAddress = rommAddress,
                           .romProbeId = romProbeId,
                           .romProbeExts = romProbeExts,
+                          .channelsProbeId = channelsProbeId,
                           .rommProbeMode = rommProbeMode,
                           .rommPair = rommPair,
                           .coreOptionsAudit = coreOptionsAudit,

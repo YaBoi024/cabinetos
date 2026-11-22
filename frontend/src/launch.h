@@ -108,8 +108,8 @@ struct LaunchJob {
     // RomM's `md5_hash`, for the Vectrex sheets (vectrexsheets.h).
     std::string md5;
     // The server's own file name for this game, with its extension removed —
-    // `Ikaruga (Japan)`, `lethalen`. It is what a save's row on RomM is named
-    // after; see saveRowName.
+    // `Ikaruga (Japan)`, `lethalen`. This console's copy of a save and the
+    // save a snapshot carries are named after it (GameSession::fsStem).
     std::string fsStem;
     std::string corePath;
     // AN ARCADE GAME (catalog::Coverage::arcade): its emulator was named at
@@ -123,10 +123,11 @@ struct LaunchJob {
     bool coreChanged = false;
     std::string title;
     std::string message;
-    // THE GAME'S SAVES AS RomM HOLDS THEM, fetched by the worker once the game
-    // is on the disk (#481, LAUNCH-17; saves.h, SaveFetch), and for a Wii game
-    // the Mii Channel's. The stages behind the curtain restore from these and
-    // ask the server nothing. Released once the game is up.
+    // THE GAME'S SAVE AS RomM HOLDS IT, fetched by the worker once the game
+    // is on the disk (#481, LAUNCH-17; saves.h, SaveFetch): which save the
+    // start continues from and its bytes; and for a Wii game the Mii
+    // Channel's. The stages behind the curtain restore from these and ask the
+    // server nothing. Released once the game is up.
     SaveFetch saves;
     SaveFetch miiSaves;
 

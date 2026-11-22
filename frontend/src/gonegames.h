@@ -29,15 +29,16 @@
 // (cache::unkeepForEveryone) and the cache's own removal (cache::evictGame),
 // so the manual, an installed PS3 or Vita game and an emulator's cache inside
 // the game's folder go with it; then its record and its covers; then every
-// person's saves, states and screenshots of it, sent or not, and the copy of
-// RomM's saves kept for offline. RomM 5.4.0 deletes a game's saves, states
+// person's saves, states and screenshots of it, sent or not, the copy of
+// RomM's saves kept for offline and the snapshot the console holds of it
+// (savemirror.h). RomM 5.4.0 deletes a game's saves, states
 // and screenshots with the game (`RomAsset.rom_id`, ON DELETE CASCADE), so
 // nothing kept for it could ever be sent anywhere.
 //
 // NEVER BEFORE THE UPLOAD QUEUE HAS TRIED IT. The queue sends what the person
-// signed in owes at every start (Uploader::resendOwed); their owed file for a
-// game that is gone goes only once RomM has refused it this run, after the
-// queue has emptied. Another person's goes once RomM has answered 404 for the
+// signed in owes at every start (Uploader::resendOwed); their owed file or
+// owed snapshot (pending.h) for a game that is gone goes only once RomM has
+// refused it this run, after the queue has emptied. Another person's goes once RomM has answered 404 for the
 // game to them, which the rule below asks with their own sign-in. NEVER a
 // game being played or launched (setInUse), and never a folder still holding
 // saves not yet off it (the Xbox drive's note, a person's note for an
@@ -79,8 +80,10 @@ std::set<int> thisStart(const std::string& baseUrl, const std::vector<int>& ids)
 
 // The game on the screen and the game whose launch is under way, or 0. Set
 // by the frame thread once a frame (App::followServer); read by removeCopy
-// and removeSaves.
+// and removeSaves, and by the upload queue, which leaves a game's owed
+// snapshot unsent while the game is in use (uploader.cpp).
 void setInUse(int playing, int launching);
+bool inUse(int romId);
 
 // The upload queue, for removeSaves's order: how many uploads it still
 // holds, and whether RomM refused a person's file this run

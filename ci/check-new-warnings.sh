@@ -27,7 +27,7 @@
 # through is the same warning fixed in one touched file and written in
 # another, which leaves the count where it was.
 #
-# VENDORED FILES ARE NOT CHECKED: rcheevos (frontend/third_party/) and the
+# VENDORED FILES ARE NOT CHECKED: rcheevos and Sigil (frontend/third_party/) and the
 # libretro API (frontend/src/libretro.h), check-long-files.sh's VENDORED.
 # They are kept as they come, so a warning a new version brings is not one
 # a pull request can fix; the Warnings step still lists it.

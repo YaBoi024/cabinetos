@@ -16,7 +16,7 @@ operating system, not an app. To try it first without installing:
   controller does everything.
 - **A controller.** Most Bluetooth and USB pads work. See
   [Controllers and Bluetooth](controllers.md).
-- **A [RomM](https://github.com/rommapp/romm) server**, version 5.1 or newer,
+- **A [RomM](https://github.com/rommapp/romm) server**, version 5.5 or newer,
   on your network, with your games, BIOS and firmware in it. See
   [Your RomM server](romm.md).
 - **A network.** Ethernet or Wi-Fi.

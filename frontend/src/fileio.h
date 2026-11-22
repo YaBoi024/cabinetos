@@ -33,13 +33,21 @@ namespace cab {
 
 std::vector<uint8_t> readBytes(const std::string& path);
 
-// Writes `<path>.placing`, checks and syncs it, then renames it over `path`.
-// Creates the parent directories. `mode` is the new file's (0600 for a
+// Writes `<path>.placing`, checks and syncs it, renames it over `path`, then
+// syncs the folder, so the name is on the drive too when it returns: a power
+// cut within btrfs's half minute before the next commit otherwise left a
+// save's marker only as its temporary (#346, step 9, seen with the power-cut
+// kit; 2 to 3 ms more for a small file on the reference console's drive,
+// measured). Creates the parent directories. `mode` is the new file's (0600 for a
 // credential), less the umask, set before any byte is written. False, with
 // the old file untouched and no temporary left, on any failure.
 bool writeBytes(const std::string& path, const void* data, size_t size, mode_t mode = 0666);
 bool writeBytes(const std::string& path, const std::vector<uint8_t>& data, mode_t mode = 0666);
 bool writeBytes(const std::string& path, const std::string& text, mode_t mode = 0666);
+
+// When the file was last written, nanoseconds since 1970; 0 when there is
+// none.
+int64_t modifiedNs(const std::string& path);
 
 // Removes the file, and reports only whether it is gone afterwards. A file
 // that was never there is a success.
