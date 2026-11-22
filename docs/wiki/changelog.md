@@ -43,6 +43,10 @@ one you install, so you only ever install the newest.
   other apps. A Saturn game saved to its backup cartridge takes the cartridge
   with it. ([Saves](saves.md),
   [#353](https://github.com/MMagTech/cabinetos/issues/353))
+- **Improved:** the diagnostic report says, for each game you played, which
+  save the console is on and what it still has to send to your server, so a
+  problem with a save can be found from the report.
+  ([Reporting a problem](troubleshooting.md#reporting-a-problem))
 
 ## 2026.11.18 {#v2026-11-18}
 

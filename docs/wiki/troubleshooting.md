@@ -98,8 +98,10 @@ graphics under Linux:
    and attach the report. Say what you saw and when.
 
 The report says which machine it is, every version, the settings and the
-console's logs, and lists the games that share a name with their file names
-and your firmware files by name and size.
+console's logs, lists the games that share a name with their file names
+and your firmware files by name and size, and says for each game you
+played which save the console is on and what it still has to send to your
+server.
 Your server's address, names, Wi-Fi networks, network addresses, serial
 numbers and passwords are replaced before it is written, so it is safe to
 post. Game titles and those file names stay in.
