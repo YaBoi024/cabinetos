@@ -175,8 +175,9 @@ enum class Untouched {
 // not used, and the game starts from this console's own save with "Couldn't
 // use the newest save".
 struct SaveCheck {
-    // The sizes the file may have, in bytes; empty for any. A battery's is
-    // the core's own, checked once the core is loaded (saves.cpp).
+    // The sizes the file may have, in bytes; empty for any. A battery may
+    // be no longer than the core's, checked once the core is loaded
+    // (saves.h, coreReadsBattery).
     std::vector<size_t> sizes;
     // Bytes the format always carries, at `markAt` from the start, or from
     // the end when `markFromEnd`; empty for a format that carries none.
@@ -432,7 +433,8 @@ SaveForm saveForm(const char* manifestCoreName, const std::string& platformSlug)
 
 // What another emulator's battery save must be for this system (SaveCheck):
 // its marks, and its size where every game's is the same. Any other battery
-// is checked against the core's own size once it is loaded (saves.cpp).
+// may be no longer than the core's, checked once it is loaded (saves.h,
+// coreReadsBattery).
 SaveCheck batteryCheck(const std::string& platformSlug);
 
 // WHETHER THIS SYSTEM OFFERS SAVE STATES AT ALL — docs/PROJECT.md, open

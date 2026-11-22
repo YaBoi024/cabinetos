@@ -22,6 +22,10 @@ and how he wants it done. This changes rarely. New here? Start at
   build, except LICENCES.md, which is in the image"), apart from
   `docs/LICENCES.md`, which is. Write `NEXT-SESSION.md` inside the work's
   own branch, before or after the push.
+- **One pull request per testing image.** Testing carries one change at a
+  time. The next waits until the one on testing is merged or dropped, then
+  takes in main before its push, so each image that reaches main is exactly
+  the one tested.
 - **Every session starts with only `main` and `testing`.** Delete a branch
   once it merges, on GitHub and locally.
 - **Check CI yourself** (`gh run list --branch <b>`); never ask him to look at

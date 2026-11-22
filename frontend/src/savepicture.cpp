@@ -30,14 +30,14 @@ int64_t wallMs() {
 }
 
 // WHAT THE SAVE IS AT ONE LOOK (the head of savepicture.h): a battery's bytes,
-// each file a core writes by its size and time, and the save folder's
-// entries.
+// the same save in another length counted as the same (sameBattery), each
+// file a core writes by its size and time, and the save folder's entries.
 struct Look {
     std::vector<uint8_t> battery;
     std::vector<cab::DirEntry> files;
     std::vector<cab::DirEntry> folder;
     bool operator==(const Look& o) const {
-        return battery == o.battery && files == o.files && folder == o.folder;
+        return sameBattery(battery, o.battery) && files == o.files && folder == o.folder;
     }
     bool operator!=(const Look& o) const { return !(*this == o); }
 };
@@ -260,13 +260,13 @@ void Watch::begin(GameSession& sess, const storage::User& who, Game game, uint64
 namespace {
 
 // THE SAVE CHANGED SINCE THE LAST PICTURE, by the gatherings' own rules: the
-// battery's bytes, the save folder's entries, or a core file whose bytes are
-// new and, while there was no save before, hold one (cab::holdsASave). A
-// battery the core reports none of is no change, as syncSave reads it:
-// Genesis Plus GX reports none while its battery is blank.
+// battery's bytes (sameBattery), the save folder's entries, or a core file
+// whose bytes are new and, while there was no save before, hold one
+// (cab::holdsASave). A battery the core reports none of is no change, as
+// syncSave reads it: Genesis Plus GX reports none while its battery is blank.
 bool changedSince(const GameSession& sess, const Look& now, const Look& atPicture,
                   const std::vector<std::vector<uint8_t>>& fileBytes) {
-    if (!now.battery.empty() && now.battery != atPicture.battery) return true;
+    if (!now.battery.empty() && !sameBattery(now.battery, atPicture.battery)) return true;
     if (now.folder != atPicture.folder) return true;
     for (size_t i = 0; i < now.files.size() && i < sess.fileSaves.size(); ++i) {
         if (i < atPicture.files.size() && now.files[i] == atPicture.files[i]) continue;
