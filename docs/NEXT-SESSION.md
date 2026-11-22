@@ -37,113 +37,20 @@ RomM: keep test launches under a minute, or have his go.
 ## Next
 
 1. **Save channels, #346, "Move saves to RomM's save channels (Sigil)".**
-   Built in the eleven steps of the plan posted on the issue on 2026-11-17,
-   every step approved; nothing in it is decided again. Step 1, System
-   update holding back an update that needs a newer RomM than the server's,
-   went out alone in 2026.11.18 (PR #721), since only a version already on
-   a console can hold back the next one. Steps 2 to 11 go on one draft pull
-   request, #722, "Save channels: the console's saves move to RomM's
-   channels (#346, steps 2 to 11)", cut from main. Steps 2 to 6 are built
-   there: the RomM client learning channels and snapshots; what the
-   console remembers about each game's save (the channels as last seen,
-   the snapshot it holds, one owed marker per game); starting a game,
-   which continues from the newest save RomM holds that the console can
-   use, in a save channel or from before them, says "Continuing from
-   another device" when that save was made elsewhere, and keeps a save of
-   its own aside before replacing it; leaving a game, whose save goes up
-   as one snapshot once the game has closed, into the channel it started
-   from, put on top of another device's only when it was made later, and
-   never into a hardcore channel; and save states, which go up inside that
-   snapshot in slots 1 to 3: the TV shows and a push names the three newest
-   of its own states wherever they are on RomM, as RomM's web player
-   chooses, and states made alone go into the snapshot on top, beside
-   another device's newer save (step 6 and its second pass). Before step 7,
-   a step of its own, MMagTech's of 2026-11-19, is built on #722 too: the
-   save's own picture, taken about a second after the game's save stops
-   changing and sent with that save, as RomM's web player and Argosy do;
-   Sega CD, Neo Geo Pocket Color, 3DO, Xbox and the arcade boards get none,
-   since their emulators write the save only as the game closes. Step 7 is
-   built: a game's save from before the update moves into a channel the
-   first time the game is started, RomM copying the old row in itself and
-   leaving it as it was, with the console's own copies of the game's states
-   from before the update; a save still owed from before the update goes
-   up as the game's snapshot. Step 8 is built: a save another app made
-   (RomM's web player, Argosy, Ludo), in a channel or in none, is asked of
-   RomM in the console's own form when it is the newest, checked (size,
-   the format's marks, a save in it), and used with "Continuing from
-   another device", or refused with "Couldn't use the newest save" and the
-   newest the console can use; DS, Game Boy Advance and the Mega Drive
-   family only from the same emulator; every push names the core in
-   Sigil's spelling; Dreamcast keeps one card per game in the game's
-   folder; Wii and 3DS saves go up in Sigil's shape. Decided 2026-11-20
-   (docs/decisions): RomM converts every system's saves but Switch's,
-   which the console converts itself with a pinned Sigil, writing nothing
-   to RomM (romm-converts-saves); an arcade game takes no other app's
-   save (arcade-saves-cabinetos-only); another app's save in no channel is
-   not copied into one (other-apps-saves-outside-channels); the pill shows
-   for such a save even when it names no device (left to the session,
-   judged on the TV). Step 9 is built: offline is as before, and back
-   online the save made later wins, the other kept on RomM (in the
-   channel's history, or 30 days as a branch); a RomM too old for channels
-   is neither read nor written, and the console sends what waited by itself
-   within a minute of the server gaining them; a save a core wrote before a
-   crash or a power cut (DS, Dreamcast, PS2, PSP, 3DS, GameCube, Wii) is kept
-   and sent, as the programs' already were; every file the console replaces
-   now has its name on the drive before the write returns. Step 10 is
-   built: every decision of the switch is in
-   docs/decisions/2026-11-15-save-channels.md (PROJECT.md's save-model
-   passages point to it), the documentation rule in
-   docs/decisions/2026-11-17-follow-romm-and-sigil-docs.md, and
-   romm-version-needed says a release goes out when ready, not when RomM is
-   stable; the image needs RomM 5.5 (`ROMM_NEEDED` in cabinetos.env, held
-   to docs/wiki/romm.md by the build), and README, the website and the wiki
-   say so; the wiki's saves page is rewritten; the changelog's one entry
-   for the whole change sits under "Next" until the testing image's
-   version replaces it. Step 11 is built: a Game Boy cartridge's clock
-   (Gambatte's) goes with the save as a zip of `<game>.srm` and
-   `<game>.rtc`, and Saturn's backup cartridge as a zip of `backup.ram` and
-   `cart.ram`, Sigil's names, as Argosy sends them (his yes, 2026-11-20),
-   never while the cartridge holds no save; a change to the clock alone is
-   no new save. RomM hands the clock to every Game Boy emulator Sigil
-   knows, both ways, PS Vita converts both ways once a game has its title
-   ID, and Saturn's cartridge reaches Beetle Saturn and Kronos (Yabause
-   keeps no cartridge); Sega CD's merge into an app's shared memory
-   works only while the cartridge is empty (#722, step 11's notes). Step
-   12 is built (his word, 2026-11-20, a step of its own after step 11): a
-   file added to a game on RomM (a `.cue` beside a `.chd`) moves RomM's
-   `channel_file_id`, the file a NEW channel goes on, so the console now
-   lists a game's channels on every one of its game files and pushes into
-   a channel with that channel's own file
-   (docs/decisions/2026-11-20-channels-on-every-file.md); proven on the
-   write-test RomM. The phase 1 test kit plants Cabinet's Dreamcast card in
-   the game's own card, and its two Dreamcast rows pass (#722, step 12's
-   notes). Phase 5 is run (2026-11-21, #722's "Phase 5"): the 70 games
-   compared with today's console in every app, five save faults fixed.
-   The save pictures gamescope takes are cut to each game's shape
-   (2026-11-21, #722's "Save pictures cropped"): the black bars down
-   both sides go when the picture proves they are bars, and a dark
-   scene goes whole. The Switch step is built (2026-11-22, #722's
-   "Switch step"; MMagTech's word: Switch crosses before alpha testers
-   get the build): the console carries Sigil at the commit RomM builds in
-   (`frontend/third_party/sigil`) and, for Switch only, reads a game's ID
-   with the player's keys and converts another app's save itself, writing
-   nothing about a game to RomM (romm-converts-saves); a Switch save now
-   carries the device's save beside the profile's (Animal Crossing's
-   island). Next, on his word, phase 6 (his short TV check, a Switch game
-   among the games, then testing). Six
-   upstream pieces run outside this plan, in MMagTech's Sigil window
-   ("6. Sigil review fixes"), each widening what crosses between apps with
-   no change on the console: PS3 .pkg reading in Sigil (argosy-sigil#28),
-   Switch IDs from a dump's ticket in Sigil (argosy-sigil#30), RomM's scan
-   reading .zip games (rommapp/romm#5694), RomM's Convert library moving a
-   game's channels to its new file (rommapp/romm#5681), and two cards from
-   the step 10 review: why his PS3 game folders get no title ID, and
-   whether the Dreamcast cards RomM refuses are Ludo's fault or the check's.
-   Each step is a fresh
-   session that keeps to CLAUDE.md's seven rules and its piece's files, reuses, removals, docs and
-   tests in the plan: Fable for steps 4 and 5 (starting and leaving a
-   game, the two that can lose a save; his choice, 2026-11-18), Opus for
-   the rest. #353's arcade files wait for an arcade form in RomM.
+   Built on the draft pull request #722, "Save channels: the console's
+   saves move to RomM's channels (#346, steps 2 to 11)": steps 2 to 12 of
+   the plan posted on the issue on 2026-11-17, the save's own picture cut
+   to each game's shape, the Switch step, phase 5's fixes, and two faults
+   found after RomM 5.5.0-beta.1 (2026-11-22): fault 27, a console back
+   from a trip that carried on from its older save when its own resend
+   landed as the game started, and fault 22, another app's memory card
+   with no save of the game on it taken for a save the TV could not use
+   (docs/decisions/2026-11-22-another-apps-blank-card-is-no-save.md).
+   What each part does is in #722's description; nothing in it is decided
+   again. Next, in order, each on his word: phase 6, the build pushed to
+   testing on his "push to testing" and his short TV check, a Switch game
+   among the games; then phase 7, outside testers on the testing channel
+   with RomM 5.5, and the merge into main on his "merge".
 2. **LinkUp: two server tidy-ups, no issue.** The internet test, step 6 of
    #654, passed twice: his console and his friend's, two servers linking up
    and playing a game (his word, 2026-11-10). Left: `.dockerignore` lets
