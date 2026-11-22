@@ -119,8 +119,11 @@ RomM: keep test launches under a minute, or have his go.
    the game's own card, and its two Dreamcast rows pass (#722, step 12's
    notes). Phase 5 is run (2026-11-21, #722's "Phase 5"): the 70 games
    compared with today's console in every app, five save faults fixed.
-   Next: the save pictures cropped to each game's shape (his ask), then,
-   on his word, phase 6 (his short TV check, then testing).
+   The save pictures gamescope takes are cut to each game's shape
+   (2026-11-21, #722's "Save pictures cropped"): the black bars down
+   both sides go when the picture proves they are bars, and a dark
+   scene goes whole. Next, on his word, phase 6 (his short TV check,
+   then testing).
    After that comes a Switch step: the console pins Sigil whole and,
    for Switch only, reads a game's ID with the player's keys and converts
    its saves on the console. It writes nothing about a game to RomM, since
