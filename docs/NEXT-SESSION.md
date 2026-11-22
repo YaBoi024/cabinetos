@@ -40,18 +40,11 @@ RomM: keep test launches under a minute, or have his go.
 
 ## Next
 
-1. **Guitars, #727, "Guitars play PS2 and PS3 games as guitars".** Built
-   and checked without the TV (its description); it waited for save
-   channels. Next, in order: merge main into its branch and rerun its
-   self-tests; testing on his "push to testing"; his TV test with his CRKD
-   Les Paul (a PS2 Guitar Hero game, Rock Band 3 on PS3, and a pad game
-   right after a guitar game); the merge on his "merge". Its decision file
-   comes with it.
-2. **#528, "Revoke the console's RomM token on re-pair, Remove account and
+1. **#528, "Revoke the console's RomM token on re-pair, Remove account and
    Sign out (#545; waiting on RomM)".** RomM's self-revoke,
    rommapp/romm#5419, is in 5.5.0-beta.1, the RomM consoles now need.
    Check #528 against it before anything else is built on it.
-3. **After save channels, small, each on his word:**
+2. **After save channels, small, each on his word:**
    - His testing rule for a RomM update (2026-11-22): read what changed in
      RomM's save code and libraries, test only that, plus one game per
      kind of save with each app; a full run only when the console's channel
@@ -73,12 +66,12 @@ RomM: keep test launches under a minute, or have his go.
    - The clean-up review: what future testing keeps of the save channels
      kits, sessions and branches; the audited list is in his research
      notes. Nothing is deleted before his yes.
-4. **LinkUp: two server tidy-ups, no issue.** The internet test, step 6 of
+3. **LinkUp: two server tidy-ups, no issue.** The internet test, step 6 of
    #654, passed twice: his console and his friend's, two servers linking up
    and playing a game (his word, 2026-11-10). Left: `.dockerignore` lets
    `docs/` into the server's build stage, and the relay's block list lacks
    3fff::/20.
-5. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
+4. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
    Kirby: Planet Robobot saved into Mario Kart 7's folder. Read on RomM on
    2026-10-25: Mario Kart 7's save (uploaded 2026-10-22) still carries
    Kirby's save data and its extra data, four files. He wants them gone
@@ -86,7 +79,7 @@ RomM: keep test launches under a minute, or have his go.
    folder, so deleting them on the A9 alone does not last: Mario Kart 7's
    save on RomM has to be replaced. Restate exactly what goes and wait for
    his yes before anything is deleted.
-6. **Words from him, one at a time, no work:** which of the 36 faults the
+5. **Words from him, one at a time, no work:** which of the 36 faults the
    PROJECT.md scan found with no issue (2026-10-22) become issues, none
    filed until he says. That list is in the
    notes of the session that made it ("Faults recorded in PROJECT.md with no
