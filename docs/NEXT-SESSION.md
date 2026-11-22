@@ -45,11 +45,6 @@ RomM: keep test launches under a minute, or have his go.
    rommapp/romm#5419, is in 5.5.0-beta.1, the RomM consoles now need.
    Check #528 against it before anything else is built on it.
 2. **After save channels, small, each on his word:**
-   - His testing rule for a RomM update (2026-11-22): read what changed in
-     RomM's save code and libraries, test only that, plus one game per
-     kind of save with each app; a full run only when the console's channel
-     code changes a lot. Show him the exact wording before it goes in a
-     tracked doc.
    - When RomM moves its Sigil pin: vendor Sigil again at RomM's pin,
      update `savetable.cpp`'s "rows waiting in Sigil" comment, and rerun
      the Switch check, what changed only.

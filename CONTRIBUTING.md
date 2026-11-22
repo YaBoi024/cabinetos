@@ -763,9 +763,19 @@ here, not reworded; follow the link for the full text.
   looked at if it shows only on a handheld PC, a laptop, or a computer that
   is not attached to a TV, and not on a mini PC or desktop attached to a TV.
   Remote Play with no screen connected (#381) is the one exception.
+- **Test what varies inside a system, not one game per system (MMagTech,
+  2026-11-22).** Before a change is called tested, list what differs between
+  that system's games for the thing changed (save chip and size, controller,
+  file format, region) and prove each kind with a real game. Say which kinds
+  were not covered.
 
 ### Duties that come with some changes
 
+- **A RomM update:** read what changed in RomM's save code and libraries
+  since the version the console needs, and test only that, plus one game per
+  kind of save with each app (the console, RomM's web player, Argosy, Ludo).
+  A full run of every system only when the console's channel code changes a
+  lot.
 - **Moving a core's pin:** in the same commit, refresh
   `cores/options/<core>.txt` (`cores/build-core.sh` prints the difference
   after it builds the core; Dolphin's and FBNeo's lists need a real game and
