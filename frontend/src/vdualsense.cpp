@@ -766,7 +766,8 @@ int test() {
           "two test pads seated: player 1's with an accelerometer and a gyroscope, player 2's with none");
     const int seated = players::count();
 
-    const bool up = cab::vpad::open(2, /*motion=*/false, /*dualsense=*/true, /*onlyPlayerOneTilts=*/false);
+    const bool up = cab::vpad::open(2, /*motion=*/false, /*dualsense=*/true, /*onlyPlayerOneTilts=*/false,
+                                    /*guitars=*/false);
     check(up, "two stand-ins made through /dev/uhid, as for a Switch, Wii U or Vita game");
     check(up && cab::vpad::carriesMotion(0) && !cab::vpad::carriesMotion(1),
           "player 1's carries its pad's tilt; player 2's, whose pad has no sensors, does not");
@@ -948,7 +949,8 @@ int test() {
     // seat's sensors stay off.
     const uint32_t third = tilt::testPad(true);
     const bool up3 = third && players::playerOf(third) == 2 &&
-                     cab::vpad::open(3, /*motion=*/false, /*dualsense=*/true, /*onlyPlayerOneTilts=*/true);
+                     cab::vpad::open(3, /*motion=*/false, /*dualsense=*/true, /*onlyPlayerOneTilts=*/true,
+                                     /*guitars=*/false);
     SDL_Gamepad* gp3 = third ? SDL_GetGamepadFromID(third) : nullptr;
     check(up3 && cab::vpad::carriesMotion(0) && !cab::vpad::carriesMotion(2) && nodes(2).uniq == "ca:b1:4e:70:51:03" &&
               gp3 && !SDL_GamepadSensorEnabled(gp3, SDL_SENSOR_ACCEL) && !SDL_GamepadSensorEnabled(gp3, SDL_SENSOR_GYRO),

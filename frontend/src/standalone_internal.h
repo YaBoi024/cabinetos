@@ -65,8 +65,8 @@ std::string edenProfileFolder(const Emulator& e);
 
 // PlayStation 3 (standalone_rpcs3.cpp).
 bool prepareRpcs3(const Emulator& e, const std::string& entryPath, const std::string& saveDir,
-                  const std::string& player, int players, quality::Level level, bool* missing,
-                  std::string* err);
+                  const std::string& player, const std::string& title, int players,
+                  quality::Level level, bool* missing, std::string* err);
 bool installRpcs3(const Emulator& e, const std::string& entryPath,
                   const std::atomic<bool>& cancel, std::string* romPath, std::string* message);
 

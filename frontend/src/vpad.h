@@ -37,6 +37,12 @@
 //   as it did before #669. The console tells its stand-ins from real pads by
 //   their name (players.cpp), since their id is Sony's.
 //
+// A GUITAR (guitar.h) on RPCS3 (the row's `guitars`) is sent to its player's
+// plain controller in a PS3 guitar's shape (guitar::Ps3Shape): its whammy on
+// the right stick from the centre to the right, its tilt on R1 and on a
+// motion device of its own, made though the guitar has no sensors. Every
+// other seat, and every other emulator, is sent its pad as it is.
+//
 // Xbox, Xbox 360, Model 2 and Model 3 keep the plain controller. Rumble comes
 // back the other way from both kinds: each virtual controller takes the
 // emulator's force-feedback the way a real pad does, and pump() hands it to
@@ -92,13 +98,22 @@ constexpr int kMaxPlayers = 4;
 // 1's), only player 1's stand-in carries tilt and only that seat's sensors are
 // turned on; every other player's stand-in has none. When one cannot be made,
 // the plain controllers are made instead, with a line in the log.
-bool open(int players, bool motion, bool dualsense, bool onlyPlayerOneTilts);
+//
+// With `guitars` (an emulator told a seat holds a guitar, RPCS3), each player
+// whose controller is a guitar now (guitar::seated) is sent the guitar's
+// shape until close(), and, with `motion`, gets a motion device carrying its
+// tilt. Only with the plain controllers.
+bool open(int players, bool motion, bool dualsense, bool onlyPlayerOneTilts, bool guitars);
 void close();
 int count();
 // True while player `player`'s controller is a stand-in DualSense carrying
 // its pad's tilt: Eden's motion lines and Cemu's profile then turn motion on
 // for that player.
 bool carriesMotion(int player);
+
+// True while player `player`'s plain controller is sent a guitar's shape:
+// RPCS3's controls then say that player holds a guitar.
+bool carriesGuitar(int player);
 
 // The name of player `player`'s motion device, the one its emulator is told
 // to read, or empty when that player has none.
