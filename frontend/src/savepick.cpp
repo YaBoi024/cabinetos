@@ -56,13 +56,13 @@ Pick pick(const Facts& f, bool others) {
     }
     const romm::Asset* otherRow = nullptr;
     for (const romm::Asset& a : f.otherRows)
-        if (!otherRow || isoMicros(a.updatedAt) > isoMicros(otherRow->updatedAt)) otherRow = &a;
+        if (!otherRow || isoMicros(rowMadeAt(a)) > isoMicros(rowMadeAt(*otherRow))) otherRow = &a;
     const bool oldRows = !f.oldRowAt.empty();
     const int64_t oldAt = isoMicros(f.oldRowAt);
     constexpr int64_t kNone = INT64_MIN;
     const int64_t ownNewest = std::max(usable ? madeAt(*usable) : kNone, oldRows ? oldAt : kNone);
     const int64_t channelAt = otherCh ? madeAt(*otherCh) : kNone;
-    const int64_t rowAt = otherRow ? isoMicros(otherRow->updatedAt) : kNone;
+    const int64_t rowAt = otherRow ? isoMicros(rowMadeAt(*otherRow)) : kNone;
     // ANOTHER EMULATOR'S SAVE IS THE NEWEST: a channel's on a tie with a row,
     // which is the row copied in; this console's own form on a tie with it.
     const bool otherNewest = std::max(channelAt, rowAt) != kNone &&
@@ -171,7 +171,7 @@ std::vector<romm::Asset> otherRows(const std::vector<romm::Asset>& rows, const s
         for (const romm::Channel& c : channels)
             if (c.id == a.channelId && c.currentId != 0 &&
                 !(c.current.hasSave && c.current.save.id == a.id) &&
-                isoMicros(a.updatedAt) > isoMicros(c.current.createdAt))
+                isoMicros(rowMadeAt(a)) > isoMicros(c.current.createdAt))
                 out.push_back(a);
     }
     return out;
@@ -218,13 +218,17 @@ std::string pickedAt(const Pick& pick, const std::string& oldRowAt) {
     switch (pick.from) {
         case Pick::From::Channel: return savedAt(pick.channel.current);
         case Pick::From::OldRows: return oldRowAt;
-        case Pick::From::OtherRow: return pick.row.updatedAt;
+        case Pick::From::OtherRow: return rowMadeAt(pick.row);
         case Pick::From::Own: break;
     }
     return std::string();
 }
 
 std::string savedAt(const romm::Snapshot& s) { return s.saveAt.empty() ? s.createdAt : s.saveAt; }
+
+std::string rowMadeAt(const romm::Asset& a) {
+    return a.channelId.empty() || a.createdAt.empty() ? a.updatedAt : a.createdAt;
+}
 
 bool ownForm(const romm::Snapshot& s, const std::string& tag) {
     return !tag.empty() && (s.emulator == tag || s.save.emulator == tag);
@@ -688,6 +692,40 @@ int test() {
               "this console's own as new: this console's");
         f.owed = true;
         check(pick(f).from == From::Own && !pick(f).other, "one still owed stands");
+    }
+    {   // 9c2. A KEPT-OUT SAVE DATED BY WHEN RomM FIRST STORED IT (fault 24,
+        //      2026-11-21): RomM moves such a row's updated_at when a push
+        //      prunes a snapshot that held it, so it is dated by created_at.
+        Facts f;
+        f.tag = kTag;
+        f.channels = {channelWith("default", 50, t2, kTag, "aaaa", console, {console})};
+        auto row = [&](int id, const char* made, const char* touched) {
+            romm::Asset a;
+            a.id = id;
+            a.romId = 1;
+            a.emulator = "snes9x";
+            a.createdAt = made;
+            a.updatedAt = touched;
+            a.channelId = "channel-default";
+            a.slot = "autosave";
+            return a;
+        };
+        const char* weeksBefore = "2026-10-30T09:00:00+00:00";
+        f.otherRows = otherRows({row(215, weeksBefore, t3)}, kTag, f.channels);
+        check(f.otherRows.empty() && pick(f).from == From::Channel && !pick(f).other,
+              "an app's save kept in a channel, stored weeks before the current and re-dated "
+              "by RomM since: not weighed, the channel's current stands");
+        f.otherRows = otherRows({row(216, t3, t3)}, kTag, f.channels);
+        check(f.otherRows.size() == 1 && pick(f).other && pick(f).from == From::OtherRow &&
+                  pickedAt(pick(f), std::string()) == t3,
+              "one stored after the current: weighed, and dated by when RomM stored it");
+        romm::Asset loose = row(217, weeksBefore, t3);
+        loose.channelId.clear();
+        loose.slot.clear();
+        f.otherRows = otherRows({loose}, kTag, f.channels);
+        check(f.otherRows.size() == 1 && pick(f).other && pick(f).row.id == 217,
+              "an app's save in no channel written again in place: by its updated_at, as "
+              "before");
     }
     {   // 9c. RomM's rule for who may load a save as stored (mayLoad).
         check(mayLoad("melonds-native", "melonds", "melonds-native", "melonds"),

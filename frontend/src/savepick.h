@@ -131,8 +131,8 @@ bool continuingElsewhere(const Pick& pick, bool sameAsOwn);
 // filed the old way under a slot, which RomM put in the slot's channel but
 // did not make its current because that app may not load the current save
 // (RomM's `hold_legacy_upload`: Ludo's saves after a CabinetOS console's, its
-// emulator's name never the console's). Such a row is newer than its
-// channel's current (`channels`) and is not that current's save.
+// emulator's name never the console's). Such a row was made after its
+// channel's current (`channels`; by rowMadeAt) and is not that current's save.
 std::vector<romm::Asset> otherRows(const std::vector<romm::Asset>& rows, const std::string& tag,
                                    const std::vector<romm::Channel>& channels);
 
@@ -165,6 +165,17 @@ std::string savedAt(const romm::Snapshot& s);
 // Each channel's current dated by its save's own row in `rows`, the game's
 // saves as RomM listed them (the row whose id is the save's).
 void dateSaves(std::vector<romm::Channel>* channels, const std::vector<romm::Asset>& rows);
+
+// WHEN ANOTHER APP'S SAVE OUTSIDE CHANNELS' SNAPSHOTS WAS MADE (otherRows),
+// as the rule weighs it. A row in no channel: its `updated_at`, which an
+// old-style upload over that row moves. A row RomM kept in a channel with no
+// snapshot: its `created_at`, when RomM first stored those bytes, as a
+// channel's save is dated (savedAt). Never its `updated_at` there (#346,
+// fault 24, 2026-11-21): RomM 5.5.0-alpha.2 moves it when a push prunes a
+// snapshot that held the row while another still does
+// (`_delete_snapshots`), so an app's save from weeks before could read as
+// made after the channel's current and be started from over the newer one.
+std::string rowMadeAt(const romm::Asset& a);
 
 // A SNAPSHOT'S SAVE IS IN THE FORM `tag` NAMES when the device that pushed it
 // named that emulator (romm::Snapshot::emulator), or when the row RomM filed
