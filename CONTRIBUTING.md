@@ -501,6 +501,21 @@ runs `checks.yml`, a few seconds each:
   RPCS3's per-game settings, must be the `RPCS3_VERSION` of
   `build_files/install-rpcs3.sh`: a pin moved without running the tool
   fails. Nothing is downloaded. Report only until 2026-11-13.
+- **Vendored copies** (`ci/check-vendored-copies.sh`): every file in each
+  folder of `frontend/third_party` (rcheevos, Sigil) but its `VERSION` must
+  be, byte for byte, the file at the same path in that library, or in the
+  submodule it is under, at the commits its `VERSION` names, so a file edited
+  by hand in this repository, or copied from another commit, fails. It
+  fetches each library's trees from GitHub, without the files' contents.
+  Report only until 2026-11-29.
+- **Sigil's pin** (`ci/check-sigil-follows-romm.sh`, in `sigil-pin.yml`), on
+  a pull request that changes Sigil's `VERSION`, `cabinetos.env` or the
+  check: the newest release of the RomM the console needs (`ROMM_NEEDED`)
+  must build in the Sigil commit `VERSION` names
+  (docs/decisions/2026-11-22-sigil-pin-follows-romm.md). RomM's being newer,
+  or the two having parted, fails, with the commits between them; the
+  console's being newer passes with a note. The same check runs on the 1st of
+  each month. Report only until 2026-11-29.
 - **Code and docs agree** (`ci/check-code-and-docs-agree.py`): only what the
   pull request touches, so the old tree never fails it. A comment it adds or
   changes in `frontend/src`, `frontend/ps2`, `wiibridge`, `build_files`, `ci`,
