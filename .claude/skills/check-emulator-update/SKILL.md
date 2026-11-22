@@ -21,6 +21,7 @@ From the repository and GitHub only, with no web reading. The pins:
     grep -nE '^MAME_COMMIT=' cores/fetch-mame.sh
     grep -nE '^readonly [A-Z0-9_]+_(VERSION|RELEASE|URL)=' build_files/install-*.sh
     grep -vE '^\s*(#|$)' system_files/usr/share/cabinetos/flatpaks.list
+    head -1 frontend/third_party/sigil/VERSION
 
 For each one: the date it was set (step 1), the commits upstream since
 (`gh api repos/<owner>/<repo>/compare/<pin>...<branch> --jq .total_commits`),
@@ -39,6 +40,16 @@ date both, and compare them. Also read the titles of the commits since the pin
 Mupen64Plus-Next's pin was 11 commits behind, and one of them, on 2026-09-18,
 moved its bundled core from a version of 2025-02 to one of 2026-09 (89
 commits, 111 files) and made it 3.0, with no release or tag.
+
+**Sigil**, the save library compiled into the console for Switch saves,
+follows the commit RomM builds in (its `VERSION`): read `SIGIL_VERSION` in
+`docker/Dockerfile` of the newest RomM release the console needs, and when
+it differs from ours, say so and how many commits apart they are, and
+whether any of them touch Sigil's Switch files (`src/switch_*`,
+`src/sync_profiles.c`, `src/save_profiles.c`, `src/save_layout.c`). That is
+a reason to look, as a re-synced copy is; the move goes in the pull request
+that checks the console's other systems against RomM's new commit. Ahead of
+RomM it moves only for one of the five reasons.
 
 Suggest a full check only where the list shows a possible reason: an open issue
 (B), a closed report behind a patch (D), a runtime at end of life or a hole
