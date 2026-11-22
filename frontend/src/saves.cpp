@@ -2,6 +2,7 @@
 
 #include <sys/stat.h>
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstdlib>
@@ -359,7 +360,7 @@ bool toOwnForm(const romm::SaveAnswer& answer, bool plain, const OwnForm& own,
     // cartridge's clock beside it where it travels (SaveForm::clock, #346,
     // step 11): then a zip of the two under the names RomM gave them, the
     // shape a push of this console's makes. Its size, and the clock's, are
-    // the loaded core's to check (saves.cpp, restoreBatterySave).
+    // the loaded core's to check (restoreBatterySave, coreReadsBattery).
     if (own.files.empty()) {
         if (asStored && zipped) {
             *why = "it is a zip, and RomM converted nothing";
@@ -531,6 +532,39 @@ static bool takeOtherSwitch(romm::Client& client, const OwnForm& own, int saveId
 
 bool holdsNoneOfTheGame(const romm::SaveAnswer& answer) {
     return answer.status == 422 && answer.error == "NOT_FOUND";
+}
+
+// A CORE'S BATTERY AS A GAME STARTS IS THE MOST IT READS, NOT ALWAYS THE
+// GAME'S SIZE. mGBA's is 128 KiB until the game first touches its save chip,
+// unless mGBA's own list names the game (src/gba/overrides.c at our pin), and
+// Genesis Plus GX's is 64 KiB until the first frame, for the Mega Drive,
+// Master System and Game Gear (libretro.c); each starts it blank, 0xFF. What
+// each writes is shorter: mGBA the chip's size once it knows the chip,
+// Genesis Plus GX the battery trimmed of its last 0xFF bytes. Sigil's pages
+// for both at RomM's pin say the same bytes in any length are the same save.
+// So a shorter battery is the save with the rest blank, what RetroArch puts
+// in and what this console puts in with its own (Core::writeSaveRam). One
+// longer than the core's would lose its end. Until 2026-11-22 another
+// emulator's had to be the core's size exactly, and every GBA save but a
+// 128 KiB chip's, and every trimmed Mega Drive one, was refused (Discussion
+// #731, the first report).
+bool coreReadsBattery(size_t bytes, size_t coreBytes) {
+    return bytes > 0 && bytes <= coreBytes;
+}
+
+// THE SAME SAVE IN TWO LENGTHS, for the same reason (coreReadsBattery): read
+// before the game touches its chip and after, mGBA's battery is 128 KiB and
+// then the chip's size, and Genesis Plus GX's 64 KiB and then trimmed. The
+// shorter one's missing end is blank, as Sigil's GBA and Mega Drive pages
+// count it. Until 2026-11-22 a length alone was a change: a GBA game left
+// before it read its save sent that save again, 128 KiB long, as a new save,
+// and the save's picture took its shrink for a save being made.
+bool sameBattery(const std::vector<uint8_t>& a, const std::vector<uint8_t>& b) {
+    const std::vector<uint8_t>& shorter = a.size() <= b.size() ? a : b;
+    const std::vector<uint8_t>& longer = a.size() <= b.size() ? b : a;
+    return std::equal(shorter.begin(), shorter.end(), longer.begin()) &&
+           std::all_of(longer.begin() + static_cast<std::ptrdiff_t>(shorter.size()), longer.end(),
+                       [](uint8_t x) { return x == 0xFF; });
 }
 
 // ANOTHER EMULATOR'S SAVE, ASKED OF RomM IN THIS CONSOLE'S FORM AND CHECKED
@@ -1355,7 +1389,7 @@ void syncSave(GameSession& sess) {
     }
     std::vector<uint8_t> ram;
     if (!core.readSaveRam(ram) || ram.empty()) return;
-    if (ram == sess.saveAtLaunch) return;     // nothing happened worth sending
+    if (sameBattery(ram, sess.saveAtLaunch)) return;   // nothing happened worth sending
 
     const std::string path = sess.saveDir + "/" + saveRowName(sess.fsStem, "srm");
     if (!cab::writeBytes(path, ram)) {
@@ -1485,13 +1519,14 @@ void restoreBatterySave(cab::Core& core, GameSession& session, const std::string
                 else if (parts.zipped && parts.battery.empty())
                     std::fprintf(stderr, "[save] %s holds no battery; this console's stands\n",
                                  incomingName.c_str());
-                // ANOTHER EMULATOR'S IS THE CORE'S OWN SIZE OR NOTHING (#346,
-                // step 8): the rest of its check was the worker's
+                // ANOTHER EMULATOR'S FITS IN THE CORE'S BATTERY (#346, step 8;
+                // coreReadsBattery): the rest of its check was the worker's
                 // (toOwnForm), and this is the part only the loaded core can
                 // say. This console's own saves keep the rule below.
-                else if (fetched.converted && parts.battery.size() != core.saveRamSize())
-                    std::fprintf(stderr, "[save] %s is %zu bytes where this core's save is "
-                                         "%zu: not a save it reads; this console's stands\n",
+                else if (fetched.converted &&
+                         !coreReadsBattery(parts.battery.size(), core.saveRamSize()))
+                    std::fprintf(stderr, "[save] %s is %zu bytes, longer than this core's save "
+                                         "of %zu: not a save it reads; this console's stands\n",
                                  incomingName.c_str(), parts.battery.size(),
                                  core.saveRamSize());
                 else

@@ -271,6 +271,24 @@ int test() {
         w.finish(s, 2100);
     }
 
+    {
+        // mGBA's battery is 128 KB until the game first touches its chip, and
+        // the chip's size after: the same save in another length has not
+        // saved (saves.h, sameBattery).
+        Watch w;
+        GameSession s = battery(511);
+        const std::vector<uint8_t> kept = ram;
+        ram.resize(131072, 0xFF);
+        w.begin(s, u, game, 0);
+        ram = kept;
+        w.tick(s, 1000);
+        w.tick(s, 2000);
+        settle(w, s, 2000);
+        w.leaving(s, 2100);
+        w.finish(s, 2200);
+        check(s.savePicture.empty(), "a battery that shrinks to its chip, the same bytes: no picture");
+    }
+
     std::printf("\na sitting whose save never went\n");
     {
         const int game2 = 501;
