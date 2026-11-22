@@ -41,7 +41,7 @@ and `:8080` keys to save typing.
 - Type the port if your server uses one. None is added for you.
 - Addresses on your own network try `http` first, others try `https` first.
   Type `https://` or `http://` in front to choose.
-- *Found RomM 5.3.1 at ...* means it worked. *Nothing answered at that
+- *Found RomM 5.5.0 at ...* means it worked. *Nothing answered at that
   address* means the console could not reach it: check the address in a
   browser on the same network.
 

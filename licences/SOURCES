@@ -75,4 +75,14 @@ sunshine               LizardByte/Sunshine                 63d35f702ee9e362e4326
 sunshine-notice        LizardByte/Sunshine                 63d35f702ee9e362e43263742981836ec0710384  NOTICE
 # --- compiled into the console app, or carried as data ---
 rcheevos               RetroAchievements/rcheevos          1433173220a7eaede6a9ed7a18e94117be1821e0  LICENSE
+# Sigil (frontend/third_party/sigil/VERSION), and the parts of its two
+# submodules its build compiles, at the commits Sigil's pin names.
+sigil                  rommapp/argosy-sigil                85f88a85b7e8cfe5c685ec3cde100570c6ee6ed8  LICENSE
+sigil-buram            rommapp/argosy-sigil                85f88a85b7e8cfe5c685ec3cde100570c6ee6ed8  licenses/buram-MIT.txt
+libchdr                rtissera/libchdr                    7891cbee2e8d7967bf8b6c24f091d2c5a53d8cfc  LICENSE.txt
+libchdr-zlib           rtissera/libchdr                    7891cbee2e8d7967bf8b6c24f091d2c5a53d8cfc  deps/zlib-1.3.1/LICENSE
+libchdr-zstd           rtissera/libchdr                    7891cbee2e8d7967bf8b6c24f091d2c5a53d8cfc  deps/zstd-1.5.6/LICENSE
+libchdr-lzma           rtissera/libchdr                    7891cbee2e8d7967bf8b6c24f091d2c5a53d8cfc  deps/lzma-24.05/LICENSE
+libchdr-dr-flac        rtissera/libchdr                    7891cbee2e8d7967bf8b6c24f091d2c5a53d8cfc  include/dr_libs/dr_flac.h#L12489-12536
+tiny-aes-c             kokke/tiny-AES-c                    23856752fbd139da0b8ca6e471a13d5bcc99a08d  unlicense.txt
 sdl-gamecontrollerdb   mdqinc/SDL_GameControllerDB         c6d6e7ecca57ff106ef63350da3cc03728d88a5f  LICENSE

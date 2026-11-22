@@ -19,6 +19,7 @@
 #include "overlaywin.h"
 #include "quality.h"
 #include "rumble.h"
+#include "savepush.h"
 #include "saves.h"
 #include "shortcuts.h"
 #include "storage.h"
@@ -76,8 +77,12 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     }
     // THE SAVE COMES DOWN FIRST, as PSP's does: a zip of the game's save
     // folder, unpacked where the emulator will look. The folder inside is
-    // named by the game's title ID, so the console never has to know it.
+    // named by the game's title ID, so the console never has to know it. A
+    // Switch game's is Sigil's unit, put back under Eden's profile and the
+    // device's folders (dirsave.h, ZipShape::Switch).
     const std::string root = cab::standalone::saveRoot(emu, saveDir);
+    const std::string profile = cab::standalone::saveProfile(emu);
+    const cab::ZipShape shape = zipShapeOf(launchJob.coreName, launchJob.platformSlug, "");
     const char* tag = catalog::saveTag(launchJob.coreName.c_str());
     // A LAST GAME HERE THAT NEVER GOT ITS SAVES ZIPPED goes up first, so
     // the restore below keeps it (finishInterruptedSave); for an Xbox game
@@ -98,15 +103,32 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
         refuseLaunch("Couldn't start this game");
         return;
     }
+    // The save the start continues from (savepick.h), a save of this
+    // console's that it replaces kept aside first; the notes the start
+    // leaves are taken once the session is made, below.
+    StartNotes startNotes;
+    startNotes.asideDir = storage::replacedSaveDir(user, launchJob.platformFsSlug, launchJob.romId);
     if (!root.empty() && tag && launchJob.saves.asked)
-        restoreDirSave(launchJob.saves, tag, root, launchJob.title);
+        restoreDirSave(launchJob.saves, tag, root, launchJob.title, std::string(), &startNotes,
+                       shape, profile);
+    const SaveFetch startedFrom = std::move(launchJob.saves);
     launchJob.saves = SaveFetch{};
+    // Where its save came from (saves.h, noteStart), before the note below,
+    // which carries what a start after a power cut cannot work out again.
+    GameSession starting;
+    starting.romId = launchJob.romId;
+    starting.title = launchJob.title;
+    starting.core = launchJob.coreName;
+    starting.platformSlug = launchJob.platformSlug;
+    if (tag) starting.saveTag = tag;
+    bool bringsOldSave = false;
+    const bool elsewhere = noteStart(startedFrom, startNotes, user, &starting, &bringsOldSave);
+    if (bringsOldSave) uploader.pushSnapshot(starting.romId, user);
     // AND ONTO WHERE THE EMULATOR READS THEM, when that is not a folder
     // (Xbox: its hard drive). The note says whose they are, should the
     // console go down before the game ends.
     {
-        const std::string note = std::to_string(launchJob.romId) + "\n" + saveDir + "\n" +
-                                 launchJob.title + "\n" + (tag ? tag : "") + "\n";
+        const std::string note = playingNoteFor(starting, saveDir);
         if (!cab::standalone::beforeStart(emu, launchJob.entryPath, saveDir, user.name, note,
                                           &err)) {
             cab::vpad::close();
@@ -134,16 +156,19 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     // The frame loop says so while the menu is up; while the emulator has the
     // screen that loop skips it, so it is said here.
     players::setInGame(true);
-    session = GameSession{};
-    session.romId = launchJob.romId;
+    session = starting;
     session.core = launchJob.coreName;
     session.platformSlug = launchJob.platformSlug;
-    session.title = launchJob.title;
     session.fsStem = launchJob.fsStem;
     session.saveDir = saveDir;
     session.standaloneCore = emu.core;
     session.entryPath = launchJob.entryPath;
-    if (tag) session.saveTag = tag;
+    // The pill when its save came from another device, drawn over the game
+    // as any pill is.
+    if (elsewhere) menuNotice.say(kContinuingElsewhere, Tone::Info);
+    // The newest save on RomM was one this console could not use (#346,
+    // step 8; saves.cpp, fetchSaves).
+    else if (starting.couldNotUseNewest) menuNotice.say(kCouldNotUseNewest, Tone::Problem);
     // No save states: the pause menu is Resume, Screenshot and Exit to
     // Home (open question 25; Switch fails its rule).
     session.snapshots = catalog::snapshotsAllowed(launchJob.coreName.c_str());
@@ -151,10 +176,15 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     // game saved. See GameSession.
     if (!root.empty()) {
         session.dirSaveRoot = root;
+        session.dirSaveCore = launchJob.coreName;
+        session.dirSavePlatform = launchJob.platformSlug;
+        session.dirSaveProfile = profile;
         session.dirAtLaunch = cab::listTree(root);
         std::fprintf(stderr, "[save] %s holds %zu file(s) at launch\n", root.c_str(),
                      session.dirAtLaunch.size());
     }
+    // THE SAVE WATCHED FROM HERE, for its picture (savepicture.h).
+    savePicture.begin(session, user, savepicture::programGame(), SDL_GetTicks());
     standaloneRan = 0.0f;
     if (session.romId > 0) {
         playClock.begin(session.romId, playtime::wallMs());
@@ -191,15 +221,20 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
 // the pill, because the person was playing, not choosing.
 void App::finishStandalone() {
     // AFTER THE EMULATOR HAS GONE, which is when everything it wrote is
-    // on the disk. Whatever changed is zipped and sent, crash or not: a
-    // game that saved and then fell over still saved.
+    // on the disk. Whatever changed is zipped and goes up as the game's
+    // snapshot (savepush.h), crash or not: a game that saved and then fell
+    // over still saved.
     if (const cab::standalone::Emulator* ran =
             cab::standalone::find(session.standaloneCore)) {
         std::string aerr;
         if (!cab::standalone::afterEnd(*ran, session.entryPath, session.saveDir, &aerr))
             std::fprintf(stderr, "[standalone] saves stay on the drive: %s\n", aerr.c_str());
     }
-    if (!session.dirSaveRoot.empty()) syncDirSave(session, uploader);
+    if (!session.dirSaveRoot.empty()) syncDirSave(session);
+    // The save's picture finished; a game that went by itself with its save
+    // changed since its picture keeps none (savepicture.h).
+    savePicture.finish(session, SDL_GetTicks());
+    savepush::leave(session, storage::currentUser(), uploader);
     session.dirSaveRoot.clear();
     // The zip is on the disk and owed to the server: nothing left for a
     // restart to finish.
@@ -434,6 +469,9 @@ bool App::takeStandaloneEvent(const SDL_Event& e) {
 // Every frame while an emulator of its own runs. True when this frame is
 // done: while the emulator has the screen the frame loop does nothing else.
 bool App::watchStandalone(float dt) {
+    // THE SAVE, looked at once a second for its picture (savepicture.h).
+    if (standaloneRun.active() && !standaloneRun.stopping())
+        savePicture.tick(session, SDL_GetTicks());
     // HOME HELD ON A WII REMOTE opens the menu here as in every game
     // (followRemotesInGame). While the emulator has the screen the frame
     // loop stops before its own call, so it is asked here.
@@ -530,7 +568,7 @@ bool App::watchStandalone(float dt) {
         if (standaloneExitAfter > 0.0f && !standaloneRun.stopping() &&
             standaloneRan >= standaloneExitAfter) {
             std::fprintf(stderr, "[standalone] --standalone-exit: closing it\n");
-            standaloneRun.stop();
+            stopStandaloneGame();
         }
         // The game's rumble, to the pads in people's hands, and never
         // while it is frozen under the pause menu.
@@ -554,10 +592,19 @@ bool App::watchStandalone(float dt) {
 // a session of its own. Asked, then made, inside its grace period.
 void App::closeStandaloneAtExit() {
     if (standaloneRun.active()) {
-        standaloneRun.stop();
+        stopStandaloneGame();
         while (standaloneRun.poll()) SDL_Delay(50);
         finishStandalone();
     }
+}
+
+// EVERY CLOSE ASKED OF AN EMULATOR OF ITS OWN: Exit to Home, the Power menu,
+// the console shutting down. Its save's picture is asked of gamescope first,
+// while the game is still on its plane (savepicture.h).
+void App::stopStandaloneGame() {
+    if (standaloneRun.active() && !standaloneRun.stopping())
+        savePicture.leaving(session, SDL_GetTicks());
+    standaloneRun.stop();
 }
 
 // --- The pointer (#198) -------------------------------------------------------

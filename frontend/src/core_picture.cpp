@@ -7,12 +7,14 @@
 #include "core.h"
 #include "core_state.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <vector>
 
 #include "libretro.h"
+#include "imagecodec.h"
 #include "ps2.h"
 #include "vkhost.h"
 
@@ -228,7 +230,8 @@ uint64_t Core::frameDigest() const {
     return h;
 }
 
-bool Core::snapshot(std::vector<uint8_t>& rgba, unsigned& width, unsigned& height) const {
+bool Core::snapshot(std::vector<uint8_t>& rgba, unsigned& width, unsigned& height,
+                    unsigned maxWidth) const {
     // PLAYSTATION 2 (#130): its frame is not the core's, it is the texture
     // uploadFrame fills from PCSX2 (ps2::takeFrame), RGBA, top row first, at
     // the game's own resolution. So a screenshot works in every game where
@@ -245,34 +248,108 @@ bool Core::snapshot(std::vector<uint8_t>& rgba, unsigned& width, unsigned& heigh
                     reinterpret_cast<const uint8_t*>(pixels) + static_cast<size_t>(pw) * ph * 4);
         width = pw;
         height = ph;
+        ui::shrinkRGBA(rgba, width, height, maxWidth);
         return true;
     }
-    const unsigned w = ps2Frame ? frameWidth_ : gFrameW;
-    const unsigned h = ps2Frame ? frameHeight_ : gFrameH;
+    unsigned w = ps2Frame ? frameWidth_ : gFrameW;
+    unsigned h = ps2Frame ? frameHeight_ : gFrameH;
     if (w == 0 || h == 0) return false;
     if (ps2Frame && !texture_) return false;
-    std::vector<uint8_t> px(static_cast<size_t>(w) * h * 4);
+    // THE SIZE IT IS READ AT: whole, or no wider than `maxWidth` as it is
+    // shown, so a quarter-turned game is measured by its height (#346, the
+    // save's picture).
+    const unsigned r = gRotation & 3u;
+    const unsigned shownW = (r & 1u) ? h : w;
+    unsigned rw = w, rh = h;
+    if (maxWidth > 0 && shownW > maxWidth) {
+        rw = std::max(1u, static_cast<unsigned>(
+                              (static_cast<uint64_t>(w) * maxWidth + shownW / 2) / shownW));
+        rh = std::max(1u, static_cast<unsigned>(
+                              (static_cast<uint64_t>(h) * maxWidth + shownW / 2) / shownW));
+    }
+    std::vector<uint8_t> px;
 
-    // Read a GL framebuffer's bottom-left w x h into px, top row first when
+    // Read a GL framebuffer's bottom-left fw x fh into px, top row first when
     // `bottomUp` says row zero is the picture's bottom.
-    auto readFBO = [&](GLuint fbo, bool bottomUp) {
+    auto readFBO = [&](GLuint fbo, bool bottomUp, unsigned fw, unsigned fh) {
+        px.assign(static_cast<size_t>(fw) * fh * 4, 0);
         GLint bound = 0;
         glGetIntegerv(GL_FRAMEBUFFER_BINDING, &bound);
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glPixelStorei(GL_PACK_ALIGNMENT, 1);
-        glReadPixels(0, 0, static_cast<GLsizei>(w), static_cast<GLsizei>(h), GL_RGBA,
+        glReadPixels(0, 0, static_cast<GLsizei>(fw), static_cast<GLsizei>(fh), GL_RGBA,
                      GL_UNSIGNED_BYTE, px.data());
         glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(bound));
         if (!bottomUp) return;
-        const size_t row = static_cast<size_t>(w) * 4;
+        const size_t row = static_cast<size_t>(fw) * 4;
         std::vector<uint8_t> tmp(row);
-        for (unsigned y = 0; y < h / 2; ++y) {
+        for (unsigned y = 0; y < fh / 2; ++y) {
             uint8_t* a = px.data() + y * row;
-            uint8_t* b = px.data() + (h - 1 - y) * row;
+            uint8_t* b = px.data() + (fh - 1 - y) * row;
             std::memcpy(tmp.data(), a, row);
             std::memcpy(a, b, row);
             std::memcpy(b, tmp.data(), row);
         }
+    };
+
+    // MADE SMALL ON THE GRAPHICS CHIP, THEN READ, so the game does not wait
+    // on a whole frame crossing to the processor (a 4K frame read whole took
+    // 8 to 23 ms on the reference console, 2026-11-19). Halved by blits while
+    // it is at least twice the size wanted, each step an even average of
+    // four pixels, and the last step to the size itself. The blits keep the
+    // picture's way up, so `bottomUp` is the source's.
+    auto readGL = [&](GLuint src, bool bottomUp) -> bool {
+        if (rw == w && rh == h) {
+            readFBO(src, bottomUp, w, h);
+            return true;
+        }
+        GLint readBound = 0, drawBound = 0, texBound = 0;
+        glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &readBound);
+        glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &drawBound);
+        glGetIntegerv(GL_TEXTURE_BINDING_2D, &texBound);
+        const GLboolean scissor = glIsEnabled(GL_SCISSOR_TEST);
+        glDisable(GL_SCISSOR_TEST);
+        GLuint curFbo = src, curTex = 0;
+        unsigned cw = w, ch = h;
+        bool ok = true;
+        while (ok && (cw != rw || ch != rh)) {
+            const bool halve = cw / 2 >= rw && ch / 2 >= rh;
+            const unsigned nw = halve ? cw / 2 : rw, nh = halve ? ch / 2 : rh;
+            GLuint tex = 0, fbo = 0;
+            glGenTextures(1, &tex);
+            glBindTexture(GL_TEXTURE_2D, tex);
+            glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, static_cast<GLsizei>(nw),
+                           static_cast<GLsizei>(nh));
+            glGenFramebuffers(1, &fbo);
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fbo);
+            glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex,
+                                   0);
+            ok = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+            if (ok) {
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, curFbo);
+                glBlitFramebuffer(0, 0, static_cast<GLint>(cw), static_cast<GLint>(ch), 0, 0,
+                                  static_cast<GLint>(nw), static_cast<GLint>(nh),
+                                  GL_COLOR_BUFFER_BIT, GL_LINEAR);
+            }
+            if (curTex) {
+                glDeleteFramebuffers(1, &curFbo);
+                glDeleteTextures(1, &curTex);
+            }
+            curFbo = fbo;
+            curTex = tex;
+            cw = nw;
+            ch = nh;
+        }
+        glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(readBound));
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(drawBound));
+        glBindTexture(GL_TEXTURE_2D, static_cast<GLuint>(texBound));
+        if (scissor) glEnable(GL_SCISSOR_TEST);
+        if (ok) readFBO(curFbo, bottomUp, rw, rh);
+        if (curTex) {
+            glDeleteFramebuffers(1, &curFbo);
+            glDeleteTextures(1, &curTex);
+        }
+        return ok;
     };
 
     if (ps2Frame || gHWVulkan) {
@@ -288,39 +365,47 @@ bool Core::snapshot(std::vector<uint8_t>& rgba, unsigned& width, unsigned& heigh
         glGetIntegerv(GL_FRAMEBUFFER_BINDING, &bound);
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, tex, 0);
-        const bool ok = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+        bool ok = glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
         glBindFramebuffer(GL_FRAMEBUFFER, static_cast<GLuint>(bound));
-        if (ok) readFBO(fbo, /*bottomUp=*/false);
+        if (ok) ok = readGL(fbo, /*bottomUp=*/false);
         glDeleteFramebuffers(1, &fbo);
         if (!ok) return false;
+        w = rw;
+        h = rh;
     } else if (gHWFrame) {
         // glReadPixels hands back row zero = the framebuffer's y = 0, which
         // is the picture's bottom exactly when the core says so.
         if (!gHWFBO) return false;
-        readFBO(gHWFBO, gHW.bottom_left_origin);
+        if (!readGL(gHWFBO, gHW.bottom_left_origin)) return false;
+        w = rw;
+        h = rh;
     } else {
         if (gFrame.size() < gFramePitch * h) return false;
+        px.assign(static_cast<size_t>(w) * h * 4, 0);
         for (unsigned y = 0; y < h; ++y) {
             const uint8_t* src = gFrame.data() + static_cast<size_t>(y) * gFramePitch;
             uint8_t* dst = px.data() + static_cast<size_t>(y) * w * 4;
             for (unsigned x = 0; x < w; ++x, dst += 4) {
-                uint8_t r, g, b;
+                uint8_t r8, g8, b8;
                 if (gPixelFormat == RETRO_PIXEL_FORMAT_XRGB8888) {
                     uint32_t p;
                     std::memcpy(&p, src + x * 4, 4);
-                    r = (p >> 16) & 0xFF; g = (p >> 8) & 0xFF; b = p & 0xFF;
+                    r8 = (p >> 16) & 0xFF; g8 = (p >> 8) & 0xFF; b8 = p & 0xFF;
                 } else {
                     uint16_t p;
                     std::memcpy(&p, src + x * 2, 2);
                     if (gPixelFormat == RETRO_PIXEL_FORMAT_RGB565) {
-                        r = ((p >> 11) & 0x1F) << 3; g = ((p >> 5) & 0x3F) << 2; b = (p & 0x1F) << 3;
+                        r8 = ((p >> 11) & 0x1F) << 3; g8 = ((p >> 5) & 0x3F) << 2; b8 = (p & 0x1F) << 3;
                     } else {
-                        r = ((p >> 10) & 0x1F) << 3; g = ((p >> 5) & 0x1F) << 3; b = (p & 0x1F) << 3;
+                        r8 = ((p >> 10) & 0x1F) << 3; g8 = ((p >> 5) & 0x1F) << 3; b8 = (p & 0x1F) << 3;
                     }
                 }
-                dst[0] = r; dst[1] = g; dst[2] = b; dst[3] = 0xFF;
+                dst[0] = r8; dst[1] = g8; dst[2] = b8; dst[3] = 0xFF;
             }
         }
+        // A frame drawn on the processor is small already for almost every
+        // core; one that is not is made small here.
+        if (rw != w) ui::shrinkRGBA(px, w, h, rw);
     }
     // Opaque whatever the core left in alpha: a PNG with holes in it shows
     // the page behind.
@@ -329,7 +414,6 @@ bool Core::snapshot(std::vector<uint8_t>& rgba, unsigned& width, unsigned& heigh
     // THE QUARTER TURN, as the player's vertex shader turns it (ui.cpp, uRot:
     // the destination's corner reads the source at (1 - y, x) for one step
     // anticlockwise), so a vertical arcade game's picture stands upright.
-    const unsigned r = gRotation & 3u;
     if (r == 0) {
         rgba = std::move(px);
         width = w;

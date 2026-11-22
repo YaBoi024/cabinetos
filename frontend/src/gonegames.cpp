@@ -35,8 +35,6 @@ bool gAsked = false;           // RomM answered this start
 std::set<int> gGone;           // what it said
 std::set<std::string> gSaid;   // what was said to be left, so each is said once
 
-bool inUse(int romId) { return romId == gPlaying.load() || romId == gLaunching.load(); }
-
 // Says once a run why a game, or a person's files of it, were left.
 void sayLeft(const std::string& what, const std::string& line) {
     std::lock_guard<std::mutex> lk(gMu);
@@ -174,6 +172,8 @@ void setInUse(int playing, int launching) {
     gLaunching = launching;
 }
 
+bool inUse(int romId) { return romId == gPlaying.load() || romId == gLaunching.load(); }
+
 void setQueue(Queue q) {
     std::lock_guard<std::mutex> lk(gMu);
     gQueue = std::move(q);
@@ -260,12 +260,17 @@ bool removeSaves(int romId, const storage::User& signedIn) {
         std::vector<cache::Owed> owed;
         for (cache::Owed& o : cache::owed(u))
             if (o.romId == romId) owed.push_back(std::move(o));
-        // NOT YET TRIED: the signed-in person's owed file before RomM has
-        // refused it this run, or saves still in an emulator's folder.
+        cache::OwedPush push;
+        const bool pushOwed = cache::owedPush(u, romId, &push);
+        // NOT YET TRIED: the signed-in person's owed file or snapshot before
+        // RomM has refused it this run, or saves still in an emulator's folder.
         std::string wait;
         for (const cache::Owed& o : owed)
             if (u.id == signedIn.id && !(q.refused && q.refused(u, romId, o.fileName)))
                 wait = o.fileName + " has not been tried by the upload queue yet";
+        if (pushOwed && u.id == signedIn.id &&
+            !(q.refused && q.refused(u, romId, cache::kOwedPushName)))
+            wait = "its owed snapshot has not been tried by the upload queue yet";
         for (const std::string& f : folders)
             if (wait.empty() && holdsNote(f)) wait = f + " still holds an emulator's note";
         if (!wait.empty()) {
@@ -274,7 +279,7 @@ bool removeSaves(int romId, const storage::User& signedIn) {
             left = true;
             continue;
         }
-        bool any = !folders.empty() || !owed.empty();
+        bool any = !folders.empty() || !owed.empty() || pushOwed;
         for (const std::string& f : folders) {
             bytes += storage::treeBytes(f);
             if (storage::removeEntry(f)) ++files;
@@ -288,8 +293,23 @@ bool removeSaves(int romId, const storage::User& signedIn) {
             cache::clearPending(u, romId, o.fileName);
             ++owedGone;
         }
+        if (pushOwed) {
+            std::vector<std::string> named = {push.savePath};
+            for (const cache::OwedPush::State& st : push.states) {
+                named.push_back(st.path);
+                named.push_back(st.picturePath);
+            }
+            for (const std::string& p : named) {
+                if (p.empty() || !storage::exists(p)) continue;
+                bytes += storage::treeBytes(p);
+                if (cab::removeFile(p)) ++files;
+            }
+            cache::clearPushOwed(u, romId, push.stamp);
+            ++owedGone;
+        }
         if (storage::exists(home + "/server-saves/" + id)) {
             savemirror::forget(u, romId);
+            savemirror::forgetHeld(u, romId);
             any = true;
         }
         if (any) ++people;
@@ -303,8 +323,10 @@ bool removeSaves(int romId, const storage::User& signedIn) {
 
 std::vector<int> owedIds() {
     std::set<int> ids;
-    for (const storage::User& u : storage::knownUsers())
+    for (const storage::User& u : storage::knownUsers()) {
         for (const cache::Owed& o : cache::owed(u)) ids.insert(o.romId);
+        for (const cache::OwedPush& p : cache::owedPushes(u)) ids.insert(p.romId);
+    }
     return std::vector<int>(ids.begin(), ids.end());
 }
 
@@ -449,9 +471,36 @@ int test() {
     cab::standalone::writePlayingNote(bNoted, "2268\n");
     const std::string bPlaying = storage::savesDir(b, "MAME2003", 3017, "mame2003") + "/hi";
     put(bPlaying);
+    // A snapshot owed for 705 by each of them, its save, a state and its
+    // picture on the disk, and the snapshot person a holds of 705; and one
+    // owed for 2268 by b, whose saves of it are still in an emulator's folder.
+    auto owePush = [&](const storage::User& u, int id, const std::string& platform) {
+        cache::OwedPush p;
+        p.romId = id;
+        p.emulator = "gone-test";
+        p.hasSave = true;
+        p.saveName = "push.srm";
+        p.savePath = storage::savesDir(u, platform, id, "fbneo") + "/push.srm";
+        put(p.savePath);
+        const std::string states = storage::statesDir(u, platform, id, "fbneo");
+        p.states.push_back({"fbneo", "push.state", states + "/push.state", "push.png",
+                            states + "/push.png", 1763560512345});
+        put(p.states[0].path);
+        put(p.states[0].picturePath);
+        cache::markPushOwed(u, p, 4096);
+        return p.savePath;
+    };
+    const std::string aPush = owePush(a, 705, "FBNEO");
+    const std::string bPush = owePush(b, 705, "FBNEO");
+    owePush(b, 2268, "Sony Playstation 3");
+    savemirror::Held held;
+    held.snapshotId = 9;
+    savemirror::putHeld(a, 705, held);
+    const std::string aHeld = storage::userDir(a) + "/server-saves/705/held.json";
 
     setInUse(3017, 0);
-    check(owedIds() == std::vector<int>({100, 705}), "the games owed for are listed for asking");
+    check(owedIds() == std::vector<int>({100, 705, 2268}),
+          "the games owed for, by a file or a snapshot, are listed for asking");
     check(removeCopy(705) && !exists(played) && !exists(fb + "/Manuals/705 - Gone Fighter.pdf"),
           "a played copy goes, and its manual with it");
     check(!exists(storage::gamesDir() + "/705.json") && !exists(covers + "/22/705"),
@@ -476,19 +525,28 @@ int test() {
     queued = 0;
     check(!uploadsPending(), "and an empty one is not");
     check(!removeSaves(705, a) && exists(aOwed) && exists(aState) && exists(aShot) &&
-              cache::owed(a).size() == 2,
+              cache::owed(a).size() == 2 && cache::isPushOwed(a, 705) && exists(aPush) &&
+              exists(aHeld),
           "the signed-in person's owed save before the queue has tried it: all theirs left");
-    check(!exists(bSent) && !exists(bOwed) && cache::owed(b).empty(),
-          "another person's, sent and owed, go: RomM answered 404 to them");
+    check(!exists(bSent) && !exists(bOwed) && cache::owed(b).empty() &&
+              !cache::isPushOwed(b, 705) && !exists(bPush),
+          "another person's, sent and owed, a snapshot among them, go: RomM answered 404 "
+          "to them");
     refused.insert(a.name + "/705/gonefight.nv");
+    check(!removeSaves(705, a) && exists(aOwed) && cache::isPushOwed(a, 705),
+          "and while the queue has not tried their owed snapshot, all theirs are still left");
+    refused.insert(a.name + "/705/" + cache::kOwedPushName);
     check(removeSaves(705, a) && !exists(aOwed) && !exists(aState) && !exists(aShot) &&
-              !exists(aMirror),
-          "once RomM refused it this run: the save, the state, the screenshot and RomM's "
-          "copy go");
+              !exists(aMirror) && !cache::isPushOwed(a, 705) && !exists(aPush) &&
+              !exists(aHeld) && !exists(storage::userDir(a) + "/server-saves/705"),
+          "once RomM refused both this run: the save, the state, the screenshot, the owed "
+          "snapshot, RomM's copy and the snapshot held of it go");
     const std::vector<cache::Owed> still = cache::owed(a);
     check(still.size() == 1 && still[0].romId == 100, "and a live game's owed save stays owed");
-    check(!removeSaves(2268, a) && !exists(aKept) && exists(bNoted + "/hdd0/save.dat"),
-          "a person's saves still in an emulator's folder are left, the others go");
+    check(!removeSaves(2268, a) && !exists(aKept) && exists(bNoted + "/hdd0/save.dat") &&
+              cache::isPushOwed(b, 2268),
+          "a person's saves still in an emulator's folder are left, their owed snapshot "
+          "with them, the others go");
     check(!removeSaves(3017, a) && exists(bPlaying), "a game being played keeps its saves");
     setInUse(0, 0);
     check(removeCopy(3017) && !exists(running) && removeSaves(3017, a) && !exists(bPlaying),

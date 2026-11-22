@@ -1,0 +1,5 @@
+libchdr-lzma: deps/lzma-24.05/LICENSE from github.com/rtissera/libchdr at 7891cbee2e8d7967bf8b6c24f091d2c5a53d8cfc
+
+LZMA SDK is placed in the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or distribute the original LZMA SDK code, either in source code form or as a compiled binary, for any purpose, commercial or non-commercial, and by any means.

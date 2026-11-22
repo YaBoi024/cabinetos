@@ -66,6 +66,15 @@ bool writeBytes(const std::string& path, const void* data, size_t size, mode_t m
         ::unlink(tmp.c_str());
         return false;
     }
+    // The new name, on the drive (fileio.h). The file is in place whatever
+    // this answers.
+    const size_t slash = path.rfind('/');
+    const std::string dir = slash == std::string::npos ? "." : slash == 0 ? "/" : path.substr(0, slash);
+    const int dfd = ::open(dir.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (dfd >= 0) {
+        ::fsync(dfd);
+        ::close(dfd);
+    }
     return true;
 }
 
@@ -75,6 +84,12 @@ bool writeBytes(const std::string& path, const std::vector<uint8_t>& data, mode_
 
 bool writeBytes(const std::string& path, const std::string& text, mode_t mode) {
     return writeBytes(path, text.data(), text.size(), mode);
+}
+
+int64_t modifiedNs(const std::string& path) {
+    struct stat st;
+    if (::stat(path.c_str(), &st) != 0) return 0;
+    return static_cast<int64_t>(st.st_mtim.tv_sec) * 1000000000 + st.st_mtim.tv_nsec;
 }
 
 bool removeFile(const std::string& path) {

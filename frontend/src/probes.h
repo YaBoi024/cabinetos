@@ -47,6 +47,7 @@ struct StorageProbeOptions {
     const char* rommAddress = nullptr;
     int romProbeId = 0;
     const char* romProbeExts = nullptr;
+    int channelsProbeId = 0;
     bool rommProbeMode = false;
     bool rommPair = false;
     bool coreOptionsAudit = false;

@@ -1,7 +1,8 @@
 // The game in play: the pads read into the core with the in-game
 // shortcuts, fast forward and rewind, the picture, and the way out
-// (finishExit: every save, before the unload), at Exit to Home and at a
-// shutdown mid-game (#398, restructure batch f).
+// (finishExit: every save gathered around the unload, then its one snapshot
+// queued for RomM), at Exit to Home and at a shutdown mid-game (#398,
+// restructure batch f).
 
 #include "app.h"
 
@@ -15,6 +16,7 @@
 #include "discs.h"
 #include "fightstick.h"
 #include "ps2.h"
+#include "savepush.h"
 #include "saves.h"
 #include "savetable.h"
 #include "screenfx.h"
@@ -45,6 +47,9 @@ void App::dropPressesFromClosing() {
 }
 
 void App::finishExit() {
+    // THE SAVE'S PICTURE FIRST, while the game is still on screen: a save
+    // that changed since its last picture takes one now (savepicture.h).
+    savePicture.leaving(session, SDL_GetTicks());
     // TIME PLAYED (#128): the session ends as the game does, and goes to
     // RomM with the save. Game events (#716) says so, with the minutes.
     int64_t playedMs = 0;
@@ -56,7 +61,7 @@ void App::finishExit() {
         playedJustNow(session.romId);
     }
     gameEventEnded(playedMs);
-    syncSave(session, uploader);
+    syncSave(session);
     // The disc in the drive, kept for this person's next Play (#162);
     // GameCube changes its own discs, so the core is asked.
     if (!session.discs.empty()) {
@@ -124,17 +129,28 @@ void App::finishExit() {
     // once already when it was ignored.
     //
     // Safe to run twice: syncDirSave compares against its own baseline and
-    // sends nothing when nothing moved.
-    if (!session.dirSaveRoot.empty()) syncDirSave(session, uploader);
+    // gathers nothing when nothing moved.
+    if (!session.dirSaveRoot.empty()) syncDirSave(session);
     // The HOME Menu's rumble switch, read back from the game's SYSCONF
     // now that Dolphin has written it (#274, wii.h). Every Wii game has
     // its NAND under its save directory.
     if (session.platformSlug == "wii" && session.core == "dolphin")
         wii::keepRumbleFrom(session.saveDir + "/User/Wii/shared2/sys/SYSCONF");
     // And the same trigger for the same reason, for the class that is one
-    // file rather than a tree. This is where a Dreamcast's card is read
-    // back out of the system directory and taken out of `bios/`.
-    syncFileSaves(session, uploader);
+    // file rather than a tree. This is where a Dreamcast's card, which
+    // Flycast writes under the disc's product number, goes back to the
+    // game's own name.
+    syncFileSaves(session);
+    // The save's picture finished, if it is still being made.
+    savePicture.finish(session, SDL_GetTicks());
+    // WHAT THE SESSION LEFT GOES UP AS ONE SNAPSHOT, ONCE, now that the game
+    // has closed and every kind of save is gathered and written on this
+    // console (#346, savepush.h): marked as owed here, sent on the upload
+    // queue's thread. Nothing changed means nothing sent.
+    savepush::leave(session, storage::currentUser(), uploader);
+    // The game ended: its note that it was playing goes (saves.h,
+    // notePlaying), now that what it saved is marked owed.
+    cab::standalone::removePlayingNote(session.saveDir);
     // Whatever sound the game had queued goes with it, rather than playing
     // on over Home (see where the stream's rate is set, at launch).
     if (audioStream) SDL_ClearAudioStream(audioStream);
@@ -430,7 +446,7 @@ bool App::readGameInput(cab::Core& core) {
                         } else if (save) {
                             std::fprintf(stderr, "[shortcuts] player %d: save state\n",
                                          p + 1);
-                            saveStateNow(session, uploader, menuNotice);
+                            saveStateNow(session, menuNotice);
                         } else if (load) {
                             std::fprintf(stderr, "[shortcuts] player %d: load newest\n",
                                          p + 1);

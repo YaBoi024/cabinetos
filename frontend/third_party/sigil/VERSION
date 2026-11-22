@@ -1,0 +1,31 @@
+sigil 1.0.0, commit 85f88a85b7e8cfe5c685ec3cde100570c6ee6ed8
+https://github.com/rommapp/argosy-sigil (MPL-2.0, see LICENSE)
+The commit RomM 5.5.0-alpha.2 to 5.5.0-beta.1 build in (SIGIL_VERSION in
+RomM's docker/Dockerfile). Its submodules at that commit:
+  third_party/libchdr     https://github.com/rtissera/libchdr, commit
+                          7891cbee2e8d7967bf8b6c24f091d2c5a53d8cfc (BSD-3-Clause,
+                          see third_party/libchdr/LICENSE.txt; its zlib, zstd
+                          and LZMA SDK each with their own LICENSE)
+  third_party/tiny-AES-c  https://github.com/kokke/tiny-AES-c, commit
+                          23856752fbd139da0b8ca6e471a13d5bcc99a08d (The
+                          Unlicense, see third_party/tiny-AES-c/unlicense.txt)
+
+Copied unchanged: Sigil's include/, src/, LICENSE and licenses/; of libchdr,
+LICENSE.txt, include/, the five src/ files Sigil's CMakeLists compiles, and
+of its deps the files that list compiles with the headers beside them
+(zlib-1.3.1's eleven, lzma-24.05's nine, zstd-1.5.6's lib/common and
+lib/decompress) and each one's LICENSE; of tiny-AES-c, aes.c, aes.h and
+unlicense.txt. Left out: Sigil's bindings, CLI, docs, tests and fuzzers, its
+CMakeLists (frontend/Makefile builds the same files with the same flags), and
+everything else of the two submodules.
+
+The pin follows RomM's (docs/decisions/2026-11-22-sigil-pin-follows-romm.md):
+it moves when the RomM release the console needs builds in another commit, in
+the pull request that checks the console's other systems against that commit,
+or ahead of RomM for one of the five reasons of
+docs/decisions/2026-10-23-when-an-emulator-pin-moves.md. To move it, copy the
+same files from the new commit and its submodules' commits, and change this
+note. ci/check-vendored-copies.sh holds every file here but this one to Sigil's
+own at the commits named above, on every pull request;
+ci/check-sigil-follows-romm.sh compares the commit with RomM's on the 1st of
+each month.

@@ -69,10 +69,15 @@ TESTS=(
     --files-test
     --vectrex-sheets-test
     --gone-games-test
+    --save-notes-test
+    --save-pick-test
+    --save-push-test
+    --save-picture-test
     --gpu-choice-test
     --tailscale-switch-test
     --update-romm-test
     --game-events-test
+    --romm-snapshots-test
     --dualsense-test
 )
 

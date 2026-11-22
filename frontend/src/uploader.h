@@ -1,10 +1,6 @@
-// Uploads, off the thread that draws: the queue that sends saves, states,
-// screenshots, play time and favourites to RomM, and the one-file send that
-// removing a person uses too. Moved out of main.cpp in the restructure (#398).
-//
-// JOB'S FIELD ORDER IS FROZEN. The saves and states code builds a Job by
-// position ({romId, emulator, fileName, data, isState}); emulator and fileName
-// are both strings, so reordering them compiles and silently swaps them.
+// Uploads, off the thread that draws: the queue that sends a game's snapshot
+// (its save and its states, savepush.h), screenshots, play time and
+// favourites to RomM. Moved out of main.cpp in the restructure (#398).
 
 #pragma once
 
@@ -21,10 +17,9 @@
 #include "romm.h"
 #include "storage.h"
 
-bool uploadOne(const romm::Client& c, int romId, bool isState, bool isScreenshot,
-               const std::string& emulator, const std::string& fileName,
-               const std::vector<uint8_t>& data, const std::string& shotName,
-               const std::vector<uint8_t>& shot, std::string* err);
+// RomM answered and refused it for good: an HTTP 4xx, read off the client's
+// error (uploader.cpp).
+bool refusedForGood(const std::string& err);
 bool sendPlaySessionsAs(const romm::Client& c, const storage::User& who, std::string* err);
 
 // Uploads, off the thread that draws.
@@ -50,16 +45,10 @@ public:
         std::string emulator;
         std::string fileName;
         std::vector<uint8_t> data;
-        bool isState = false;
         // The file on disk these bytes came from: what a retry reads, since
         // the bytes in memory do not outlive the console being switched off.
         std::string localPath;
-        // A state's picture (#99): its name, its bytes, and where it is.
-        std::string shotName;
-        std::vector<uint8_t> shot;
-        std::string shotPath;
-        // Sent again from a marker, not asked for by a person just now: the
-        // pause menu is not told how it went.
+        // Sent again from a marker, not asked for by a person just now.
         bool resend = false;
         // A screenshot (#79): `data` is the PNG, and it goes to the gallery.
         bool isScreenshot = false;
@@ -69,16 +58,19 @@ public:
         bool isPlay = false;
         // Favourites (#267): every one owed, read off favorites-owed.json.
         bool isFavorite = false;
+        // A game's snapshot (#346, savepush.h): its owed push, read off its
+        // marker when it runs (cache::OwedPush). No bytes here; `fileName` is
+        // the name an owed push goes by (cache::kOwedPushName).
+        bool isPush = false;
         // WHOSE IT IS, set on the frame thread when it is queued (push, and
         // the resends), so the worker never reads storage::currentUser(),
-        // which a switch of person assigns (#483, FILES-09). Last, so the
-        // positional builds above leave it empty and push fills it.
+        // which a switch of person assigns (#483, FILES-09).
         storage::User who{};
     };
 
     // An upload that has not reached the server is the ONE irreplaceable thing
     // on this machine, and until this existed nothing recorded that one was
-    // outstanding — so a crash between writing a state and sending it left no
+    // outstanding — so a crash between writing a file and sending it left no
     // trace that anything was owed. The marker makes it a fact on disk, and its
     // bytes count against the save floor when somebody asks to keep a game.
     //
@@ -90,6 +82,12 @@ public:
 
     void push(Job job);
 
+    // A GAME'S OWED SNAPSHOT (#346), whose marker is already on the disk
+    // (savepush::leave): queued once however often it is asked for, and
+    // asked of RomM once more even after a refusal this run, as a new save
+    // of a file is (push).
+    void pushSnapshot(int romId, const storage::User& who);
+
     // SEND AGAIN EVERYTHING STILL OWED (2026-09-26). Until this, an upload
     // that failed was never tried again: a state saved while the server was
     // away stayed on this console for good, and never reached the Apple TV.
@@ -97,7 +95,12 @@ public:
     // few minutes while something is owed (the frame loop's `owing()`). The
     // bytes are read off the disk on the worker; anything already queued is
     // not queued twice, and nothing RomM refused this run (refused_). On the
-    // frame thread, for the person signed in.
+    // frame thread, for the person signed in. A SAVE'S OR A STATE'S MARKER
+    // FROM BEFORE SAVE CHANNELS, one per file, is not sent as it is: RomM
+    // takes a save or a state from this console only inside a snapshot. Each
+    // becomes its game's owed push first (savepush::adoptOldSaves, then
+    // adoptOldStates), here on the frame thread, where saves and states are
+    // marked.
     void resendOwed();
 
     // Everything owed in favorites-owed.json, in one job, as sendPlay.
@@ -115,39 +118,8 @@ public:
     // Something failed and is still owed: the frame loop tries again on a timer.
     bool owing() const { return owing_.load(); }
 
-    // THE OUTCOME OF THE MOST RECENT STATE UPLOAD, so the pause menu can say
-    // what happened rather than what was attempted. 0 nothing new, 1 it reached
-    // the server, 2 it did not and is still on the disk.
-    //
-    // Cabinet awaited its upload and reported "Saved to RomM." or "Waiting for
-    // signal to upload." This console queues on a worker instead, which is the
-    // right shape for a machine that must not stall its frame loop — but it
-    // meant Save said nothing at all, and then "load latest" went looking on a
-    // server that had not received it yet. One atomic closes that gap.
-    std::atomic<int> stateOutcome{0};
-
 private:
     static std::string key(const Job& j) { return std::to_string(j.romId) + "/" + j.fileName; }
-
-    // THREE STATES PER GAME, ROTATING (docs/PROJECT.md, "The in-game
-    // shortcuts, and three states per game"). Once a state has reached RomM,
-    // this person's states for the game UNDER THE SAME EMULATOR TAG are cut to
-    // the newest three, on RomM and on this console. Other tags, which is
-    // every other app's states, are never looked at. A state Cabinet saved
-    // on the Apple TV under the same tag counts, and can be the one that goes:
-    // decided, and the price of three being true everywhere.
-    //
-    // After the upload, not before: an offline save waits in the queue, and
-    // counting it before it exists on RomM would delete a good state to make
-    // room for one that might never arrive. Several saved offline come down to
-    // three as each lands.
-    //
-    // Deletes nothing unless the state just sent is among the three kept. If
-    // RomM's times disagree with ours, a wrong guess would delete the newest
-    // state someone has; doing nothing leaves one too many, which the next
-    // save tidies.
-    static constexpr size_t kStatesKept = 3;
-    void rotate(const Job& job);
 
     void enqueue(Job job);
 
@@ -158,13 +130,6 @@ private:
     void sendPlayFor(const storage::User& who);
 
     void run();
-
-    // THE COPY OF RomM's SAVES FOR THIS GAME (#88, savemirror.h), after a
-    // save of ours has landed: forgotten FIRST, so a copy older than what was
-    // just sent can never be used offline, then asked for again, with the
-    // bytes just sent kept as that row's. Should the asking fail there is no
-    // copy, and offline uses the console's own save, which is this one.
-    void refreshSaveCopy(const Job& job);
 
     void finished(const Job& job, bool ok, bool leftSomething);
 

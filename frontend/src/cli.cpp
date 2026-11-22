@@ -29,6 +29,9 @@
 #include "netblock.h"
 #include "samenames.h"
 #include "screenview.h"
+#include "savepicture.h"
+#include "savepush.h"
+#include "selftests.h"
 #include "storage.h"
 #include "tilt.h"
 #include "update.h"
@@ -241,6 +244,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             loadStateAfter = SDL_atoi(argv[++i]);
         } else if (SDL_strcmp(argv[i], "--sync-test") == 0) {
             syncTest = true;
+        } else if (SDL_strcmp(argv[i], "--save-write-at") == 0 && i + 1 < argc) {
+            saveWriteAt = static_cast<uint64_t>(SDL_atoi(argv[++i]));
         } else if (SDL_strcmp(argv[i], "--launch-after") == 0 && i + 1 < argc) {
             autoLaunchAfter = static_cast<float>(SDL_atof(argv[++i]));
         } else if (SDL_strcmp(argv[i], "--rom-probe") == 0 && i + 1 < argc) {
@@ -332,6 +337,14 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             return ui::keyboardTest();
         } else if (SDL_strcmp(argv[i], "--gone-games-test") == 0) {
             return gone::test();
+        } else if (SDL_strcmp(argv[i], "--save-notes-test") == 0) {
+            return saveNotesTest();
+        } else if (SDL_strcmp(argv[i], "--save-pick-test") == 0) {
+            return savePickTest();
+        } else if (SDL_strcmp(argv[i], "--save-push-test") == 0) {
+            return savepush::test();
+        } else if (SDL_strcmp(argv[i], "--save-picture-test") == 0) {
+            return savepicture::test();
         } else if (SDL_strcmp(argv[i], "--game-events-test") == 0) {
             return gameevents::test();
         } else if (SDL_strcmp(argv[i], "--battery-test") == 0) {
@@ -378,6 +391,11 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             // The client's thread rule under load, against a stand-in server
             // (romm_racetest.cpp). Exits.
             return romm::raceTest(argv[i + 1], SDL_atoi(argv[i + 2]));
+        } else if (SDL_strcmp(argv[i], "--romm-snapshots-test") == 0) {
+            return romm::snapshotsTest();
+        } else if (SDL_strcmp(argv[i], "--romm-channels") == 0 && i + 1 < argc) {
+            channelsProbeId = SDL_atoi(argv[++i]);
+            rommProbeMode = true;
         } else if (SDL_strcmp(argv[i], "--rom") == 0 && i + 1 < argc) {
             romPath = argv[++i];
         } else if (SDL_strcmp(argv[i], "--evict-test") == 0) {

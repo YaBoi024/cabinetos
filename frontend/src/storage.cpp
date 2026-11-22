@@ -294,6 +294,11 @@ std::string savesDir(const User& u, const std::string& platform, int romId,
            std::to_string(romId) + "/" + safeSegment(core);
 }
 
+std::string replacedSaveDir(const User& u, const std::string& platform, int romId) {
+    return userDir(u) + "/saves/" + platformSegment(platform) + "/" + std::to_string(romId) +
+           "/replaced";
+}
+
 std::string statesDir(const User& u, const std::string& platform, int romId,
                       const std::string& core) {
     return userDir(u) + "/states/" + platformSegment(platform) + "/" +
