@@ -150,6 +150,21 @@ jobs:
       - name: RPCS3's settings snapshot taken against the pinned build
         run: ci/check-rpcs3-snapshot.sh
 
+  # SIGIL'S COPY (#346, the Switch step), added 2026-11-22: the one check here
+  # that fetches anything, Sigil's trees from GitHub, in about a second. Its
+  # report-only week is its own.
+  sigil-copy:
+    name: Sigil's copy
+    runs-on: ubuntu-24.04
+    env:
+      REPORT_ONLY_UNTIL: '2026-11-29'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: Sigil's own files, unchanged, at the commits its VERSION names
+        run: ci/check-sigil-copy.sh
+
   # THE MECHANICAL HALF OF THE AUDIT OF 2026-11-03: only what a pull request
   # touches, so the old tree never fails it. Its report-only week is its own.
   code-and-docs-agree:

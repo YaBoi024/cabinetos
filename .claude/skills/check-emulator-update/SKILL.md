@@ -47,7 +47,8 @@ follows the commit RomM builds in (its `VERSION`, and
 `docker/Dockerfile` of the newest RomM release the console needs, and when
 it differs from ours, say so and how many commits apart they are, and
 whether any of them touch Sigil's Switch files (`src/switch_*`,
-`src/sync_profiles.c`, `src/save_profiles.c`, `src/save_layout.c`). That is
+`src/sync_profiles.c`, `src/save_profiles.c`, `src/save_layout.c`);
+`ci/check-sigil-follows-romm.sh` does all of this and prints it. That is
 a reason to look, as a re-synced copy is; the move goes in the pull request
 that checks the console's other systems against RomM's new commit. Ahead of
 RomM it moves only for one of the five reasons.
