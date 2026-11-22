@@ -223,11 +223,20 @@ int createMotion(int index) {
     return fd;
 }
 
-// A guitar's, which has no sensors: lying flat, its neck raised as far as its
-// tilt says, X lower by a g with the neck straight up (guitar::Ps3Shape).
+// A GUITAR'S, which has no sensors of its own: what a Guitar Hero guitar's own
+// accelerometer sends, not a DualShock 3's (PlasticBand, Guitar Hero "PS3.md"
+// at a7b5ca30). Its range is 128 either side of 512 (0x180 to 0x280). Level,
+// X reads 512 and Y 384; with the neck straight up, X reads its minimum, 384,
+// and Y 512 (a Warriors of Rock guitar's Y is X plus 128 below 512); Z reads
+// 512 throughout. Between the two, as far as the tilt says
+// (guitar::Ps3Shape). The gyroscope's axes stay at rest.
+constexpr float kGuitarRange = 128.0f;
 void guitarSample(int player, int64_t nowMs, int out[kMotionAxes]) {
+    const float t = gGuitar[player].motionTilt(static_cast<uint64_t>(nowMs));
     std::copy(kAtRest, kAtRest + kMotionAxes, out);
-    out[0] = motionUnits(kMotionMid - gGuitar[player].motionTilt(static_cast<uint64_t>(nowMs)) * kPerG);
+    out[0] = motionUnits(kMotionMid - kGuitarRange * t);
+    out[1] = motionUnits(kMotionMid - kGuitarRange * (1.0f - t));
+    out[2] = kMotionMid;
 }
 
 // Player `p`'s tilt, into its motion device: only the axes that changed,

@@ -140,8 +140,8 @@ struct Change {
 // is (PlasticBand, Guitar Hero "PS3.md": 0x80 at rest to 0xFF), and tilt
 // pressing R1, Rock Band's tilt and the port of Guitar Hero's star power
 // pedal (Rock Band "PS3 and Wii.md", Guitar Hero "PS3.md"), and moving the
-// player's motion device's X, Guitar Hero's tilt (below 0x200 as the neck
-// rises). The right stick's Y, and the guitar's own axes the layout reads,
+// player's motion device as a Guitar Hero guitar's accelerometer moves, its X
+// from 0x200 level to 0x180 with the neck up (vpad.cpp, guitarSample). The right stick's Y, and the guitar's own axes the layout reads,
 // are the shape's: the right stick's Y stays at rest.
 class Ps3Shape {
 public:
@@ -153,9 +153,9 @@ public:
     void axis(SDL_GamepadAxis a, int16_t value, uint64_t nowMs, std::vector<Change>& out);
     // Once a frame: R1 let go once a tilt's hold is over.
     void tick(uint64_t nowMs, std::vector<Change>& out);
-    // How far the neck is raised now, for the motion device's X: 0 level to 1
-    // straight up, with the hold (vpad.cpp turns it into the DualShock 3's
-    // units). 0 for a seat that is not a guitar's.
+    // How far the neck is raised now, for the motion device: 0 level to 1
+    // straight up, with the hold (vpad.cpp turns it into what a Guitar Hero
+    // guitar's own accelerometer reads). 0 for a seat that is not a guitar's.
     float motionTilt(uint64_t nowMs);
     // Everything let go: the pause menu opening.
     void release();
@@ -168,11 +168,16 @@ private:
     void tiltTo(uint64_t nowMs, std::vector<Change>& out);
 };
 
-// RPCS3'S TWO GUITARS: a game whose name has "Rock Band" gets its Rock Band
-// guitar, every other game its Guitar Hero guitar, so every PS3 guitar game
-// finds the one it was made for (Input/product_info.cpp at our pin: RedOctane's
-// Guitar Hero guitar 0x12BA:0x0100, Harmonix's Rock Band guitar 0x12BA:0x0200,
-// both class 1, CELL_PAD_PCLASS_TYPE_GUITAR).
+// RPCS3'S TWO GUITARS (Input/product_info.cpp at our pin: RedOctane's Guitar
+// Hero guitar 0x12BA:0x0100, Harmonix's Rock Band guitar 0x12BA:0x0200, both
+// class 1, CELL_PAD_PCLASS_TYPE_GUITAR). EVERY PS3 GAME GETS THE ROCK BAND
+// GUITAR, except Guitar Hero III and Guitar Hero: Aerosmith, told by their
+// names, which get the Guitar Hero guitar. Every game since the 2008
+// agreement that made the two series' instruments work in each other's games
+// (Guitar Hero: World Tour, Rock Band 2) takes a Rock Band guitar, and on
+// RPCS3 Warriors of Rock reads tilt only from it: with the Guitar Hero guitar
+// its tilt does nothing (RPCS3 issue 9149, where Guitar Hero III's tilt
+// works). The two earlier games were not made for a Rock Band guitar.
 struct Rpcs3Guitar {
     int product = 0;
     const char* square = "";     // RPCS3's evdev name for the button Square is on

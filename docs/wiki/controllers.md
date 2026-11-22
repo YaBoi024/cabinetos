@@ -118,9 +118,11 @@ like any pad.
 - **Pause menu:** tap **Home**, in any game.
 - **Turn it on first.** A guitar turned on after the game has started plays
   as a pad until you start the game again.
-- **Rock Band or Guitar Hero.** In a PlayStation 3 game whose name has "Rock
-  Band", the guitar is a Rock Band guitar; in every other game, a Guitar Hero
-  guitar, so each series finds the guitar it was made for.
+- **Rock Band or Guitar Hero.** PlayStation 3 games see a Rock Band guitar,
+  which every Rock Band and every Guitar Hero from World Tour on takes, so
+  tilt works in all of them. Guitar Hero III and Guitar Hero: Aerosmith,
+  which came before the two kinds worked together, see a Guitar Hero guitar.
+  Guitar Hero Live needs its own six-button guitar.
 - Settings, Controllers, **Controllers** lists it as **Guitar**.
 
 The console knows a guitar when it says it is one: an Xbox 360 guitar, or a

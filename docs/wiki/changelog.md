@@ -10,10 +10,10 @@ one you install, so you only ever install the newest.
   PlayStation 3 games as guitars: frets, strum, whammy, star power and tilt,
   over Bluetooth, a cable or the guitar's receiver. Turn the guitar on, then
   start the game; tilt the neck or press View for star power, and tap Home
-  for the pause menu. In PlayStation 3 games with "Rock Band" in the name it
-  is a Rock Band guitar, in the rest a Guitar Hero guitar. Controllers lists
-  it as Guitar. A CRKD Les Paul goes on the PC slider position and mode dial
-  8. ([Guitars](controllers.md#guitars),
+  for the pause menu. PlayStation 3 games see a Rock Band guitar, except
+  Guitar Hero III and Aerosmith, which see a Guitar Hero guitar. Controllers
+  lists it as Guitar. A CRKD Les Paul goes on the PC slider position and mode
+  dial 8. ([Guitars](controllers.md#guitars),
   [#727](https://github.com/MMagTech/cabinetos/pull/727))
 
 ## 2026.11.22.2 {#v2026-11-22-2}

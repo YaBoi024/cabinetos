@@ -257,9 +257,13 @@ Rpcs3Guitar rpcs3For(const std::string& gameName) {
     // which RPCS3's evdev handler names "X" and "Y" (standalone_rpcs3.cpp,
     // rpcs3Controls). Guitar Hero's PS3 guitar has yellow on Square and blue
     // on Triangle, Rock Band's the other way round (PlasticBand, Guitar Hero
-    // "PS3.md" and Rock Band "PS3 and Wii.md", a7b5ca30).
-    if (lower.find("rock band") != std::string::npos) return {0x0200, "Y", "X"};
-    return {0x0100, "X", "Y"};
+    // "PS3.md" and Rock Band "PS3 and Wii.md", a7b5ca30). The two games made
+    // before the series shared instruments get the Guitar Hero guitar (guitar.h).
+    if (lower.find("guitar hero iii") != std::string::npos ||
+        lower.find("guitar hero 3") != std::string::npos ||
+        lower.find("aerosmith") != std::string::npos)
+        return {0x0100, "X", "Y"};
+    return {0x0200, "Y", "X"};
 }
 
 std::string rpcs3Lines(const Rpcs3Guitar& g) {
@@ -530,19 +534,25 @@ int test() {
 
     // ---- RPCS3's lines
     {
-        const Rpcs3Guitar gh = rpcs3For("Guitar Hero: Warriors of Rock");
         const Rpcs3Guitar rb = rpcs3For("Rock Band 3");
-        check(rpcs3Lines(gh) == "    Device Class Type: 1\n    Vendor ID: 4794\n    Product ID: 256\n",
-              "a Guitar Hero game: class 1, RedOctane's guitar 0x12BA:0x0100");
-        check(std::string(gh.square) == "X" && std::string(gh.triangle) == "Y",
-              "with yellow on Square and blue on Triangle");
+        const Rpcs3Guitar gh = rpcs3For("Guitar Hero III: Legends of Rock");
         check(rpcs3Lines(rb) == "    Device Class Type: 1\n    Vendor ID: 4794\n    Product ID: 512\n",
-              "a Rock Band game: Harmonix's guitar 0x12BA:0x0200");
+              "a PS3 game gets the Rock Band guitar: class 1, Harmonix's guitar 0x12BA:0x0200");
         check(std::string(rb.square) == "Y" && std::string(rb.triangle) == "X",
               "with yellow on Triangle and blue on Square, as a pad has them");
-        check(rpcs3For("The Beatles: Rock Band").product == 0x0200 &&
-                  rpcs3For("LEGO ROCK BAND").product == 0x0200 && rpcs3For("Band Hero").product == 0x0100,
-              "\"Rock Band\" anywhere in the name, in any case, and nowhere else");
+        check(rpcs3For("Guitar Hero: Warriors of Rock").product == 0x0200 &&
+                  rpcs3For("Guitar Hero 5").product == 0x0200 &&
+                  rpcs3For("Guitar Hero: World Tour").product == 0x0200 &&
+                  rpcs3For("Band Hero").product == 0x0200 && rpcs3For("LEGO Rock Band").product == 0x0200 &&
+                  rpcs3For("Super Stardust HD").product == 0x0200,
+              "so does every Guitar Hero from World Tour on, every Rock Band, and any other game");
+        check(rpcs3Lines(gh) == "    Device Class Type: 1\n    Vendor ID: 4794\n    Product ID: 256\n",
+              "Guitar Hero III gets the Guitar Hero guitar: RedOctane's 0x12BA:0x0100");
+        check(std::string(gh.square) == "X" && std::string(gh.triangle) == "Y",
+              "with yellow on Square and blue on Triangle");
+        check(rpcs3For("Guitar Hero: Aerosmith").product == 0x0100 &&
+                  rpcs3For("GUITAR HERO 3").product == 0x0100,
+              "and so does Guitar Hero: Aerosmith, in any case");
     }
 
     std::printf("\n%s\n", failures ? "FAILED" : "all passed");

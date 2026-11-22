@@ -282,9 +282,9 @@ constexpr const char* kRpcs3Settings =
 // A PLAYER HOLDING A GUITAR (guitar.h) is told so: the pad's class, vendor
 // and product are a PS3 guitar's, which RPCS3 hands the game
 // (Emu/Io/pad_config.h, "Device Class Type", "Vendor ID", "Product ID"), the
-// Guitar Hero one or, for a game whose name has "Rock Band", the Rock Band
-// one; and Square and Triangle are where that guitar has its yellow and blue
-// frets. Its virtual controller already sends the guitar's shape (vpad.h).
+// Rock Band one, or the Guitar Hero one for the two games made before the
+// series shared instruments (guitar::rpcs3For); and Square and Triangle are
+// where that guitar has its yellow and blue frets. Its virtual controller already sends the guitar's shape (vpad.h).
 std::string rpcs3Controls(int players, const std::string& title) {
     const guitar::Rpcs3Guitar kind = guitar::rpcs3For(title);
     std::string out;
