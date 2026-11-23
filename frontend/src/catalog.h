@@ -43,7 +43,7 @@ void setCoreDirectory(const char* dir);
 enum class Support {
     // A core exists and ships. The game can be launched.
     Playable,
-    // Nothing in the manifest serves this system. Switch, PS3, Vita and the
+    // Nothing in the manifest serves this system. Jaguar, ColecoVision and the
     // rest. Not a defect, just outside what this console is.
     NoCore,
     // The manifest has a core for this system, and this console does not have
