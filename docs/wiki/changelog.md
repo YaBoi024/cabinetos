@@ -4,7 +4,7 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## Next
+## 2026.11.23 {#v2026-11-23}
 
 - **Fixed:** leaving a Switch game, most often a busy one such as Mario
   Kart 8 Deluxe or Xenoblade Chronicles X, could keep its last picture on
