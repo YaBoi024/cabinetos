@@ -39,9 +39,9 @@ What changes on your server shows on Home and the Library without a restart: a
 game played in RomM's web player or another app, favorites, collections,
 systems and how many games they have, a game's new name or cover, and anything
 deleted, hidden from you or taken off RomM's *Continue Playing*. The console
-asks RomM as you come to Home or the Library, or pick up the controller after
-a minute, and at most once a minute. A system's or a collection's own list is
-read again when you open it a minute or more later.
+asks RomM as you come to Home or the Library or press anything there, at most
+once a minute. A system's or a collection's own list is read again when you
+open it a minute or more later.
 
 ## A system's games
 

@@ -5,13 +5,13 @@
 // what is under it changes. The read itself and what it changes are library.h's
 // (readLibrary, putLibrary); the App's side is in libraryrefresh.cpp.
 //
-// WHEN, AND NEVER MORE (When): as Home or the Library comes into view, as
-// somebody picks up the controller after a minute with no press, or as RomM
-// answers again after being away. One read at a time, none sooner than a
-// minute after the last ended, a failed one too, but not one that never
-// reached RomM. Nothing on a timer, nothing while nobody presses, nothing in a
-// game, nothing offline. A start, an account switch and the server coming back
-// read everything as they did, and start the minute over.
+// WHEN, AND NEVER MORE (When): as Home or the Library comes into view, at a
+// press on one of them, or as RomM answers again after being away. One read at
+// a time, none sooner than a minute after the last ended, a failed one too,
+// but not one that never reached RomM. Nothing on a timer, nothing while
+// nobody presses, nothing in a game, nothing offline. A start, an account
+// switch and the server coming back read everything as they did, and start the
+// minute over.
 //
 // NOBODY EVER WAITS FOR A READ. It has a client of its own that stops at once
 // (romm::Client::stopWhen): an account switch, a sign-out, a new server
@@ -24,10 +24,10 @@
 
 namespace libraryrefresh {
 
-// From the end of one read to the start of the next, and how long with no
-// press makes a press a pick-up, in seconds.
+// From the end of one read to the start of the next, and how lately somebody
+// pressed for there to be somebody there, in seconds.
 constexpr double kBetweenSeconds = 60.0;
-constexpr double kPickUpSeconds = 60.0;
+constexpr double kThereSeconds = 60.0;
 // How long A does nothing on Home's first cover after another game took its
 // place: A there starts a game, and nobody chose that one.
 constexpr double kResumeHoldSeconds = 1.0;

@@ -12,8 +12,8 @@ one you install, so you only ever install the newest.
   renamed, shared or deleted, new, renamed and removed systems and their
   number of games, and a game's new name, cover or manual; and anything
   deleted, hidden from you or taken off *Continue Playing* goes. The console
-  asks RomM as you come to Home or the Library, or pick up the controller after
-  a minute, at most once a minute, and never while nobody is there.
+  asks RomM as you come to Home or the Library or press anything there, at most
+  once a minute, and never while nobody is there.
   ([Changes made in RomM](library.md#changes-made-in-romm),
   [#730](https://github.com/MMagTech/cabinetos/issues/730))
 - **Fixed:** a downloaded game first listed by a system's list or Search had no

@@ -246,8 +246,8 @@ What changes in RomM shows with no restart (#730,
 thread, once a frame (`App::followLibrary`, `libraryrefresh.cpp`):
 
 1. `libraryrefresh::When` says whether this frame asks for a read: Home or the
-   Library came into view, somebody pressed after a minute with no press, or
-   RomM answered again after being away, with one of the two up. A minute must
+   Library came into view, somebody pressed on one of them, or RomM answered
+   again after being away, with one of the two up. A minute must
    have gone since the last one ended, by a clock that counts the time asleep
    (`power::upSeconds`); one that never reached RomM is not counted. A start,
    an account switch and the server coming back, which load everything

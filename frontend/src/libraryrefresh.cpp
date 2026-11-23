@@ -34,13 +34,12 @@ bool When::asks(const Moment& m) {
         return false;
     }
     const bool arrived = m.view != view_;
-    const bool pickedUp = m.pressed && m.at - pressedAt_ >= kPickUpSeconds;
     if (m.pressed) pressedAt_ = m.at;
-    // Back with nobody there is for whoever picks up the controller next.
-    const bool back = away_ && !m.away && m.at - pressedAt_ < kPickUpSeconds;
+    // Back with nobody there is for whoever presses next.
+    const bool back = away_ && !m.away && m.at - pressedAt_ < kThereSeconds;
     view_ = m.view;
     away_ = m.away;
-    return m.view != View::Neither && !m.away && (arrived || pickedUp || back);
+    return m.view != View::Neither && !m.away && (arrived || m.pressed || back);
 }
 
 Place homePlace(Place at, const std::vector<int>& recentWas, const std::vector<int>& favoritesWas,
@@ -342,30 +341,39 @@ int test() {
         };
         When w;
         check(!w.asks(at(0, Home)), "Home up as the console starts asks for nothing: it was just read");
-        check(w.asks(at(1, Library, true)), "the Library coming into view asks");
-        check(!w.asks(at(2, Library, true)), "a press on it does not");
-        check(!w.asks(at(3, Neither, true)) && w.asks(at(4, Library, true)),
-              "and back to it from a system's list does");
-        check(w.asks(at(5, Home, true)), "Home from the Library does");
-        check(!w.asks(at(6, Neither)) && w.asks(at(7, Home)), "Home out of a game does, pressed or not");
-        check(!w.asks(at(64, Home, true)) && !w.asks(at(123.9, Home, true)),
-              "presses less than a minute apart do not");
-        check(!w.asks(at(300, Home)), "nor does sitting on it, however long");
-        check(w.asks(at(480, Home, true)), "a press after a minute with none does");
-        check(!w.asks(at(481, Home, true)), "and the next one does not");
-        check(!w.asks(at(482, Neither, true)) && !w.asks(at(600, Neither, true)),
-              "a press after a minute on another screen does not");
+        check(w.asks(at(1, Library)), "the Library coming into view asks");
+        check(!w.asks(at(2, Library)), "sitting on it does not");
+        check(w.asks(at(3, Library, true)) && w.asks(at(4, Library, true)),
+              "a press on it does, and so does the next");
+        check(!w.asks(at(5, Neither)) && !w.asks(at(6, Neither, true)),
+              "a press on another screen does not");
+        check(w.asks(at(7, Library)), "and back to it from a system's list does, pressed or not");
+        check(w.asks(at(8, Home)), "Home from the Library does");
+        check(!w.asks(at(9, Neither)) && w.asks(at(10, Home)), "Home out of a game does");
+        check(w.asks(at(11, Home, true)), "a press on Home does");
+        check(!w.asks(at(300, Home)), "sitting on it does not, however long");
         check(!w.asks(at(601, Home, true, true)), "nothing asks while RomM is away");
         check(!w.asks(at(602, Home, false, true)) && w.asks(at(620, Home)),
               "RomM answering again does, with somebody there");
         check(!w.asks(at(621, Home, false, true)) && !w.asks(at(700, Home)),
               "and not with nobody there for a minute");
-        check(w.asks(at(701, Home, true)), "whoever picks up the controller next does instead");
+        check(w.asks(at(701, Home, true)), "whoever presses next does instead");
 
         When r;
         check(r.rested(0), "nothing read yet, nothing to wait for");
         r.ended(100);
         check(!r.rested(159.9) && r.rested(160), "a minute from the end of the last, not its start");
+
+        When p;
+        p.asks(at(0, Home));
+        p.ended(0);
+        int reads = 0;
+        for (double s = 1; s <= 300; s += 1)
+            if (p.asks(at(s, Home, true)) && p.rested(s)) {
+                ++reads;
+                p.ended(s + 0.25);
+            }
+        check(reads == 4, "a press every second for five minutes reads four times");
     }
 
     // ---- Where Home's highlight goes -------------------------------------
