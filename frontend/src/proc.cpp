@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <signal.h>
+#include <sys/resource.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -149,6 +150,14 @@ int spawn(const std::vector<std::string>& args, const std::string& logPath) {
         setsid();
         // A separate emulator is not placed (cpus.h): every core.
         cpus::childOnAllCores();
+        // NO CORE FILE, for it and all it starts (a Flatpak's sandbox keeps
+        // the limit). Eden 0.2.1 crashes now and then as it closes a busy
+        // game, and the system's copy of its memory (5 to 6 GB) held the
+        // console up to 2 min before Home on a slow drive; with none, the
+        // crash ends it in a third of a second. Measured on the A9,
+        // 2026-11-22 (docs/decisions/2026-11-22-no-core-file-for-emulators.md).
+        const struct rlimit noCore{0, 0};
+        setrlimit(RLIMIT_CORE, &noCore);
         const int devnull = open("/dev/null", O_RDONLY);
         if (devnull >= 0) { dup2(devnull, STDIN_FILENO); close(devnull); }
         const int log = open(logPath.c_str(), O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0644);
