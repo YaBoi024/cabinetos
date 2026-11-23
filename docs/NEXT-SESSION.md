@@ -14,10 +14,13 @@ source of truth for anything on RomM's data.
 
 ## Where things stand
 
-**2026-11-22.** The newest release is 2026.11.13.2. The newest image
-promoted to consoles is 2026.11.23: #734, "A crash as an emulator closes
-sends the console straight back to Home". Four merges reached `main` on
-2026-11-22, each promoting its tested image: #722, "Save channels: the
+**2026-11-22.** The newest release is 2026.11.13.2. The last image with a
+change a player can see is 2026.11.23: #734, "A crash as an emulator closes
+sends the console straight back to Home". Images after it carry no such
+change (2026.11.23.2 is #738, "Fix four source comments that no longer
+matched the code"), so read the newest image from the registry, not from
+here. Four merges reached `main` on 2026-11-22, each promoting its tested
+image: #722, "Save channels: the
 console's saves move to RomM's channels (#346, steps 2 to 12)" (2026.11.22.2,
 which closed #346 and carried #723, "LinkUp's interop check: the wrong
 invite is never the right one"); #727, "Guitars play PS2 and PS3 games as
@@ -28,7 +31,7 @@ image, RomM updates", landed with them, docs only. Save channels need RomM
 5.5 or newer; a console on an older RomM holds it back (#721). What players
 should know is kept in the pinned Discussion #731, "Save channels: known
 gaps", updated as RomM and Sigil land. docs/wiki/changelog.md lists every
-image. Open: #590, "A Wii Remote turned
+image with a change a player can see. Open: #590, "A Wii Remote turned
 on after a Wii game starts is ignored by the game", waits in Later; fix it
 only in the console's own code, never by patching Dolphin (MMagTech,
 2026-10-25). What the A9 runs now is not written here: read it from the
