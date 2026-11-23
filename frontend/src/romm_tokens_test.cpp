@@ -5,7 +5,9 @@
 // (401), a pairing's answer carries the token's number; and, told to, as a
 // RomM before 5.5, as one that is failing, or as one that takes a connection
 // and never answers. The code is tokenrevoke.cpp, accounts.cpp, server.cpp
-// and the client's own part in romm_http.cpp and romm_pairing.cpp.
+// and the client's own part in romm_http.cpp and romm_pairing.cpp. Named with
+// the client's tests because the stand-in spells RomM's paths
+// (ci/check-romm-paths.sh).
 
 #include "tokenrevoke.h"
 

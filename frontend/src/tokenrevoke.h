@@ -55,7 +55,7 @@ constexpr int kSignOutSeconds = 3;
 void signOut(const std::string& address);
 
 // `--token-revoke-test`: all of it against a stand-in RomM on loopback inside
-// the test, no other network (tokenrevoke_test.cpp). 0 when it passes.
+// the test, no other network (romm_tokens_test.cpp). 0 when it passes.
 int test();
 
 }  // namespace tokenrevoke
