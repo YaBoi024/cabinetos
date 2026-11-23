@@ -13,6 +13,7 @@ one you install, so you only ever install the newest.
   closes; the console now goes straight back to Home when it does. Your
   save was never affected. Now and then Eden still stalls instead, and
   that 10-second wait stays until Eden's next release fixes it.
+
 ## 2026.11.22.4 {#v2026-11-22-4}
 
 - **Fixed:** a Game Boy Advance save from RomM's web player, another app or
