@@ -404,6 +404,17 @@ result and time. `--romm-race-test` and the tests that need a screen, a core
 or a server do not run; the script's header names them. Report only for
 its first week, like the checks below.
 
+**The self-tests under AddressSanitizer** (`memory-check.yml`, on a push to
+`testing` that changes the frontend, never on a pull request): the frontend
+built a second time with AddressSanitizer, which stops a program at the
+first byte it reads or writes where it should not and names the line, and
+the same self-tests run on it by `ci/run-self-tests.sh`. It runs beside the
+image build, so nothing waits for it, and a failure stops neither the image
+nor its promotion: read the run before a merge
+(`docs/decisions/2026-11-22-memory-check-on-testing-pushes.md`). Run it on
+any branch by hand with `gh workflow run memory-check.yml --ref <branch>`.
+Report only until 2026-11-30.
+
 **The unused code** (`ci/report-unused-code.sh`, the job's last step, on
 pull requests): every function, and every variable that can change, that
 nothing reachable from `main` uses, by file, in the run's summary. It comes
