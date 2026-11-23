@@ -4,7 +4,7 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## Next
+## 2026.11.23.3 {#v2026-11-23-3}
 
 - **Fixed:** your RomM server kept every sign-in your console ever had, so an
   old one went on working after you paired again, removed someone or signed

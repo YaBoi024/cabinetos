@@ -14,21 +14,22 @@ source of truth for anything on RomM's data.
 
 ## Where things stand
 
-**2026-11-22.** The newest release is 2026.11.13.2. The last image with a
-change a player can see is 2026.11.23: #734, "A crash as an emulator closes
-sends the console straight back to Home". Images after it carry no such
-change (2026.11.23.2 is #738, "Fix four source comments that no longer
-matched the code"), so read the newest image from the registry, not from
-here. Four merges reached `main` on 2026-11-22, each promoting its tested
-image: #722, "Save channels: the
+**2026-11-23.** The newest release is 2026.11.13.2. The last image with a
+change a player can see is 2026.11.23.3: #528, "Revoke the console's RomM
+token on re-pair, Remove account and Sign out (#545; waiting on RomM)", which
+closed #545 and carried #743, "Checks from RomM and Sigil: a new test is seen
+failing, a memory check, the RomM API check (#729)" and #739, "Fix the NoCore
+comment: Switch, PS3 and Vita now have emulators". Read the newest image from
+the registry, not from here. Before it, on 2026-11-22, four merges reached
+`main`, each promoting its tested image: #722, "Save channels: the
 console's saves move to RomM's channels (#346, steps 2 to 12)" (2026.11.22.2,
 which closed #346 and carried #723, "LinkUp's interop check: the wrong
 invite is never the right one"); #727, "Guitars play PS2 and PS3 games as
 guitars" (2026.11.22.3); #736, "Saves: another app's GBA and Mega Drive
-saves load when they fit the emulator's" (2026.11.22.4); and #734
-(2026.11.23). #735, "Rules: test what varies in a system, one PR per testing
-image, RomM updates", landed with them, docs only. Save channels need RomM
-5.5 or newer; a console on an older RomM holds it back (#721). What players
+saves load when they fit the emulator's" (2026.11.22.4); and #734, "A crash as
+an emulator closes sends the console straight back to Home" (2026.11.23).
+#735, "Rules: test what varies in a system, one PR per testing image, RomM
+updates", landed with them, docs only. Save channels need RomM 5.5 or newer; a console on an older RomM holds it back (#721). What players
 should know is kept in the pinned Discussion #731, "Save channels: known
 gaps", updated as RomM and Sigil land. docs/wiki/changelog.md lists every
 image with a change a player can see. Open: #590, "A Wii Remote turned
@@ -49,17 +50,7 @@ RomM: keep test launches under a minute, or have his go.
 
 ## Next
 
-1. **#528, "Revoke the console's RomM token on re-pair, Remove account and
-   Sign out (#545; waiting on RomM)".** Built on RomM 5.5's self-revoke and
-   proven on the write-test RomM from the test VM; a draft, whose text says
-   what is proven. Its branch carries #743, "Checks from RomM and Sigil: a new
-   test is seen failing, a memory check, the RomM API check (#729)" and #739,
-   "Fix the NoCore comment: Switch, PS3 and Vita now have emulators", so one
-   image carries all three and its merge merges them. Next, each on his word:
-   his five-minute TV check, the push to `testing` (the first run of
-   `memory-check.yml`, read before the merge), the merge, and #545 closed. The
-   changelog's `## Next` becomes the testing image's version heading.
-2. **After save channels, small, each on his word:**
+1. **After save channels, small, each on his word:**
    - When RomM moves its Sigil pin: vendor Sigil again at RomM's pin,
      update `savetable.cpp`'s "rows waiting in Sigil" comment, and rerun
      the Switch check, what changed only.
@@ -76,12 +67,12 @@ RomM: keep test launches under a minute, or have his go.
    - The clean-up review: what future testing keeps of the save channels
      kits, sessions and branches; the audited list is in his research
      notes. Nothing is deleted before his yes.
-3. **LinkUp: two server tidy-ups, no issue.** The internet test, step 6 of
+2. **LinkUp: two server tidy-ups, no issue.** The internet test, step 6 of
    #654, passed twice: his console and his friend's, two servers linking up
    and playing a game (his word, 2026-11-10). Left: `.dockerignore` lets
    `docs/` into the server's build stage, and the relay's block list lacks
    3fff::/20.
-4. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
+3. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
    Kirby: Planet Robobot saved into Mario Kart 7's folder. Read on RomM on
    2026-10-25: Mario Kart 7's save (uploaded 2026-10-22) still carries
    Kirby's save data and its extra data, four files. He wants them gone
@@ -89,7 +80,7 @@ RomM: keep test launches under a minute, or have his go.
    folder, so deleting them on the A9 alone does not last: Mario Kart 7's
    save on RomM has to be replaced. Restate exactly what goes and wait for
    his yes before anything is deleted.
-5. **Words from him, one at a time, no work:** which of the 36 faults the
+4. **Words from him, one at a time, no work:** which of the 36 faults the
    PROJECT.md scan found with no issue (2026-10-22) become issues, none
    filed until he says. That list is in the
    notes of the session that made it ("Faults recorded in PROJECT.md with no
