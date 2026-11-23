@@ -350,6 +350,11 @@ void DetailScreen::draw(Ctx& c) {
             coverGuess = ch * (design::kDetailCoverWidth / design::kDetailCoverHeight);
         }
     }
+    // FORK (phones): UPRIGHT, the cover goes above the column instead of beside
+    // it, and the column takes the whole width. Side by side, the pair was wider
+    // than the canvas (about 750 points) and ran off both edges.
+    const bool upright = design::shelvesNarrow();
+    if (upright) colW = ui::kCanvasWidth - 2.0f * design::kContentInset;
     cardW_ = (colW - 2.0f * design::kStateCardGap) / 3.0f;
     cardH_ = cardW_ * (9.0f / 16.0f);
     const float shelfH = design::kStateShelfGap + calloutLH + design::kDetailRowGap + cardH_ +
@@ -368,16 +373,33 @@ void DetailScreen::draw(Ctx& c) {
     // capitals; its foot is the foot of the state pictures.
     const float picturesFoot = headToRows + rowsH + design::kStateShelfGap + calloutLH +
                                design::kDetailRowGap + cardH_;
-    const float coverH = std::clamp(picturesFoot - capInset, design::kDetailCoverHeight,
-                                    design::kDetailCoverMaxHeight);
-    const float coverW = coverH * (design::kDetailCoverWidth / design::kDetailCoverHeight);
+    float coverH = std::clamp(picturesFoot - capInset, design::kDetailCoverHeight,
+                              design::kDetailCoverMaxHeight);
+    float coverW = coverH * (design::kDetailCoverWidth / design::kDetailCoverHeight);
     const float pairW = colW + design::kDetailCoverGap + coverW;
-    const float colX = (ui::kCanvasWidth - pairW) * 0.5f;
-    const float coverX = colX + colW + design::kDetailCoverGap;
+    float colX = (ui::kCanvasWidth - pairW) * 0.5f;
+    float coverX = colX + colW + design::kDetailCoverGap;
     const float pairH = std::max(colH, capInset + coverH);
     const float top = std::max(design::kStateBlockMinTop, (ui::kCanvasHeight - pairH) * 0.5f);
-    const float coverY = top + capInset;
-    const float blockTop = top;
+    float coverY = top + capInset;
+    float blockTop = top;
+    if (upright) {
+        // The cover, centred, gets what the column leaves of the height; then the
+        // column under it, on the page's left margin. The whole stack is centred
+        // in the height when there is room to spare.
+        const float gap = design::kStateShelfGap;
+        const float room = ui::kCanvasHeight - design::kStateBlockMinTop - colH - gap -
+                           design::kScreenBottomPad;
+        coverH = std::clamp(room, 220.0f, design::kDetailCoverHeight);
+        coverW = coverH * (design::kDetailCoverWidth / design::kDetailCoverHeight);
+        const float stackH = coverH + gap + colH;
+        const float stackTop =
+            std::max(design::kStateBlockMinTop, (ui::kCanvasHeight - stackH) * 0.5f);
+        coverX = (ui::kCanvasWidth - coverW) * 0.5f;
+        coverY = stackTop;
+        colX = design::kContentInset;
+        blockTop = stackTop + coverH + gap;
+    }
     statesX_ = colX;
     statesY_ = blockTop + headToRows + rowsH + design::kStateShelfGap;
     if (c.cards && game_.cardIndex >= 0 &&

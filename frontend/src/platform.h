@@ -17,6 +17,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 namespace platform {
 
@@ -66,6 +67,39 @@ void textFieldClosed();
 // keyboard is what it always was.
 bool ownsKeyboard();
 
+// FORK (phones): THE MACHINE'S OWN TEXT FIELD. A phone types best in its own
+// field: the real one, with paste, selection, the cursor under a finger, and
+// the keyboard the person chose. When nativeFieldOpen answers true, the
+// frontend draws nothing of its keyboard panel; the machine shows the title,
+// the field, its shortcuts and its buttons, and
+//   * what the field holds is read every frame (nativeFieldText);
+//   * its Done arrives as a Return key and its Cancel as an Escape key, so every
+//     loop that drives a keyboard ends a field the way it always has;
+//   * the field stays up until nativeFieldClose: a Done the frontend refuses
+//     (an empty required field, a join under way) leaves it as it was.
+// False, and the keyboard is the frontend's own, as before. The console says false.
+struct NativeField {
+    std::string title;
+    std::string hint;
+    std::string initial;
+    std::string placeholder;
+    std::vector<std::string> shortcuts;   // typed at the cursor, from a row of keys
+    bool conceal = false;   // a password: masked, with a key to show it
+    bool address = false;   // an address: the keyboard for one, nothing corrected
+    bool docked = false;    // Search: a field at the foot of the screen, results above it
+};
+bool nativeFieldOpen(const NativeField& field);
+// What the field holds, when it changed since the last call.
+bool nativeFieldText(std::string* out);
+// A message under the field until the next edit; `problem` says it in red and
+// shakes the field. Without `keep` the field is emptied first.
+void nativeFieldSay(const std::string& msg, bool problem, bool keep);
+// While on, the field takes no typing and only Cancel works.
+void nativeFieldBusy(bool on);
+void nativeFieldClose();
+// A docked field: where its top edge is, as a share of the window's height. 1 with none.
+float nativeFieldTop();
+
 // --- The screen's shape ----------------------------------------------------------
 
 // The picture is drawn on a canvas 1080 high and 1920 wide, fitted into the
@@ -95,6 +129,36 @@ void safeInsets(int windowW, int windowH, int* left, int* top, int* right, int* 
 // Remote does. The console never shows them: its emulators ship in the image
 // and a missing one is a fault. A phone is given its emulators one at a time.
 bool showsGamesWithoutACore();
+
+// FORK (phones): A SYSTEM WHOSE EMULATOR THIS PROGRAM WILL NEVER HAVE gets no Library
+// tile at all, rather than a greyed one that says its core is not built yet. The
+// console says false: there a missing core is a fault worth seeing. A phone that
+// can never run a system's emulator (a PlayStation 2, a GameCube) says true.
+bool hidesSystemsWithoutACore();
+
+// FORK (phones): A BACK BUTTON ON THE SCREEN, at the left of the top bar (and alone
+// where the bar is not drawn), whenever there is somewhere to go back to. A
+// touchscreen has no B button, and a swipe in from the edge is not something people
+// find by themselves. The console says false: its controller has B.
+bool showsBackButton();
+
+// --- A DS game -------------------------------------------------------------------
+
+// FORK (phones): A FINGER IS THE STYLUS. A touch on the DS's lower screen, wherever
+// the picture puts it, is a touch on that screen (melonDS's Touch mode, through
+// RETRO_DEVICE_POINTER). The console says false: there the stick moves a cursor.
+bool touchesDsScreen();
+
+// FORK (phones): WHERE THE DS's TWO SCREENS GO, when the machine places them itself
+// (an iPhone Duo held upright: the top screen in the upper half, the lower one in
+// the lower half with the buttons beside it). Each is x, y, width, height as shares
+// of the window. False, and the picture is drawn as usual, the two stacked.
+bool dsScreens(float top[4], float bottom[4]);
+
+// FORK (phones): THE HANDHELD'S LOOK for a DS game with its screens apart: the colour of
+// its body and of the bezel round each screen, as red, green, blue and alpha. Drawn under
+// the two screens, in the picture, so the pause menu goes over it. False: no look.
+bool dsLook(float body[4], float bezel[4]);
 
 // --- A game running -------------------------------------------------------------
 

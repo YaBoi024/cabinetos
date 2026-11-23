@@ -19,12 +19,23 @@ bool textInputOnDemand() { return false; }
 void textFieldOpened() {}
 void textFieldClosed() {}
 bool ownsKeyboard() { return false; }
+bool nativeFieldOpen(const NativeField&) { return false; }
+bool nativeFieldText(std::string*) { return false; }
+void nativeFieldSay(const std::string&, bool, bool) {}
+void nativeFieldBusy(bool) {}
+void nativeFieldClose() {}
+float nativeFieldTop() { return 1.0f; }
 bool fillsWideScreens() { return false; }
 bool fillsNarrowScreens() { return false; }
 void safeInsets(int, int, int* left, int* top, int* right, int* bottom) {
     *left = *top = *right = *bottom = 0;
 }
 bool showsGamesWithoutACore() { return false; }
+bool hidesSystemsWithoutACore() { return false; }
+bool showsBackButton() { return false; }
+bool touchesDsScreen() { return false; }
+bool dsScreens(float*, float*) { return false; }
+bool dsLook(float*, float*) { return false; }
 void gamePlaying(bool, const char*) {}
 bool runsInAnotherApp(const char*) { return false; }
 bool openInAnotherApp(const char*, const std::string&) { return false; }

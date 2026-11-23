@@ -72,13 +72,13 @@ done < <(git diff -z --no-renames --name-only "${rev}" HEAD)
 if [[ ${#differ[@]} -gt 0 ]]; then
     echo "main is not what testing was built from (${rev}); building"
     echo "the files the image is built from that differ (${#differ[@]}):"
-    printf '  %s\n' "${differ[@]}" | head -20
+    printf '  %s\n' "${differ[@]:0:20}"
     out false; exit 0
 fi
 docs=$(git diff --name-only "${rev}" HEAD | wc -l | tr -d " ")
 if [[ ${docs} -gt 0 ]]; then
     echo "main differs from ${rev} only in documentation (${docs} file(s)), which is not in the image:"
-    git diff --name-only "${rev}" HEAD | sed 's/^/  /' | head -20
+       git diff --name-only "${rev}" HEAD | sed 's/^/  /' | head -20 || true
 fi
 
 sha=$(git rev-parse --short HEAD)

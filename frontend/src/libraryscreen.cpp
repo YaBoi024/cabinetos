@@ -251,6 +251,16 @@ bool LibraryScreen::jumpGroup(int dir) {
 
 Result LibraryScreen::key(Nav n) {
     auto& tiles = tab_ == 0 ? platforms_ : collections_;
+    // FORK (phones): after a finger moved the list, the first press puts focus
+    // in view and does nothing more (touchscroll.h).
+    if (touch_.free && n != Nav::Back) {
+        touch_.free = false;
+        if (firstInView_ >= 0 && firstInView_ < static_cast<int>(tiles.size()) &&
+            !(row_ > 0 && slot_ == firstInView_)) {
+            focusOn(1, firstInView_);
+            return {};
+        }
+    }
     switch (n) {
         case Nav::Left:  moveFocus(-1, 0); break;
         case Nav::Right: moveFocus(+1, 0); break;
@@ -270,6 +280,7 @@ Result LibraryScreen::key(Nav n) {
                 // means nothing.
                 tab_ = slot_;
                 rememberedTileSlot_ = 0;
+                touch_ = TouchScroll{};   // FORK (phones)
                 scroll_.retarget(0.0f, design::kFocusDuration);
                 return {};
             }
@@ -356,9 +367,14 @@ void LibraryScreen::draw(Ctx& c) {
             want = current;
         want = std::clamp(want, 0.0f, maxScroll);
     }
-    if (std::fabs(want - scroll_.to) > 0.5f)
+    // FORK (phones): a finger has the list; focus does not move it.
+    touch_.max = maxScroll;
+    if (touch_.free) want = std::clamp(touch_.y, 0.0f, maxScroll);
+    if (touch_.free) scroll_.settle(want);
+    else if (std::fabs(want - scroll_.to) > 0.5f)
         scroll_.retarget(want, design::kFocusDuration);
     const float scroll = scroll_.value();
+    firstInView_ = -1;
 
     if (tiles.empty()) {
         // An honest empty state rather than a blank grid. A library with no
@@ -397,6 +413,8 @@ void LibraryScreen::draw(Ctx& c) {
             // art that is nowhere near the screen.
             if (by + design::kTileHeight < -rowPitch) continue;
             if (by > ui::kCanvasHeight + rowPitch) break;
+            if (by >= gridTop - 1.0f && (firstInView_ < 0 || static_cast<int>(i) < firstInView_))
+                firstInView_ = static_cast<int>(i);
 
             taps_.add(static_cast<int>(i), bx, by, tw, design::kTileHeight,
                       design::kScrollClipTop);

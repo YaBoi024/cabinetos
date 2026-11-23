@@ -139,7 +139,7 @@ Discord channel when anyone starts a game, with no code: three boxes.
 3. **Start a game.** "🎮 Sam started Contra III: The Alien Wars (Super
    Nintendo)" appears in the channel, with your names.
 
-The parts in `{{ }}` are filled in from each message: you type nothing there.
+The parts in <code>&#123;&#123; &#125;&#125;</code> are filled in from each message: you type nothing there.
 The file holds a sample message, Sam starting Contra III, which n8n uses when
 you press **Execute workflow**, so you can try it without the console.
 
@@ -152,7 +152,7 @@ more rule and one more box. A person with no rule goes nowhere.
 
 For a channel of achievements instead, change `game_started` in **Only game
 starts** to `achievement_unlocked`, and the line in **To Discord** to
-`🏆 {{ $json.body.person }} unlocked {{ $json.body.achievement }} in {{ $json.body.game }}`.
+<code>🏆 &#123;&#123; $json.body.person &#125;&#125; unlocked &#123;&#123; $json.body.achievement &#125;&#125; in &#123;&#123; $json.body.game &#125;&#125;</code>.
 
 ### Discord, with covers
 
@@ -171,6 +171,12 @@ choose where its games go.
 
 The `SEND` line under them lists the messages it posts: delete the ones you
 do not want.
+
+### Your Discord status
+
+The game you are playing, under your name in Discord, the way a computer
+game shows it. The steps and the workflow are on GitHub:
+[Game events: your Discord status](https://github.com/MMagTech/cabinetos/blob/main/docs/wiki/game-events-discord-status.md).
 
 ### Telegram
 
@@ -237,7 +243,8 @@ post to Discord and work the lights, for example: open the second file's
 link, select all of it and copy it, then click the first workflow's canvas
 and paste. Delete the pasted **From the console** box, and drag a line from
 the first one's **From the console** to the box the deleted one led to. Save,
-then **Publish**.
+then **Publish**. The Discord status is the exception: [its
+steps](https://github.com/MMagTech/cabinetos/blob/main/docs/wiki/game-events-discord-status.md#with-another-example) say how to add it.
 
 ## Build your own
 

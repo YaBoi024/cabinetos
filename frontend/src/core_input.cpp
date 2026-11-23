@@ -18,6 +18,7 @@
 #include <string>
 
 #include "libretro.h"
+#include "guitar.h"
 #include "ps2.h"
 #include "rumble.h"
 #include "tilt.h"
@@ -68,7 +69,16 @@ std::bitset<RETROK_LAST> gKeys;
 // when the core does.
 retro_keyboard_event_t gKeyboardEvent = nullptr;
 
-void releaseKeys() { gKeys.reset(); }
+// FORK (phones): the finger on the picture (Core::setPointer), port 0 only, in
+// libretro's pointer units: -0x7fff at the left or top of the frame, 0x7fff at the
+// right or bottom.
+bool gPointerDown = false;
+int16_t gPointerX = 0, gPointerY = 0;
+
+void releaseKeys() {
+    gKeys.reset();
+    gPointerDown = false;
+}
 
 void forgetKeyboard() { gKeyboardEvent = nullptr; }
 
@@ -168,6 +178,16 @@ int16_t inputState(unsigned port, unsigned device, unsigned index, unsigned id) 
     }
     if (device == RETRO_DEVICE_KEYBOARD)
         return port == 0 && id < gKeys.size() && gKeys[id] ? 1 : 0;
+    if (device == RETRO_DEVICE_POINTER) {   // FORK (phones)
+        if (port != 0 || index != 0) return 0;
+        switch (id) {
+            case RETRO_DEVICE_ID_POINTER_X: return gPointerX;
+            case RETRO_DEVICE_ID_POINTER_Y: return gPointerY;
+            case RETRO_DEVICE_ID_POINTER_PRESSED: return gPointerDown ? 1 : 0;
+            case RETRO_DEVICE_ID_POINTER_COUNT: return gPointerDown ? 1 : 0;
+            default: return 0;
+        }
+    }
     return 0;
 }
 
@@ -355,6 +375,12 @@ const std::vector<InputDescriptor>& Core::inputDescriptors(int port) const {
 
 unsigned Core::inputDescriptorsVersion() const { return gDescriptorsVersion; }
 
+void Core::setPointer(bool down, float x, float y) {
+    gPointerDown = down;
+    gPointerX = static_cast<int16_t>(std::clamp(x * 2.0f - 1.0f, -1.0f, 1.0f) * 32767.0f);
+    gPointerY = static_cast<int16_t>(std::clamp(y * 2.0f - 1.0f, -1.0f, 1.0f) * 32767.0f);
+}
+
 void Core::setKey(unsigned retrok, bool down) {
     if (retrok >= gKeys.size() || gKeys[retrok] == down) return;
     gKeys[retrok] = down;
@@ -371,8 +397,10 @@ void Core::setPad(int port, const PadState& pad) {
     if (port < 0 || port >= kMaxPorts) return;
     gPads[port] = pad;
     if (gIsPs2) {
-        ps2::setPad(port, pad.buttons, pad.leftX, pad.leftY, pad.rightX, pad.rightY,
-                    pad.leftTrigger, pad.rightTrigger);
+        // A guitar's port is handed the guitar's state (guitar.h).
+        const PadState s = ps2::guitar(port) ? guitar::ps2(port, pad) : pad;
+        ps2::setPad(port, s.buttons, s.leftX, s.leftY, s.rightX, s.rightY, s.leftTrigger,
+                    s.rightTrigger);
     }
 }
 

@@ -22,6 +22,10 @@ and how he wants it done. This changes rarely. New here? Start at
   build, except LICENCES.md, which is in the image"), apart from
   `docs/LICENCES.md`, which is. Write `NEXT-SESSION.md` inside the work's
   own branch, before or after the push.
+- **One pull request per testing image.** Testing carries one change at a
+  time. The next waits until the one on testing is merged or dropped, then
+  takes in main before its push, so each image that reaches main is exactly
+  the one tested.
 - **Every session starts with only `main` and `testing`.** Delete a branch
   once it merges, on GitHub and locally.
 - **Check CI yourself** (`gh run list --branch <b>`); never ask him to look at
@@ -164,6 +168,13 @@ xemu, their runtimes and Flathub's Mesa) can still be downloaded. It opens
 nothing: a red run means a pin is gone or near the end of what Flathub keeps,
 so try a newer build on the A9 and move the pin in
 `system_files/usr/share/cabinetos/flatpaks.list`.
+
+**Also on the 1st, `sigil-pin.yml`** checks that the console builds in the
+Sigil commit that the RomM it needs builds in. It opens nothing: a red run
+means RomM builds in a newer Sigil, and its summary lists the commits
+between and which files the console's Switch saves go through changed. The
+pin moves in the pull request that checks the console against that RomM
+(`frontend/third_party/sigil/VERSION` says how).
 
 **`build-disk.yml`**, by hand only: the installer ISO (`anaconda-iso`, an
 artifact kept 90 days, repacked in CabinetOS's look by

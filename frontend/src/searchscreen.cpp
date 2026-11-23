@@ -91,6 +91,21 @@ Result SearchScreen::key(Nav n) {
     if (n == Nav::Back) return {Action::Back, 0};
     if (count == 0) return {};
     if (n == Nav::Activate) return {Action::OpenGame, results_[slot_]};
+    // FORK (phones): upright, the results are rows: Up and Down go along them,
+    // and out of the top row to the bar, out of the last to the keyboard.
+    if (cols_ > 0 && (n == Nav::Up || n == Nav::Down)) {
+        const int next = slot_ + (n == Nav::Down ? cols_ : -cols_);
+        if (next >= 0 && next < count) {
+            slot_ = next;
+            sound::play(sound::Cue::Move);
+            return {};
+        }
+        if (n == Nav::Down && slot_ / cols_ < (count - 1) / cols_) {
+            slot_ = count - 1;
+            sound::play(sound::Cue::Move);
+            return {};
+        }
+    }
     // Up out of the results is the bar, the same as every other screen.
     if (n == Nav::Up) return {Action::FocusBar, 0};
     // Down goes back to the keyboard, which is the app's to hand focus to.
@@ -122,9 +137,18 @@ void SearchScreen::draw(Ctx& c) {
     // The panel's height depends on its layout and whether it is docked, so a
     // hardcoded cover size would be correct until somebody added a row of keys.
     const float room = resultsBottom_ - (top + headingH) - design::kShelfBreathing * 2.0f;
-    const float ch = std::clamp(room, 120.0f, 320.0f);
-    const float cw = ch * 0.75f;
+    float ch = std::clamp(room, 120.0f, 320.0f);
+    float cw = ch * 0.75f;
     const float coversTop = top + headingH + design::kShelfBreathing;
+    // FORK (phones): upright, three across, as many rows as there are results,
+    // scrolling down under the heading.
+    cols_ = 0;
+    if (design::shelvesNarrow()) {
+        cols_ = 3;
+        const float gap = design::shelfSpacing();
+        cw = (ui::kCanvasWidth - design::kContentInset * 2.0f - gap * (cols_ - 1)) / cols_;
+        ch = cw * 4.0f / 3.0f;
+    }
 
     // The heading says what happened, because an empty screen that says nothing
     // is indistinguishable from one that is broken.
@@ -186,6 +210,46 @@ void SearchScreen::draw(Ctx& c) {
     }
 
     if (results_.empty()) return;
+
+    if (cols_ > 0) {   // FORK (phones): the upright grid
+        const float gap = design::shelfSpacing();
+        const float rowPitch = ch + gap;
+        const float bottom = std::max(coversTop + ch, resultsBottom_ - design::kShelfBreathing);
+        const int count = static_cast<int>(results_.size());
+        const int rows = (count + cols_ - 1) / cols_;
+        const float rowTop = static_cast<float>(slot_ / cols_) * rowPitch;
+        float want = scroll_.to;
+        if (rowTop - want < 0.0f) want = rowTop;
+        if (rowTop + ch - want > bottom - coversTop) want = rowTop + ch - (bottom - coversTop);
+        const float maxScroll = std::max(0.0f, rows * rowPitch - gap - (bottom - coversTop));
+        want = std::clamp(want, 0.0f, maxScroll);
+        if (std::fabs(want - scroll_.to) > 0.5f) scroll_.retarget(want, design::kFocusDuration);
+        const float scroll = scroll_.value();
+        c.r.setScissor(0, coversTop - design::kShelfBreathing, ui::kCanvasWidth,
+                       bottom - coversTop + design::kShelfBreathing * 2.0f);
+        for (int pass = 0; pass < 2; ++pass) {
+            for (int i = 0; i < count; ++i) {
+                const bool isFocused = focused_ && i == slot_;
+                if ((pass == 0) == isFocused) continue;
+                const int idx = results_[static_cast<size_t>(i)];
+                if (idx < 0 || idx >= static_cast<int>(c.cards->size())) continue;
+                const float bx = design::kContentInset + static_cast<float>(i % cols_) * (cw + gap);
+                const float by = coversTop + static_cast<float>(i / cols_) * rowPitch - scroll;
+                if (by + ch < coversTop - rowPitch) continue;
+                if (by > bottom + rowPitch) break;
+                taps_.add(i, bx, by, cw, std::min(ch, bottom - by), coversTop - design::kShelfBreathing);
+                design::Card& card = (*c.cards)[static_cast<size_t>(idx)];
+                card.focus.retarget(isFocused ? 1.0f : 0.0f, design::kFocusDuration);
+                const float f = card.focus.value();
+                const float s = 1.0f + f * (design::kFocusScale - 1.0f);
+                const float w = cw * s, h = ch * s;
+                drawCover(c, card, bx - (w - cw) * 0.5f, by - (h - ch) * 0.5f, w, h,
+                          design::kGridCoverRadius * s, f, /*rim=*/true);
+            }
+        }
+        c.r.clearScissor();
+        return;
+    }
 
     // One row, scrolling sideways under the focus. A grid would need the height
     // the keyboard is standing on.

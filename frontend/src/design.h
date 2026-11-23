@@ -412,6 +412,21 @@ constexpr float kShelfHeaderGap = 0.0f;
 constexpr float kShelfBreathing = 18.0f;
 constexpr float kShelfHeadroom =
     kShelfCoverHeight * (kFocusScale - 1.0f) * 0.5f + kShelfBreathing;
+// FORK (phones): A PHONE HELD UPRIGHT has a canvas about 750 points wide, where
+// 240-point covers left two in view and a focus step slid the row by one. Narrower
+// than the console's, a shelf's covers shrink until three and a part fit across,
+// the part saying the row goes on; the console's sizes are unchanged.
+inline bool shelvesNarrow() { return ui::kCanvasWidth < 1400.0f; }
+inline float shelfSpacing() { return shelvesNarrow() ? 24.0f : kShelfSpacing; }
+inline float shelfCoverWidth() {
+    if (!shelvesNarrow()) return kShelfCoverWidth;
+    const float across = ui::kCanvasWidth - kContentInset * 2.0f - shelfSpacing() * 3.0f;
+    return std::clamp(across / 3.4f, 120.0f, kShelfCoverWidth);
+}
+inline float shelfCoverHeight() { return shelfCoverWidth() * 4.0f / 3.0f; }
+inline float shelfHeadroom() {
+    return shelfCoverHeight() * (kFocusScale - 1.0f) * 0.5f + kShelfBreathing;
+}
 constexpr float kCoverRadius = 10.0f;
 
 // --- Library ----------------------------------------------------------------

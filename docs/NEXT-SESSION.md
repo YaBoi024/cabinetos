@@ -14,10 +14,15 @@ source of truth for anything on RomM's data.
 
 ## Where things stand
 
-**2026-11-15.** The newest release is 2026.10.10. The newest image promoted
-to consoles is 2026.11.15: #715, "Tailscale gets its own switch in Network,
-apart from Remote Play", merged on 2026-11-15. docs/wiki/changelog.md lists
-every image before it. Open: #528 waits on RomM. #590, "A Wii Remote turned
+**2026-11-22.** The newest release is 2026.11.13.2. The newest image
+promoted to consoles is 2026.11.22.2: #722, "Save channels: the console's
+saves move to RomM's channels (#346, steps 2 to 12)", merged on 2026-11-22,
+which closed #346 and carried #723, "LinkUp's interop check: the wrong
+invite is never the right one". It needs RomM 5.5 or newer; a console on an
+older RomM holds it back (#721). What players should know is kept in the
+pinned Discussion #731, "Save channels: known gaps", updated as RomM and
+Sigil land. docs/wiki/changelog.md lists
+every image before it. Open: #590, "A Wii Remote turned
 on after a Wii game starts is ignored by the game", waits in Later; fix it
 only in the console's own code, never by patching Dolphin (MMagTech,
 2026-10-25). What the A9 runs now is not written here: read it from the
@@ -35,26 +40,33 @@ RomM: keep test launches under a minute, or have his go.
 
 ## Next
 
-1. **Game events, #716, "Game events: tell an app at home what is happening
-   in a game".** The issue is the whole plan, settled on 2026-11-15; nothing
-   in it is decided again. PR #717, "Game events: tell an app at home what is
-   happening in a game (#716)", carries it, open and not merged. Steps 1 (the
-   build) and 2 (the real run, 2026-11-15, on testing image 2026.11.15.2 with
-   MMagTech's n8n and Discord; its findings are on #716; the wiki page is
-   `docs/wiki/game-events.md`) are done. Added during the run, his call:
-   every game message says `linkup_game` (`none`, `hosting`, `joined`) and
-   never names the other person; two achievements unlocked on the A9
-   reached Discord. **Step 3:** his TV check on `testing`, which already
-   holds this build: the row, the keyboard, the panel, every line the field
-   can show (while "Checking…" shows, the keyboard's focus goes back to its
-   first key), then merge on his go. The Discord webhooks in his n8n are
-   throwaways he replaces.
-2. **LinkUp: two server tidy-ups, no issue.** The internet test, step 6 of
+1. **#528, "Revoke the console's RomM token on re-pair, Remove account and
+   Sign out (#545; waiting on RomM)".** RomM's self-revoke,
+   rommapp/romm#5419, is in 5.5.0-beta.1, the RomM consoles now need.
+   Check #528 against it before anything else is built on it.
+2. **After save channels, small, each on his word:**
+   - When RomM moves its Sigil pin: vendor Sigil again at RomM's pin,
+     update `savetable.cpp`'s "rows waiting in Sigil" comment, and rerun
+     the Switch check, what changed only.
+   - When a RomM release carries rommapp/romm#5719 and the console needs
+     that release: ask him whether aa2dcea0's rule stays (a state RomM
+     refuses no longer holds the save back).
+   - #353, "Three kinds of save never reach RomM": the Saturn cartridge
+     and the cartridge clocks shipped with save channels (step 11); only
+     the arcade high scores remain. The issue's title and a comment saying
+     so, on his word.
+   - The diagnostic report's privacy filter turns every "LinkUp" into
+     `<linkup server name>` when a person's LinkUp server is named
+     "LinkUp" (since #654). It errs safe; only the report reads worse.
+   - The clean-up review: what future testing keeps of the save channels
+     kits, sessions and branches; the audited list is in his research
+     notes. Nothing is deleted before his yes.
+3. **LinkUp: two server tidy-ups, no issue.** The internet test, step 6 of
    #654, passed twice: his console and his friend's, two servers linking up
    and playing a game (his word, 2026-11-10). Left: `.dockerignore` lets
    `docs/` into the server's build stage, and the relay's block list lacks
    3fff::/20.
-3. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
+4. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
    Kirby: Planet Robobot saved into Mario Kart 7's folder. Read on RomM on
    2026-10-25: Mario Kart 7's save (uploaded 2026-10-22) still carries
    Kirby's save data and its extra data, four files. He wants them gone
@@ -62,7 +74,7 @@ RomM: keep test launches under a minute, or have his go.
    folder, so deleting them on the A9 alone does not last: Mario Kart 7's
    save on RomM has to be replaced. Restate exactly what goes and wait for
    his yes before anything is deleted.
-4. **Words from him, one at a time, no work:** which of the 36 faults the
+5. **Words from him, one at a time, no work:** which of the 36 faults the
    PROJECT.md scan found with no issue (2026-10-22) become issues, none
    filed until he says. That list is in the
    notes of the session that made it ("Faults recorded in PROJECT.md with no
@@ -73,17 +85,23 @@ RomM: keep test launches under a minute, or have his go.
 
 - **Needs the TV or a device:** #575, "Sinden light guns: plug in and
   play gun games (waiting on the guns)".
-- **Waiting on others:** #297 (Sunshine), #346, #353 and #362
-  (RomM's save channels; revisit mid-January 2027), #181, "Updates and DLC
+- **Waiting on others:** #297 (Sunshine), the arcade high scores of #353,
+  "Three kinds of save never reach RomM: Saturn cartridge, arcade high
+  scores, cartridge clocks", and #362, "Discuss later: sharing a save with
+  another person on the server" (revisit mid-January 2027), #181, "Updates and DLC
   as separate files in RomM (Switch, PS3, Xbox 360)" (kept open on
-  2026-11-11 to wait for RomM 5.5), #545 and PR #528 (the
-  RomM token revoke, rommapp/romm#5274), #534 (the Azahar patch,
+  2026-11-11 to wait for RomM 5.5), #534 (the Azahar patch,
   azahar-emu/azahar#2694),
   eden-emulator/Issue-Reports#739 (a Switch controller connected mid-game),
+  Eden's close crash and hang, fixed in its development code on 2026-09-11
+  (`c95ad020fb`, Eden's pull request 4395) and in no release yet: move the Flathub pin
+  when flathub/dev.eden_emu.eden builds a release after v0.2.1 (lessons,
+  emulators, "Switch (Eden)"),
   #203 closed until libretro/dolphin#508 moves.
 - **Filed, not scheduled:** #675, "Arcade: a Naomi or Atomiswave game with
   a plain joystick moves only on the d-pad", the fix agreed in principle on
-  2026-10-28 and written on the issue.
+  2026-10-28 and written on the issue. #730, "Home: a game played on
+  another device is not on Recent until this console restarts", in Later.
 - **With the next real core change:** the comments #490, "Code comments
   that say what the code no longer does, and machine details left in
   comments", left in the core and PCSX2 build files and `core*.cpp`, kept

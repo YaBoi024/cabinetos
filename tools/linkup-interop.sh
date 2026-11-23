@@ -36,12 +36,12 @@ pass() { say "ok: $1"; }
 want() {
     local what=$1 expected=$2
     shift 2
-    local out
-    out=$("$@" 2>&1)
-    # FORK (handheld): the answer is the last line; the pairing's own log lines on stderr
-    # (linkup/pairing.cpp, which step refused) come before it.
-    local answer=${out##*$'\n'}
-    if [ "${answer%% *}" = "$expected" ]; then pass "$what"; else fail "$what: wanted $expected, got: $out"; fi
+    local out err
+    # The word is the probe's stdout; its [linkup] log lines go to stderr and
+    # are shown only when the check fails.
+    out=$("$@" 2>"$work/stderr")
+    err=$(cat "$work/stderr")
+    if [ "${out%% *}" = "$expected" ]; then pass "$what"; else fail "$what: wanted $expected, got: $out${err:+ (stderr: $err)}"; fi
     LAST=$out
 }
 
@@ -187,7 +187,10 @@ want "maya's list shows it" ok "$probe" "$work/maya" op '{"op":"friends"}'
 boxed=$(printf '%s' "$LAST" | sed -n 's/.*"sealed":"\([^"]*\)".*/\1/p')
 opened=$("$probe" "$work/maya" open "$alexFriend" "$invite" "$boxed")
 case "$opened" in *'"game":"Contra III"'*) pass "maya opens the box, and the game's name is in it" ;; *) fail "the box: $opened" ;; esac
-want "bound to its invite" refused "$probe" "$work/maya" open "$alexFriend" "${invite%?}0" "$boxed"
+# Another invite: the last digit changed, never to itself (setting it to 0
+# alone was the same invite whenever the random one ended in 0, 1 in 16).
+case "$invite" in *0) other="${invite%?}1" ;; *) other="${invite%?}0" ;; esac
+want "bound to its invite" refused "$probe" "$work/maya" open "$alexFriend" "$other" "$boxed"
 if docker_log=$(podman logs linkup-i-a 2>&1) && printf '%s' "$docker_log" | grep -q "Contra"; then fail "the game's name is in the server's log"; fi
 
 want "the server's events reach maya" ok "$probe" "$work/maya" op '{"op":"wait","after":0}'

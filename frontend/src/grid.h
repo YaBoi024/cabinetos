@@ -9,6 +9,7 @@
 
 #include "screens.h"
 #include "tapspots.h"
+#include "touchscroll.h"
 
 namespace screens {
 
@@ -71,12 +72,17 @@ public:
     // FORK (handheld): a finger on the screen. True when it landed on a cover,
     // with what pressing that would do in `out`. See tapspots.h.
     bool tapAt(float x, float y, Result* out);
+    // FORK (phones): the list under a finger (touchscroll.h).
+    TouchScroll& touch() { return touch_; }
+    float scrollNow() const { return scroll_.value(); }
     void draw(Ctx& c);
     void drawGlass(Ctx& c);
 
 private:
     bool loadingMore_ = false;
     TapSpots taps_;   // FORK (handheld)
+    TouchScroll touch_;     // FORK (phones): touchscroll.h
+    int firstInView_ = -1;  // FORK (phones): the first cover wholly on screen
     int columns() const;
     float coverWidth() const;
 

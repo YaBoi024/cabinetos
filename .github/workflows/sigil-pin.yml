@@ -1,0 +1,43 @@
+# Sigil's pin is the commit the RomM the console needs builds in
+# (ci/check-sigil-follows-romm.sh;
+# docs/decisions/2026-11-22-sigil-pin-follows-romm.md).
+#
+# Monthly, on the 1st with the other pin checks, and on a pull request that
+# changes Sigil's pin, the RomM the console needs, or this check. It opens
+# nothing: a red run means RomM builds in another Sigil, so the pin moves in
+# the pull request that checks the console against that RomM, and the
+# summary says how far apart they are and which files moved.
+
+name: Check Sigil's pin
+
+on:
+  schedule:
+    # The 1st at 10:45 UTC, after the Flathub pins.
+    - cron: '45 10 1 * *'
+  pull_request:
+    paths:
+      - frontend/third_party/sigil/VERSION
+      - cabinetos.env
+      - ci/check-sigil-follows-romm.sh
+      - .github/workflows/sigil-pin.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Sigil's pin follows RomM's
+    runs-on: ubuntu-24.04
+    env:
+      # Report only for its first week (checks.yml says how).
+      REPORT_ONLY_UNTIL: '2026-11-29'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: Check the pin
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ci/check-sigil-follows-romm.sh

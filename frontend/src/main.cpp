@@ -75,6 +75,7 @@ int App::run(int argc, char** argv) {
                                                   .gpuChoiceTestMode = gpuChoiceTestMode,
                                                   .tailscaleSwitchTestMode =
                                                       tailscaleSwitchTestMode,
+                                                  .updateRommTestMode = updateRommTestMode,
                                                   .padsSeconds = padsSeconds,
                                                   .firstRunRulesMode = firstRunRulesMode,
                                                   .firstRunWriteMode = firstRunWriteMode,
@@ -96,6 +97,7 @@ int App::run(int argc, char** argv) {
                           .rommAddress = rommAddress,
                           .romProbeId = romProbeId,
                           .romProbeExts = romProbeExts,
+                          .channelsProbeId = channelsProbeId,
                           .rommProbeMode = rommProbeMode,
                           .rommPair = rommPair,
                           .coreOptionsAudit = coreOptionsAudit,

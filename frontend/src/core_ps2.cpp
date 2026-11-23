@@ -9,6 +9,7 @@
 
 #include <string>
 
+#include "guitar.h"
 #include "ps2.h"
 
 namespace cab {
@@ -55,6 +56,10 @@ bool Core::startPs2Game(const std::string& romPath, const std::string& systemDir
     // BIOS image in ..." and no error.
     const std::string biosDir = systemDir;
     const std::string scratchDir = saveDir + "/pcsx2-scratch";
+
+    // A GUITAR'S PORT HOLDS A GUITAR for the whole game (guitar.h): the seats
+    // as the game starts.
+    for (int port = 0; port < 2; ++port) ps2::setGuitar(port, guitar::seated(port) != nullptr);
 
     if (!ps2::startGame(romPath, biosDir, saveDir, stem + ".ps2", scratchDir,
                         gPs2ResourcesDir, gPs2Upscale, gPs2Anisotropy, gPs2Widescreen,

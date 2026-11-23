@@ -18,6 +18,9 @@
 //   - a drag in from the left edge is B;
 //   - a quick flick keeps going after the finger lifts: a few more steps that slow
 //     down, more of them the faster the flick (tickTouch, called every frame).
+//   - FORK (phones): on the Library and a game grid an up-and-down drag moves the
+//     list itself, as a phone's lists move, and a flick carries it on, slowing to
+//     a stop; a touch stops it, and that touch opens nothing (touchscroll.h).
 //
 // Search and a game's page are still to come: they have no tap targets yet, so
 // a tap there is A.
@@ -29,6 +32,7 @@
 // twice. A mouse works the same way.
 
 #include "app.h"
+#include "platform.h"
 
 #include <algorithm>
 #include <cmath>
@@ -61,8 +65,21 @@ struct Finger {
     bool backed = false;          // the Back swipe has already been sent
     int axis = 0;                 // 0 not yet known, 1 across, 2 up and down
     int stepped = 0;              // steps already sent, signed
+    bool scrolling = false;       // FORK (phones): moving a list, not focus
+    float lastY = 0.0f;           // where it was at the last move, while scrolling
+    bool stopTap = false;         // it landed on a moving list: it only stops it
 };
 Finger gFinger;
+
+// FORK (phones): a list still moving after a flick, in canvas points a second.
+struct ScrollFling {
+    bool on = false;
+    float v = 0.0f;
+    screens::TouchScroll* list = nullptr;
+};
+ScrollFling gScroll;
+constexpr float kScrollStopSpeed = 30.0f;    // slower than this, it has stopped
+constexpr float kScrollFriction = 0.998f;    // what is kept of the speed each millisecond, as on iOS
 
 // The last few places the finger was, to tell how fast it was going when it lifted.
 constexpr int kTrail = 6;
@@ -150,6 +167,26 @@ void goBack(App& a, App::InputOwner owner) {
     a.navigate(Nav::Back);
 }
 
+// FORK (phones): the list a finger moves, on the screens whose lists follow it,
+// and where it is now; none under a panel, a menu or a change of screen.
+struct ListUnder {
+    screens::TouchScroll* touch = nullptr;
+    float now = 0.0f;
+};
+ListUnder listUnderFinger(App& a, App::InputOwner owner) {
+    if (owner != App::InputOwner::UI || a.overlayOpen) return {};
+    if (a.pinScreen.isOpen() || a.choiceScreen.isOpen() || a.raList.isOpen() ||
+        a.downloadsPanel.isOpen() || a.accountsOpen)
+        return {};
+    if (a.switchPendingId || a.leaving != App::Leave::None || (a.arriving && !a.arriveLifting))
+        return {};
+    switch (a.here()) {
+        case App::Screen::Library: return {&a.libraryScreen.touch(), a.libraryScreen.scrollNow()};
+        case App::Screen::Grid: return {&a.gridScreen.touch(), a.gridScreen.scrollNow()};
+        default: return {};
+    }
+}
+
 // A tap on the exact thing under the finger, for the screens that say where
 // their things are. True when the tap was theirs, whether or not it hit.
 bool tapScreen(App& a, App::InputOwner owner, float x, float y) {
@@ -209,6 +246,17 @@ bool tapPanel(App& a, App::InputOwner owner, float x, float y) {
     return false;
 }
 
+// FORK (phones): a tap on the Back button is B. Only while it is drawn.
+bool tapBack(App& a, App::InputOwner owner, float x, float y) {
+    if (SDL_GetTicks() - a.backDrawnAt > 150) return false;
+    const App::BackSpot& b = a.backSpot;
+    constexpr float kReach = 14.0f;   // a finger is not a pointer
+    if (x < b.x - kReach || x > b.x + b.d + kReach || y < b.y - kReach || y > b.y + b.d + kReach)
+        return false;
+    goBack(a, owner);
+    return true;
+}
+
 // A tap on the top bar: the destination or the account chip under the finger,
 // opened as the pad's A opens it. False when the bar is not on screen or
 // something is over it, or the tap is not on any of its items.
@@ -258,6 +306,17 @@ bool App::tapHome(float x, float y) {
 // Once a frame: the steps of a flick, one after another, each a little later than
 // the last so it slows down. A game, the on-screen keyboard or a shutdown ends it.
 void App::tickTouch(float dt) {
+    // FORK (phones): a flicked list runs on and slows, until it stops, reaches an
+    // end, is touched, or is no longer on screen.
+    if (gScroll.on) {
+        const ListUnder l = listUnderFinger(*this, inputOwner());
+        if (gFinger.down || !l.touch || l.touch != gScroll.list || !l.touch->drag(l.now, gScroll.v * dt)) {
+            gScroll = ScrollFling{};
+        } else {
+            gScroll.v *= std::pow(kScrollFriction, dt * 1000.0f);
+            if (std::fabs(gScroll.v) < kScrollStopSpeed) gScroll = ScrollFling{};
+        }
+    }
     if (!gFling.on) return;
     const InputOwner owner = inputOwner();
     if (owner == InputOwner::Game || owner == InputOwner::Keyboard || poweringDown) {
@@ -276,10 +335,63 @@ void App::tickTouch(float dt) {
     }
 }
 
+// FORK (phones): a finger on a DS game's picture is the stylus (platform.h,
+// touchesDsScreen): down, moved or up, where it is across and down the core's own
+// frame. With the screens apart (dsScreens) a finger on the lower one is on the
+// frame's bottom half and one on the upper on its top half.
+bool App::touchGamePicture(const SDL_Event& e) {
+    if (!touchPicture.shown || session.core != "melonds" || !platform::touchesDsScreen()) return false;
+    float x = 0.0f, y = 0.0f;
+    bool down = false;
+    switch (e.type) {
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+            if (e.button.button != SDL_BUTTON_LEFT) return false;
+            if (!canvasPoint(window, e.button.x, e.button.y, &x, &y)) return false;
+            down = true;
+            break;
+        case SDL_EVENT_MOUSE_MOTION:
+            if (!(e.motion.state & SDL_BUTTON_LMASK)) return false;
+            if (!canvasPoint(window, e.motion.x, e.motion.y, &x, &y)) return false;
+            down = true;
+            break;
+        case SDL_EVENT_MOUSE_BUTTON_UP:
+            if (e.button.button != SDL_BUTTON_LEFT) return false;
+            if (!canvasPoint(window, e.button.x, e.button.y, &x, &y)) return false;
+            down = false;
+            break;
+        default:
+            return false;
+    }
+    auto inside = [&](const float* r, float* fx, float* fy) {
+        if (r[2] <= 0.0f || r[3] <= 0.0f) return false;
+        *fx = (x - r[0]) / r[2];
+        *fy = (y - r[1]) / r[3];
+        return *fx >= 0.0f && *fx <= 1.0f && *fy >= 0.0f && *fy <= 1.0f;
+    };
+    float fx = 0.0f, fy = 0.0f;
+    bool on = false;
+    if (touchPicture.split) {
+        if (inside(touchPicture.bottom, &fx, &fy)) {
+            fy = 0.5f + fy * 0.5f;
+            on = true;
+        } else if (inside(touchPicture.top, &fx, &fy)) {
+            fy *= 0.5f;
+            on = true;
+        }
+    } else {
+        on = inside(touchPicture.all, &fx, &fy);
+    }
+    // A finger dragged off the screen lets go there, as a stylus lifted at the edge.
+    cab::Core::shared().setPointer(down && on, std::clamp(fx, 0.0f, 1.0f), std::clamp(fy, 0.0f, 1.0f));
+    return true;
+}
+
 // One mouse event, after handleEvent has had its look at it. True when it was
 // a finger's and was used.
 bool App::handleTouch(const SDL_Event& e) {
     const InputOwner owner = inputOwner();
+    // FORK (phones): in a DS game a finger on the picture is the stylus.
+    if (owner == InputOwner::Game && playing && !overlayOpen && touchGamePicture(e)) return true;
     // A game takes every event itself; nothing here may act under it.
     if (owner == InputOwner::Game || poweringDown) {
         gFinger.down = false;
@@ -294,6 +406,11 @@ bool App::handleTouch(const SDL_Event& e) {
             gFling = Fling{};   // a touch stops a flick
             gTrailN = 0;
             gFinger = Finger{};
+            // FORK (phones): a touch on a moving list stops it, and only that.
+            if (gScroll.on) {
+                gScroll = ScrollFling{};
+                gFinger.stopTap = true;
+            }
             gFinger.down = true;
             gFinger.x0 = x;
             gFinger.y0 = y;
@@ -321,6 +438,20 @@ bool App::handleTouch(const SDL_Event& e) {
             if (owner == InputOwner::Keyboard) return true;
             // One direction for the whole drag, so a wobble does not wander.
             if (gFinger.axis == 0) gFinger.axis = std::fabs(dx) > std::fabs(dy) ? 1 : 2;
+            // FORK (phones): up and down on a list that follows the finger moves the
+            // list, from where the finger is now, so it does not jump by the slop.
+            if (gFinger.axis == 2) {
+                const ListUnder l = listUnderFinger(*this, owner);
+                if (l.touch) {
+                    if (!gFinger.scrolling) {
+                        gFinger.scrolling = true;
+                        gFinger.lastY = y;
+                    }
+                    l.touch->drag(l.now, y - gFinger.lastY);
+                    gFinger.lastY = y;
+                    return true;
+                }
+            }
             // The focus goes the way the finger goes: right or down is Right or Down.
             const float travel = gFinger.axis == 1 ? dx : dy;
             const float past = std::fabs(travel) - kFirstStep;
@@ -346,6 +477,25 @@ bool App::handleTouch(const SDL_Event& e) {
             if (e.button.button != SDL_BUTTON_LEFT || !gFinger.down) return false;
             gFinger.down = false;
             const bool tap = !gFinger.moved && SDL_GetTicks() - gFinger.at < kTapMaxMs;
+            // FORK (phones): the touch that stopped a moving list opens nothing.
+            if (tap && gFinger.stopTap) return true;
+            // FORK (phones): a list let go while moving runs on (tickTouch).
+            if (gFinger.scrolling) {
+                const ListUnder l = listUnderFinger(*this, owner);
+                if (l.touch && gTrailN >= 2) {
+                    const uint64_t now = SDL_GetTicks();
+                    const Sample& last = gTrail[gTrailN - 1];
+                    int from = gTrailN - 1;
+                    while (from > 0 && last.t - gTrail[from - 1].t <= 100) --from;
+                    const Sample& first = gTrail[from];
+                    const float secs = static_cast<float>(last.t - first.t) / 1000.0f;
+                    if (now - last.t <= kFlingMaxAgeMs && secs >= 0.02f) {
+                        const float v = (last.y - first.y) / secs;
+                        if (std::fabs(v) >= kFlingMinSpeed) gScroll = ScrollFling{true, v, l.touch};
+                    }
+                }
+                return true;
+            }
             if (!tap) {
                 // A flick: how fast it was going along its direction as it lifted.
                 if (gFinger.moved && !gFinger.fromEdge && gFinger.axis != 0 &&
@@ -403,6 +553,7 @@ bool App::handleTouch(const SDL_Event& e) {
                 if (tapBar(*this, x, y)) return true;
                 if (owner == InputOwner::Keyboard) return true;
             }
+            if (tapBack(*this, owner, x, y)) return true;   // FORK (phones)
             if (owner == InputOwner::UI && tapNotice(x, y)) return true;
             if (tapPanel(*this, owner, x, y)) return true;
             if (tapBar(*this, x, y)) return true;

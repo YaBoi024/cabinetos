@@ -10,6 +10,7 @@
 #include <cstdio>
 
 #include "batteryrow.h"
+#include "platform.h"
 #include "storage.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
@@ -168,7 +169,37 @@ int App::barSlotHere() {
 // A console whose recent history holds nothing this machine can play
 // once drew no hero, and the bar vanished with it — which left Library
 // unreachable on the one screen that is meant to reach everything.
+// FORK (phones): somewhere to go back to: a panel or a question open, or any
+// screen but Home itself. Not in a game, which has its own menu.
+bool App::canGoBackByTouch() {
+    if (playing || overlayOpen || poweringDown) return false;
+    if (pinScreen.isOpen() || choiceScreen.isOpen() || raList.isOpen() || downloadsPanel.isOpen() ||
+        accountsOpen)
+        return true;
+    return !(here() == Screen::Home && stack.size() <= 1);
+}
+
+// FORK (phones): the Back button, a disc of the bar's own capsule tint with a
+// chevron, its touch target remembered for touchinput.cpp.
+void App::drawBackButton(float x, float y, float d, float sc) {
+    renderer.draw(ui::Rect{x, y, d, d, d * 0.5f, ui::Color::white(kSelectedTint)});
+    const char* chevron = "\xE2\x80\xB9";   // a single left angle quote
+    const float cw = text.measure(chevron, ui::TextStyle::Title3, sc);
+    const float base = y + (d - text.lineHeight(ui::TextStyle::Title3, sc)) * 0.5f +
+                       text.ascent(ui::TextStyle::Title3, sc) - 2.0f;
+    text.draw(renderer, chevron, x + (d - cw) * 0.5f - 1.0f, base, ui::TextStyle::Title3,
+              ui::Color::white(0.95f), sc);
+    backSpot = {x, y, d};
+    backDrawnAt = SDL_GetTicks();
+}
+
 void App::drawBar(bool gameUp, float sc, float dt) {
+    // FORK (phones): the Back button, where the controller's B would be needed.
+    const bool back = !gameUp && platform::showsBackButton() && canGoBackByTouch();
+    const float backD = barHeight - 12.0f;
+    const float backRoom = back ? backD + 18.0f : 0.0f;
+    if (back && (here() == Screen::Detail || here() == Screen::LinkUpPlay))
+        drawBackButton(kContentInset * 0.5f, barTop + 6.0f, backD, sc);
     if (!gameUp && here() != Screen::Detail && here() != Screen::LinkUpPlay) {
         // SELECTION IS NOT FOCUS, and the design system has had both since
         // the switcher pills: a SELECTED destination is where you are, a
@@ -191,7 +222,7 @@ void App::drawBar(bool gameUp, float sc, float dt) {
                     labels += text.measure(kBarLabels[i], st, sc) * k;
                     items += k;
                 }
-                return labels + g * std::max(0.0f, items - 1.0f) + 22.0f + discRoom <= ui::kCanvasWidth - inset * 2.0f;
+                return labels + g * std::max(0.0f, items - 1.0f) + 22.0f + discRoom + backRoom <= ui::kCanvasWidth - inset * 2.0f;
             };
             if (!fits(barStyle, barX, gap)) {
                 barStyle = ui::TextStyle::Caption1;
@@ -202,7 +233,7 @@ void App::drawBar(bool gameUp, float sc, float dt) {
                     labels += text.measure(kBarLabels[i], barStyle, sc) * k;
                     items += k;
                 }
-                const float room = ui::kCanvasWidth - barX * 2.0f - labels - 22.0f - discRoom;
+                const float room = ui::kCanvasWidth - barX * 2.0f - labels - 22.0f - discRoom - backRoom;
                 gap = std::clamp(items > 1.0f ? room / (items - 1.0f) : kBarItemGap, 28.0f, kBarItemGap);
             }
         }
@@ -212,6 +243,10 @@ void App::drawBar(bool gameUp, float sc, float dt) {
             barTop + (barHeight - text.lineHeight(barStyle, sc)) * 0.5f +
             text.ascent(barStyle, sc);
         float bx = barX;
+        if (back) {
+            drawBackButton(barX - pillPadX, barTop + 6.0f, backD, sc);
+            bx += backRoom;
+        }
         for (int i = 0; i < kBarCapsules; ++i) {
             if (i == BarLinkUp && linkupRoom <= 0.0f) continue;
             const float fade = i == BarLinkUp ? linkupBarFade(linkupRoom) : 1.0f;

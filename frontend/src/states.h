@@ -1,5 +1,6 @@
-// Save states and screenshots of a game in play: made and sent, and the
-// newest loaded back off RomM or this console. Moved out of main.cpp in the
+// Save states and screenshots of a game in play: made, a state marked owed in
+// the game's snapshot (savepush.h) and a screenshot sent, and the newest
+// state loaded back off this console or RomM. Moved out of main.cpp in the
 // restructure (#398).
 
 #pragma once
@@ -15,16 +16,16 @@
 #include "romm.h"
 #include "uploader.h"
 
-void saveStateNow(GameSession& sess, Uploader& up, MenuNotice& notice);
+void saveStateNow(GameSession& sess, MenuNotice& notice);
 void screenshotNow(GameSession& sess, Uploader& up, MenuNotice& notice);
 
-// The newest state RomM holds that THIS build can actually restore. A state
-// from another emulator is skipped rather than attempted: loading one does not
-// fail cleanly, it boots something that looks like the game and is not.
-// Finding and fetching a state is network work, so it happens on a worker; only
-// applying it touches the core, and that waits for the frame thread. Same split
-// as the upload, same reason: nothing that talks to a server may stop the
-// picture.
+// The newest state the game offers that THIS build can actually restore
+// (savepush::offeredStates: the console's own name only). A state from
+// another emulator is never attempted: loading one does not fail cleanly, it
+// boots something that looks like the game and is not. Finding and fetching
+// a state can be network work, so it happens on a worker; only applying it
+// touches the core, and that waits for the frame thread. Same split as the
+// upload, same reason: nothing that talks to a server may stop the picture.
 struct StateLoad {
     std::atomic<bool> running{false};
     std::atomic<bool> ready{false};

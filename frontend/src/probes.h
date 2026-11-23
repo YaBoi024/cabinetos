@@ -27,6 +27,7 @@ struct EarlyProbeOptions {
     bool vectrexSheetsTestMode = false;
     bool gpuChoiceTestMode = false;
     bool tailscaleSwitchTestMode = false;
+    bool updateRommTestMode = false;
     int padsSeconds = 0;
     bool firstRunRulesMode = false;
     bool firstRunWriteMode = false;
@@ -46,6 +47,7 @@ struct StorageProbeOptions {
     const char* rommAddress = nullptr;
     int romProbeId = 0;
     const char* romProbeExts = nullptr;
+    int channelsProbeId = 0;
     bool rommProbeMode = false;
     bool rommPair = false;
     bool coreOptionsAudit = false;

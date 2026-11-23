@@ -75,6 +75,9 @@ constexpr float kCaretBlink = 1.0f;   // seconds
 }  // namespace
 
 void Keyboard::open(const Config& config) {
+    // FORK (phones): one field after another (LinkUp's address, then its code).
+    if (native_ && open_) platform::nativeFieldClose();
+    native_ = false;
     config_ = config;
     busy_ = false;
     fieldMsg_.clear();
@@ -89,7 +92,19 @@ void Keyboard::open(const Config& config) {
     col_ = 0;
     letGoOfHeld();
     open_ = true;
-    platform::textFieldOpened();   // FORK (handheld): the machine's own keyboard, if it has one
+    // FORK (phones): the machine's own field when it has one, else its keyboard
+    // typing into the panel drawn here.
+    platform::NativeField nf;
+    nf.title = config.title;
+    nf.hint = config.hint;
+    nf.initial = config.initial;
+    nf.placeholder = config.placeholder;
+    nf.shortcuts = config.shortcuts;
+    nf.conceal = config.conceal;
+    nf.address = !config.shortcuts.empty();   // every field with shortcuts is an address
+    nf.docked = config.dockedBottom;
+    native_ = platform::nativeFieldOpen(nf);
+    if (!native_) platform::textFieldOpened();   // FORK (handheld): the machine's own keyboard, if it has one
     ghost_ = false;
     buildLayouts();
 }
@@ -213,7 +228,7 @@ const std::vector<std::vector<Keyboard::Key>>& Keyboard::layout() const {
 }
 
 bool Keyboard::focusAt(float canvasX, float canvasY) {
-    if (!open_) return false;
+    if (!open_ || native_) return false;
     for (const KeyRect& k : keyRects_) {
         if (canvasX < k.x || canvasX > k.x + k.w) continue;
         if (canvasY < k.y || canvasY > k.y + k.h) continue;
@@ -337,7 +352,7 @@ void Keyboard::moveFocus(int dx, int dy) {
 // first move, because that move can be Up out of Search's field, which lets
 // go of it.
 void Keyboard::holdDirection(int dx, int dy) {
-    if (!open_) return;
+    if (!open_ || native_) return;
     holdDelete_ = false;
     holdDx_ = dx;
     holdDy_ = dy;
@@ -355,7 +370,7 @@ void Keyboard::releaseDirection(int dx, int dy) {
 // character. Only X and Backspace: A on "del" is a key pressed, and keys do
 // not repeat.
 void Keyboard::holdBackspace() {
-    if (!open_) return;
+    if (!open_ || native_) return;
     holdDelete_ = true;
     holdDx_ = holdDy_ = 0;
     hold_.start();
@@ -367,12 +382,36 @@ void Keyboard::releaseBackspace() {
 }
 
 void Keyboard::letGoOfHeld() {
+    syncNative();
     hold_.stop();
     holdDelete_ = false;
     holdDx_ = holdDy_ = 0;
 }
 
+// FORK (phones): what the machine's field holds, read once a frame. Every loop
+// that drives a keyboard calls repeatHeld or letGoOfHeld each frame.
+void Keyboard::syncNative() {
+    if (!native_ || !open_) return;
+    std::string now;
+    if (!platform::nativeFieldText(&now)) return;
+    value_ = std::move(now);
+    cursor_ = value_.size();
+    held_.clear();
+    fieldMsg_.clear();
+}
+
+const std::string& Keyboard::value() const {
+    const_cast<Keyboard*>(this)->syncNative();   // FORK (phones)
+    return value_;
+}
+
+void Keyboard::setBusy(bool on) {
+    busy_ = on;
+    if (native_ && open_) platform::nativeFieldBusy(on);
+}
+
 void Keyboard::repeatHeld(float dt) {
+    syncNative();
     if (!open_) letGoOfHeld();
     if (!hold_.due(dt)) return;
     if (holdDelete_) backspace();
@@ -400,6 +439,7 @@ void Keyboard::insert(const std::string& text) {
 
 KeyboardResult Keyboard::pressKey() {
     if (!open_) return KeyboardResult::Cancelled;
+    if (native_) return commit();   // FORK (phones): no keys drawn; A is Done
     cursorStill_ = std::chrono::steady_clock::now();
     if (busy_) return KeyboardResult::Typing;
     if (row_ == kField) {
@@ -450,7 +490,7 @@ void Keyboard::backspace() {
 }
 
 void Keyboard::cycleShift() {
-    if (busy_) return;
+    if (busy_ || native_) return;
     cursorStill_ = std::chrono::steady_clock::now();
     sound::play(sound::Cue::Type);
     shift_ = shift_ == Shift::Off    ? Shift::Once
@@ -469,11 +509,19 @@ void Keyboard::toggleConceal() {
 }
 
 void Keyboard::typeText(const char* utf8) {
-    if (!open_ || !utf8 || !*utf8 || busy_) return;
+    if (!open_ || !utf8 || !*utf8 || busy_ || native_) return;
     insert(utf8);
 }
 
 void Keyboard::sayInField(const std::string& msg, bool problem, bool keep) {
+    if (native_ && open_) {   // FORK (phones): the machine's field says it
+        platform::nativeFieldSay(msg, problem, keep);
+        if (!keep) {
+            value_.clear();
+            cursor_ = 0;
+        }
+        return;
+    }
     held_ = keep ? (value_.empty() ? held_ : value_) : std::string();
     value_.clear();
     cursor_ = 0;
@@ -484,6 +532,7 @@ void Keyboard::sayInField(const std::string& msg, bool problem, bool keep) {
 }
 
 KeyboardResult Keyboard::commit() {
+    syncNative();
     if (busy_) return KeyboardResult::Typing;
     if (config_.required && value_.empty() && held_.empty()) {
         sound::play(sound::Cue::Edge);
@@ -491,19 +540,28 @@ KeyboardResult Keyboard::commit() {
     }
     restoreHeld();
     open_ = false;
-    platform::textFieldClosed();
+    if (native_) platform::nativeFieldClose();
+    else platform::textFieldClosed();
     return KeyboardResult::Committed;
 }
 
 KeyboardResult Keyboard::cancel() {
     busy_ = false;
+    if (native_ && open_) platform::nativeFieldClose();
+    else if (!native_) platform::textFieldClosed();
     open_ = false;
-    platform::textFieldClosed();
     return KeyboardResult::Cancelled;
 }
 
 void Keyboard::draw(Renderer& r, TextRenderer& text, float scale) {
     if (!open_ && !ghost_) return;
+    // FORK (phones): the machine draws its own field. Search's results stop
+    // where a docked one begins.
+    if (native_) {
+        panelTop_ = config_.dockedBottom ? platform::nativeFieldTop() * kCanvasHeight
+                                         : kCanvasHeight;
+        return;
+    }
     const auto& rows = layout();
 
     // A DOCKED KEYBOARD IS SMALLER, and it has to be: at full size this panel

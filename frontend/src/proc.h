@@ -63,6 +63,8 @@ Result run(const std::vector<std::string>& args, int timeoutSeconds,
 // Returns its pid, or -1 when it could not be started. It gets a session of
 // its own, so a signal meant for the console never reaches it, and what it
 // prints is appended to `logPath` rather than mixed into the console's journal.
+// It leaves no core file when it crashes, so a crash ends it at once
+// (docs/decisions/2026-11-22-no-core-file-for-emulators.md).
 // The caller reaps it with waitpid; nothing here waits.
 int spawn(const std::vector<std::string>& args, const std::string& logPath);
 

@@ -159,6 +159,9 @@ struct Emulator {
     // controller never moves the game: Vita3K reads every controller's
     // motion into the one Vita. Never set without `dualsense`.
     bool onlyPlayerOneTilts;
+    // IT IS TOLD A GUITAR'S SEAT HOLDS A GUITAR (guitar.h): that seat's virtual
+    // controller carries a guitar's shape and its controls say so. RPCS3.
+    bool guitars;
 };
 
 // The emulator for a catalog core name, or nullptr for an ordinary core.
@@ -202,7 +205,9 @@ bool installGame(const Emulator& e, const std::string& entryPath,
 //
 // `saveDir` is this person's folder for this game (storage::savesDir), and
 // the emulator writes the game's save inside it, so two people and two games
-// never share one. `player` is the name a game shows for the person playing.
+// never share one. `player` is the name a game shows for the person playing,
+// and `title` the game's name as the console shows it (RPCS3 picks a guitar's
+// kind by it, guitar.h).
 //
 // False with `*missingKeys` when what it cannot run without (`needs`) is not
 // on the console; false with an `*err` for anything else.
@@ -213,17 +218,30 @@ bool installGame(const Emulator& e, const std::string& entryPath,
 // `level` is the picture quality this game runs at (quality.h), written into
 // the emulator's settings with everything else.
 bool prepare(const Emulator& e, const std::string& entryPath, const std::string& romPath,
-             const std::string& saveDir, const std::string& player, int players,
-             quality::Level level, bool* missingKeys, std::string* err);
+             const std::string& saveDir, const std::string& player, const std::string& title,
+             int players, quality::Level level, bool* missingKeys, std::string* err);
 
 // Where, inside `saveDir`, the game's own save folders are: the root of what
 // travels to RomM as a zip, whose top-level folders are one per game. For
-// Eden, `user/save/0000000000000000/<profile>`, each folder inside named by
-// the game's title ID, which is why no title ID is ever asked for. For RPCS3,
+// Eden, `user/save/0000000000000000`: the profile's folder (saveProfile) and
+// the all-zero one every profile on the device shares, each game's folder
+// inside named by its title ID, which is why no title ID is needed to send a
+// save; the zip is Sigil's unit for them (dirsave.h, ZipShape::Switch). For RPCS3,
 // `hdd0/home/00000001/savedata`, whose folders are named by the game too.
 // For sm2-emu, `nvram`, the board's NVRAM and EEPROM, `<set>.nv` and
 // `<set>.eeprom`; for Supermodel, `nvram`, the board's `<set>.nv`.
 std::string saveRoot(const Emulator& e, const std::string& saveDir);
+
+// The profile's folder under saveRoot, whose saves are the person's own, for
+// an emulator that keeps them per profile beside the device's: Eden's first
+// profile (standalone_eden.cpp). Empty for every other emulator, and for Eden
+// before it has a profile.
+std::string saveProfile(const Emulator& e);
+
+// The prod.keys Eden is given, the newest `prod*.keys` RomM serves in `bios/`,
+// which Sigil also reads a Switch game's title ID with (switchsave.h). Empty
+// when there is none.
+std::string switchKeys();
 
 // AROUND A GAME. `beforeStart` runs after this person's saves are unpacked
 // into saveRoot, `afterEnd` after the emulator has gone and before they are

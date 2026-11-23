@@ -82,6 +82,7 @@ struct json_object;
 #include "report.h"
 #include "rewind.h"
 #include "romm.h"
+#include "savepicture.h"
 #include "screens.h"
 #include "screenview.h"
 #include "searchscreen.h"
@@ -320,6 +321,9 @@ struct App {
     // that gets checked against a real server rather than assumed.
     int romProbeId = 0;
     const char* romProbeExts = "gb|gbc|dmg";
+    // Lists one game's save channels as RomM 5.5 gives them to the console's
+    // person, reading only (#346, `--romm-channels <id>`).
+    int channelsProbeId = 0;
     // Where the built cores are. Where games and saves go is storage.h's
     // answer, not a constant here — see --storage-root.
     //
@@ -340,6 +344,10 @@ struct App {
     // upload it, then fetch the newest one back and restore it. Headless, so
     // the sync can be proved on a machine nobody is sitting at.
     bool syncTest = false;
+    // --save-write-at N (#346, the save's picture): the battery written at
+    // the core's Nth frame as a game saves (testhooks.cpp), so a run shows a
+    // save made mid-game going up with its picture (savepicture.h).
+    uint64_t saveWriteAt = 0;
     // See --overlay-test below. A test instrument for open question 24.
     bool overlayTest = false;
     // Opens the overlay once the game is up, so it can be looked at on a
@@ -371,6 +379,8 @@ struct App {
     bool gpuChoiceTestMode = false;
     // --tailscale-switch-test: Tailscale's own switch (tailscale.h).
     bool tailscaleSwitchTestMode = false;
+    // --update-romm-test: which RomM an update waits for (update.h, #346).
+    bool updateRommTestMode = false;
     // Opens the overlay and takes Exit to Home, so the whole leave-a-game path
     // can be proved on a machine with nothing attached.
     bool overlayExitDemo = false;
@@ -1015,6 +1025,9 @@ struct App {
         int64_t size = -1;
         uint64_t askedMs = 0, checkedMs = 0;
     } standaloneShot;
+    // THE SAVE'S OWN PICTURE (#346, savepicture.h): the game's save watched
+    // while it runs, and its picture taken the moment it changes.
+    savepicture::Watch savePicture;
     // One worker for every upload. Started here and drained on the way out, so
     // quitting does not discard a save someone has already made.
     Uploader uploader;
@@ -1023,6 +1036,10 @@ struct App {
     playtime::Clock playClock;
     float playCheckpointClock = 0.0f;
     bool shownAway = false;
+    // Whether the server had save channels when last heard (#346, step 9):
+    // 1 or 0, and -1 before it was first heard. followServer sends what
+    // waited when it gains them.
+    int shownChannels = -1;
     float onlineAgainClock = 5.0f;   // a failed reload waits before the next
     // The library being fetched for a console that started offline (#88).
     struct OnlineLoad {
@@ -1443,6 +1460,21 @@ struct App {
     struct BarSpot { float x0 = 0.0f, x1 = 0.0f; };
     BarSpot barSpot[BarCount];
     uint64_t barDrawnAt = 0;
+    // FORK (phones): the Back button (platform::showsBackButton), as last drawn.
+    struct BackSpot { float x = 0.0f, y = 0.0f, d = 0.0f; };
+    BackSpot backSpot;
+    uint64_t backDrawnAt = 0;
+    bool canGoBackByTouch();
+    void drawBackButton(float x, float y, float d, float sc);
+    // FORK (phones): where the game's picture was last drawn, in canvas points, for a
+    // finger on it (touchinput.cpp). Split: the DS's two screens apart, the top half
+    // of the frame in `top` and the bottom half in `bottom`; otherwise all of it in `all`.
+    struct TouchPicture {
+        bool shown = false, split = false;
+        float all[4] = {0, 0, 0, 0}, top[4] = {0, 0, 0, 0}, bottom[4] = {0, 0, 0, 0};
+    };
+    TouchPicture touchPicture;
+    bool touchGamePicture(const SDL_Event& e);
     screens::TapSpots homeTaps;   // FORK (handheld): Home's covers, as last drawn
     screens::TapSpots overlayTaps;   // FORK (handheld): the pause menu's rows, as last drawn
     bool tapOverlay(float x, float y);   // FORK (handheld): a tap on one of them
@@ -1645,9 +1677,10 @@ struct App {
     // status file (update.h); the frame loop reads it twice a second and this
     // decides what it means on screen. What has to outlive a boot is kept in
     // settings.json: Manual or Weekly, when the last check succeeded and what
-    // it found, the version already announced, and the version waiting for a
-    // restart with the boot it was staged in, which is how the first start
-    // after a restart knows whether it applied.
+    // it found and the RomM that needs, the version already announced, the
+    // version waiting for a restart with the boot it was staged in, which is
+    // how the first start after a restart knows whether it applied, and the
+    // server's RomM version last heard.
     update::Status upd;   // the first poll reads it, so a status already there is acted on
     // A state said on screen before root has written it: "Checking…" the
     // moment the row is pressed, or why systemd refused. Root's next write
@@ -1668,6 +1701,13 @@ struct App {
     static std::string updVersionSize(const std::string& version, int64_t size);
     std::string updChecked();
     bool updFoundNewer();
+    // HELD BACK (#346): an update that needs a newer RomM than the server's
+    // says "Needs RomM 5.5 or newer." and Download is greyed out until the
+    // server is updated.
+    std::string updRommWritten;      // romm_version in settings.json, as last written
+    std::string updRommSeen();
+    bool updHeld(const std::string& needed);
+    static std::string updNeeds(const std::string& needed);
     screens::SettingsRow updateRow();
     files::State filesState;
     int64_t filesSaidAt = 0;
@@ -2187,6 +2227,9 @@ struct App {
     void powerActivate(PowerItem item);
     void backToPauseMenu();
     void standaloneScreenshot();
+    // An emulator of its own asked to close, its save's picture taken first
+    // while it is still on screen (savepicture.h).
+    void stopStandaloneGame();
     void pumpStandaloneShot();
     void stepChoice(int slot, int delta, bool wrap);
     void beginInsert(int n);
@@ -2399,7 +2442,6 @@ struct App {
     void playFromState(const screens::Result& res);
     void loadPendingStates();
     void drawStateHold(float sc);
-    void sayStateUploaded();
     // favorites.cpp
     void toggleFavorite(const screens::Result& res);
     // ps2window.cpp

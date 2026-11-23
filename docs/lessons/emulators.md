@@ -493,8 +493,9 @@ code.
 
 - **A RESTORE CAN UNDO A SAVE THAT IS STILL ON ITS WAY UP.** Found through
   Xbox, true of every folder save: a save queued after a power cut, the game
-  started again at once, and the server's older zip came down over it. The
-  restore now skips while `cache::isPending` says the console owes that zip.
+  started again at once, and the server's older zip came down over it. A
+  start now takes nothing from RomM while a save of the game is still owed
+  (`savepick.cpp`, from the markers in `pending.h`).
   **Test a recovery with an immediate relaunch, not only a clean one.**
 
 
@@ -516,6 +517,49 @@ code.
   one save folder; RomM overwrites by filename, so the server's copy lost the
   rest. Found by downloading RomM's zip and listing it, not by reading the
   upload log, which said "uploaded". **Check what the server holds.**
+
+- **A ZIP NAME WITH AN ACCENT CAME BACK AS AN EMPTY ARCHIVE.** The program
+  runs in the C locale, and libarchive there cannot read a name a zip marks
+  as UTF-8: `archive_read_next_header` answers a warning, the loop that
+  waited for `ARCHIVE_OK` took it for the end, and a save folder holding
+  `Pokémon.gci` restored as "archive held no files" with no error. It only
+  showed once the console's own zips marked such names, which RomM needs to
+  hash them as the console does (#346). Found by restoring the pushed save
+  on a second console, not by the push, which RomM had accepted. **A save
+  that went up is proven by bringing it down somewhere else.** Zips are read
+  under `cab::Utf8Names`, and an entry libarchive cannot step to is said,
+  never taken for the end (`dirsave.cpp`).
+
+- **ASKED TO WRITE EVERY ZIP NAME AS UTF-8, LIBARCHIVE GARBLED ONE THAT WAS
+  NOT.** With `hdrcharset=UTF-8` a Shift-JIS file name (a Japanese GameCube
+  save's, say) went in marked UTF-8 with each byte it could not read
+  replaced and a 0x5C written as "/", so the name was lost on the way to
+  RomM, which then refused the push on its hash. Found by writing such a
+  name through the console's own zip code and reading it with Python's
+  zipfile, before any game had one. A name now goes in as its bytes, marked
+  only when it is UTF-8 by Python's strict rule; RomM reads an unmarked one
+  as CP437, and the console's hash does the same (`romm_snapshots.cpp`). A
+  library's "convert to X" option is checked with input that is not X.
+
+- **A SNAPSHOT'S TIME IS NOT ITS SAVE'S.** Once a state could go up by
+  itself, the game's page said "Saved today, 8:13 AM" for a save made at
+  8:01: it dated the save by the snapshot that carried it, and a snapshot
+  that changes only its states carries the save before it. The same date
+  decided which of two devices' saves was made later. Found on a capture
+  of the game's page after a states-only push, not by the tests, which had
+  given every snapshot a new save. **Date a thing by its own record:** a
+  save by its row's `created_at`, a state by the time in its own name
+  (`savepick::dateSaves`, `stateNameMs`), never by the box it travels in.
+
+- **A BATTERY IS NOT ONLY A SAVE.** Watched once a second for the save's
+  picture (#346), Pokémon Red's battery changed four times in 30 seconds on
+  its title screen, with nobody saving: the game unpacks its pictures of
+  Pokémon into that memory as work space. Anything that reads "the battery
+  changed" as "the game saved" (the picture, the send at the leave, RomM's
+  web player's own upload) reacts to those writes too. **Nothing tells a
+  console that a game saved;** a rule built on a change sees a game's work
+  space as well, so say so where the rule is written, and do not promise
+  more than "the last moment its save changed".
 
 - **A GAME CAN BIND ITS SAVE TO THE PROFILE ID.** Forza Horizon 2 called its
   save "tampered" under any other ID. One ID on every console, for good, as
@@ -609,3 +653,43 @@ code.
   **When an emulator's settings file is written from scratch, read what every
   missing key does, not only the ones being set.**
 
+
+## Switch (Eden)
+
+- **EDEN 0.2.1 CRASHES OR HANGS NOW AND THEN AS IT CLOSES A BUSY GAME, AND
+  IT IS EDEN'S.** Its close (SIGTERM is its window's close) runs
+  `System::ShutdownMainProcess`, which frees the game's GPU memory
+  (`services.reset()`, the Nvidia service's handles) before it stops its GPU
+  thread (`gpu_core.reset()`); `NotifyShutdown` only set a flag. The GPU
+  thread, still drawing queued frames, then reads or writes freed memory:
+  a fault in libc's `memmove` from a garbage address, or a write to address
+  0 in the query cache; or the two threads deadlock. Seen in 4 of 25 quits
+  on the A9 from 10-29 to 11-22 (Mario Kart 8 Deluxe 3 of 8, Brotato 1 of
+  2), a tester's Xenoblade Chronicles X 3 of 3, Viper Phase 1 5 of about 42
+  scratch quits, and none in about 59 quits of 2D games. Not the pause
+  menu's freeze (the scratch quits had none), not save pictures, not Remote
+  Play. Proven from the A9's core files, read with gdb with the Flatpak's
+  files as its root: the Flathub build has no symbols at all (its recipe
+  sets `no-debuginfo`), so frames were named from each function's unwind
+  bounds and the file and function names its own log and assert calls
+  carry. Eden fixed it in its development code on 2026-09-11 (`c95ad020fb`,
+  Eden's pull request 4395: the GPU thread is stopped and joined first); no release has it
+  yet. Until one does, a crash ends at once (no core file, `proc::spawn`)
+  and a hang waits the 10 s grace. Findings: the session notes of
+  2026-11-22, "Eden close crash".
+- **A CRASH'S CORE FILE CAN HOLD THE CONSOLE FOR MINUTES.** systemd-coredump
+  keeps the dying process until it has its memory (5 to 6 GB for Eden), and
+  then writes it compressed to the same drive, so every fsync the console
+  makes meanwhile (a save's zip, play time) waits behind it: on a tester's
+  slower drive, Home came 2 min 14 s after Exit, half a second after the
+  journal's "dumped core". The A9's NVMe hid it (10.9 s). **When something
+  waits on a crashed program, read the journal for systemd-coredump before
+  blaming your own code.**
+- **EDEN'S SAVES ARE SAFE ONCE THE GAME CLOSES ITS FILE, AND NOT BEFORE.**
+  Its save files are C `FILE`s: each write is an `fseek` then `fwrite`, so a
+  file's last write can stay in Eden's memory until the file is next read or
+  closed; the game's `Flush` does nothing and `Commit` is a stub, so there is
+  no all-or-nothing save as on a Switch. In the A9's 11-22 crash, a save made
+  13 s before the quit was whole: Eden's core file listed no save file open.
+  A quit while the game is still writing its save could leave it part
+  written, crash or not; nobody has hit it.

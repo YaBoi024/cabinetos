@@ -49,7 +49,7 @@ const Emulator kEmulators[] = {
      // folder (user/save/), as Xenia and Cemu do, so a session cut off by a
      // crash, a power cut or an app restart is sent at the next start or
      // launch instead of being overwritten by the older copy on RomM.
-     "nsp|xci", "keys", false, false, false, false, false, true, false, false, true, false},
+     "nsp|xci", "keys", false, false, false, false, false, true, false, false, true, false, false},
 
     // PLAYSTATION 3. Its log sits beside its cache, in the game's folder
     // (XDG_CACHE_HOME, rpcs3/ appended: Utilities/File.cpp, get_cache_dir).
@@ -65,8 +65,9 @@ const Emulator kEmulators[] = {
      "Emulation has been frozen",
      nullptr, 0, nullptr,
      // notesPlaying (#213): its savedata is in the person's folder too
-     // (hdd0/home/<user>/savedata), the same case as Eden's.
-     "iso|pkg", "firmware", true, true, true, false, false, true, false, true, false, false},
+     // (hdd0/home/<user>/savedata), the same case as Eden's. guitars: a
+     // guitar plays as a PS3 guitar (guitar.h).
+     "iso|pkg", "firmware", true, true, true, false, false, true, false, true, false, false, true},
 
     // ORIGINAL XBOX. xemu keeps no log of its own; what it prints is it. A
     // game is a folder, as a PS3 game is, because its hard drive lives beside
@@ -79,7 +80,7 @@ const Emulator kEmulators[] = {
      {nullptr, nullptr, nullptr, nullptr},
      nullptr, nullptr,
      nullptr, 0, nullptr,
-     "iso|xiso", "BIOS", true, false, false, true, true, false, false, false, false, false},
+     "iso|xiso", "BIOS", true, false, false, true, true, false, false, false, false, false, false},
 
     // XBOX 360. Xenia Edge's own Linux build, in the image
     // (build_files/install-xenia.sh). Its log is where the console tells it
@@ -98,7 +99,7 @@ const Emulator kEmulators[] = {
      nullptr,
      "x> ",
      "Xenia-edge", 2, nullptr,
-     "iso|xex|zar", "", false, false, true, false, false, true, false, false, false, false},
+     "iso|xex|zar", "", false, false, true, false, false, true, false, false, false, false, false},
 
     // WII U. Cemu main, built from source at a pin (cores/build-cemu.sh) and in
     // the image at /usr/lib/cabinetos/cemu. Its log is under its home
@@ -119,7 +120,7 @@ const Emulator kEmulators[] = {
      nullptr, 0, "Error",
      // dualsense (#669): Cemu reads a pad's own sensors, as SDL pairs them;
      // onlyPlayerOneTilts: the GamePad, the one Wii U controller with a gyro.
-     "wua", "", false, false, true, false, false, true, false, false, true, true},
+     "wua", "", false, false, true, false, false, true, false, false, true, true, false},
 
     // PLAYSTATION VITA. Vita3K's own build, in the image
     // (build_files/install-vita3k.sh), started through its SDL frontend: a
@@ -142,7 +143,7 @@ const Emulator kEmulators[] = {
      // folder, through the link standalone_vita3k.cpp makes, as Xenia does.
      // dualsense (#669): Vita3K reads a pad's own sensors, as SDL pairs them;
      // onlyPlayerOneTilts: the Vita is one handheld, held by player 1.
-     "zip|vpk", "firmware", true, false, false, false, false, true, true, false, true, true},
+     "zip|vpk", "firmware", true, false, false, false, false, true, true, false, true, true, false},
 
     // SEGA MODEL 2. sm2-emu, built from source at a pin (cores/build-sm2emu.sh)
     // and in the image at /usr/lib/cabinetos/sm2emu, for the Model 2 games
@@ -161,7 +162,7 @@ const Emulator kEmulators[] = {
      nullptr, 0, nullptr,
      // notesPlaying: it writes the board's NVRAM straight into the person's
      // folder, as Cemu writes its saves.
-     "zip|7z", "", false, false, false, false, false, true, false, false, false, false},
+     "zip|7z", "", false, false, false, false, false, true, false, false, false, false, false},
 
     // SEGA MODEL 3. Supermodel, built from source at a pin
     // (cores/build-supermodel.sh) and in the image at
@@ -182,11 +183,14 @@ const Emulator kEmulators[] = {
      nullptr, 0, nullptr,
      // notesPlaying: its NVRAM is written straight into the person's folder,
      // through the link standalone_supermodel.cpp makes, as Vita3K's saves are.
-     "zip", "", false, false, false, false, false, true, false, false, false, false},
+     "zip", "", false, false, false, false, false, true, false, false, false, false, false},
 };
 
 // How long a program that was asked to close gets before it is made to.
 // Eden took 0.8 s on the A9; ten is room for a slow disk flushing a save.
+// One that crashes as it closes is gone at once (no core file, proc::spawn);
+// this is spent only on one that hangs, as Eden 0.2.1 now and then does
+// (docs/lessons/emulators.md, "Switch (Eden)").
 constexpr int64_t kStopGraceMs = 10 * 1000;
 // A failed load shows the emulator's own error box and waits for a click
 // nobody can make, so its log is watched for this long after a start.
@@ -515,14 +519,14 @@ bool installGame(const Emulator& e, const std::string& entryPath,
 }
 
 bool prepare(const Emulator& e, const std::string& entryPath, const std::string& romPath,
-             const std::string& saveDir, const std::string& player, int players,
-             quality::Level level, bool* missingKeys, std::string* err) {
+             const std::string& saveDir, const std::string& player, const std::string& title,
+             int players, quality::Level level, bool* missingKeys, std::string* err) {
     *missingKeys = false;
     storage::makeDirs(saveDir);
     if (std::strcmp(e.core, "eden") == 0)
         return prepareEden(e, saveDir, player, players, level, missingKeys, err);
     if (std::strcmp(e.core, "rpcs3") == 0)
-        return prepareRpcs3(e, entryPath, saveDir, player, players, level, missingKeys, err);
+        return prepareRpcs3(e, entryPath, saveDir, player, title, players, level, missingKeys, err);
     if (std::strcmp(e.core, "xemu") == 0)
         return prepareXemu(e, entryPath, players, level, missingKeys, err);
     if (std::strcmp(e.core, "xenia") == 0) return prepareXenia(e, saveDir, err);
@@ -555,6 +559,11 @@ std::string saveRoot(const Emulator& e, const std::string& saveDir) {
     if (std::strcmp(e.core, "sm2emu") == 0) return sm2emuNvram(saveDir);
     // Model 3: the board's NVRAM, as Supermodel names it.
     if (std::strcmp(e.core, "supermodel") == 0) return supermodelNvram(saveDir);
+    return {};
+}
+
+std::string saveProfile(const Emulator& e) {
+    if (std::strcmp(e.core, "eden") == 0) return edenProfileFolder(e);
     return {};
 }
 

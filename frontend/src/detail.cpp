@@ -3,7 +3,6 @@
 
 #include "app.h"
 
-#include <dirent.h>
 #include <sys/stat.h>
 
 #include <algorithm>
@@ -14,8 +13,10 @@
 #include "cache.h"
 #include "catalog.h"
 #include "favorites.h"
+#include "library.h"
 #include "manual.h"
 #include "platform.h"
+#include "savepush.h"
 #include "saves.h"
 #include "storage.h"
 #include "timewords.h"
@@ -34,9 +35,12 @@ void App::startDetailStates() {
     detailStates.busy = true;
     const storage::User who = storage::currentUser();
     detailStates.worker = std::thread([this, romId, tag, saveTag, stateDir, slug, who]() {
-        std::vector<romm::Asset> all;
         std::vector<screens::StateChoice> out;
         std::string err, saveWhen;
+        // The files the game's save channels can be on, for the save line
+        // below: as RomM just said with the game's files, else as the game's
+        // record remembers them.
+        romm::ChannelFiles channelFiles = rememberedChannelFiles(romId);
         // YEAR, MAKER, PLAYERS, under the cover. Whatever RomM has.
         screens::DetailScreen::Facts facts;
         {
@@ -45,6 +49,11 @@ void App::startDetailStates() {
             // Offline (#88): as last seen, kept beside the game's record.
             const bool fresh = !romm::serverAway() && liveClient.fetchFacts(romId, &f, &ferr);
             if (fresh) rememberFacts(romId, f);
+            if (romm::ChannelFiles now = romm::channelFilesOf(f.files);
+                fresh && !now.files.empty()) {
+                channelFiles = std::move(now);
+                rememberChannelFiles(romId, channelFiles);
+            }
             if (fresh || knownFacts(romId, &f)) {
                 if (f.year > 0) facts.year = std::to_string(f.year);
                 facts.maker = f.maker;
@@ -92,78 +101,57 @@ void App::startDetailStates() {
             else have = playtime::known(who, romId, &ms);
             if (have) facts.played = playtime::describe(ms + playtime::owedMs(who, romId));
         }
-        // THE GAME'S OWN SAVE, the newest under the tag it travels by, as
-        // the launch reads it. "Saved today, 8:17 PM". RomM's, or its copy
-        // offline (savesFor); or this console's own when that is newer and
-        // still waiting to upload (#88).
+        // THE GAME'S OWN SAVE, the one a start would continue from, by the
+        // launch's own rule (savepick.h). "Saved today, 8:17 PM". RomM's, in
+        // a save channel or from before them, or its copy offline
+        // (listSaves); or this console's own when that is newer and still
+        // waiting to upload (#88).
         std::string savedAt;
-        if (!saveTag.empty() && savesFor(liveClient, who, romId, &all, &err))
-            for (const romm::Asset& a : all)
-                if (a.emulator == saveTag && a.updatedAt > savedAt) savedAt = a.updatedAt;
-        const std::vector<cache::Owed> owedHere = cache::owed(who);
-        auto owedNamed = [&](const std::string& name, bool state) {
-            for (const cache::Owed& o : owedHere)
-                if (o.romId == romId && o.isState == state && !o.isScreenshot &&
-                    o.fileName == name)
-                    return true;
-            return false;
-        };
-        for (const cache::Owed& o : owedHere) {
+        if (!saveTag.empty()) {
+            SaveFetch onRomm;
+            listSaves(liveClient, who, romId, channelFiles, saveTag.c_str(), &onRomm);
+            if (onRomm.listed) savedAt = savepick::pickedAt(onRomm.pick, onRomm.oldRowAt);
+            rememberChannelFiles(romId, onRomm.channelFiles);
+        }
+        for (const cache::Owed& o : cache::owed(who)) {
             if (o.romId != romId || o.isState || o.isScreenshot) continue;
             struct stat st;
             if (::stat(o.localPath.c_str(), &st) == 0 && isoUtc(st.st_mtime) > savedAt)
                 savedAt = isoUtc(st.st_mtime);
         }
+        // And its snapshot still owed with a save of this console's
+        // (savepush.h), dated when the save was made; not RomM's own from
+        // before channels on its way into one, which RomM already dated.
+        if (cache::OwedPush push; cache::owedPush(who, romId, &push) && push.hasSave &&
+                                  !push.fromOldRows() &&
+                                  isoUtc(static_cast<time_t>(push.madeAt)) > savedAt)
+            savedAt = isoUtc(static_cast<time_t>(push.madeAt));
         if (!savedAt.empty()) {
             std::string w = stateWhen(savedAt);
             if (w.rfind("Today", 0) == 0 || w.rfind("Yesterday", 0) == 0)
                 w[0] = static_cast<char>(std::tolower(static_cast<unsigned char>(w[0])));
             if (!w.empty()) saveWhen = "Saved " + w;
         }
-        // THE NEWEST THREE STATES. RomM's, and with them this console's
-        // own (#88): all of them when RomM could not be asked (offline,
-        // or a system whose states never leave the console), and only the
-        // ones still waiting to upload when it could. One file name is one
-        // state, shown once.
-        struct Shown { int id; std::string picture, at, name, path; };
-        std::vector<Shown> shown;
-        bool askedRomm = false;
-        all.clear();
-        if (!tag.empty() && !romm::serverAway() && liveClient.fetchStates(romId, &all, &err)) {
-            askedRomm = true;
-            for (const romm::Asset& a : all)
-                if (a.emulator == tag)
-                    shown.push_back({a.id, a.picturePath, a.updatedAt, a.fileName, ""});
-        } else if (!err.empty()) {
-            std::fprintf(stderr, "[detail] states and saves: %s\n", err.c_str());
-        }
-        if (DIR* d = stateDir.empty() ? nullptr : ::opendir(stateDir.c_str())) {
-            while (dirent* e = ::readdir(d)) {
-                const std::string name = e->d_name;
-                if (name.size() < 7 || name.compare(name.size() - 6, 6, ".state") != 0) continue;
-                if (askedRomm && !owedNamed(name, true)) continue;
-                bool dup = false;
-                for (const Shown& x : shown) dup = dup || x.name == name;
-                if (dup) continue;
-                const std::string full = stateDir + "/" + name;
-                struct stat st;
-                if (::stat(full.c_str(), &st) != 0 || !S_ISREG(st.st_mode)) continue;
-                const std::string png = full.substr(0, full.size() - 6) + ".png";
-                shown.push_back({0, ::access(png.c_str(), R_OK) == 0 ? png : std::string(),
-                                 isoUtc(st.st_mtime), name, full});
-            }
-            ::closedir(d);
-        }
-        std::sort(shown.begin(), shown.end(),
-                  [](const Shown& a, const Shown& b) { return a.at > b.at; });
+        // THE NEWEST THREE STATES, as the game offers them
+        // (savepush::offeredStates): the three newest under the console's
+        // own name on RomM, wherever they are there, with the ones made here
+        // and still owed. With RomM away, not answering or too old for save
+        // channels (romm::serverTakesSaves), or for a core whose states never
+        // leave the console, this console's own files.
+        std::vector<romm::Asset> rows;
+        err.clear();
+        const bool listed = !tag.empty() && romm::serverTakesSaves() &&
+                            liveClient.fetchStates(romId, &rows, &err);
+        if (!err.empty()) std::fprintf(stderr, "[detail] states: %s\n", err.c_str());
         std::vector<std::string> localPaths;
-        for (size_t i = 0; i < shown.size() && i < 3; ++i) {
-            int id = shown[i].id;
-            if (!shown[i].path.empty()) {
-                localPaths.push_back(shown[i].path);
+        for (const savepush::OfferedState& o :
+             savepush::offeredStates(who, romId, tag, stateDir, listed ? &rows : nullptr)) {
+            int id = o.id;
+            if (!o.path.empty()) {
+                localPaths.push_back(o.path);
                 id = -static_cast<int>(localPaths.size());
             }
-            out.push_back({id, shown[i].picture, stateWhen(shown[i].at)});
+            out.push_back({id, o.picture, o.madeMs ? stateWhen(isoOfMs(o.madeMs)) : std::string()});
         }
         std::lock_guard<std::mutex> lk(detailStates.m);
         detailStates.romId = romId;

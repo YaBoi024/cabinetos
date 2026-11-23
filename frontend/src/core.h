@@ -331,6 +331,10 @@ public:
     // to a core; the one key pressed is a MAME's menu key
     // (arcadesettings.h). Every key is let go when a game loads.
     void setKey(unsigned retrok, bool down);
+    // FORK (phones): a finger on the picture, for a core that asks for a pointer
+    // (melonDS's Touch mode): down or not, and where, from 0 to 1 across and down
+    // the core's own frame. Let go when a game loads.
+    void setPointer(bool down, float x, float y);
     // How many players there are, so the core is told a controller is in
     // each of their ports. Before loadGame it sets what the game starts with;
     // during a game a higher number plugs the new ports in. Never unplugs: a
@@ -436,6 +440,16 @@ public:
     bool writeSaveRam(const std::vector<uint8_t>& data);
     size_t saveRamSize() const;
 
+    // THE CARTRIDGE'S CLOCK BESIDE THE BATTERY (#346, step 11):
+    // RETRO_MEMORY_RTC, a region of its own. Gambatte's is 8 bytes, the time
+    // the game's clock counts from, for a cartridge with one; 0 for any other.
+    // Live as the battery is: written before the first frame, it is the clock
+    // the game reads. A clock of another size is no clock this core keeps,
+    // and is refused.
+    bool readClock(std::vector<uint8_t>& out) const;
+    bool writeClock(const std::vector<uint8_t>& data);
+    size_t clockSize() const;
+
     // --- In-game saves, read by --state-test ---------------------------------
     //
     // A different mechanism from save states, and the one people assume is
@@ -505,13 +519,15 @@ public:
     uint64_t frameDigest() const;
 
     // THE GAME'S OWN PICTURE, AS RGBA, THE WAY UP IT IS SHOWN: for the
-    // picture a save state carries (#99). Read from the game's frame, never
-    // from the screen, so the pause menu drawn over it is not in it. Rows top
-    // first, flipped and quarter-turned exactly as the player draws it, at the
-    // core's own resolution (as Cabinet sent). False with nothing to
-    // read: no frame yet, or the PS2 path, which has no states. Call on the
-    // GL thread.
-    bool snapshot(std::vector<uint8_t>& rgba, unsigned& width, unsigned& height) const;
+    // picture a save state carries (#99) and a save's (#346, savepicture.h).
+    // Read from the game's frame, never from the screen, so the pause menu
+    // drawn over it is not in it. Rows top first, flipped and quarter-turned
+    // exactly as the player draws it, at the core's own resolution (as
+    // Cabinet sent), or no wider than `maxWidth` as shown, made that small on
+    // the graphics chip before it is read where the core draws there. False
+    // with nothing to read: no frame yet. Call on the GL thread.
+    bool snapshot(std::vector<uint8_t>& rgba, unsigned& width, unsigned& height,
+                  unsigned maxWidth = 0) const;
 
     // Emulated frames run since the game loaded, and audio frames produced.
     // Audio against the core's own sample rate is the only direct read on

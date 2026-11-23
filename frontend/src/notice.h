@@ -59,12 +59,12 @@ struct MenuNotice {
         inviteFrom.clear();
         text = std::move(t);
         tone = k;
-        // Busy holds until the answer replaces it; a stuck "Saving…" is still
+        // Busy holds until the answer replaces it; a stuck "Loading…" is still
         // gone in fifteen seconds rather than for ever.
         //
         // EVERYTHING ELSE STAYS AS LONG AS IT TAKES TO READ (#110): 1.5 s and
         // 60 ms a character, from 2.5 s to 4.5 s. It was a flat 3.2 s, too
-        // long for "Saved to RomM" and short for a sentence.
+        // long for "State saved" and short for a sentence.
         if (k == Tone::Busy) {
             life = 15.0f;
         } else {

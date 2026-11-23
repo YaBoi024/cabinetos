@@ -76,7 +76,7 @@ void App::runDiscScript() {
             done = false;
             startOverOnDisc(n);
         } else if (verb == "state") {
-            saveStateNow(session, uploader, menuNotice);
+            saveStateNow(session, menuNotice);
             say(menuNotice.text);
         } else if (verb == "load") {
             beginLoadLatestState(stateLoad, session, liveClient, menuNotice);

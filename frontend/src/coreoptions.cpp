@@ -21,6 +21,7 @@
 #include "catalog_internal.h"
 #include "gpu.h"
 #include "wiiremote.h"
+#include "platform.h"
 
 namespace catalog {
 
@@ -152,7 +153,8 @@ std::map<std::string, std::string> optionOverrides(const std::string& core, bool
     if (coreName == "melonds") {
         return {
             {"melonds_threaded_renderer", "enabled"},
-            {"melonds_touch_mode", "Joystick"},
+            // FORK (phones): a finger on the lower screen, where the machine has one.
+            {"melonds_touch_mode", platform::touchesDsScreen() ? "Touch" : "Joystick"},
         };
     }
 
@@ -168,6 +170,17 @@ std::map<std::string, std::string> optionOverrides(const std::string& core, bool
     // (screenview.h), which draws this layout as "both". quality.cpp's levels
     // are sized for this layout.
     if (coreName == "azahar") return {{"citra_layout_option", "side_by_side"}};
+
+    // Dreamcast: ONE MEMORY CARD PER GAME, in the game's save folder
+    // (MMagTech, 2026-11-17; #346, step 8). The declared default keeps one
+    // card every game shares in the system directory, which the console
+    // copied in and out for each session. Per game is the row Sigil gives a
+    // card that holds one game, so RomM hands another app's save back as one
+    // file. Only the first card (A1) is per game; another controller's card
+    // stays shared on the console and does not travel, as Sigil says for this
+    // setting. savetable.cpp (saveFiles, saveForm) reads the card under the
+    // names this gives it. Arcade boards in Flycast have no card.
+    if (coreName == "flycast") return {{"reicast_per_content_vmus", "VMU A1"}};
 
     // Beetle Saturn, and this one also decides where the save is. "libretro"
     // hands the Saturn's backup RAM to the frontend through SAVE_RAM, which
