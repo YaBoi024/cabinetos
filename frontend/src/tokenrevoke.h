@@ -40,8 +40,8 @@ namespace tokenrevoke {
 void owe(const accounts::Login& login, const std::string& who);
 
 // Revokes what is owed and no longer used, at `address`. From the reconnect
-// thread (offline_sync.cpp), every few seconds while the server is there, so
-// nothing owed costs reading a file that is not there. False when RomM did
+// thread (offline_sync.cpp), every few seconds while the server is there; with
+// nothing owed that opens a file that is not there. False when RomM did
 // not answer: ask again in a minute. `stop` is looked at between tokens, and a
 // server that hangs is given kSendOwedSeconds, since the exit joins the thread.
 constexpr int kSendOwedSeconds = 5;

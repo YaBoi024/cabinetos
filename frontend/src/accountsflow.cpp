@@ -486,8 +486,8 @@ void App::takeAccountResults() {
                 // exactly as it did is what made this look broken.
                 // IT RENEWED THEIR SIGN-IN, which is also how a console
                 // paired before a new permission gets it (collections.write
-                // for favourites, #267): say that. The new key is in use
-                // already (repaired, above).
+                // for favourites, #267): say that. The new key is taken up
+                // above (repaired).
                 addAccountScreen.setError(
                     who.name + " is already on this console. Sign in to RomM as "
                     "the person you are adding.");

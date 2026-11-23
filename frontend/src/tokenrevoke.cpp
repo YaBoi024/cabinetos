@@ -34,11 +34,11 @@ std::vector<Owed> read() {
             json_object* e = json_object_array_get_idx(root, i);
             json_object* v = nullptr;
             Owed o;
-            if (json_object_object_get_ex(e, "access_token", &v))
+            if (json_object_object_get_ex(e, "access_token", &v) && v)
                 o.login.token = json_object_get_string(v);
-            if (json_object_object_get_ex(e, "token_id", &v))
+            if (json_object_object_get_ex(e, "token_id", &v) && v)
                 o.login.tokenId = json_object_get_int(v);
-            if (json_object_object_get_ex(e, "name", &v)) o.who = json_object_get_string(v);
+            if (json_object_object_get_ex(e, "name", &v) && v) o.who = json_object_get_string(v);
             if (!o.login.token.empty() && o.login.tokenId > 0) out.push_back(std::move(o));
         }
     }

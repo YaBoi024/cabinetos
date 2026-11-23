@@ -26,6 +26,7 @@
 #include <thread>
 #include <vector>
 
+#include "fileio.h"
 #include "firstrun.h"
 #include "romm.h"
 #include "server.h"
@@ -361,6 +362,20 @@ int test() {
     check(pair(romm, &who) && !owedFile(), "a token with no number is owed nothing when replaced");
     sendOwed(romm.address());
     same(romm.deleted(), "", "and revokes nothing");
+
+    std::printf("A damaged list\n");
+    romm.issue("gone-d", 95, 1);
+    cab::writeBytes(accounts::revokePath(),
+                    std::string("[null,7,{\"access_token\":null,\"token_id\":94,\"name\":null},"
+                                "{\"access_token\":\"gone-d\",\"token_id\":95,\"name\":null}]"),
+                    0600);
+    check(sendOwed(romm.address()), "is read past what is wrong in it");
+    same(romm.deleted(), "95 by gone-d: 200", "and what is right goes");
+    cab::writeBytes(accounts::revokePath(), std::string("[{\"access_tok"), 0600);
+    check(sendOwed(romm.address()), "one cut short is nothing owed");
+    owe({"gone-e", 96}, "person1");
+    sendOwed(romm.address());
+    same(romm.deleted(), "96 by gone-e: 401", "and the next one owed replaces it");
 
     std::printf("What cannot be written down stops nothing\n");
     storage::makeDirs(accounts::revokePath() + "/in-the-way");
