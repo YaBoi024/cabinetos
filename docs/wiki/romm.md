@@ -4,7 +4,7 @@ Everything CabinetOS plays comes from [RomM](https://github.com/rommapp/romm):
 games, covers, BIOS, firmware and keys. Your saves, states, screenshots and play
 time go back to it. CabinetOS ships none of them.
 
-- **RomM 5.1 or newer.** Tested with 5.1.0 and 5.3.1.
+- **RomM 5.5 or newer.** Tested with 5.5.0-beta.1.
 - One server per console. Every person on the console is a user on that server.
 
 ## Setting RomM up for the console
@@ -15,10 +15,9 @@ your library. These things matter to CabinetOS:
 1. **Platform folders.** The console finds a system by RomM's platform slug.
    The slugs it plays are listed in [Systems, formats and BIOS](systems.md).
    Anything RomM recognises with the right slug appears as a Library tile.
-2. **Arcade.** One `arcade` folder just works: the console picks FinalBurn Neo
-   or MAME 2003-Plus for each game. To choose the emulator yourself, use two
-   folders named after them (`FBNEO` and `MAME2003`, say), each mapped to
-   RomM's arcade platform. See [Arcade](systems.md#arcade).
+2. **Arcade.** One folder for each arcade system, named the way RomM knows
+   it. The console shows them all as one Arcade tile, and picks each game's
+   emulator from the files in its zip. See [Arcade](arcade.md).
 3. **Firmware.** Put BIOS files, firmware and keys in RomM as firmware for the
    platform they belong to. The console downloads them when you first play that
    system. The exact files are in [Systems, formats and BIOS](systems.md).
@@ -48,10 +47,19 @@ It never changes or deletes your games, platforms, firmware or users.
 
 ## Saves made elsewhere
 
-- **Cabinet** ([the Apple TV app](https://github.com/MMagTech/cabinet)) and
-  CabinetOS share saves: progress made in one carries on in the other.
-- Saves made in RomM's web player or in other apps are not read, and the
-  console leaves them alone on the server.
+- Saves made in **Cabinet**, the retired Apple TV app, carry on here: they
+  use the same names.
+- A save made in RomM's web player or another app carries on here when it
+  is the newest and the console's emulator can use it. See
+  [Saves from other apps](saves.md#saves-from-other-apps).
+
+## A game you delete in RomM
+
+The console removes it too. At the next start with your server there, a game
+that is gone from RomM leaves the console's drive, whether you played it or
+only downloaded it, and the room comes back. Its saves, states and screenshots
+on the console go with it: RomM deletes its own copies along with the game, so
+they could never be sent anywhere.
 
 ## When the server is away
 
@@ -62,8 +70,9 @@ The console keeps working with what is on its drive. See
 
 Settings, Network, **RomM server** (behind the PIN if one is set):
 
-- **Change address**: for when the same server moves. Pointing at a different
-  server warns first: *Removes every game and account from this console.*
+- **Change address**: for when the same server moves, or to reach it
+  [through Tailscale](network.md#reaching-romm-away-from-home). Pointing at a
+  different server is refused: *A different server. Sign out first.*
 - **Sign out**: removes every game and account from the console and goes back
   to [first run](first-run.md). Saves still waiting to upload are lost, and the
   console says so before you confirm.

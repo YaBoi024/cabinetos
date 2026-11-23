@@ -22,6 +22,10 @@ and how he wants it done. This changes rarely. New here? Start at
   build, except LICENCES.md, which is in the image"), apart from
   `docs/LICENCES.md`, which is. Write `NEXT-SESSION.md` inside the work's
   own branch, before or after the push.
+- **One pull request per testing image.** Testing carries one change at a
+  time. The next waits until the one on testing is merged or dropped, then
+  takes in main before its push, so each image that reaches main is exactly
+  the one tested.
 - **Every session starts with only `main` and `testing`.** Delete a branch
   once it merges, on GitHub and locally.
 - **Check CI yourself** (`gh run list --branch <b>`); never ask him to look at
@@ -31,11 +35,16 @@ and how he wants it done. This changes rarely. New here? Start at
 - **Every change that reaches consoles goes in the changelog**,
   `docs/wiki/changelog.md` (on the site as *What's new*), in the same pull
   request (MMagTech, 2026-10-12). Once its testing image is built, add a
-  heading with that image's version (`## 2026.10.12.9 {#v2026-10-12-9}`) and
-  the date, newest first. **Write it for a player, not for us:** what they
+  heading with that image's version (`## 2026.10.12.9 {#v2026-10-12-9}`),
+  newest first, and no date line: the version is the date (UTC). **Write it for a player, not for us:** what they
   would have noticed, then what happens now, and the issue number; no
   internal names (`**Fixed:** GameCube saves kept on your server loaded as an
-  empty card on a new console. They load now.`). **A New entry says how to
+  empty card on a new console. They load now.`). **Name what the change
+  covers, not a game.** Every fix is one rule for every game, so an entry
+  says which games it reaches by what they share (a system, a board, an
+  engine, a kind of controller), never by title: a title reads as a fix for
+  that game. A title may appear only as an example of what the screen shows
+  (*Metal Slug · NeoGeoMVS*). **A New entry says how to
   use it**, not only how to open it: the buttons, briefly, and a link to its
   wiki page (MMagTech: the manuals entry said R1 and nothing about turning or
   zooming). A pushed-again `testing`
@@ -44,7 +53,7 @@ and how he wants it done. This changes rarely. New here? Start at
   entry at the top under `## Next` (CONTRIBUTING.md, "Pull requests and
   issues"), which `changelog.yml` accepts because it checks only that the
   file changed; once that change's testing image is built, MMagTech turns
-  `## Next` into the version heading and date, as above. A change a player
+  `## Next` into the version heading, as above. A change a player
   cannot notice (CI, the build) says `Changelog: none` in its PR body
   instead. The pull request check `changelog.yml` enforces it.
 - **The TV**: say every step and what success looks like, then wait for "go".
@@ -75,9 +84,55 @@ in git on 72c0c4b.
 
 Plain answers. **Lead with what a change does and why it exists, in terms of
 what breaks for the product, not the subsystem.** Keep the detail, after the
-plain statement. Check the running machine before theorising, and say what is
+plain statement. **Explain how something works as steps.** When he asks how
+something happens, answer with the steps in the order a person would see them,
+one per line, each saying who does it (RomM or the console), in plain words
+with no code names; and say first when it applies only to other people's
+setups, not his. Check the running machine before theorising, and say what is
 verified and what is assumed. **Use the `MMagTech` handle, never a personal
 name**: the repo is public.
+
+## Keeping the cost down
+
+The 3DS (PR #524) cost far more than any core before it, for reasons a
+session controls (MMagTech, 2026-10-20). From now on:
+
+- **Settle the choices before building.** Every decision the work needs
+  (layout, levels, controls, what plays) is put to MMagTech and answered
+  before the build session starts. A change after that is a new piece of
+  work, said as such.
+- **One fresh session per phase**: research, build, TV run, testing push,
+  each with a short brief that names the files and what done looks like. No
+  session carries a feature from start to finish.
+- **The lead session stays small.** It reads, decides, briefs and reports.
+  Past about 300,000 tokens of context it hands over to a fresh lead with a
+  written brief, between phases, when no session it started is running.
+- **TV runs read logs before pictures.** A screenshot only where only a
+  picture can answer, at the smallest scale that answers it.
+- **Research only what decides something.** A survey that will not change
+  what gets built is offered as a later card, not run.
+- **Side findings go to a card or the pull request's notes**, not into the
+  running session's work.
+- **Sonnet for mechanical pieces** (docs edits, tables, checks, watching
+  CI); Opus for code and research; Fable only when MMagTech names it.
+
+## Patches to an emulator's code
+
+MMagTech's rule of 2026-10-20, for any change to an emulator's own source (a
+patch applied in `cores/build-core.sh` or any other build script):
+
+- **Named before it is built.** The patch is put to MMagTech first, in plain
+  words: what it changes, why, and what happens without it. A condition
+  inside research does not count as naming it.
+- **Tracked on an issue while upstream might take it.** Each patch he
+  approves gets a CabinetOS issue that links the bug or request filed
+  upstream (filed on his go), names where the patch lives in the recipe, and
+  says what to check when the emulator's pin moves: fixed upstream, so drop
+  the patch and close the issue; or adjust the patch to the new code. When
+  upstream declines it, or it was never an upstream fault, the issue is
+  closed: the patch's row in docs/ARCHITECTURE.md section 8, its decision
+  file and its comment in the recipe are its record. Every replacement in a
+  patch is asserted, so a pin move never quietly ships without it.
 
 ## The image, the build and CI
 
@@ -91,21 +146,61 @@ is what only the maintainer runs.
 opens a pull request listing what moved. A player's fault that a newer
 Bazzite fixes, or a security hole, is taken by hand in between
 (`gh workflow run base-update.yml`; docs/PROJECT.md, "Staying current with
-Bazzite").
+Bazzite"). The same day, `terra-fallback-update.yml` keeps the stored
+spare of Steam's session (`build_files/terra-fallback/`) current, so both
+ride one update. Once the base update has merged, the downloads are cut
+again from it (`build-disk.yml`, below). The base update covers only what
+comes from Bazzite, so the same day, run the skill `check-security-fixes`
+over the pins of our own.
 
-**Weekly, on Mondays.** `pad-db-update.yml` refreshes the controller list
-(`frontend/data/gamecontrollerdb.txt`); `terra-fallback-update.yml` keeps the
-stored spare of Steam's session (`build_files/terra-fallback/`) current.
+Neither merges anything.
 
-None of the three merges anything.
+**When a player reports a pad the console does not know or maps wrong,**
+`gh workflow run pad-db-update.yml` updates the controller list
+(`frontend/data/gamecontrollerdb.txt`) to the community's newest and opens
+a pull request naming the pads it adds, changes and removes. It runs on no
+schedule (docs/decisions/2026-11-14-controller-list-on-report.md). If the
+reported pad is not among them, the community's list does not have it
+either.
+
+**Also on the 1st, `flatpak-pins.yml`** checks that every Flathub pin (Eden,
+xemu, their runtimes and Flathub's Mesa) can still be downloaded. It opens
+nothing: a red run means a pin is gone or near the end of what Flathub keeps,
+so try a newer build on the A9 and move the pin in
+`system_files/usr/share/cabinetos/flatpaks.list`.
+
+**Also on the 1st, `sigil-pin.yml`** checks that the console builds in the
+Sigil commit that the RomM it needs builds in. It opens nothing: a red run
+means RomM builds in a newer Sigil, and its summary lists the commits
+between and which files the console's Switch saves go through changed. The
+pin moves in the pull request that checks the console against that RomM
+(`frontend/third_party/sigil/VERSION` says how).
 
 **`build-disk.yml`**, by hand only: the installer ISO (`anaconda-iso`, an
-artifact kept 90 days) or a qcow2. With `publish` ticked it also replaces the
-download, `cabinetos.iso` and its SHA-256 in Cloudflare R2
+artifact kept 90 days, repacked in CabinetOS's look by
+`ci/brand-installer-iso.sh`, its SHA-256 beside it), a qcow2, or the file a
+tester writes to a USB drive (`portable`, made by `ci/make-portable-image.sh`;
+the run fails unless `ci/check-portable-boots.sh` boots it to first run, and
+its picture and journal are a small artifact of their own). A build never
+publishes. `iso_run` and `portable_run`, each given a finished run's number,
+build nothing and put that run's file on Cloudflare R2
 (`download.mmagtech.com`, the link the README and the wiki's Install page
-give), and reads the size back to check it. Build it once per release; an
-installed console updates itself. Try installer changes in a throwaway VM
-first with `tools/installer-vm.sh`.
+give) as `cabinetos.iso` or `cabinetos-portable.img.xz`, with its SHA-256,
+and read the size back to check it; one dispatch can take both. Cut both once
+each month's base update has merged, and at once for a fix to the installer,
+first run or privacy: a new console stays on the image it was installed from
+until its player updates it
+(`docs/decisions/2026-11-12-when-the-downloads-are-cut.md`). Each cut gets a
+GitHub release page for the version the ISO installs, tagged at the commit in
+its image's `org.opencontainers.image.revision` label
+(`docs/decisions/2026-11-13-a-release-page-per-download.md`). Try installer
+changes in a throwaway VM first with `tools/installer-vm.sh`. Before giving a
+run as `iso_run`, install that run's ISO in the VM
+(`tools/installer-vm.sh install`) and look at its screens: the boot menu,
+the drive question, the summary, Time & Date, installing and first run.
+The build stops by itself if the installer changed under the branding
+(`ci/brand-installer-iso.sh` checks what it relies on); a change in the look
+shows only on screen.
 
 **Repository settings the build depends on.** Settings, Actions, General,
 Workflow permissions: **Read and write**, or the push to GHCR fails with a 403.

@@ -101,6 +101,11 @@ GLuint gHWFBO = 0, gHWColor = 0, gHWDepth = 0;
 unsigned gHWTargetW = 0, gHWTargetH = 0;   // what the target is sized to
 bool gHWFrame = false;         // the last frame came from the core's GL
 std::string gHWContextName;
+// The last answer to GET_HW_RENDER_INTERFACE that was logged, 0 for none.
+// Azahar asks on every frame, which was 44 lines a second in the journal;
+// logged once per answer instead, and cleared by each SET_HW_RENDER so every
+// game's first ask is still in the log.
+int gHWInterfaceLogged = 0;
 
 // The desktop GL core's own context and framebuffer, and the window and UI
 // context to go back to. Set for as long as such a core has a game loaded.
@@ -514,6 +519,7 @@ std::optional<bool> environmentHWRender(unsigned cmd, void* data) {
                              what.c_str());
             }
             gHWVulkan = cb->context_type == RETRO_HW_CONTEXT_VULKAN;
+            gHWInterfaceLogged = 0;
             if (!gHWVulkan) {
                 // The core keeps this struct and calls through it, so the two
                 // frontend-owned fields are written into the CORE's copy. Ours
@@ -556,7 +562,7 @@ std::optional<bool> environmentHWRender(unsigned cmd, void* data) {
             //
             // A core that cannot do Vulkan is unaffected: it ignores an answer
             // it has no path for and asks for GLES anyway, which canServe
-            // still accepts. Nothing about the twenty-one cores changes.
+            // still accepts. Nothing about those cores changes.
             *static_cast<unsigned*>(data) =
                 vk::available() ? RETRO_HW_CONTEXT_VULKAN : RETRO_HW_CONTEXT_OPENGLES3;
             return true;
@@ -595,11 +601,16 @@ std::optional<bool> environmentHWRender(unsigned cmd, void* data) {
             // Logged because a core that cannot get this has no way to present
             // and no way to say so — it simply runs and draws nothing, which
             // is the single hardest failure in this area to tell apart from a
-            // broken game.
-            std::fprintf(stderr, "[vulkan] the core asked for the render interface: %s\n",
-                         !gHWVulkan            ? "refused, this core is not on Vulkan"
-                         : !vk::renderInterface() ? "refused, there is no device yet"
-                                                  : "handed over");
+            // broken game. Once per answer (gHWInterfaceLogged).
+            static const char* const kAnswer[] = {"", "refused, this core is not on Vulkan",
+                                                  "refused, there is no device yet",
+                                                  "handed over"};
+            const int answer = !gHWVulkan ? 1 : !vk::renderInterface() ? 2 : 3;
+            if (answer != gHWInterfaceLogged) {
+                std::fprintf(stderr, "[vulkan] the core asked for the render interface: %s\n",
+                             kAnswer[answer]);
+                gHWInterfaceLogged = answer;
+            }
             if (!gHWVulkan) return false;
             const retro_hw_render_interface_vulkan* iface = vk::renderInterface();
             if (!iface) return false;

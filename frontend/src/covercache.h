@@ -120,6 +120,11 @@ void saveTiles(const std::map<int, Tile>& tiles);
 // cache on exactly the boot that most needs it.
 void sweep(const std::vector<int>& livePlatformIds);
 
+// Deletes one game's covers, every size and version, under whichever platform
+// they were filed by: a game RomM no longer has (gonegames.h, #625), whose
+// platform may still be listed. True when something went.
+bool forgetGame(int romId);
+
 // Deletes least-recently-used files until the cache is under `budgetBytes`.
 // The reserve check on write is a backstop that keeps the console updatable;
 // this is the actual policy.

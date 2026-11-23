@@ -9,6 +9,11 @@
 //      2's reports flow. The 94 answers go out in order, never closer than
 //      1 ms; Remote 1's reports and its light wait until the last is out;
 //      Remote 2's are never kept waiting.
+//   3. Linux's Wii Remote driver (#548): Remote 1 becomes one of Nintendo's
+//      own. After its status report the game's report mode goes back to it,
+//      no sooner than 10 ms, with the game's rumble and no acknowledgement
+//      asked; after another answer while the rumble is on, the rumble alone.
+//      Remote 2, a TechKen, sends a status report too and is sent nothing.
 // The times are the kernel's, taken as the bridge writes (SO_TIMESTAMPNS).
 // `make test` builds and runs it, in the builder; it exits 0 when all holds.
 // It includes bridge.cpp, whose loop is in an unnamed namespace.
@@ -215,6 +220,21 @@ int main() {
     feeder1.join();
     feeder2.join();
     run(100);
+    Remote& r1 = *gRemotes[0];
+    r1.linuxDriver = true;
+    fromTheGame(uhid1.test, {0x12, 0x06, 0x37});   // continuous, acknowledgement asked
+    fromTheGame(uhid1.test, {0x10, 0x01});         // rumble on
+    run(50);
+    const uint8_t status[7] = {0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc0};
+    const int64_t status1 = wallNs();
+    (void)::send(real1.test, status, sizeof status, 0);
+    const int64_t status2 = wallNs();
+    (void)::send(real2.test, status, sizeof status, 0);
+    run(100);
+    const uint8_t driversAck[5] = {0x22, 0x00, 0x00, 0x16, 0x07};   // its MotionPlus probe
+    const int64_t answered = wallNs();
+    (void)::send(real1.test, driversAck, sizeof driversAck, 0);
+    run(100);
     const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     stopCollecting = true;
     collector.join();
@@ -274,6 +294,31 @@ int main() {
                 "Remote 2 meanwhile: %d report(s), the longest wait %.3f ms\n",
                 answers.size(), double(lastAnswer - firstAnswer) / kMs, double(closest) / kMs,
                 double(widest) / kMs, counted2, double(wait2) / kMs);
+
+    // 3. Linux's driver.
+    std::vector<const Got*> modes, rumbles;
+    for (const Got& g : got) {
+        if (g.end != kRemote1 || g.at <= status1) continue;
+        if (g.report.size() >= 3 && g.report[0] == 0x12 && g.at < answered) modes.push_back(&g);
+        if (g.report.size() >= 2 && g.report[0] == 0x10 && g.at > answered) rumbles.push_back(&g);
+    }
+    check(modes.size() == 1, "Remote 1 did not get the game's report mode back once after its status");
+    if (!modes.empty()) {
+        const Got& m = *modes.front();
+        check(m.report[1] == 0x05 && m.report[2] == 0x37,
+              "the mode put back is not the game's, with its rumble and no acknowledgement asked");
+        check(m.at - status1 >= 10 * kMs - kSlew, "the mode went back sooner than 10 ms after the status");
+    }
+    check(rumbles.size() == 1 && rumbles[0]->report[1] == 0x01 && rumbles[0]->at - answered >= 10 * kMs - kSlew,
+          "the rumble did not go back after the driver's answer");
+    int toTechKen = 0;
+    for (const Got& g : got)
+        if (g.end == kRemote2 && g.at > status2) ++toTechKen;
+    check(toTechKen == 0, "the TechKen was sent something after its status report");
+    std::printf("driver: mode back %.1f ms after the status, rumble back %.1f ms after an answer; "
+                "the TechKen sent %d\n",
+                modes.empty() ? -1.0 : double(modes.front()->at - status1) / kMs,
+                rumbles.empty() ? -1.0 : double(rumbles.front()->at - answered) / kMs, toTechKen);
 
     // A loop that waits on nothing would pass millions of times a second.
     check(passes < seconds * 5000, "the loop spins");

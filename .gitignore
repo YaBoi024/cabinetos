@@ -15,6 +15,8 @@ previous.manifest.json
 # wiki's docs/wiki/changelog.md.
 /changelog.md
 output.env
+# Python's compiled cache, written when CI's checks run (check-code-and-docs-agree.py).
+__pycache__/
 
 # Core builds. The source checkouts are clones of upstream at a pinned commit,
 # reproducible from cores/build-core.sh, so they are cache and not history.
@@ -48,6 +50,14 @@ image_payload/
 # cache. Ignored for the same reason as .artifacts/: an untracked directory
 # costs the image its labels.
 .downloads/
+# The Vectrex screen sheets (tools/fetch-vectrex-overlays.py), kept by the
+# Actions cache the same way, and ignored for the same reason.
+.vectrex-sheets/
+
+# Claude Code's local files (preview config, settings, worktrees) stay on the
+# machine; only the skills in .claude/skills/ are part of the repository.
+.claude/*
+!.claude/skills/
 
 # macOS
 .DS_Store

@@ -7,6 +7,16 @@ keyboard plugged in until a controller is paired.
 goes back. **On a pad:** the d-pad moves, **A** selects, **B** goes back. A
 mouse works too.
 
+## Time zone (running from a USB drive)
+
+Only on a console with no time zone yet, which is one running from a USB
+drive: the installer's Time & Date screen sets it on every other. Pick your
+region, then a city in your time zone; **Continue** stays greyed until you
+have. The lists are long, so a letter on the keyboard jumps to the first city
+that starts with it, and **L1** and **R1** (Page Up and Page Down) move a page.
+There is no time zone in Settings: to change it, press **Back** on the next
+screen.
+
 ## 1. Connect to a network
 
 The console needs a network to reach your RomM server, so **Continue** stays
@@ -14,10 +24,12 @@ greyed until it is online.
 
 - **Ethernet:** plug in the cable and it connects by itself.
 - **Wi-Fi:** pick your network from the list. A secured network opens the
-  on-screen keyboard for the password (the last character typed stays visible;
-  **show** reveals the rest). *Wrong password* opens the keyboard again.
+  on-screen keyboard for the password (the character just typed shows for a
+  moment, then becomes a dot; **show** reveals the whole password). *Wrong
+  password* opens the keyboard again.
 - Networks that need a user name as well as a password (802.1X, as used by
-  many offices and schools) show *not supported*.
+  many offices and schools) show *not supported* here. Settings, Network
+  leaves them out of its list.
 - Hidden networks cannot be joined.
 
 ## 2. RomM server
@@ -29,7 +41,7 @@ and `:8080` keys to save typing.
 - Type the port if your server uses one. None is added for you.
 - Addresses on your own network try `http` first, others try `https` first.
   Type `https://` or `http://` in front to choose.
-- *Found RomM 5.3.1 at ...* means it worked. *Nothing answered at that
+- *Found RomM 5.5.0 at ...* means it worked. *Nothing answered at that
   address* means the console could not reach it: check the address in a
   browser on the same network.
 

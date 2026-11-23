@@ -5,27 +5,28 @@
 
 #include "app.h"
 
-#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
 
 #include "power.h"
+#include "savepush.h"
 #include "saves.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
 
 void App::holdNav(screens::Nav n) {
-    navHeld = true;
     heldNav = n;
-    heldFor = 0.0f;
-    nextRepeat = kRepeatDelay;
+    navHold.start();
 }
 
 void App::releaseNav(screens::Nav n) {
     // Only the direction that is actually held releases it. Letting go of
     // Left while holding Down must not stop the Down.
-    if (navHeld && heldNav == n) navHeld = false;
+    if (navHold.held && heldNav == n) navHold.stop();
+    // The on-screen keyboard's own hold, by the same rule.
+    keyboard.releaseDirection(n == screens::Nav::Left ? -1 : n == screens::Nav::Right ? 1 : 0,
+                              n == screens::Nav::Up ? -1 : n == screens::Nav::Down ? 1 : 0);
 }
 
 // EVERYTHING HELD IS LET GO when presses stop reaching this loop and when
@@ -35,7 +36,9 @@ void App::releaseNav(screens::Nav n) {
 // nothing (#398, PLAY-14).
 void App::letGoOfHeld() {
     pressing = false;
-    navHeld = false;
+    navHold.stop();
+    keyboard.letGoOfHeld();
+    pinScreen.releaseDelete();
     letterHeld = 0;
     l2Held = r2Held = false;
 }
@@ -68,8 +71,11 @@ void App::handleEvent(const SDL_Event& e) {
     // ANY TOUCH WAKES THE SCREEN, AND ON A DARK SCREEN THAT IS ALL IT
     // DOES. The press that lights a dimmed or blank Home is swallowed,
     // so it cannot also launch whatever had focus, which nobody could
-    // see. A running game is the exception: its pad is read by state
-    // rather than by these events, so nothing is lost from play.
+    // see. A WAKE IS NOT A CHOICE (idle.h, #411): after the screen
+    // comes back from off, the machine from Rest, or a device starts
+    // streaming, every press is swallowed for the first seconds too. A
+    // running game is the exception: its pad is read by state rather
+    // than by these events, so nothing is lost from play.
     bool touched = false;
     switch (e.type) {
         case SDL_EVENT_KEY_DOWN:
@@ -83,17 +89,25 @@ void App::handleEvent(const SDL_Event& e) {
         default:
             break;
     }
+    // WHO PRESSED, for a press that starts a game (refuseStartWithoutController).
+    if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN)
+        lastPressFromRemote = wiiremote::isRemote(e.gbutton.which);
+    else if (e.type == SDL_EVENT_KEY_DOWN || e.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
+        lastPressFromRemote = false;
     // The power and Sleep keys are never swallowed: on a dark screen
     // they light it AND open the Power menu, which is what the person
     // reaching for that button wants.
     const bool powerKey = e.type == SDL_EVENT_KEY_DOWN &&
                           (e.key.key == SDLK_POWER || e.key.key == SDLK_SLEEP);
     if (touched) playClock.touch();
+    if (touched) menuNotice.pressed();
     // ON THE WAY DOWN NOTHING TAKES A PRESS (#393): the picture is fading
     // to black over Restart or Power off, and the machine goes when it has.
     if (poweringDown && (touched || powerKey)) return;
-    if (touched && idleWatch.input(clockSeconds()) && owner != InputOwner::Game &&
-        !powerKey)
+    // Rest is asked here, at the press, not by the frame: the press that
+    // woke the machine is handled before the frame notices the wake.
+    if (touched && (idleWatch.input(clockSeconds()) || power::justWoke()) &&
+        owner != InputOwner::Game && !powerKey)
         return;
     // THE PRESS THAT ENDS THE WAIT after a state loads: A, as the
     // prompt says (Return on a keyboard). It was any button, and
@@ -162,19 +176,18 @@ void App::handleEvent(const SDL_Event& e) {
             // Space, Escape or Backspace again and again, and each
             // repeat reached whatever the first press had opened:
             // Return held on Exit to Home quit the game and started it
-            // again from Home. Backspace still repeats where it
-            // deletes, on the on-screen keyboard and the PIN pad. The
-            // arrows hold the console's own way, below.
+            // again from Home. The arrows hold the console's own way,
+            // below, and so does Backspace where it deletes, on the
+            // on-screen keyboard and the PIN pad, at the pace a held X
+            // deletes there (#668).
             if (e.key.repeat) {
                 const SDL_Keycode k = e.key.key;
-                const bool deletes = owner == InputOwner::Keyboard ||
-                                     (pinScreen.isOpen() && owner == InputOwner::UI);
                 // And `[` and `]`, which moved along the bar again and
                 // again, and F5, which wrote a save state at every
                 // repeat (#484).
                 if (k == SDLK_RETURN || k == SDLK_SPACE || k == SDLK_ESCAPE ||
                     k == SDLK_LEFTBRACKET || k == SDLK_RIGHTBRACKET || k == SDLK_F5 ||
-                    k == SDLK_F8 || (k == SDLK_BACKSPACE && !deletes))
+                    k == SDLK_F8 || k == SDLK_BACKSPACE)
                     break;
             }
             // A physical keyboard's digits go into the PIN pad, the
@@ -187,24 +200,34 @@ void App::handleEvent(const SDL_Event& e) {
                     d = static_cast<char>('1' + (k - SDLK_KP_1));
                 else if (k == SDLK_KP_0) d = '0';
                 if (d) { pinOutcome(pinScreen.typeDigit(d)); break; }
-                if (k == SDLK_BACKSPACE) { pinScreen.deleteDigit(); break; }
+                if (k == SDLK_BACKSPACE) { pinScreen.holdDelete(); break; }
                 if (k == SDLK_ESCAPE) { navigate(screens::Nav::Back); break; }
             }
             if (owner == InputOwner::Keyboard) {
                 // While it owns input it takes every key, the same way
                 // the core owns the pad while a game runs. A control
-                // that means two things at once is the bug.
+                // that means two things at once is the bug. The arrows
+                // hold the keyboard's own way, as the d-pad does (#668),
+                // so the system's repeat of one is not a press.
+                const bool again = e.key.repeat;
                 switch (e.key.key) {
-                    case SDLK_LEFT: keyboard.moveFocus(-1, 0); break;
-                    case SDLK_RIGHT: keyboard.moveFocus(+1, 0); break;
-                    case SDLK_UP: keyboardUp(); break;
-                    case SDLK_DOWN: keyboard.moveFocus(0, +1); break;
-                    case SDLK_BACKSPACE: keyboard.backspace(); break;
-                    case SDLK_RETURN:
-                        std::fprintf(stderr, "[keyboard] committed: %s\n",
-                                     keyboard.value().c_str());
-                        keyboardResult(keyboard.commit());
+                    case SDLK_LEFT: if (!again) keyboard.holdDirection(-1, 0); break;
+                    case SDLK_RIGHT: if (!again) keyboard.holdDirection(+1, 0); break;
+                    case SDLK_UP: if (!again) keyboard.holdDirection(0, -1); break;
+                    case SDLK_DOWN: if (!again) keyboard.holdDirection(0, +1); break;
+                    case SDLK_BACKSPACE: keyboard.holdBackspace(); break;
+                    case SDLK_RETURN: {
+                        // ITS LENGTH, NEVER THE TEXT: a Wi-Fi or
+                        // RetroAchievements password reached the log, and a
+                        // diagnostic report on a public issue with it. Only
+                        // once sent: a password field refuses an empty Done.
+                        const ui::KeyboardResult res = keyboard.commit();
+                        if (res == ui::KeyboardResult::Committed)
+                            std::fprintf(stderr, "[keyboard] committed %zu characters\n",
+                                         keyboard.value().size());
+                        keyboardResult(res);
                         break;
+                    }
                     case SDLK_ESCAPE: keyboardResult(keyboard.cancel()); break;
                     default: break;
                 }
@@ -216,7 +239,7 @@ void App::handleEvent(const SDL_Event& e) {
                 if (launchJob.busy()) launchJob.cancel = true;
                 // A question over the pause menu (Change disc) goes
                 // back first, as B does.
-                else if (playing && overlayOpen && choiceScreen.isOpen())
+                else if ((playing || standalonePaused) && overlayOpen && choiceScreen.isOpen())
                     navigate(screens::Nav::Back);
                 else if (playing) toggleOverlay();
                 // Back, while there is anywhere to go back to. Quitting
@@ -278,17 +301,21 @@ void App::handleEvent(const SDL_Event& e) {
                 break;
             }
             // F5 writes a state, F8 restores the newest one THIS build can
-            // load, F6 pushes the game's own save. Quitting syncs the
-            // save by itself; F6 is for testing without quitting.
+            // load, F6 gathers the game's battery or save folder and pushes
+            // it as a snapshot now. Quitting does both by itself; F6 is for
+            // testing without quitting.
             // Not while a state picked on the game's page is still on its way
             // (#484, PLAY-33): a save then is of the game's first frames, and
             // the next Resume would start there. The shortcut path refuses
             // the same way (play.cpp).
             if (playing && session.snapshots && !stateHoldWaiting && e.key.key == SDLK_F5)
-                saveStateNow(session, uploader, menuNotice);
+                saveStateNow(session, menuNotice);
             if (playing && session.snapshots && !stateHoldWaiting && e.key.key == SDLK_F8)
                 beginLoadLatestState(stateLoad, session, liveClient, menuNotice);
-            if (playing && e.key.key == SDLK_F6) syncSave(session, uploader);
+            if (playing && e.key.key == SDLK_F6) {
+                syncSave(session);
+                savepush::leave(session, storage::currentUser(), uploader);
+            }
             if (owner != InputOwner::UI) break;
             // THROUGH `navigate`, NOT STRAIGHT AT A SCREEN. Every key on
             // every screen arrives at one place, so the bar can be
@@ -336,6 +363,10 @@ void App::handleEvent(const SDL_Event& e) {
             if (e.key.key == SDLK_RIGHT) releaseNav(screens::Nav::Right);
             if (e.key.key == SDLK_UP) releaseNav(screens::Nav::Up);
             if (e.key.key == SDLK_DOWN) releaseNav(screens::Nav::Down);
+            if (e.key.key == SDLK_BACKSPACE) {
+                keyboard.releaseBackspace();
+                pinScreen.releaseDelete();
+            }
             if (e.key.key == SDLK_RETURN || e.key.key == SDLK_SPACE) pressing = false;
             break;
         case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
@@ -353,27 +384,35 @@ void App::handleEvent(const SDL_Event& e) {
                     e.gbutton.button == SDL_GAMEPAD_BUTTON_LEFT_SHOULDER ? -1 : +1);
                 break;
             }
-            // X TAKES A DIGIT OFF THE PIN, as it takes a letter off
-            // the on-screen keyboard. B leaves the pad.
+            // X TAKES A DIGIT OFF THE PIN, and held goes on taking them
+            // (#668), as it does letters off the on-screen keyboard. B
+            // leaves the pad.
             if (pinScreen.isOpen() && owner == InputOwner::UI &&
                 e.gbutton.button == SDL_GAMEPAD_BUTTON_WEST) {
-                pinScreen.deleteDigit();
+                pinScreen.holdDelete();
                 break;
             }
             if (owner == InputOwner::Keyboard) {
                 switch (e.gbutton.button) {
-                    case SDL_GAMEPAD_BUTTON_DPAD_LEFT: keyboard.moveFocus(-1, 0); break;
-                    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: keyboard.moveFocus(+1, 0); break;
-                    case SDL_GAMEPAD_BUTTON_DPAD_UP: keyboardUp(); break;
-                    case SDL_GAMEPAD_BUTTON_DPAD_DOWN: keyboard.moveFocus(0, +1); break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_LEFT: keyboard.holdDirection(-1, 0); break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: keyboard.holdDirection(+1, 0); break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_UP: keyboard.holdDirection(0, -1); break;
+                    case SDL_GAMEPAD_BUTTON_DPAD_DOWN: keyboard.holdDirection(0, +1); break;
                     case SDL_GAMEPAD_BUTTON_SOUTH: keyboardResult(keyboard.pressKey()); break;
-                    case SDL_GAMEPAD_BUTTON_WEST: keyboard.backspace(); break;
-                    case SDL_GAMEPAD_BUTTON_NORTH: keyboard.toggleShift(); break;
-                    case SDL_GAMEPAD_BUTTON_START:
-                        std::fprintf(stderr, "[keyboard] committed: %s\n",
-                                     keyboard.value().c_str());
-                        keyboardResult(keyboard.commit());
+                    case SDL_GAMEPAD_BUTTON_WEST: keyboard.holdBackspace(); break;
+                    case SDL_GAMEPAD_BUTTON_NORTH: keyboard.cycleShift(); break;
+                    case SDL_GAMEPAD_BUTTON_START: {
+                        // ITS LENGTH, NEVER THE TEXT: a Wi-Fi or
+                        // RetroAchievements password reached the log, and a
+                        // diagnostic report on a public issue with it. Only
+                        // once sent: a password field refuses an empty Done.
+                        const ui::KeyboardResult res = keyboard.commit();
+                        if (res == ui::KeyboardResult::Committed)
+                            std::fprintf(stderr, "[keyboard] committed %zu characters\n",
+                                         keyboard.value().size());
+                        keyboardResult(res);
                         break;
+                    }
                     case SDL_GAMEPAD_BUTTON_EAST:
                         keyboardResult(keyboard.cancel()); break;
                     default: break;
@@ -385,25 +424,29 @@ void App::handleEvent(const SDL_Event& e) {
             // it meant a game could never be paused — MMagTech, on the
             // A9, 2026-09-19, before playing the first real game on it.
             //
-            // L3+R3 is Cabinet's default and its reasoning carries:
+            // L3+R3 was Cabinet's default and its reasoning carries:
             // RetroArch's alternative to Select+Start, chosen because
             // analog trigger pairs collide with real gameplay —
             // braking and accelerating together in a racing game is
             // the obvious case — "while clicking both sticks at once
             // has no gameplay meaning in anything this app runs".
             //
-            // Still hardcoded here. Cabinet makes it remappable and
+            // Still hardcoded here. Cabinet made it remappable and
             // GLOBAL rather than per-controller, on the grounds that
             // the risk comes from the game and not the pad model, and
             // lets the second button be cleared for single-button
             // mode. That belongs with the remapping screen.
+            //
+            // The clicks themselves wait a moment before a game hears
+            // one alone (play.cpp, App::kStickPairMs), so the pair
+            // reaches only the menu.
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_LEFT_STICK)
                 l3Down = true;
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_RIGHT_STICK)
                 r3Down = true;
             if (l3Down && r3Down && (playing || overlayOpen)) {
                 l3Down = r3Down = false;   // one toggle per pair, not per frame
-                toggleOverlay();
+                toggleOverlay(e.gbutton.which);
                 break;
             }
             if (owner == InputOwner::Overlay && choiceScreen.isOpen()) {
@@ -513,6 +556,8 @@ void App::handleEvent(const SDL_Event& e) {
                         break;
                     if (here() == Screen::Search && keyboard.isOpen())
                         keyboardResult(keyboard.commit());
+                    else if (here() == Screen::LinkUpPlay && linkupPlay.friendSide())
+                        linkupAskLeave();
                     else
                         openPowerMenu();
                     break;
@@ -541,6 +586,9 @@ void App::handleEvent(const SDL_Event& e) {
             if (held && v < 8000) {
                 held = false;
                 if (letterHeld == dir) letterHeld = 0;
+            } else if (!held && v > 20000 && linkupGallery) {
+                held = true;
+                linkupGalleryStep(dir);
             } else if (!held && v > 20000 && owner == InputOwner::UI) {
                 held = true;
                 if (here() == Screen::Grid) {
@@ -572,6 +620,10 @@ void App::handleEvent(const SDL_Event& e) {
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_RIGHT_STICK)
                 r3Down = false;
             if (e.gbutton.button == SDL_GAMEPAD_BUTTON_SOUTH) pressing = false;
+            if (e.gbutton.button == SDL_GAMEPAD_BUTTON_WEST) {
+                keyboard.releaseBackspace();
+                pinScreen.releaseDelete();
+            }
             break;
         default:
             break;
@@ -580,18 +632,24 @@ void App::handleEvent(const SDL_Event& e) {
 
 // Every frame: a held direction, and a held trigger on a grid, repeat.
 void App::repeatHeld(float dt) {
+    // THE ON-SCREEN KEYBOARD HOLDS ITS OWN DIRECTION (#668), at the same pace
+    // (Keyboard::holdDirection), so first run's and the startup screen's
+    // keyboards repeat the same way. Only while it has the input: focus gone
+    // up into Search's results, or a menu over it, ends the hold.
+    if (inputOwner() == InputOwner::Keyboard) keyboard.repeatHeld(dt);
+    else keyboard.letGoOfHeld();
     // The held direction, repeating and speeding up. Driven from the frame
     // loop rather than from the event queue, because the pad sends nothing
-    // at all while a button is held down.
-    if (navHeld && inputOwner() == InputOwner::UI && !keyboard.isOpen()) {
-        heldFor += dt;
-        if (heldFor >= nextRepeat) {
-            navigate(heldNav);
-            const float t = std::clamp(heldFor / kRepeatRamp, 0.0f, 1.0f);
-            nextRepeat = heldFor + (kRepeatStart + (kRepeatFast - kRepeatStart) * t);
-        }
+    // at all while a button is held down. ON EVERY SCREEN, Search's results
+    // and the bar above them included while Search's keyboard is still up
+    // (#668): this skipped any open keyboard, which since inputOwner learned
+    // that Search's results can have the input left only that case, where a
+    // held Right moved one cover and stopped. The keyboard holds for itself
+    // above, while it has the input.
+    if (navHold.held && inputOwner() == InputOwner::UI) {
+        if (navHold.due(dt)) navigate(heldNav);
     } else {
-        navHeld = false;
+        navHold.stop();
     }
     // The held trigger, a letter at a time at a steady pace: each jump
     // can cross dozens of games, so it does not speed up the way a held

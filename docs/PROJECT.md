@@ -1,38 +1,42 @@
 # CabinetOS
 
-> **Read this file first.**
-> This is the living specification for CabinetOS. Every session working on this
-> repository should read it before touching anything else, and should update it
-> when decisions are made, phases change status, or new uncertainty appears.
+> **The record of what was decided, and why: look things up here, do not
+> read it through.** It holds every decision from the project's start
+> (2026-09-13) to 2026-10-23 with the research behind it, and is far too
+> long to read whole. A contributor needs CONTRIBUTING.md,
+> docs/ARCHITECTURE.md and docs/lessons/; their rules point to the section
+> here that explains each one. A session searches it for the question in
+> hand (the Index below lists them).
 >
-> **Starting a session?** `docs/NEXT-SESSION.md` is the short version — what
+> **Starting a session?** `docs/NEXT-SESSION.md` is the short version: what
 > state things are in, what to pick up, and the things that waste a day if
-> nobody says them. This file is the specification and is authoritative; that
-> one is the handover. Rewrite it at the end of a session.
+> nobody says them. This file is the record; that one is the handover.
+> Rewrite it at the end of a session.
 >
-> **`docs/CABINET.md` is the companion to this file.** Cabinet already ships on
-> iOS, tvOS and macOS and has answered most of what CabinetOS runs into. Read it
-> before designing anything, and read Cabinet's own source before inventing an
-> answer — it is not checked out here, so clone it. Doing this piecemeal, a
-> question at a time, produced several half-right answers that had to be
-> corrected.
+> **Cabinet, the Apple TV, iPhone and Mac app CabinetOS was ported from, is
+> retired.** Until 2026-10-19 this note called it shipping and its source
+> required reading. What Cabinet is now: docs/CABINET.md (Cabinet Go,
+> unfinished). The map of the Apple apps' source: docs/history/CABINET.md.
+> Where a line below says Cabinet or tvOS does something, it describes the
+> apps as they were.
 >
-> Rules for maintaining this document:
-> - When a phase is finished, change its status and say what actually shipped,
->   not what was planned.
-> - When you are unsure about something, add it to **Open questions**. Do not
->   guess and do not quietly resolve an open question without saying so.
-> - When a decision is reversed, record the reversal rather than editing history.
+> This file is frozen since 2026-10-23: nothing new goes in it. New decisions
+> are one small file each in docs/decisions/ (CLAUDE.md, rule 7;
+> docs/decisions/README.md has the template and the index). When your work
+> relies on a decision here, move it there and leave a one-line pointer in
+> its place. A line that becomes untrue is rewritten or deleted, not
+> annotated (CLAUDE.md, rule 5).
 >
 > **Since 2026-10-17 (#398, "Audit the code and restructure it for
 > contributors (main.cpp is 20,000 lines)"):** this file is the record of what
 > was decided and why; for what the code does today, the code and
 > CONTRIBUTING.md are current. Stale lines below carry a dated note rather
-> than an edit, as the rules above say. Since 2026-10-11 (open question 12b,
+> than an edit, which was this file's rule until 2026-10-23. Since
+> 2026-10-11 (open question 12b,
 > #344, "GameCube: a save restored from RomM never reaches Dolphin (card.raw vs
 > card.USA.raw)"), Cabinet is a reference, not a constraint: read
-> docs/CABINET.md for how a problem was solved before; Cabinet's own source
-> is not required reading.
+> docs/history/CABINET.md for how a problem was solved before; Cabinet's own
+> source is not required reading.
 
 ---
 
@@ -51,11 +55,13 @@ code cites them more than a hundred times.
 - **Hardware**: the target, and the reference console (an A9 Max since
   2026-09-17).
 - **The backend model**: RomM is the single source of truth for the library.
-- **The frontend**: one visual language with the Cabinet apps.
+- **The frontend**: one visual language with the Cabinet apps, as first
+  planned.
 - **Reference implementations and upstreams**: what to read before
   inventing anything.
 - **The update model**: one version number for the whole system.
-- **Emulation**: native emulators, how Cabinet does it, core parity.
+- **Emulation**: native emulators, how Cabinet did it, core parity (overtaken
+  since 2026-10-11).
 - **How Cabinet hosts cores**: read from Cabinet's source; the shape of one
   C++ frontend with cores as data.
 - **Controls: what CabinetOS inherits, and what it cannot**: players, the
@@ -64,8 +70,9 @@ code cites them more than a hundred times.
   frame pacing, the emulator settings audit, the emulator queue, PS2's
   BIOS, time played).
 - **Developer mode**: superseded; kept as history.
-- **Staying current with Bazzite**: the base pinned by digest, and moving
-  the pin.
+- **Staying current with Bazzite**: the base pinned by digest, moving the
+  pin, and fixes waiting for a stable base (gamescope's crash when a game's
+  window closes, 2026-10-22).
 - **Measured behaviour**: the first booted image, the A9 Max measured,
   every platform run once, a start with no display answering.
 - **Branding and the boot experience**: the palette.
@@ -75,7 +82,7 @@ code cites them more than a hundred times.
 - **Non goals**.
 - **Constraints and principles**: the numbered rules CONTRIBUTING.md cites.
 - **Phase plan**: history; its status lines say so at its top.
-- **Open questions**: the 52 below, plus two unnumbered sections ("Prior
+- **Open questions**: the 56 below, plus two unnumbered sections ("Prior
   art: how Cabinet and Grout already do this", after question 13, and
   "PSP save sync, BUILT AND PROVEN 2026-09-17", after question 18).
 
@@ -104,9 +111,9 @@ down. "Look now at" is where the code or a later decision moved on.
   at: questions 21 and 32.
 - **5. Anaconda ISO vs. a plain disk image for installing to real
   hardware.** "ANSWERED 2026-10-07: keep the ISO, automated down to one
-  question", and built the same day. What the ISO builder will not change is
-  #284 ("Installer: what the ISO builder will not let us change"), closed as
-  cosmetic. Look now at: `disk_config/iso.toml`.
+  question", and built the same day. What the ISO builder will not change
+  (#284) is done since 2026-11-02 by repacking its ISO:
+  [decisions/2026-11-02-installer-iso-repacked.md](decisions/2026-11-02-installer-iso-repacked.md). Look now at: `disk_config/`.
 - **6. `/opt` mutability.** "Left at Bazzite's default". Nothing needed it:
   the emulators built into the image live under `/usr/lib/cabinetos/`.
 - **7. OS branding in `/usr/lib/os-release`.** Its status line, "Deferred to
@@ -210,8 +217,8 @@ down. "Look now at" is where the code or a later decision moved on.
 - **22. What the console does when the server is away** (it comes after 23
   in the file). "Partly decided" 2026-09-19; "Offline play built 2026-10-05
   (#88)" ("Offline: kept games play with no server"). Switching people
-  offline was allowed later. Two devices' saves wait on #346 ("Move saves to
-  RomM's save channels (Sigil) when they reach a stable RomM release").
+  offline was allowed later. Two devices' saves: moved to
+  [decisions/2026-11-15-save-channels.md](decisions/2026-11-15-save-channels.md).
 - **24. Will gamescope composite our overlay over a window we do not own?**
   "ANSWERED THE SAME DAY" (2026-09-21): "YES", in the `STEAM_OVERLAY` slot;
   "TWO PATHS ARE ACCEPTED". Built for the separate programs 2026-09-28 and
@@ -266,14 +273,19 @@ down. "Look now at" is where the code or a later decision moved on.
   `frontend/src/standalone_xenia.cpp`.
 - **35. Wii (Dolphin), issue #173** ("New systems 4: Wii (Dolphin)"). Opens
   "Research only; no code"; built 2026-09-30; real Remotes decided
-  2026-10-02 and built 2026-10-03; Miis and rumble 2026-10-07. Open: #203
+  2026-10-02 and built 2026-10-03; Miis and rumble 2026-10-07; Nintendo's
+  own Remotes counted twice, fixed 2026-10-21 (#548); only the TechKens
+  supported, MotionPlus games grey until one (2026-10-22). Open: #203
   ("Wii: the HOME menu's "Wii Menu" leaves a black screen"). Look now at:
   `wiibridge/` (#200, "Real Wii Remotes: pair once, like a Wii").
 - **36. Wii U (Cemu), issue #174** ("New systems 5: Wii U (Cemu)"). Opens
   "No code yet"; built 2026-10-01, judged on the testing image 2026-10-02.
   Graphic packs: none (#207, "Wii U: Cemu's graphic packs (resolution and
   fix), reconsider", closed). Games that need a Wii Remote stay greyed
-  (#231, "Wii U: real Wii Remotes in Cemu", closed 2026-10-04). Look now at:
+  (#231, "Wii U: real Wii Remotes in Cemu", closed 2026-10-04). Player 1 is
+  the GamePad since 2026-10-22 (Shovel Knight); Wii U gets small fixes
+  only, and the GamePad's screen waits (#555, "Wii U: see the GamePad's
+  screen, and touch it, on the TV"). Look now at:
   `frontend/src/standalone_cemu.cpp`.
 - **37. Steam: one entry that hands over to Big Picture, issue #223**
   ("Steam: one entry that hands over to Big Picture (audit first)"). Decided
@@ -304,9 +316,11 @@ down. "Look now at" is where the code or a later decision moved on.
 - **45. Smart collections, issue #352** ("RomM Smart Collections don't show
   up (only regular collections do)"). Decided 2026-10-12, built.
 - **46. Where the sound goes, issue #341** ("No audio [Expected on this
-  machine]"). Decided 2026-10-13, built 2026-10-14. Open: #390 ("Headphones
-  don't take over after a Remote Play session (waiting on Sunshine)") and
-  #391.
+  machine]"), and built-in speakers, #547 ("Sounds plays only from onboard
+  speakers (Beelink ser9)"): moved to
+  [decisions/2026-11-04-one-sound-rule.md](decisions/2026-11-04-one-sound-rule.md).
+  Open: #390 ("Headphones don't take over after a Remote Play session
+  (waiting on Sunshine)") and #391.
 - **47. Interface sounds everywhere, and a calmer set, issue #389**
   ("Interface sounds on every screen and menu, not only some"). Decided at
   the TV 2026-10-14, built. "No start-up or shut-down sound, ever." The
@@ -319,7 +333,73 @@ down. "Look now at" is where the code or a later decision moved on.
   and whether touch rules it out"). Researched 2026-10-19, not decided: the
   first four tests pass on paper; recommended no for now, because Sony's
   PS TV list assumes a touch pointer Vita3K lacks (Vita3K/Vita3K#3707), and
-  no gyro. The A9 hand test waits for a time he names.
+  no gyro. The A9 hand test waits for a time he names. Addendum the same
+  night, his "how vital is that pointer?": a pointer is needed in play for
+  at least one in ten of Sony's passed games; no frontend gives Vita3K a stick
+  pointer (everyone has a touch surface); downloads are mostly Android; the
+  console could build one as a virtual touch screen (medium). Still no for
+  now, upstream first; his call: ask Vita3K or build it here. **Decided
+  2026-10-20: a go**, the console's own pointer, by "Decided, 2026-10-20: the
+  build plan" at the end of the question. **Built 2026-10-21** (#540, "PS
+  Vita through Vita3K, played as a PlayStation TV"), unattended:
+  "Built, 2026-10-21" after the plan says what the build found and what was
+  checked. The probe passed on the TV; the hand test waits for him.
+- **50. Nintendo 3DS (Azahar's libretro core).** Asked 2026-10-19, no issue.
+  Researched the same night, not decided: Azahar's own core, pinnable at its
+  2126.2 tag, fits the core host on Vulkan as it is; the touch screen is the
+  DS's right-stick rule by the core's default; no states, by question 25;
+  only decrypted cartridge dumps play. Recommended go with conditions: the
+  build with its key blob off, no network for games (Azahar has no switch),
+  an A9 test of Vulkan's frame pacing (azahar-emu/azahar#2093), and his
+  legal call. With it, a touchpad as a second way to touch (the core takes
+  it beside the stick, unlike melonDS, #288); gyro as a later piece of its
+  own. His server has no 3DS games. **Go given the night of 2026-10-19,
+  with the conditions; built (the core's arm, the catalog row, the levels,
+  saves the PSP way, the encrypted-dump and CIA refusal, games given no
+  network by a patch), #524 ("Nintendo 3DS through Azahar's own libretro
+  core (decrypted dumps)"). On 2026-10-20: states yes, by his decision (the
+  exception to question 25), side by side, levels 1x, 3x and 6x; tested on
+  the TV with three of his games on Vulkan; CIAs hidden; conditions 4 and 5
+  met by his go for the testing image ("Build the damn thing already").
+  On the TV in 2026.10.20.5: every 3DS game after the first used the first
+  game's folders, fixed by a second patch (#534, "Azahar patch: each game
+  sets its own folders (until Azahar fixes SetUserPath)"); a toggled L3
+  swap decided, then dropped (a third patch), so L3 stays held.**
+- **51. Vectrex screen overlays, issue #224** ("Vectrex: the cartridges'
+  screen overlays"). Researched 2026-10-19, not decided: Cabinet's 38 sheets
+  are libretro/overlay-borders' `Game Overlay` folder, byte for byte (MIT,
+  vector recreations by THK and Gigapig of HyperSpin); the designs are GCE's
+  and Smith Engineering's now, not public domain, allowed non-commercially by
+  Jay Smith's second-hand, undated permission, the one docs/LICENCES.md
+  already uses for the system ROM; ten sheets carry other companies' marks.
+  Recommended: ship that set at `385490fa8`, fetched at build time, 25 retail
+  sheets and 3 variants drawn, the invented ones off, alpha-composited at
+  opacity 1 over the core's picture. RetroArch and Bazzite ship none;
+  Batocera ships the same sheet art inside Duimon's CC BY-NC-ND console
+  bezels, in four optional sets. Decided late that day: an Overlays
+  On / Off row in the Vectrex pause menu, kept per system like a look,
+  default On, reversing the morning's "no row". The legal footing:
+  decided go the same night; #224 is buildable as written.
+- **52. Genie Mode: cheats, opt-in per person.** MMagTech's brief of
+  2026-10-20, discussed 2026-10-20 and 2026-10-21, no issue. **Paused by
+  him, not decided whether to build; not to be raised until he raises it.**
+  If it goes ahead: per person; cheats chosen before launch only, never
+  mid-game, and remembered per person and game; what a cheat changed can
+  stay in saves and states; no achievements in a play with a cheat on.
+  Open: where on the game page cheats are chosen (no new row, no more icons
+  by the title), the Settings row, the cup's look while off, marking states
+  made with cheats, and the phase order (he leans toward codes through the
+  core first).
+- **53. Gameplay recording, and clips in RomM.** MMagTech's proposal of
+  2026-10-21, reviewed the same day, no issue. **Paused by him until RomM
+  answers:** RomM has nowhere to keep a person's clips, and the console
+  manages nothing RomM should (his rule). He commented on rommapp/romm#5135
+  with an implementation sketch the same day, and would build RomM's side
+  himself as a pull request if RomM wants one. The console side is
+  feasible: gamescope's PipeWire stream for every game, encoded on the
+  Radeon, paused whenever the game is not on screen. Open: RomM's answer,
+  clip length and bitrate (RomM's upload limit decides them), sound, the
+  menu rows, Remote Play, and the shortcut over emulators run as programs.
 
 ---
 
@@ -639,6 +719,10 @@ can be continued on CabinetOS and vice versa. This bidirectional continuity is
 the single most valuable feature of the product and should be treated as such
 when trading off scope.
 
+**2026-10-19:** the Apple TV app is retired. The continuity now runs between
+CabinetOS consoles, and with Cabinet Go when it comes, which will read the same
+save rows (docs/CABINET.md).
+
 ---
 
 ## The frontend
@@ -646,6 +730,10 @@ when trading off scope.
 The frontend matches the existing Cabinet apps in visual language, navigation
 feel and motion, so that the Apple TV app and CabinetOS read as one product
 rather than two things that share a name.
+
+**2026-10-19:** the Apple TV app is retired, and since 2026-10-11 Cabinet is a
+reference, not a constraint. The look stays as it was taken; nothing has to
+keep matching an Apple app.
 
 Screens:
 
@@ -668,6 +756,10 @@ hostage to an upstream project's design decisions.
 ## Reference implementations and upstreams
 
 Future sessions should look here before inventing anything.
+
+**2026-10-19:** Cabinet's rows below are a map of an archived repository
+(https://github.com/MMagTech/cabinet, its apps retired; docs/CABINET.md). Since
+2026-10-11 it is a reference, not the source of truth the first row calls it.
 
 | What | Where | Why it matters |
 |---|---|---|
@@ -734,6 +826,8 @@ than defaults on hardware of that class.
 
 ### How Cabinet does it today
 
+**2026-10-19:** did, until its Apple apps were retired (docs/CABINET.md).
+
 **Cabinet on tvOS runs native cores in-process.** You select a game, Cabinet
 pulls the ROM from RomM, and injects it into an emulator core running inside the
 app. There is no handoff to a second application and no separate launcher step.
@@ -754,6 +848,12 @@ natural. See open question 12, which is about what happens for the systems where
 in-process is not viable.
 
 ### Core parity is a hard constraint
+
+**Overtaken.** Since 2026-10-11 Cabinet is a reference, not a constraint, and
+since 2026-10-14 a core's pin moves only for something a player gets
+("Constraints and principles", 8). Cabinet's Apple apps are retired; the
+`emulator` tags stay shared, so a state's tag still says which core wrote it
+(`frontend/src/savetable.cpp`).
 
 **CabinetOS must use the same cores as Cabinet, at the same versions.**
 
@@ -1031,7 +1131,8 @@ Three sizing traps, all confirmed on hardware, all of which CabinetOS inherits:
   exact match, because of the two above.
 - **Game Boy's real-time clock is a separate region** (`RETRO_MEMORY_RTC`).
   Saving only the save RAM silently loses the clock Pokémon Gold and Silver
-  depend on. It travels as its own `.rtc` file.
+  depend on. Cabinet sent it as its own `.rtc` row; CabinetOS sends it in
+  one zip with the save (docs/decisions/2026-11-15-save-channels.md).
 
 **Save states** are `retro_serialize`/`retro_unserialize`, taken on the thread
 that drives `runFrame` — a snapshot taken mid-`retro_run` is corrupt by
@@ -1373,10 +1474,8 @@ into the picture, banding, not reaching the edge. A continuous slider on a real
 panel found the numbers, and only then were presets chosen. Do not guess these;
 build the slider.
 
-**DECIDED, MMagTech 2026-10-04: the glow is always on at Strong (0.04), with
-no setting anywhere.** The pause-menu row recorded above was never built, and
-he chose to leave it that way for now (fewer settings is the rule), raised from
-Subtle to Strong. `--glow off|subtle|strong` remains for testing only.
+**Moved:** the decision that the glow is always on at Strong is
+docs/decisions/2026-10-04-glow-always-on-at-strong.md.
 
 #### DECIDED, MMagTech 2026-10-04: screen looks are RetroArch's own shaders (#122)
 
@@ -1623,17 +1722,8 @@ MMagTech asked whether Button mapping should be RetroArch-style remapping,
 then whether he was drifting into adding too much: *"the os is meant to be
 simple and take the complexity away alot of emulators add."* Decided:
 
-- **No remapping, for the first release at least.** Every system already
-  plays with RetroArch's out-of-the-box layout, read by position (bottom
-  button to RetroPad B, and so on), so the defaults are the ones people
-  know. With four players a remap has no clean owner: per system changes
-  the game for everyone, per pad multiplies screens, per person fails for
-  players 2 to 4. If it is asked for after release, the likely request is
-  "A and B swapped on a Nintendo-style pad", which is one switch.
-- **No mapping screen for unknown pads either (#66).** The console carries
-  SDL_GameControllerDB (`players::loadMappings`) and a weekly pull request
-  keeps it current; a pad that is still missing is added to the list. The
-  person never maps anything, which is the rule this section began with.
+- **No remapping:** moved to [decisions/2026-09-26-no-remapping.md](decisions/2026-09-26-no-remapping.md).
+- **No mapping screen for unknown pads either (#66):** moved to [decisions/2026-09-26-no-mapping-screen.md](decisions/2026-09-26-no-mapping-screen.md).
 - **Officially supported controllers: Xbox, PlayStation and Switch**
   (MMagTech, 2026-10-10, #318): *"the most likely controller someone would
   have laying around home."* Their kernel drivers (`hid_microsoft`,
@@ -1701,10 +1791,9 @@ proposal changed it without his agreement (it dropped the deletion and put
 the list in the pause menu). His purpose, in his words: *"sort of like save
 slots"* without *"having to pick which slot you save to."*
 
-- **Save is one press and never asks.** Each save fills the next of three
-  places; once there are three, a new save replaces the oldest, **on the
-  console and on RomM** (`POST /api/states/delete`). The same whether the save
-  came from the pause menu or a shortcut.
+- **Save is one press and never asks**, from the pause menu or a shortcut.
+  Which three are kept, and that none is deleted on RomM: moved to
+  [decisions/2026-11-15-save-channels.md](decisions/2026-11-15-save-channels.md).
 - **In a game, Load is always the newest.** No list in the pause menu.
 - **The three are chosen on the game's launch screen**, with picture and time,
   newest first, as Cabinet's tvOS *Continue from* row does
@@ -1715,26 +1804,15 @@ slots"* without *"having to pick which slot you save to."*
   (`get_states` filters on `request.user.id`), and the console keeps each
   person's in their own folder, so one person's saves never push out
   another's.
-- **Only Cabinet's states count.** The console lists, loads and rotates only
+- **Only Cabinet's states count.** The console lists and loads only
   states under Cabinet's emulator tags (`catalog::emulatorTag`). States from
   RomM's web player or any other app are never shown and never deleted, which
   answers what happens to a new user's existing states on first install.
-- **The cost, accepted:** a state saved by Cabinet on the Apple TV for the same
-  game and emulator is one of the three, so a save on the console can rotate
-  it out. The Apple TV itself never deletes, so its states pile up until the
-  console next saves; giving Cabinet the same rule is MMagTech/cabinet#8.
-  **Including on the first save:** a new user's older Cabinet states for that
-  game are cut to three at once (seen here: five August states went on the
-  first save in DoDonPachi). Protecting states that existed before the
-  console's first save was offered and declined (MMagTech: *"it's all an
-  alpha build anyway"*).
 - **Why three and not more:** the job is undoing a bad save (saved a moment
   before dying, twice in a row, and still one good one left); more becomes a
   history to scroll, which is the slot-picking this avoids. One constant,
   cheap to raise if three ever feels short.
-- **Rejected:** keeping every state on RomM and showing three (nothing lost,
-  but RomM holds states the console never shows and the "three" is not true);
-  a Load earlier state list in the pause menu.
+- **Rejected:** a Load earlier state list in the pause menu.
 
 **After any state loads, the game waits on that frame until a button is
 pressed** (decided 2026-09-27). MMagTech, after starting from a state on the
@@ -1799,6 +1877,21 @@ and Home is the button the list most often gets wrong.
   Lite 2 on the console uses it.
 - **Home by default** where the pad has a working one. A pad with none has no
   shortcut button until one is set.
+- **Home always works, and Select, Start, L3 and R3 are never the button**
+  (#313, MMagTech, 2026-10-20; the sticks the same morning, when L3 chosen
+  on the TV made the L3+R3 chord open the menu and close it again). The row
+  is "Shortcuts use: Home", read with the switch above it as one sentence,
+  and asks for "a spare button". Until then a chosen button replaced Home,
+  and the row took Select: on the A9 Select had been chosen for Xbox Series pads
+  during controller testing, so Moonlight's on-screen controls (which
+  Sunshine presents as that kind of pad) opened the menu on a tap of Select
+  and an arcade game never got its coin. Now a chosen button is added beside
+  Home, the row refuses the four and says why ("Games use Select…", "L3
+  opens the menu with R3…"), and a choice saved before the rule reads as none. A phone's
+  long press of Select, which Sunshine sends as Home, therefore always opens
+  the menu, whatever was chosen for that kind of pad at the TV. Two builds
+  that gave a stream its own rule (Home always; the saved button except
+  Select) were set aside unjudged.
 - **A tap of it opens the pause menu; held with a second button it is a
   shortcut**, exactly as Home was. Governed by the same switch.
 - **Single button only**, not a pair: it is held while a second is pressed,
@@ -2080,6 +2173,10 @@ refresh to compose, and its estimate of that time only grows after a
 frame has already missed. Locking the GPU's clocks high did not help
 (Home, a minute each: 11, 12, 6 late as shipped; 3, 2, 46 locked), so the
 cause is open. #253. High-refresh monitors (144 Hz, VRR) are #255.
+**2026-10-19 (#253): on 2026.10.19.3 and gamescope 3.16.31 the `[pace]`
+line shows no missed refreshes in SNES; what is left, and the five
+switches tried, are in "The 4K misses measured again" at the end of this
+section.**
 
 **N64 and Dreamcast still hold a frame about twice a second, locked or
 not** (measured both ways: Hydro Thunder 17 to 21 holds per 10 s on the
@@ -2125,6 +2222,193 @@ because nothing there waits for a refresh.
 50 and 120 Hz untested, no such screen here). A machine that cannot keep
 up misses refreshes, and those are caught up exactly as the clock did.
 No screen rate known means the clock, as before.
+
+#### The 4K misses measured again (#253), 2026-10-19
+
+#253 is "4K: the console misses a screen refresh 1 to 5 times every 10 s
+(gamescope)". Measured on the A9 at the LG C1, 3840x2160 at 60 Hz, on
+2026.10.19.3 with gamescope 3.16.31-ogc2, 7:46 to 8:29 PM, with the TV
+freed by MMagTech. Nothing was changed: no switch removed anything
+measurable, and one made it worse.
+
+**How it was measured, the same way for every step.**
+- **Home:** two readings of 60 s on the Home tab.
+- **A game:** Axelay (SNES, RomM id 232; no battery save, so leaving it
+  uploads nothing), started from Home through Search with ydotool key
+  presses. It was played for 38 s, giving four `[pace]` windows, and left
+  through the pause menu inside a minute, so no play was recorded.
+- **Frame times** came from gamescope's mangoapp queue, as `frames.py`
+  reads it, in two kinds:
+  - *app*: the time between the console's frames, which is what
+    `frames.py` counts;
+  - *visible*: the second message, which `frames.py` skips. It is the
+    time between the flips that put a new console frame on screen, from
+    the kernel's flip times. A visible time of 33.3 ms is a picture shown
+    for two refreshes.
+- **A plane sampler** (libdrm, as `cabinet`, every 2 to 3 ms) recorded
+  which buffer each display plane showed.
+
+**What changed since 2026-10-05.** gamescope moved from 3.16.28-ogc3 to
+3.16.31-ogc2 on 2026-10-09 (the journal's version lines), and the
+frontend changed too; which of the two ended the misses was not tested.
+
+The journal's `[pace]` lines since 2026-10-08, light cores only:
+
+| Core | 10 s windows | Windows with any miss |
+|---|---|---|
+| snes9x | 158 | 2 (Axelay 25 windows, all 0) |
+| genesis_plus_gx | 37 | 2 |
+| gambatte | 24 | 2 |
+| fbneo | 94 | 18 |
+
+The 2026-10-05 figure was 1 to 5 in every 10 s window at 4K.
+
+**The steps.** Steps 4 and 5 ran the step's session script copy through
+`tools/ui-loop.sh --no-build --session-script --session-env
+CABINETOS_APP=/usr/bin/cabinetos-frontend`, so the frontend was the
+image's own. "Held" is a visible frame time over 25 ms; "late" is an app
+frame time over 25 ms.
+
+| Step | Home, 2 x 60 s: late app / held | Axelay, 38 s: `[pace]` refreshes missed per window | Axelay: held |
+|---|---|---|---|
+| 1. As shipped | 0 / 3 (2 + 1) | 0 0 0 0 | 0 |
+| 2. `vblank_debug 1`, `composite_debug 1`, plane sampler on | 0 / 0 (on the game page), 0 / 0 (Home) | 0 0 0 0 | 0 |
+| 2b. The same, sampler off | 0 / 1 | not run | not run |
+| 3. `composite_force 1`, sampler on | 0 / 1 | 0 0 0 0 | 0 |
+| 4a. Loop control: drop-in, unchanged script | 0 / 0 | 0 0 0 0 | 0 |
+| 4b. `GAMESCOPE_DISABLE_TIMERFD=1` in `GS_ENV` | 0 / 0, besides the TV's HDMI drop below | 0 0 0 0 | **4** (1, 0, 3 per 10 s) |
+| 5. `--rt` on the drm line | 0 / 0 | 0 0 0 0 | 0 |
+| Restored image, 270 s, GPU clock sampled | 0 / 3 | not run | not run |
+
+The other figures, the same in every step:
+- The worst app frame at Home was 16.8 to 18.5 ms, and in Axelay 17.4 to
+  17.8 ms.
+- `[pace]`'s sound control read +0.01 to -0.29% per window, and `[audio]`
+  32 to 57 ms waiting.
+- pw-top's ERR for the frontend stayed at 0 after every deploy.
+- The first window always skipped 1 or 2 game frames, which is the load's
+  catch-up.
+
+**What each switch showed.**
+- **`vblank_debug`:** gamescope's draw time was 0.07 to 1.41 ms against
+  a wake-up 1.72 to 3.06 ms before vblank (83 lines, one every 5 s). It
+  logged no "missed vblank" in
+  6 minutes 38 s with the switch on, including the moment of step 2b's
+  held picture. Gamescope believed every flip was on time.
+- **The planes:** at Home and in Axelay, gamescope never composed in
+  4 minutes 48 s of sampling. The primary plane showed the frontend's own
+  three 4K buffers in turn, a new one every refresh. One fixed 1920x1080
+  buffer sat on an overlay plane.
+- **`composite_force`:** the primary plane showed gamescope's own 10-bit
+  (XR30) buffers instead, and the overlay plane was empty. At its one held
+  picture, the plane changed buffer at every refresh around it (54, 37,
+  19 and 2 ms before). So gamescope composed and flipped on time, but with
+  the same console frame twice.
+- **When the console's frames arrive:** they reach gamescope within 1 ms
+  after each flip, about 14 ms before its next latch. A held picture is
+  therefore a console frame not ready at the latch, not gamescope waking
+  late. The likely reason is that its GPU work was not finished: the GPU
+  is 28 to 36% busy at Home at 4K. That was not measured. The averaged
+  clock reading (hwmon `freq1_input`, 1,360 to 1,433 MHz) and
+  `gpu_busy_percent` (28 to 29%) showed nothing at the three held
+  pictures of the last run, but both are too coarse for one frame.
+- **`GAMESCOPE_DISABLE_TIMERFD=1`:** gamescope logged "Using nudge
+  thread." and held 4 pictures in Axelay while `[pace]` read 0, against
+  0 in every other game run. It made things worse.
+- **`--rt`:** gamescope's main, kms, pw, xwm, wait and vrmon threads ran
+  SCHED_RR at priority 1. **So did Xwayland**, which inherits it; the
+  frontend stayed on the normal scheduler. Gamescope used 4.3 to 4.8% of
+  a core and the frontend 6.6 to 7.8% (`top`, 30 s samples). Nothing was
+  starved, and nothing changed that the control did not also show.
+- **The TV dropped HDMI by itself** for 1.2 s at 8:17 PM (the kernel
+  reported HDMI-A-1 disconnected at 20:17:00.99 and back at 20:17:02.23):
+  one 1,283 ms gap in step 4b. The same 1.1 s drop is in the journal at
+  5:52 PM that day, before any of this.
+
+**Where #253 stands.** The `[pace]` misses the issue was filed for are
+gone in SNES, Genesis and Game Boy. FBNeo still misses in 18 of 94
+windows; that was not looked into. What is left is a picture held for one extra refresh
+at Home, about 0.4 a minute (8 in 20.5 minutes across all the steps).
+`[pace]` cannot see it; only the visible frame time does. The one test
+left is MMagTech's, as it needs sudo: Home with the GPU clocks locked
+high against as shipped, 10 minutes each, counting held pictures from the
+visible frame time.
+
+**2026-10-19, the Vectrex (MMagTech: "it's not running smoothly").** His
+two games that night, from the journal, on 2026.10.20 at the LG C1,
+3840x2160, 60 Hz: Blitz (RomM 2948) and Pole Position (2962), both through
+vecx 1.2 (8f671cc), which reports 50.0000 fps, so the console paces it by
+the clock. Two things, separate:
+
+- **Every window shows 100 repeated frames per 600** (one in six): a 50 Hz
+  game on a 60 Hz screen, which no pacing can hide. RetroArch on a 60 Hz
+  screen has the same; Batocera offers a 50 Hz screen mode. The C1 does 4K
+  at 50 Hz, and VRR (the #256 and #290 checks) would show 50 fps as 50 Hz.
+  This console's gamescope already runs with `--adaptive-sync` (its
+  command line, 2026-10-19), so if the console presented only new game
+  frames for a clock-paced core, the C1 in VRR would show them at 50 Hz;
+  today it presents every refresh. Not tried. It is every 50 Hz game, PAL
+  ones included. Not decided.
+- **Stalls to about 30 Hz for 20 s at a time:** Blitz's first two windows
+  (232 and 288 frames shown, 214 and 291 refreshes missed), Pole Position's
+  fourth and fifth (326 and 300 frames, 243 and 279 missed), the rest at
+  60 Hz with 0 missed. Not the core's cost: headless on the A9 (no screen,
+  the clock's 50 fps, 50 s each, through the read-only relay) both games
+  ran 0 game frames skipped at the image's `vecx_res_multi` 4 (1320x1640)
+  and at 1, with the unpaced loop at 8,500 and 15,700 frames a second. The
+  cause is in the display path and needs the TV.
+- **On the TV, the same night (22:31 to 22:39), at 1x: no stall.** A
+  scratch build with `vecx_res_multi` 1 (sha 9ce296ae8947, through
+  `tools/ui-loop.sh`), Pole Position from attract mode into a race, 7 minutes
+  in all: 47 `[pace]` windows, every one 600 or 601 frames shown with 0
+  refreshes missed (5 windows had 1 game frame skipped). gamescope's frame
+  times over 60 s of the race (the mangoapp queue, per 10 s): about 600 app
+  and 600 visible frames a window, 1 app frame over 25 ms (34.4 ms) and 1
+  visible over 25 ms (33.3 ms) in the whole minute. The race was a light
+  one: the keyboard reaches only Vectrex buttons 1 and 2 (X and Z; the game
+  maps A=1, B=2, X=3, Y=4) and the throttle is a pad's, so the clock ran with
+  the car on the grid.
+- **Then five more on the TV (22:42 to 22:50), with a pad: no stall in
+  any.** A virtual Xbox 360 pad through uinput (`~/fb/vx/fake-hold` on the
+  A9, a copy of `~/fb/fake-pad` that can hold a button) pressed Vectrex
+  button 1 three times and held button 4, the throttle, for 64 s; Pole
+  Position then raced at speed (135 on its gauge, the road curving). Each
+  run its own loop deploy, the frame times sampled for 60 s from 12 s after
+  `[launch] running VecX`, 8 `[pace]` windows each:
+
+  | Run | Build | Game | `[pace]` windows, refreshes missed | Frame times over 25 ms in 60 s (app / visible) |
+  |---|---|---|---|---|
+  | 1 | image, 4x | Pole Position, racing | 1, 0, 0, 0, 0, 0, 0, 0 | 1 / 1 |
+  | 2 | image, 4x | Blitz | 2, 0, 0, 0, 0, 0, 0, 0 | 1 / 2 |
+  | 3 | scratch, 1x | Blitz | 2, 0, 0, 0, 0, 1, 0, 0 | 1 / 0 |
+  | 4 | image, 4x | Pole Position, racing | 0, 0, 0, 0, 0, 0, 0, 0 | 1 / 7 |
+  | 5 | image, 4x | Pole Position, racing | 1, 0, 0, 0, 0, 1, 0, 0 | 1 / 1 |
+
+  Every window 599 to 601 frames shown (the stalls read 232 to 326). The
+  few missed refreshes are at the launch (the first window) or single; no
+  window came near a stall. Blitz never left its PLAYER and GAME select
+  screen (buttons 1 and 4 pressed, 4 held), but his stall began in Blitz's
+  first two windows from launch, which both runs covered. One app frame of
+  34 to 41 ms fell in the same place in every run, 52 to 62 s after launch,
+  where the frontend writes its play-time checkpoint each minute
+  (`frame.cpp`); it coincides, not checked further. Run 4's 7 visible
+  frames over 25 ms were all 33.3 ms, one picture held for two refreshes
+  each, the kind #253 counts at Home.
+- **What that rules out and leaves.** Ruled out, as far as six runs and 14
+  minutes go: the stall is not the resolution (none at 1x or 4x), not the
+  race or the car moving, not the first 20 s of either game, and not
+  something every launch does. Left: what was different during his play.
+  His own pad over Bluetooth (pad 2, the Xbox Series X; the runs used a
+  wired virtual one), a longer session (his Blitz stall was in the first
+  20 s, so length is unlikely for that one), the menus and screens he went
+  through before each game, and the screen's state (dimmed or not, other
+  apps, the TV's own mode). Not measured: the next step is the journal of
+  his evening read for what ran just before each stall.
+- **The runs wrote to his RomM, on his go** ("You can run it as many times
+  as you want to figure out the issue"): every loop deploy ends the running
+  game by restarting the session, which leaves its play session open, and
+  the next start sends it. Pole Position gained 420 s (the first 1x run)
+  and 60 s three times, Blitz 60 s twice, of time played nobody played.
 
 ### The emulator settings audit (#89) — 2026-09-27
 
@@ -2241,12 +2525,7 @@ the page says "No Saturn BIOS on your server". Offline, nothing is claimed.
 **Not tested:** the BIOS wording, because the only server has every BIOS
 and deleting one from it was not on the table.
 
-**Arcade sets must be non-merged (MMagTech, 2026-09-27).** A non-merged
-set carries everything a game needs in its own zip, board BIOS included:
-Metal Slug 2's zip on this server holds the whole Neo Geo BIOS set
-(`sp-s2.sp1`, `000-lo.lo`, `sfix.sfix`, `sm1.sm1`, every Unibios). So arcade
-needs no BIOS check. Some non-merged sets published online leave Neo Geo's
-BIOS out; the server's separate `neogeo.zip` is fetched as firmware anyway.
+**Arcade sets must be non-merged (MMagTech, 2026-09-27):** moved to [docs/decisions/2026-09-27-arcade-sets-non-merged.md](decisions/2026-09-27-arcade-sets-non-merged.md).
 
 **Saturn's BIOS on this server is `saturn_bios.bin`** (MD5 `af5828fd…`, a
 v1.00 BIOS, the name other Saturn emulators use), not either file Beetle
@@ -2655,6 +2934,65 @@ Either supply a `BASE_UPDATE_TOKEN` secret (a fine-grained PAT with contents and
 pull-request write), which the workflow prefers when present, or close and
 reopen the PR to kick CI off by hand.
 
+#### Waiting for stable: gamescope crashes when a game's window closes (2026-10-22)
+
+**What happened.** On the A9, 2026.10.22.2, 8:36 AM: Shovel Knight (Wii U)
+was quit from the pause menu, Cemu closed cleanly (exit 0), and in the same
+second gamescope crashed (SIGSEGV in its compositor thread,
+`gamescope-xwm`). The session restarted by itself: black for about 3 s, the
+start-up screen, Home about 5 s after the crash. Nothing was lost: the save
+was zipped before the crash, and the new session sent it again (`[save]
+resent, uploaded cemu`).
+
+**The cause, from the core's backtrace** (systemd-coredump's journal entry;
+the core file itself is root's): `wl_resource_post_event` from
+`wlserver_presentation_feedback_discard`, from `commit_t::~commit_t`, from
+`global_focus_t::~global_focus_t`, from `determine_and_apply_focus`. When
+focus moved off the closed game, gamescope dropped its last hold on one of
+the game's frames and sent "that frame was never shown"
+(`wp_presentation_feedback.discarded`) over a connection the game had closed
+50 ms earlier: a use after free. Any Vulkan emulator can meet it. With
+`ENABLE_GAMESCOPE_WSI=1` each one presents on its own Wayland connection to
+gamescope, and the image's gamescope (terra-gamescope 3.16.31^2, the Open
+Gaming Collective fork's 3.16.31-ogc2) keeps bare pointers to those frames'
+notices.
+
+**How often.** The A9's journal from 2026-10-06 holds 76 gamescope crashes.
+75 are at a stop (docs/lessons/testing.md, "gamescope crashes on its way
+out"); this is the only one while the console ran, in 57 standalone emulator
+exits on record.
+
+**Fixed upstream, not in the base.** Valve's a71c7f900 ("steamcompmgr:
+discard feedback for commits that never present", on master 2026-10-10 with
+PR #2395) gives each notice a destroy handler that clears the pointer. Its
+message does not mention a client that quits; reading the code, it covers
+one. It is in no Valve tag yet. The fork has it from 3.16.31-ogc3
+(2026-10-15). Terra publishes 3.16.31^4 for Fedora 44 (in terra44-extras)
+and ^6 for Fedora 45. Bazzite stable is still 44.20261012.1 with ^2;
+Bazzite testing, on Fedora 45, has ^6. Nobody has reported this backtrace,
+and there is nothing left to report.
+
+**Decided (MMagTech, 2026-10-22): wait for the base update that brings it**,
+likely Bazzite's Fedora 45 stable, as exception 1 above says for a fix only
+in testing. **If it happens again before then, take Terra's fixed gamescope
+into the image ahead of the base.** That is 41 changes over ogc2, not one.
+The ones that touch this console: how the frame limiter and VRR pace frames,
+the Vulkan layer every emulator presents through (presentation timing),
+how Xwayland pictures join overlay windows, and an HDR10 colour fix. So it
+needs TV checks: the pause menu over each standalone emulator, a heavy
+game's smoothness, the Steam tile, a Remote Play stream. Set aside: a
+gamescope of our own with only the one fix (the first gamescope the project
+would build, with a patch to track, for a crash that recovers by itself),
+and changing how the console closes games (it cannot be made to happen on
+demand, so a dodge could never be shown to work).
+
+**To know it again:** a kernel line `gamescope-xwm[...]: segfault` while the
+console was running, not at a stop, and `wlserver_presentation_feedback_discard`
+in the core's journal entry (`journalctl -t systemd-coredump`). **When a base
+update moves gamescope past 3.16.31^2**, add a check to it: quit a
+standalone game from the pause menu a few times, and no gamescope crash in
+the log.
+
 ---
 
 ## Measured behaviour
@@ -2892,8 +3230,8 @@ not, and the A9 has no CEC to wake one.
   which the first build of the wait held back until a display answered, so
   that build left a console with no TV unreachable over SSH (measured,
   2026-10-10) and was undone. `cabinetos-saved-services.service`, a oneshot
-  at boot, reads `settings.json` and starts whichever are on (Tailscale only
-  with Remote Play, as the app has it). The app still starts and stops them
+  at boot, reads `settings.json` and starts whichever are on (Tailscale:
+  docs/decisions/2026-11-15-tailscale-own-switch.md). The app still starts and stops them
   from Settings; starting one already running does nothing.
   **Remote Play was started here too, and that was wrong** (2026-10-13, on
   the testing images 2026.10.13.3 and .4): at boot Sunshine ran before the
@@ -4172,13 +4510,8 @@ Since 2026-10-07 (#134): it is called Developer access, a hidden row in About
    fact that cannot be known until after the merge — the pull request's own
    number, the merge commit — may be corrected straight on `main`, in one
    commit that changes nothing else.
-8. **Emulators favour stability over the newest version** (MMagTech,
-   2026-10-14). An emulator, core or pinned Flatpak is moved only when the
-   move brings something a player gets: a game that now plays, a real
-   gameplay fix, a fix for newer hardware, or a large performance gain.
-   New features that do not change how games play are not a reason. Every
-   proposed update starts with that question asked out loud, and the answer
-   is recorded on its issue or pull request.
+8. **Emulators favour stability over the newest version**: the rule moved to
+   `docs/decisions/2026-10-23-when-an-emulator-pin-moves.md`.
 
 ---
 
@@ -5415,7 +5748,8 @@ here.
 
 **It degrades exactly the right way.** Keep enough games and the cache shrinks
 to nothing, at which point every un-kept game downloads, plays, and is dropped
-on the way out — which is precisely what Cabinet's Mac does today, and it ships.
+on the way out, which is precisely what Cabinet's Mac does today, and it ships
+(2026-10-19: did; the Mac app is retired).
 Keep so many that nothing fits at all and the download refuses and says so,
 which is the one failure this policy ever shows anybody.
 
@@ -6601,9 +6935,9 @@ throwaway VM on the A9 (`tools/installer-vm.sh`: QEMU in podman with
 `/dev/kvm`, an empty NVMe disk, no network, pictures of every screen) and then
 on the real CI-built ISO. What a person sees:
 
-1. The boot menu: **Install CabinetOS 44**. The stick is labelled `CabinetOS`
-   (`[customizations.iso] volume_id`).
-2. Startup text, then a black screen with: *This will erase this machine's
+1. The boot menu: **Install CabinetOS** (its look since 2026-11-02: below,
+   last paragraph). The stick is labelled `CabinetOS`.
+2. A black screen, then: *This will erase this machine's
    2.0 TB drive (WPBSN4M8-2TGP). Continue? (y/n)*. Asked by the kickstart's
    `%pre` on tty8, in double-size text on any screen 1600 pixels wide or
    more. Two or more internal drives: a numbered list, then the same question
@@ -6615,12 +6949,7 @@ on the real CI-built ISO. What a person sees:
    layout the A9 got by hand).
 4. It reboots into the console, which starts first run.
 
-**The account is made by the kickstart, not a screen.** `%post` runs
-`useradd --uid 1000 --groups wheel --home-dir /var/home/cabinet`, then locks
-it. Not left to `sysusers.d`: that makes `cabinet` a system account with no
-home, and every console so far got uid 1000, wheel and a home from the old
-Users screen. Checked on the VM's disk: uid 1000, wheel, home present, root
-and `cabinet` both locked, updates from `ghcr.io/mmagtech/cabinetos:latest`.
+**The account, and the update source, moved to the image on 2026-11-03:** [decisions/2026-11-03-first-time-setup-in-the-os.md](decisions/2026-11-03-first-time-setup-in-the-os.md).
 
 **The install needs no network: proved.** In a VM with no network device at
 all, the real ISO installed and the console came up in first run (*Connect to
@@ -6632,13 +6961,8 @@ firmware is, in first run (#136's plan).
 to osbuild/image-builder on 2026-10-01, so `:latest` will not move by itself
 again, and a new builder is a deliberate change. The ISO is built once per
 release. Its config cannot touch the boot menu, the kernel command line or the
-installer's own files, so four things stay (#284, after first release): the
-Network & Host Name screen is still drawn (module off, screen shown); the
-**Test this media** entry stays, though not as the default, and it passes on a
-perfect copy (the 2026-09-19 failure was the USB read); the startup text is
-not quiet beyond the `quiet` the builder adds; and Fedora's logo strip and
-"44" stay. Each would need the ISO repacked or the successor builder's
-`bootc-installer` type; MMagTech, 2026-10-07: skip what needs repacking.
+installer's own files (#284); since 2026-11-02 its ISO is repacked for them:
+[decisions/2026-11-02-installer-iso-repacked.md](decisions/2026-11-02-installer-iso-repacked.md).
 
 #### The installer runtime carries no firmware — 2026-09-19
 
@@ -10060,13 +10384,7 @@ What it does **not** solve is saves: those are server-side, so a game continued
 on a different server starts from that server's save history. That is correct
 behaviour rather than a bug, but the UI should not pretend otherwise.
 
-**Follow Cabinet's save model rather than designing one.** Saves write locally
-first, into a pending queue, and upload afterwards — losing signal mid-save
-never loses the save. Conflicts are designed out by giving each queued file
-RomM's own timestamped name, so uploads never overwrite and syncing is only
-"finish the uploads". Grout instead surfaces conflicts for the user to resolve,
-which is the right call for a client that cannot write the filename — and the
-wrong one here, since we can.
+**The save model:** moved to [decisions/2026-11-15-save-channels.md](decisions/2026-11-15-save-channels.md), which replaces following Cabinet's.
 
 ### 15. A phone companion page for first run
 **Raised 2026-09-13 as a design proposal. NOT ADOPTED YET — deferred, with
@@ -12726,19 +13044,7 @@ from a hidden system still opens to a page that says why. A system whose core
 should be installed and is not (NotInstalled) keeps its greyed tile: that is a
 fault, and hiding it would hide the fault.
 
-#### DECIDED, MMagTech 2026-10-04: other apps' saves are not read (#124, closed)
-
-The console loads only saves and states tagged as Cabinet's or CabinetOS's
-(`main.cpp`, every fetch filters on the tag). Reading RomM's web player's or
-other apps' saves means too many emulator, version and format combinations to
-test, and a save that loads wrongly is worse than none. Considered and
-rejected: a best-effort fallback to another app's newest save, which would
-promise something unsupported. The README says plainly that such progress
-does not carry over and is left untouched on the server.
-
-Since the restructure (#398, 2026-10-17): each fetch filters in its own file,
-states.cpp:248 for states and saves.cpp:83, 378 and 564 for saves; the tags
-come from `catalog::emulatorTag` (savetable.cpp:23).
+#### Other apps' saves (#124): moved to [decisions/2026-11-15-save-channels.md](decisions/2026-11-15-save-channels.md), which replaces the decision of 2026-10-04 not to read them
 
 #### Saves offline: the disk always wins first
 
@@ -12774,15 +13080,8 @@ server takes about 5–10 seconds longer (never more than the stop script's 45);
 and **retry the owed saves when the server returns**, which is the missing
 bookkeeping above.
 
-**The accepted trade, so it is a decision rather than a discovery.** Rule 1
-means an unsent local save always beats the server, so playing offline on the
-console and then playing the same game on an Apple TV before the console
-reconnects loses the Apple TV's save. **MMagTech's reasoning, 2026-09-19, and
-it is why this is accepted: saves are per person and this console switches
-users, so two people on two devices are two different rows and never
-collide.** What remains needs one person, two devices, sequentially, with the
-console offline in between. Rare, and the alternative is asking someone to
-resolve a merge conflict on a television.
+**The accepted trade** (an unsent save beating a newer one made elsewhere,
+2026-09-19): moved to [decisions/2026-11-15-save-channels.md](decisions/2026-11-15-save-channels.md), where RomM keeps both.
 
 #### Who the console is with no server — DECIDED 2026-09-19
 
@@ -12811,7 +13110,7 @@ order); switching people works offline and adding one is greyed; Search works
 over the same games; a small "Offline" chip sits by the account chip; the
 server is retried in the background, quickly at first and then about once a
 minute; there is no Offline switch. Two devices saving the same game across an
-outage is deferred to #261 (the console's save still wins, as before).
+outage: moved to [decisions/2026-11-15-save-channels.md](decisions/2026-11-15-save-channels.md).
 
 What does it, and where:
 
@@ -12846,9 +13145,7 @@ What does it, and where:
   call while online and again every quarter of an hour: offline, a launch
   reads that copy exactly as it reads the server online, so a game last
   played on another device starts from its newest save (the vacation case,
-  moved here from #261). The copy is forgotten whenever a save of ours lands,
-  then read again, so it can never be older than a save the console sent.
-  Its size grows with the saves of the games on the drive: 44 MB for 47 games
+  moved here from #261). Its size grows with the saves of the games on the drive: 44 MB for 47 games
   with saves on the A9 (2026-10-05); a drive of hundreds of PS2 or GameCube
   games (8 to 16 MB a card) would hold a few GB. Not capped: the price of the
   vacation case, small beside the games.
@@ -13240,6 +13537,14 @@ they cannot travel to Cabinet or will break when the emulator updates, on a
 console that has a real save system of its own.** A new emulator is checked
 against that the day it lands (PS3, Switch and the like will fail it), and
 goes on the list if it does.
+
+**The exception: the Nintendo 3DS has states, by MMagTech's decision of
+2026-10-20.** Azahar's fail the rule (a state loads only in the Azahar commit
+that made it, so an emulator update can strand them), and he chose states
+anyway, as on every other handheld here, with backwards compatibility not
+promised; a stranded one says *Couldn't load that state*. No rewind: a 3DS
+state takes 270 to 850 ms on the A9 (`catalog::rewindAllowed`). Question 50,
+"Full features".
 
 #### WHAT PEOPLE ACTUALLY WANT IS RESUME, WHICH IS A DIFFERENT FEATURE
 
@@ -15436,7 +15741,10 @@ and down, pause, Resume, Screenshot, Exit to Home, a kept game promoted from
 cache without a download and kept as one file.
 
 **Known gaps, left for later:** a controller connected mid-game waits for the
-next launch; motion (gyro) does not come through; updates and DLC (#181);
+next launch, because Eden has no way to add a player once a game runs; asked
+for in eden-emulator/Issue-Reports#739 (from #529, "Switch: Can't use split
+joycons for multiplayer"). Motion (gyro) does not come through; updates and
+DLC (#181);
 Shredder's Revenge (above); a Switch game kept on an external drive is
 untested (the console grants Eden that folder per launch, as on the internal
 drive).
@@ -15773,18 +16081,8 @@ reason; the same answer is expected for RPCS3's and Eden's output filters.
 thing seen once while testing; issues are opened only when he asks for one,
 the rest is recorded here):
 
-- **Black patches on character models in Gears of War 2** (and on record
-  for Gears of War 1): Unreal Engine 3's MSAA tiling under Xenia. Fixed in
-  Xenia Canary on 2026-10-06 (xenia-canary/xenia-canary#1271, "Xenos sample
-  positions; UE3 tiling fix"; the tracker's note on
-  xenia-canary/game-compatibility#46 and #44: `window_offset_in_edram =
-  false` with `xenos_sample_positions = true`). Neither flag exists in Edge
-  at our pin (checked in its source), and Edge's commits to 2026-10-18 have
-  not merged it. The per-game "Black Shading Fix" in Xenia's patch set is
-  not taken, by the rule; Edge ships no patch files and Batocera applies
-  none by default. The fix is the next Edge pin that carries Canary's
-  change, with the two flags passed for every game if they are not its
-  defaults by then.
+- **Black patches on character models in Gears of War 1 and 2:** moved to
+  [decisions/2026-11-01-xbox-360-unreal-engine-3-fix.md](decisions/2026-11-01-xbox-360-unreal-engine-3-fix.md).
 - **Gears of War and Gears of War 2 each hung once on the A9**, about three
   minutes and about 95 seconds in: Xenia alive, two emulated CPU threads at
   100%, the graphics thread idle; the pause menu worked and Exit to Home
@@ -16331,6 +16629,145 @@ The first rumble try did not stick: the HOME Menu writes its settings when it
 closes, and the game was left with the menu still open. Not a fault here; see
 docs/lessons/emulators.md.
 
+#### Nintendo's own Remotes counted twice (#548), 2026-10-21
+
+A player with Nintendo's own Remote (RVL-003, "Nintendo RVL-CNT-01", id
+057E:0306) saw it as two controllers, P2 and W1, and every press twice. Their
+report showed why: the kernel's Wii Remote driver, `hid-wiimote`, takes any
+Bluetooth device with Nintendo's id (0306 and 0330), and makes a controller of
+its own that SDL seated as a player, while the bridge drove the same Remote
+as W1. The TechKens report Samsung's id, so the driver never touched them and
+the A9 never showed it (`hid_wiimote` is not even loaded there).
+
+**The driver cannot simply be blocked.** The kernel keeps those two ids for it
+(`hid_have_special_driver`, hid-quirks.c), so without it the plain driver
+refuses the Remote too: no raw node, and the bridge loses Nintendo's Remotes
+altogether. Nothing outside the kernel can change that for a Bluetooth
+device (HID-BPF may write only a device's name, uniq and phys). So the driver
+stays bound, as on every Linux desktop where Dolphin uses a real Remote, and
+`72-cabinetos-wii-remote.rules` keeps its devices from everyone: no seat
+access, no joystick for SDL, Steam or `cabinetos-pads`, nothing for libinput
+(its D-pad is the arrow keys). Its battery is not read either (battery.cpp):
+a read asks the Remote for a status report.
+
+What the driver still does, **measured on the A9, 2026-10-22**, with a fake
+original Remote (a uhid device on the Bluetooth bus, 057E:0306, answering as
+an RVL-003 with nothing plugged in; named so the bridge leaves it alone):
+
+- At connect, in the first half second: a status request, light 1, the
+  extension set up plain (0xA400F0 = 0x55, 0xA400FB = 0x00), a MotionPlus
+  probe, and five status requests, each followed by its own report mode
+  (0x30, buttons only). Something on the console also opened the driver's
+  motion and pointer devices for about 10 ms (report mode 0x31, then the IR
+  camera set up and switched off again); not traced.
+- Then, every 4.03 s for as long as the Remote is connected, games included:
+  a read of 0xA400FA (6 bytes), a write of 0x55 to 0xA600F0, and a read of
+  0xA600FA (6 bytes), looking for a MotionPlus plugged in. Nothing else: no
+  status requests, no battery reads (battery.cpp no longer reads it).
+
+The Remote's answers to those three (two 0x21 read replies and one 0x22
+acknowledgement) go to every reader of its raw node, so the bridge passes
+them to the game, and the bridge counts any 0x21 against the game's oldest
+read (`fromReal`, `r.reads`). Whether a game is disturbed (a Mii read coming
+out damaged, a Nunchuk not set up) is not known: it needs an original Remote
+in a real game. The driver skips the check on a Remote with MotionPlus
+inside (the Wii Remote Plus, "-TR", and the TechKens, which it never binds).
+If it does disturb games, the contained fix is in the bridge: pass the game
+only the replies it asked for. The large one is the bridge talking to the
+Remote itself, without BlueZ's input plugin.
+
+**MMagTech, 2026-10-21:** a Wii U Pro Controller or a Balance Board (the same
+ids) losing the kernel driver's controller does not matter; a Wii U game
+plays on an ordinary pad. What must not break: the TechKens, and ordinary
+pads in Wii U and Wii games.
+
+#### Only the TechKens supported; Nintendo's own get no MotionPlus, 2026-10-22
+
+**MMagTech, 2026-10-22:** Nintendo's own Remotes (the original and the Wii
+Remote Plus) supported alongside the TechKens, as long as the TechKens never
+break and the change can be undone in one step. Before anything was built,
+the driver's source was read (`hid-wiimote-core.c`, kernel 7.2.9) and a fake
+Wii Remote Plus was run on the A9 with no game running: a uhid device on the
+Bluetooth bus, 057E:0330, answering as a Remote Plus with nothing plugged in,
+named so the bridge leaves it alone. Besides the 4-second check, the driver:
+
+- **resets the report mode after every status report** the Remote sends,
+  one a game asked for included (`handler_status_K`): 0x12 00 30, buttons
+  only, not continuous. Measured: a status report, then "report mode 0030".
+  A game's pointer, tilt and Nunchuk data stop until it sets its mode again.
+- **switches rumble off** with every command it sends: each carries the
+  driver's own rumble bit, which is off.
+- **switches MotionPlus off as soon as a game switches it on.** Switched on,
+  MotionPlus answers at 0xA4 and the Remote reports an extension; the driver
+  reads 0xA400FA, finds MotionPlus's id, writes 0x55 to 0xA400F0 (which turns
+  it off) and detects everything again. Measured: on, then off within the
+  same millisecond, on a Remote Plus; the same code runs for a MotionPlus
+  plugged into an original Remote.
+- at connect, still opens for about 10 ms with #549's rule in place: report
+  modes 0x31 and 0x37, the camera, MotionPlus mapped, then all off again.
+  Something on the console opens the driver's input devices; not traced.
+
+**What the bridge could do**, only for a Remote the driver drives (the
+TechKens never are, so none of it would run for them): pass the game only
+the answers it asked for, hold the game's commands while the driver is in
+the middle of its own so the two never mix, then put back the game's report
+mode and rumble. **What it cannot do:** keep MotionPlus on, since the driver
+sees every report first and switches it off again. So on Nintendo's Remotes
+the games that need MotionPlus would not work: on MMagTech's RomM, Wii Sports
+Resort and Red Steel 2, 2 of its 52 Wii games.
+
+**MotionPlus on the TechKens, MMagTech at the TV, 2026-10-22, 17:37:** Wii
+Sports + Wii Sports Resort on one TechKen: "it looks like motion controls
+worked". It had never been tried before: Mario Kart's steering is the tilt
+sensor every Remote has, and Geometry Wars is the Nunchuk and the pointer.
+
+**DECIDED, MMagTech 2026-10-22, in the end:** **the TechKens are the only
+officially supported Wii Remote.** Other Remotes, Nintendo's own included,
+may work, but no fixes or promises are made for them, and a later issue with
+one of Nintendo's is a no-go. What was agreed that day ships, once: #549, the
+greying below, and the bridge's report-mode fix (below). The wiki says so in
+his approved words (Controllers, "Wii Remotes"). Earlier the same day he had
+chosen "two Remotes supported, Nintendo's without MotionPlus"; he turned to
+this on learning that a full fix had a second, open-ended part (the answer
+filter below), which he never wants built. **A Wii game that requires
+MotionPlus stays grey, "Needs MotionPlus", until a Remote that is not
+Nintendo's own is paired**; one where MotionPlus is optional plays on any
+Remote. Both from GameTDB, the console's list of Wii controllers already: its
+file marks each MotionPlus control `required="true"` or not (48 entries
+required and 220 optional on 2026-10-22, 29 of the required kept after the
+tool leaves out mods and homebrew). Every game by the same rule: GameTDB
+marks the "Wii Sports + Wii Sports Resort" disc as requiring MotionPlus, so
+with only Nintendo's Remotes the whole disc is grey, its Wii Sports too.
+
+**What was built.** `tools/wii-controls.py` writes `M` for a required
+MotionPlus (`m` stays optional); the regenerated list changed only those
+entries. `wiiremote.cpp` reads which paired Remotes are Nintendo's own from
+bluetoothd (`bluetoothctl info`, `Modalias: usb:v057Ep0306` or `0330`, the
+ids hid-wiimote takes; the TechKens say `v04E8p7021`), and `catalog.cpp`
+greys by it after the "Needs a Wii Remote" rule. A Remote bluetoothd cannot
+describe counts as not Nintendo's, so nothing greys that did not before.
+Tested headless on the A9 through the read-only relay, with a stand-in
+`bluetoothctl` for the Nintendo case: one Nintendo Remote paired, Wii Sports
++ Wii Sports Resort and Red Steel 2 read "Needs MotionPlus" (page and grid)
+and Geometry Wars plays; the A9's two TechKens, all three play; no Remote,
+"Needs a Wii Remote" as before.
+
+**Built in the same PR (MMagTech's go, 2026-10-22, evening):** on Nintendo's
+Remotes the driver's report-mode reset after a status report and its rumble
+cuts would let pointer, tilt and Nunchuk data stop in a game until it sets
+its mode again. The bridge puts them back (`putBack`, `wiibridge/bridge.cpp`):
+10 ms after a status report from a Remote the driver has, the game's last
+report mode with its current rumble bit and no acknowledgement asked; after
+any other answer while the game's rumble is on, the rumble alone. "The driver
+has it" is the kernel's own record, `DRIVER=wiimote` in the Remote's uevent
+(read on the A9 for a Nintendo id; the TechKens are bound to `samsung`), so
+none of it runs for a TechKen. `make test` gained a third case: the mode back
+10.4 ms after the status and the rumble 10.6 ms after an answer, the TechKen
+sent nothing. Shown with the fake Remote on the A9 (named so the bridge takes
+it) right before a TechKen check at the TV: a Nunchuk game and the Miis.
+**Never built** (MMagTech, 2026-10-22): the bridge keeping the driver's own
+answers from the game (the 4-second check's three), even on a report.
+
 ### 36. Wii U (Cemu), issue #174
 **Researched 2026-10-01 (the research is on #174); decided with MMagTech the
 same day.** No code yet. Most of question 35 carries over; what follows is only
@@ -16351,6 +16788,30 @@ planned): "Wii Remotes in Wii U games" above is reversed. A Wii U game that
 needs a Wii Remote and takes neither a Pro nor a Classic Controller stays greyed,
 "Needs a Wii Remote", whether or not a Remote is paired (catalog.cpp:367-375;
 `wiiu::needs`, wiiu.h:60).
+
+Since 2026-10-22 (MMagTech): **player 1 is a Wii U GamePad to Cemu**, and
+players 2 and up stay Pro Controllers (`cemuProfile`,
+standalone_cemu.cpp). Shovel Knight (`WKNE`, eShop) ignored every press on
+its first screen, the screen size setup, on the A9 that morning, while
+Hyrule Warriors played on the same pad between its starts. With no GamePad
+set up, Cemu still answers a game's GamePad reads with an empty sample and
+no error (`Cafe/OS/libs/vpad/vpad.cpp`, `VPADRead`: "most games expect the
+Wii U GamePad to be connected"), so a screen that reads only the GamePad
+sees nothing pressed. GameTDB lists the Pro Controller for Shovel Knight and
+marks nothing required, so the catalog could not have caught it. On a Wii U
+the GamePad is always there and always player 1, and Cemu's own guide
+(cemu.cfw.guide, controller configuration), RetroArch's Cemu core ("Port 1
+is always the Wii U GamePad"), Batocera and RetroDECK all make player 1 the
+GamePad; only EmuDeck's script of 2026-07-23 uses Pro Controllers on a TV,
+with no reason written. Cemu puts a GamePad on the first GamePad channel and
+each Pro Controller on the first free Wii controller channel, whatever its
+slot, so player 2 is a game's first Pro Controller, as on a Wii U. Which
+games play is unchanged. What it costs: a game that puts its map or items
+on the GamePad's screen when a GamePad is used shows them there, and nothing
+shows that screen on the TV. MMagTech banked that for another time, with
+Wii U kept to small fixes: #555, "Wii U: see the GamePad's screen, and
+touch it, on the TV", which holds what Cemu can do and the options talked
+through.
 
 #### Carried over from Wii (question 35) unchanged
 
@@ -16604,7 +17065,11 @@ open; the image only carries the launcher and the session (the brief's
 - **Not caught:** the first two handovers sat about 25 s between the frontend
   leaving ("Primary child shut down") and gamescope exiting; every later one
   took about 1.5 s from the press to Steam's display, and the recorder never
-  saw it again. If it comes back the session log shows the gap.
+  saw it again. If it comes back the session log shows the gap. Found
+  under #305 ("Opening Steam sometimes takes 25 seconds instead of a
+  fraction of one"): gamescope's own exit waiting 25.2 s on logind after
+  its app was gone. The session now stops gamescope two seconds after its
+  app, so a stall costs about 3 s.
 
 **Installing with the console on screen** (MMagTech, 2026-10-04: the
 first start was a black screen for as long as Steam's download took, "it
@@ -16998,8 +17463,7 @@ self-hosted server is not open source); Moonlight's own internet streaming
 the row off: MMagTech's own iPhone streamed over 5G through his Tailscale
 subnet router with nothing on the console.
 
-*Under Streaming, never alone:* it runs only while Streaming and Tailscale
-are both on, so "off means nothing runs" holds for both. *Locked down by the
+*Under Streaming, never alone:* moved to docs/decisions/2026-11-15-tailscale-own-switch.md (2026-11-15), which replaces it. *Locked down by the
 image,* not by Settings: operator `cabinet`, no DNS and no routes from the
 network, no exit node, no logs to Tailscale (`TS_NO_LOGS_NO_SUPPORT`; their
 support cannot look into a problem). *The firewall:* without a zone of its
@@ -17453,22 +17917,7 @@ deletableman's HCAR5000-MI (sold as AM06 Pro) played into an empty jack: its
 jack is a built-in C-Media USB chip that cannot sense a plug, and WirePlumber
 ranks an analog output above HDMI, so the chip won.
 
-**The rule:** the TV the picture is on first; a headphone jack that senses
-the plug takes over while headphones are in and hands back when they come
-out; nothing else takes the sound from the TV (not a jack that cannot sense,
-not USB sound, not Bluetooth for now); no setting. Bluetooth audio, if it
-comes, is one more kind of output in the "takes over" list.
-
-**Built with WirePlumber's own settings only**
-(`system_files/usr/share/wireplumber/wireplumber.conf.d/60-cabinetos-sound-output.conf`),
-as its documentation describes (*Node priorities*): USB sound outputs get
-`priority.session` 100, below any HDMI (696 on the A9), and
-`node.restore-default-targets` is off. A jack that senses the plug needs no
-rule: WirePlumber switches its card off while nothing is plugged in, so the
-output only exists while headphones are in, and its own rank (1009 on the
-A9) is above HDMI. A small WirePlumber script that ignores any output unable
-to sense a plug was considered and rejected: more than standard settings,
-for hardware the rule says not to account for.
+**The rule, and how it is held:** moved to [decisions/2026-11-04-one-sound-rule.md](decisions/2026-11-04-one-sound-rule.md).
 
 **Why the memory goes off.** A chosen output beats every priority, and
 WirePlumber kept the choice across restarts. On the A9 the TV was chosen, so
@@ -17493,6 +17942,42 @@ returns the sound to the TV.
 
 **Open:** the volume goes back to full at every start (#351 above), on the
 default output. With headphones in at start, that is the headphones (#391, waiting, not built).
+
+#### Built-in speakers (#547), 2026-10-21 and 22
+
+**The fault.** A Beelink SER9 (#547, "Sounds plays only from onboard
+speakers (Beelink ser9)") played everything through the speaker in its
+case. Its ALC897 drives a built-in speaker (`speaker_outs=1` in the kernel
+log), and a speaker has no plug to sense, so its connector reports
+`unknown`. WirePlumber passes over an output only when its connector says
+`no` (`lutils.haveAvailableRoutes`), so the speaker counted and its analog
+rank beat the TV. The same fault is in the report on #416 ("PCSX2 loads the
+wrong bios for the region of the game"): an HP EliteDesk 705 G4, its CX20632
+with `speaker_outs=1`, the speaker chosen over an Acer CB272U whose EDID
+declares speakers. Nobody there mentioned sound. The A9 never showed it:
+its ALC269VC has only the headphone jack, which says `no` while empty. No
+priority can fix it: the speaker and the headphone jack are one output
+whose connector changes when headphones go in. The three HCAR5000-MI
+reports (#341, #400, #529) already had the TV as the default.
+
+**What was decided:** moved to [decisions/2026-11-04-one-sound-rule.md](decisions/2026-11-04-one-sound-rule.md).
+
+**Researched 2026-10-22** (three agents; GitLab issue pages were unreadable
+to them). No setting in PipeWire or WirePlumber does this; WirePlumber's
+documentation says routes of unknown availability count as usable "since
+built-in speakers have no jack detection", and its issue #166, "Give HDMI
+outputs a higher priority than internal speakers", exists (its answer was
+not read). Bazzite does it per machine: the Framework Desktop's hardware
+profile raises one HDMI node by name (`51-preferHDMI.conf`). Batocera and
+Kodi give the player a menu. PulseAudio deliberately never switched to HDMI
+by itself (`module-switch-on-connect` ignores "hdmi" by default). ChromeOS
+ranks exactly this rule (headphones, line out, USB and Bluetooth 3, HDMI 2,
+internal speaker 1, in `audio_device.cc`), because its sound daemon keeps
+the speaker and the headphones apart. Ruled out: raising HDMI's priority
+(headphones would never take over); a kernel `patch=` or hint (per codec,
+and a wrong pin silences a machine); a copied profile set (a large file that
+drifts); `api.acp.hidden-ports` (undocumented, and a card with only a
+speaker would still win).
 
 #### Sound dying until a restart (#228): the 2026-10-18 failure, read from the A9's logs
 
@@ -17765,7 +18250,9 @@ discussed again.
 
 ### 49. PS Vita (Vita3K), issue #198
 
-**Researched 2026-10-19; research only, no code; not decided.** The brief
+**Researched 2026-10-19; decided 2026-10-20: a go, ready to build now that
+the 3DS (#524) has merged, by the plan in "Decided, 2026-10-20: the build plan" at the
+end of this question, which supersedes the recommendations above it.** The brief
 is MMagTech's comment on #198 of the same day: five tests, a failure on any
 of the first four a plain no, the fifth his call on the numbers; then which
 games are unique, whether touch was play or navigation (Sony's PS TV list as
@@ -17987,7 +18474,7 @@ Blog and Wikipedia (the game's own manuals are encrypted, above).
   AppImage is, fetched from GitHub at build time only. 92 numbered builds in
   the last 90 days. The SDL frontend is ten days old.
 
-#### The A9 hand test (step 3 of #198), when he names a time
+#### The A9 hand test (step 3 of #198), when he names a time (superseded 2026-10-20 by the plan's hand test, below)
 
 Needs: the A9 free and him at the TV; the two Sony firmware files on RomM
 (his upload, a write to his server); a numbered Vita3K build run by hand in
@@ -18000,7 +18487,7 @@ Rush) at 1x and 2x resolution; Killzone and Skullgirls, to see whether their
 labels hold here; a close by SIGTERM (time, exit code) and a save made just
 before it; two pads with `pstv-mode` in Skullgirls; a game's own exit.
 
-#### Recommendation, 2026-10-19 (not decided)
+#### Recommendation, 2026-10-19 (not decided; superseded 2026-10-20, below)
 
 **No, for now.** None of the first four tests fails, and on the labels
 Vita3K is no further from finished than Xbox 360. But Sony's own pad rule
@@ -18013,3 +18500,2764 @@ pointer comes, and then two games. **It becomes a go with conditions** when
 Vita3K/Vita3K#3707), (2) Sony's list is in hand by title ID to ship as data,
 and (3) the hand test passes. **No gyro for the Vita** in any case. Game Boy
 motion is a separate, smaller question for him.
+
+#### Addendum, 2026-10-19 night: how vital is the pointer?
+
+**His question:** "how vital is that pointer to playing games? On DS we use
+the right thumbstick for the pointer. I also discussed the PS5 touchpad. Can
+you research if anybody else does this type of implementation? Or is this
+emulator pretty much only used on phones and devices that already have touch
+support?" Research only, nothing ran on the A9. Read: Vita3K master
+`287accf` (2026-10-19, numbered build 4206) and its issues, releases and
+site; Vita3K/Vita3K-builds and Vita3K/Vita3K-Android releases (GitHub API,
+2026-10-19); Batocera `7fa4f7c` (2026-10-20), EmuDeck `dddb302`
+(2026-10-05), RetroDECK `7786a84` (2026-10-03); gamescope master `4d5b7f3`
+(2026-10-19); SDL 3.4.16 (`fa2c02b`, Vita3K's own submodule); Wikipedia's
+Vita lists; this repository at `38cd735`.
+
+##### 1. How vital touch is
+
+**Across the library, with Sony's PS TV list as the proxy:**
+
+- **Recounted 2026-10-19:** Wikipedia's eight Vita lists (A–D revid
+  1375396377, E–H 1362222427, I–L 1375960768, M–O 1375530409, P–R
+  1348458334, S 1374284241, T–V 1376152920, W–Z 1365315994) now hold 1,732
+  rows: **1,125 Yes (65%), 585 No (34%), 21 Partial** (regions only), 1
+  blank. The pages have grown since the count above (1,664 rows).
+- **No source gives a reason per game, so the touch share of the 585
+  cannot be counted.** Sony's reason was general: the Vita has "touch
+  screen, rear touch pad, motion sensors, camera, electronic compass and
+  microphones" that a DUALSHOCK 3 cannot stand in for (Sony's PS Vita TV
+  announcement, 2013-09-09, sonyinteractive.com release 130909c). And a No
+  is not always a feature: each game's `param.sfo` carries a "bootable on
+  Vita TV" flag its publisher sets (psdevwiki, "Param.sfo"), the block was
+  a blacklist ("its a blacklist. not a whitelist", LiEnby/DolcePolce
+  README), and updates moved games onto it (Killzone: Mercenary 1.11, Ys:
+  Memories of Celceta). A seeded sample of ten No titles found none that
+  needs touch and six with no source on their controls, mostly late indies
+  and visual novels: too few for a share. **So 34% is the ceiling on games
+  Sony judged unplayable without a touch screen, and touch is some unknown
+  part of it.**
+- **Among the Yes games, touch is mostly absent, and the pointer is needed
+  in play for at least one in ten.** The one list that notes touch per game
+  is VitaPlayer's (Europe, tested by them, updated 2018-03-16,
+  vitaplayer.co.uk "List of PlayStation TV compatible games"): 232 Yes, of
+  which 32 carry a touch note: 7 for menus only (Jetpack Joyride and its
+  Deluxe, Sparkle, Table Top Racing, The LEGO Movie Videogame, The Walking
+  Dead twice), 1 optional (Ultimate Marvel vs Capcom 3), and **24 that need
+  the pointer in play** ("needs emulated touch controls", Broken Sword 5,
+  Madden NFL 13, OlliOlli, Virtue's Last Reward, the mahjong games, and
+  others). The other 200 carry no note, which is not proof of no touch: his
+  Guacamelee!, Killzone: Mercenary and TxK are Yes and need a tap. Sony's
+  pointer is how all of these play on a PS TV: L3 shows it, the left stick
+  or a DUALSHOCK 4's touch pad moves it, L2 selects ("Using the touch
+  pointer", manuals.playstation.net PS TV guide, read 2026-10-19).
+- **Samples cannot fill the gap.** Seeded samples of 20 Yes and 10 No
+  titles found a source on controls for only 12 of the 30, one of them
+  only from a later port (Jet Set Radio's
+  touch graffiti and Baseball Riot's touch aiming optional, PlayStation Blog
+  2012-09-12 and PS3Blog 2016-02-11; LEGO Marvel's Avengers' free-roam exit
+  needing it); Japanese visual novels and late indies are rarely described.
+
+**His 26** (touch as in the table above):
+
+| Touch | Games | On Sony's list |
+|---|---|---|
+| none, or none found | 7: Geometry Wars 3, Hotline Miami 2, Muramasa Rebirth, Odin Sphere, Riddled Corpses EX, Salt and Sanctuary, Windjammers | all 7 |
+| optional | 6: Dragon's Crown, Ninja Gaiden Sigma Plus, Skullgirls, Thomas Was Alone, Velocity 2X, WipEout 2048 | 5 (not WipEout) |
+| menus only | 3: MotorStorm RC, Shovel Knight, Table Top Racing | all 3 |
+| in play (2 "probably") | 10: Guacamelee!, Killzone: Mercenary, TxK; Gravity Rush, Pumped BMX+ (rear pad), Severed, Banana Splitz, Surge Deluxe, Mutant Blobs Attack, Unit 13 | first 3 only |
+
+- **With no touch at all, 13 of 26 play,** and only one of them is unique
+  here: WipEout 2048, whose touch and tilt are optional but which Sony left
+  off its list.
+- **A pointer adds 6** (3 menus only, 3 in play that Sony passed); the
+  unique ones among them are Table Top Racing, TxK, and Killzone: Mercenary
+  once updates come (#181).
+- **The other 7 need touch in play and are off Sony's list:** swipes (Severed, Surge Deluxe, Gravity Rush), the rear pad
+  (Pumped BMX+), drags and motion (Mutant Blobs Attack). Four are unique
+  (Gravity Rush, Banana Splitz, Surge Deluxe, Unit 13). A real touchpad
+  could do some of what a pointer cannot; that is beyond Sony's rule.
+- **So for him the pointer is the difference between one unique game and
+  three (four with updates);** for the library it matters to a tenth or
+  more of what Sony passed, and to some unknown part of the third it did
+  not.
+
+##### 2. How Vita3K is played without a touch screen
+
+**In Vita3K itself** (master `287accf`):
+
+- **The mouse is touch, in the Qt window only.** The left button is the
+  front screen and the right button the rear pad, both at once if both are
+  held (`vita3k/gui-qt/src/game_window.cpp:489-522` sets the buttons;
+  `vita3k/touch/src/touch.cpp:131` picks the port). Vita3K's site says the
+  same ("rear touchpad is the right mouse button", vita3k.org/quickstart,
+  read 2026-10-19). Turned off on Android, where a touch screen arrives as a
+  mouse too (`touch.cpp:97-103`).
+- **A DUALSHOCK 4's or DualSense's touchpad is touch**, through SDL's
+  gamepad touchpad events, mapped absolutely onto the whole screen
+  (`touch.cpp:70-90, 251-288`; Vita3K PR 2904 "touch: Add touchpad
+  support", 2023-09). It goes to one panel at a time, front by default; in
+  the Qt window a click of the touchpad (or the T key) flips it to the rear
+  (`gui-qt/src/main_window.cpp:1349-1357`; `ctrl_keyboard_filter.cpp:79-80`).
+- **A touch screen is touch** (SDL finger events, `touch.cpp:205-249`): the
+  phone and the Steam Deck's screen arrive this way.
+- **The SDL frontend, the one test 2 above chose (`--frontend sdl`, no
+  dialogs), reads the touchpad and finger events but no mouse at all, and
+  has no front/rear switch** (`vita3k/sdl-frontend/src/session.cpp:291-349`).
+  So under it: the touchpad and a touch screen touch the front, nothing
+  touches the rear, and a mouse does nothing.
+- **No stick pointer of any kind.** `pstv-mode` changes only the pad type
+  (`modules/SceCtrl/SceCtrl.cpp:73`). Asked for and not built: Vita3K/Vita3K#3707
+  ("PSTV 'touch pointer' function", 2025-12-22, open, no reply), Vita3K#3825
+  ("Add rear panel touch gamepad button activation support", 2026-02-13,
+  open, no reply), Vita3K#3261 ("Allow mapping of Steam Deck trackpads akin to the
+  touchpads on the DS4 and DualSense", 2024-03-23, open). The Qt window's
+  on-screen touch cursor was dropped with the old interface (Vita3K#3964,
+  2026-05-24, open).
+
+**In the frontends people use:**
+
+- **Batocera** (`7fa4f7c`): no touch, touchpad or pointer setting. Its one
+  touch item is "SHOW POINTER" ("You can hide the pointer on touchscreen
+  devices", `package/batocera/emulators/vita3k/vita3k.emulator.yml:129-131`),
+  which keeps the mouse cursor for touch
+  (`python-src/batocera-launch/batocera_launch/emulators/vita3k.py:86-88`,
+  "for touchscreen actions"). No pad-to-mouse map for the Vita. Its seven
+  patches to Vita3K are paths, exit, the PS button and the window; none is
+  touch. Batocera's DS stick pointer is melonDS's own option, as ours is.
+- **EmuDeck** (`dddb302`): nothing for Vita3K's touch in its Vita3K config
+  or launcher. Its Steam Deck Steam Input template, shared by every
+  emulator, makes both trackpads an absolute mouse (`configs/steam-input/
+  emudeck_controller_steamdeck.vdf`, groups 95 and 96 bound to
+  `left_trackpad` and `right_trackpad`); the sticks stay sticks. On the Deck
+  that reaches only the Qt window (mouse), and the Deck's screen touches
+  directly. Its radial-menu template has a "Vita3K" preset
+  (`emudeck_controller_steamdeck_radial_menus.vdf`, preset title at line
+  140): the right trackpad an absolute mouse, its click the left button;
+  the right stick stays a stick.
+- **RetroDECK** (`7786a84`): only generic Steam Input templates per pad
+  (the Deck's right trackpad an absolute mouse), nothing for Vita3K; its
+  Vita3K helper file points to its wiki.
+- **RetroBat** (Windows, emulatorlauncher `7f8dc28`): `pstv-mode` as an
+  option (`emulatorLauncher/Generators/vita3k.Generator.cs:190`), nothing
+  for touch.
+- **A Vita3K libretro core exists, unofficial and new:**
+  WizzardSK/vita3k-libretro (`48b9307`, 2026-10-17; a fork, made
+  2026-10-05, of danprice142/Vita3K-libretro, itself a fork of Vita3K;
+  GPL-2.0), given a page in libretro's docs on 2026-10-13 (libretro/docs
+  `15883c8`, docs/library/vita3k.md). Touch follows the frontend's
+  libretro pointer (`RETRO_DEVICE_POINTER`), front, or the rear pad while L2
+  is held; and Cross with no touch held also taps the middle of the screen
+  (`vita3k/libretro/libretro_input.cpp:164-200`). It has no stick pointer
+  either: the pointer is the frontend's mouse or touch screen, and its
+  docs name no other.
+- **Steam Deck in general** (SteamOS, Bazzite, ChimeraOS): the Deck's own
+  touch screen, or a trackpad as a mouse through Steam Input. Vita3K's FAQ
+  sends Deck users to the AppImage in Desktop Mode (vita3k.org/faq, read
+  2026-10-19). Vita3K#2711 ("Steam Deck Multi-touch not working", open since
+  2023-07-04) is still being commented on.
+- **No frontend or setup found gives Vita3K a stick-driven pointer.** Every
+  one relies on a real touch surface: a touch screen, a mouse, a Deck
+  trackpad as a mouse, or a PlayStation pad's touchpad read by Vita3K
+  itself. Searches for a stick or analog touch pointer for Vita3K found
+  only Vita3K#3707.
+
+##### 3. Is it mostly a phone emulator?
+
+- **Downloads say Android, by far.** The last 100 numbered builds
+  (Vita3K/Vita3K-builds 4056 to 4206, 2026-06-13 to 2026-10-19): Android APK
+  667,141 downloads; Linux AppImage 57,313 (zsync update checks included);
+  Windows 21,503; Linux 7z 15,028; macOS 8,522. The old Android repository
+  (Vita3K/Vita3K-Android, 12 releases, 2023-02 to 2024-06) adds 4,332,272.
+  Android is in the main repository now (`android/`), not on Google Play.
+- **The trackers say desktop**, but by design: the compatibility template
+  asks for "Windows/macOS/Linux" and says "Please do not submit test results
+  on Android" (Vita3K/compatibility `.github/ISSUE_TEMPLATE/
+  2-compatibility_report.yml:36-39`). The main tracker's issues mention
+  Android in 192 and Windows in 220 (search API, title or body).
+- **What cannot be known:** Vita3K has no telemetry. The desktop and Android
+  updaters fetch the moving `continuous` release, whose counts reset each
+  build, so the numbered counts miss most updates on every platform, and
+  mirrors and update checkers inflate others. Nobody records how players
+  touch or how many play on a TV. **So: most downloads are Android, a touch
+  device; the desktop players it does have touch with a mouse, a touchpad or
+  a Deck's screen; no setup was found that plays it from a couch with
+  sticks only.**
+
+##### 4. What the DS rule would cost here
+
+- **The DS rule is not console code.** It is one option in melonDS
+  (`melonds_touch_mode` = `Joystick`, `frontend/src/coreoptions.cpp:143-158`,
+  commit `8d59623`): the core moves its own pointer and draws it. Azahar
+  does the same by default (question 50). Vita3K has no such thing to switch
+  on, so here the console would build the pointer itself.
+- **The right stick is not free.** The DS and 3DS have no right stick in
+  play (the 3DS's C-stick shares it); the Vita has two sticks and games use
+  both. Sony's pointer is a mode: L3 shows it, the stick that moves it stops
+  moving the game, L2 taps (PS TV guide, above). Any pointer here needs the
+  same mode, so the stick is withheld from the game while the pointer shows.
+- **What reaches Vita3K under the SDL frontend: only finger events and a
+  pad's touchpad.** Not a mouse (above), so a virtual mouse moved by the
+  stick (uinput `REL_X`/`REL_Y`, or SDL's relative mouse) does nothing there.
+  A pad's touchpad does not pass through either: Vita3K is given the
+  console's virtual pads (`vpad.h`), which have no touchpad, and SDL
+  3.4.16's Linux joystick driver reads none from an evdev device
+  (`src/joystick/linux/SDL_sysjoystick.c`, no touchpad code).
+- **The mechanism that would work, unmeasured: a virtual touch screen.** The
+  console makes one more uinput device, a direct touch screen
+  (`INPUT_PROP_DIRECT`, `ABS_MT_*`), and writes one touch to it. gamescope
+  by default turns any touch into a mouse click
+  (`touch_click_mode`, default `Left`, `src/backend.cpp:173-185`;
+  `src/wlserver.cpp:3375-3410`), which the SDL frontend ignores; set to
+  `Passthrough` (`gamescopectl touch_click_mode 4`, the way `idle.cpp:98`
+  already sets a convar) it passes touch to the window, Xwayland makes it an
+  XInput2 touch, and SDL 3.4.16 reports it as finger events
+  (`src/video/x11/SDL_x11xinput2.c:705, 811, 908`), which Vita3K takes as
+  the front screen. Into that one device go both inputs:
+  - **the stick pointer**: while the pointer shows, the stick moves a
+    position the console keeps and L2 (or R3) puts a finger down there;
+  - **the DualSense or DualShock 4 touchpad**: the console already receives
+    its events in process (`startup.cpp:150-152` filters them by pad; HIDAPI
+    is on for the console's own SDL), and maps the pad's 0 to 1 square onto
+    the screen as a direct touch, beside the stick, one rule with no
+    setting, as question 50 recommends for the 3DS.
+  - **The cursor** would be the console's to draw: Vita3K's SDL frontend
+    draws none. The console's window already composites over a standalone
+    emulator in gamescope's overlay slot (`overlaywin.h`), and can hand
+    input back while staying up; drawing a dot there while the game keeps
+    the pad is new.
+  - **Rear touch stays out of reach** under the SDL frontend (no switch).
+    Of his games, Pumped BMX+ needs it; Sony's list leaves rear-pad games
+    out too.
+- **Files it would touch, if built:** a new `frontend/src/vtouch.cpp` and
+  `vtouch.h` (the virtual touch screen, its own job beside `vpad.cpp`);
+  `standalone_play.cpp` (the pointer mode, withholding the stick, passing
+  touchpad events); the overlay's drawing for the cursor; the Vita launcher
+  itself (`standalone_vita3k.cpp`, needed for any Vita support); the
+  gamescope convar set and restored around a Vita game;
+  `docs/ARCHITECTURE.md`. **Size:** a few hundred lines and an A9 session,
+  medium, with three unknowns only the A9 answers: that Bazzite's gamescope
+  passes uinput touch through as above, that Xwayland and SDL turn it into
+  finger events Vita3K accepts, and that the DualSense's touchpad events
+  reach the console (#288's open check).
+- **The other ways, and why not:** the Qt window instead of the SDL frontend
+  reads a mouse and switches to the rear pad, but brings back the dialogs
+  test 2 removed. Handing Vita3K the real pads gives it their touchpads and
+  gyros, but undoes `vpad.h` (player order, the pause menu's hold) for one
+  system (question 49's gyro section). **The libretro core** would move
+  the Vita into the core host, where the pointer is the console's own
+  answer to `RETRO_DEVICE_POINTER`: the same piece question 50 recommends
+  for the 3DS touchpad, plus a stick-moved position and a cursor drawn on
+  the console's own picture, with rear touch on L2 and gyro through the
+  sensor interface. Technically the closest fit, but it is one person's
+  fork two weeks old, not upstream's, and its Cross rule taps the middle
+  of the screen on every Cross press while nothing else touches, in every
+  game: not one to adopt today. A virtual DualSense through `/dev/uhid` is
+  larger still and unproven. **Upstream first** is the cleaner route: the
+  pointer inside Vita3K (Vita3K#3707), where the emulator knows the screen
+  and draws the cursor, as melonDS and Azahar do, turned on by
+  an option the console sets; the console's virtual touch screen is the
+  fallback, written in full here.
+
+##### Recommendation and his one decision
+
+- **How vital:** for a Vita on a television it is Sony's own answer, and
+  on Sony's list it is needed in play for at least one game in ten and in
+  menus for more. On his library it turns one unique game into three.
+- **Who else does it: nobody.** No frontend, setup or fork gives Vita3K a
+  stick pointer; everyone else has a touch surface (phones, the Deck, a
+  mouse, a PlayStation touchpad). The console would be first, with Sony's
+  PS TV pointer as the model.
+- **Where it is played:** mostly Android by downloads, desktop by reports;
+  no telemetry, so not knowable beyond that.
+- **What it costs here:** not the DS's one option. Under the SDL frontend
+  the only door is touch, so the console would build a virtual touch screen
+  fed by a stick pointer in a mode (the Vita uses both sticks) and by the
+  touchpad, set gamescope to pass touch through, and draw the cursor
+  itself: medium work and three A9 unknowns, front screen only.
+
+**My view: keep "no, for now", and go upstream first.** For his library
+the pointer buys two unique games (three with updates), the work is
+medium with unknowns only the A9 can answer, and the right home for it is
+inside Vita3K, as melonDS and Azahar carry theirs, behind an option the
+console sets. The console's virtual touch screen above is the recorded
+fallback, and the libretro core is one to watch, not adopt. One step is
+worth taking whatever he decides, because it serves the 3DS too: #288's
+open check on the A9, whether his DualSense's touchpad events reach the
+console. **His one decision:** ask Vita3K for the pointer (a comment of
+support on Vita3K/Vita3K#3707 in his voice, on his go) and wait, or have
+the console build its own pointer now, which would turn question 49 into a
+go with conditions once the hand test passes.
+
+#### Decided, 2026-10-20: the build plan
+
+**A go.** Settled with MMagTech on 2026-10-20, one choice at a time, to be
+built after the 3DS (#524, "Nintendo 3DS through Azahar's own libretro core
+(decrypted dumps)"), which merged the same day. It supersedes "Recommendation, 2026-10-19" and
+the addendum's "My view": the console builds its own pointer now instead of
+waiting on Vita3K/Vita3K#3707. Nothing was built and nothing ran on the A9
+or the VM; the one piece of new research is Sony's own description of the
+PS TV pointer, below. The full-features rule (question 50, "Full
+features") applies: states, RetroAchievements and levels
+are each answered here.
+
+##### His decisions
+
+1. **Seamless start.** Play goes straight into the game, as PS3 and Wii do:
+   Vita3K's SDL frontend only (test 2), never its Qt window, so no Vita3K,
+   Vita or PlayStation screen is ever shown. The firmware install and each
+   game's install run in the background.
+2. **The pointer is the console's own:** the addendum's virtual touch screen
+   (section 4), a uinput touch screen whose touches gamescope passes to the
+   window (`touch_click_mode` set to passthrough around a Vita game), with
+   the dots drawn by the console. No patch to Vita3K, so nothing to track.
+3. **`pstv-mode` on for every game:** each controller is its own player,
+   and L2, R2, L3 and R3 reach games that ask for the PS TV's pad
+   (`ctrl.cpp:199-219, 263-287`). It blocks nothing: Vita3K has no PS TV
+   ban list, so every game starts with it on.
+4. **Sony's PS TV layout, with two changes.** The left stick moves the dot
+   and L2 taps; L2 held is a finger kept down, so hold and move drags.
+   Moving the right stick brings a second, red dot, tapped with R2. While a
+   dot shows, both sticks, L2 and R2 work the dots and every other button
+   goes to the game. The changes: a long press of L3 (about half a second)
+   shows and hides the dots, where the PS TV used a plain L3 click behind a
+   switch in its PS button menu, so L3 stays the game's on a click; and no
+   rear pointer (Sony's R3), since a virtual touch screen reaches only the
+   front. Chosen over a right-stick-and-R3 layout matching the DS (#374,
+   "Nintendo DS: the touch screen probably does nothing; set it to the right
+   stick") and the 3DS, because Sony judged its list playable with this
+   exact pointer, a trigger taps without nudging the aim, drags come
+   naturally, and it has two fingers. The cost: the game gets neither stick
+   while a dot shows.
+5. **No touch pad.** The sticks are the one way to touch, on every
+   controller. A DualSense's touch pad would have served only the Vita (the
+   3DS is settled without one; melonDS takes one touch mode at a time,
+   `coreoptions.cpp:143-158`), on a check nobody has run (#288, "Nintendo
+   DS: a controller's touchpad as the touch screen").
+6. **Every Vita game shows, with no greying.** The Vita plays as a PS TV:
+   games Sony kept off it may stop where they need a swipe, the rear pad or
+   tilting, and nothing beyond Sony's list is promised. No maintained data
+   says which games need touch or motion: Wikipedia's PS TV column is by
+   name and mixes real needs with publisher choices, and the `param.sfo`
+   PS TV flag was not checked against it. The changelog entry says it in
+   one line.
+7. **Missing firmware follows the PS3's rule** (`installPs3Firmware`,
+   `standalone_rpcs3.cpp:99-135`): installed once per console at the first
+   Play, again only when RomM's file changes; with none on the server the
+   game does not start and the console says "No PlayStation Vita firmware
+   on your server"; a failed install says "Couldn't install the PlayStation
+   Vita firmware". Both files are needed: with the font package missing,
+   "No PlayStation Vita font package on your server". The two are told
+   apart by what Vita3K installs from each, not by their names. MMagTech
+   says both are on his server (2026-10-20; not read this session).
+8. **Levels from measurement.** Resolution candidates by `quality.cpp`'s
+   rule: 1x (960x544), 2x (1920x1088, the 1080p step), 4x (3840x2176, the
+   4K step), fixed only from the hand test's frame times and stepped down
+   where the A9 cannot hold the game's full speed. Anisotropic filtering
+   16x at every level, with no test: PCSX2 at 5x with the GPU at 99% ran
+   the same with it off (`quality.cpp:283-296`, 2026-10-04), so 8x would
+   free nothing. Shaders built in the background above Performance and when
+   first needed at it, as Dolphin's and Eden's levels do, if Vita3K at the
+   pin has the setting, and kept only if the hand test's first runs show it
+   helps. The level moves only resolution and shader building (2026-10-02).
+   FXAA, screen filters, FSR and accuracy settings stay off or as Vita3K
+   ships them. Vulkan.
+9. **No gyro,** as on the PS TV, which gave Vita games none.
+10. **No save states:** Vita3K has none, so no fast forward and no rewind,
+    as for the other separate emulators. **No RetroAchievements:** as far
+    as known it does not support the Vita; confirm against
+    RetroAchievements' docs before the build (not read this session).
+
+##### The PS TV pointer, as Sony documents it (read 2026-10-20)
+
+Read: Sony's PS TV guide (manuals.playstation.net, `pstv/game/touchpointer.html`,
+`basic/menu.html`, `basic/usecontroller.html`), its quick start guide
+(VTE-1016), and The Sixth Axis of 2013-09-09.
+
+- **A switch the player turns on:** hold the PS button and tick "Use Touch
+  Pointer in Games". Whether it starts on, and whether it is per game, is
+  not stated. It works in "some supported" games; Sony's list of them is
+  not in the guide.
+- **The buttons:** L3 shows the front pointer (as does touching a DUALSHOCK
+  4's touch pad), R3 the rear one, both together both. The left stick or
+  the touch pad moves it; L2 selects, as do Cross on a DUALSHOCK 3 and the
+  pad's button on a DUALSHOCK 4. Moving the right stick brings a second,
+  red pointer, tapped with R2. How a pointer is hidden is not described.
+  Never on the home screen or LiveArea.
+- **Nothing says how the pointer and a game's own L2, R2, L3 and R3 were
+  reconciled.** Sony's apparent answers, a player's switch and a chosen set
+  of games, are both unavailable here (no Sony menu; one rule for every
+  game), hence the long press.
+
+##### The rest, from the console's existing patterns
+
+- **Who drives the dots:** whichever player holds L3. A dot starts at the
+  screen's middle and stays where it was left. The long press counts only
+  while R3 stays up, so L3 + R3 opens the pause menu and never shows a dot.
+- **Order of work:** first, on the A9, a throwaway probe (a uinput touch
+  screen, `gamescopectl touch_click_mode 4`, a numbered Vita3K build by
+  hand) to see a touch reach Vita3K as a finger: the addendum's first two
+  unknowns. If either fails, stop and bring the patch route (the pointer
+  inside Vita3K, as Vita3K/Vita3K#3707, "PSTV 'touch pointer' function",
+  asks) to MMagTech, named, before any code; a patch would get a tracking
+  issue linked to #3707.
+- **Pin:** a numbered build from Vita3K/Vita3K-builds, its x86-64 AppImage
+  by tag and checksum, in the image as Xenia's is, fetched from GitHub at
+  image build only. Vita3K's `config.yml` written before each start (test
+  2): `discord-rich-presence: false`, `http-enable: false`,
+  `show-compile-shaders: false`, a log level, `pstv-mode: true`, the
+  level's settings, Vulkan.
+- **Download and install:** as test 3, installed with its `work.bin` into
+  the game's folder on the download worker and the zip removed after; about
+  twice the game's size free during it (Killzone: Mercenary, 3.2 GB).
+  Removing the game removes the install. The shader cache is console-wide,
+  as Xenia's is.
+- **Saves:** `ux0/user/00/savedata/<dir>` zipped to RomM per person, as
+  PSP's and Xbox 360's are, kept in the person's folder, tagged with the
+  emulator's name, `vita3k`. A real Vita's saves will not load.
+- **Quitting:** Quit closes Vita3K by SIGTERM, with a kill after a wait, as
+  for the others; a game's own exit returns Home.
+- **Offline:** an installed game plays with no server; its save goes up
+  when the server is back, as for the others.
+- **Updates and DLC:** wait on #181, "Updates and DLC as separate files in
+  RomM (Switch, PS3, Xbox 360)"; Killzone: Mercenary stays at 1.00, before
+  its PS TV update, until then.
+- **Parity:** the build session lists every feature the other separate
+  emulators have (time played, Recent, Resume, saves, the pause menu's
+  rows) from `standalone.cpp`'s table and matches each one.
+- **Upstream:** nothing to ask, since Vita3K is unchanged; a comment of
+  support on Vita3K/Vita3K#3707 only on MMagTech's go.
+- **Files:** new `frontend/src/standalone_vita3k.cpp` (the launcher) and
+  `frontend/src/vtouch.cpp` with `vtouch.h` (the virtual touch screen, its
+  own job beside `vpad.cpp`); changes to `standalone_play.cpp` (the pointer
+  mode), the overlay (the dots), `quality.cpp`, `savetable.cpp`, the
+  image's install of the AppImage beside Xenia's, `docs/ARCHITECTURE.md`,
+  `docs/wiki/changelog.md`, and `docs/LICENCES.md` (GPL-2.0).
+
+##### The A9 hand test, with MMagTech at the TV
+
+After the probe passes and the build is on the A9:
+
+- Both firmware files install without a window.
+- Three game installs, timed, with peak disk; Killzone: Mercenary is the
+  largest.
+- A game starts with nothing on screen but the game, filling the TV.
+- The pointer: Table Top Racing's main menu, and TxK's tap in play.
+- Frame times (frames.py) at 1x, 2x and 4x in Shovel Knight and in WipEout
+  2048 or Gravity Rush.
+- Stutters on a first run with the shader cache emptied, background
+  building on and off.
+- Whether Killzone: Mercenary and Skullgirls 2nd Encore play here despite
+  their reports.
+- Quit from the pause menu with a save made just before it, and the save on
+  RomM.
+- Two controllers in Skullgirls 2nd Encore.
+- A game's own exit.
+
+#### Built, 2026-10-21
+
+Built overnight by an unattended session, to the plan above, with nothing
+asked of MMagTech. Vita3K numbered build 4210 (`649d7d69`, 2026-10-21),
+installed as Xenia is (`build_files/install-vita3k.sh`); the launcher
+`frontend/src/standalone_vita3k.cpp`; the virtual touch screen
+`frontend/src/vtouch.cpp` and `vtouch.h`; the pointer in
+`standalone_play.cpp`; the levels in `quality.cpp`; the save tag in
+`savetable.cpp`. Measured on the A9, headless (a headless gamescope of its
+own, a bare `/dev` with the GPU and `/dev/uinput`, dummy sound), against the
+write-test RomM with Shovel Knight, TxK and both firmware files copied there
+from his server.
+
+**What the build found that the plan did not know:**
+
+- **The AppImage is a "sharun" build:** `bin/Vita3K` runs `shared/bin/Vita3K`
+  with its own glibc and libraries, its own Mesa 26.2.5 Vulkan drivers first
+  whatever the environment says (the image has 26.2.4). Its launcher runs
+  hooks, one of which updates the AppImage from the internet, so the image
+  leaves the launcher out and the console sets what it would have: `APPDIR`
+  (without it Vita3K crashes at boot, finding no built-in shaders).
+- **Vulkan crashed at every boot** under the SDL frontend: the AppImage
+  carries its Vulkan loader only as `libvulkan.so.1.4.363`, so the SDL inside
+  Vita3K loaded the system's `libvulkan.so.1` while Vita3K had made its
+  instance with its own (gdb: a call through a bad dispatch table). OpenGL
+  ran. The install adds the link `lib/libvulkan.so.1` and the console names
+  it in `SDL_VULKAN_LIBRARY`: Vulkan on the RADV STRIX1, no patch. A report
+  to Vita3K (or its AppImage packaging) is for his go.
+- **The first run with no `config.yml` crashes a firmware install**
+  (`create_directories("")`, exit 134), so the settings are written before
+  every run, installs included.
+- **Installing with no window:** the SDL frontend given the zip installs it,
+  decrypts it with `work.bin`, then fails to open a window under SDL's dummy
+  video (exit 255): the log's "installed successfully!" decides. Shovel
+  Knight, 138 MB: 0.8 s, 265 MB on the disk at the peak; TxK the same way.
+- **The firmware:** `PSVUPDAT.PUP` is the system software (`os0/`, `vs0/`,
+  1.2 s), `PSP2UPDAT.PUP` the font package (`sa0/`, 1.1 s); the console tells
+  them apart by those folders.
+- **Vita3K's default camera is the machine's webcam** (camera type 2): set to
+  a plain colour, as a PS TV has no camera.
+- **Trophies live under Vita3K's one user**, so they are linked to the
+  person's folder for the game, as the saves are, and stay on the console (a
+  PS3 game's trophies do the same in its `hdd0`). The person's name is the
+  Vita user's, cut to sixteen bytes.
+
+**Checked, all passed:** two games in a row (only the playing game linked
+in; TxK wrote its own save, two files); the save round trip (deleted on the
+console, the same bytes back from RomM before Vita3K started); two people
+(after a switch, person 2 started with no save, their own folder and name,
+and their save went up as user 2; person 1's untouched); after a switch,
+opening the Vita shelf; offline (an installed game played with the server
+away and its save went up at the next start online); the quit paths: Exit
+(SIGTERM, 0.1 s, exit 0), the pause menu's freeze then Exit, Vita3K killed
+mid-game (back Home), the console quitting mid-game (save zipped and sent),
+a power cut mid-game (the next start sent it). `--check-option-tables`
+passes; no new warnings.
+
+**The probe passed** (2026-10-21, on the TV session, MMagTech's go): Vita3K
+by hand on the TV's gamescope with Shovel Knight, `touch_click_mode` 4, and
+two taps from the console's virtual touch screen (`vtouch.cpp`). SDL's event
+log inside Vita3K showed each as `SDL_EVENT_FINGER_DOWN` and `UP`: the tap at
+0.5, 0.5 of the screen arrived at 0.5005, 0.5009 of the window, the one at
+0.2, 0.8 at 0.197, 0.801 (the window is a little narrower than the screen,
+the Vita's shape). So a touch reaches Vita3K as a finger, mapped into the
+game's window by gamescope, and no patch is needed.
+
+**On the TV with MMagTech, 2026-10-21, testing image 2026.10.21.3:** the
+firmware and four installs (WipEout 2048 first, so both firmware files then);
+the pointer in WipEout 2048's menus, which need a tap (the dots, the long
+press and L2's tap all worked; the touch screen made at the first long press
+and removed at the game's end, gamescope's touch mode put back); saves up to
+his RomM from Shovel Knight and WipEout 2048, and Shovel Knight's back at the
+next start; the pause menu and Exit; the right stick (Riddled Corpses EX).
+**The levels hold at Quality, 4x**, measured with frames.py and the graphics
+chip's busy percentage, a minute each: Shovel Knight 59.9 frames a second,
+median 16.68 ms, GPU 27%; WipEout 2048 in a race 30.0 (its own rate), median
+33.33 ms, GPU 46% at 1,694 of 2,900 MHz; Gravity Rush (its opening, so light)
+30.0, GPU 28%. So Performance 1x, Balanced 2x and Quality 4x stay as built.
+**Vita3K's, not the console's:** Gravity Rush's opening cutscene looked washed
+out and its camera did not follow the right stick (Vita3K's own reports note
+graphics faults in this game; the right stick reaches the virtual pad at full
+range); **Geometry Wars 3: Dimensions crashes as its first level starts**, a
+GPU page fault (amdgpu, TCP client, permission fault) and then Vulkan's
+device lost, twice on the TV. Reproduced headless with scripted presses and
+the same fault every time at 34 s: as Vita3K ships with none of the
+console's settings, at 1x and 4x, with anisotropic filtering on and off,
+with its memory mapping off, on OpenGL as well as Vulkan, and on build 4206
+as on 4210. A survey of the reports (2026-10-21): it has never been reported
+playing on Linux. The one Linux AMD report (RX 6600, build 4056, 2026-06-18)
+reached the autosave screen, no level; every report of play is Windows or
+Android (Vita3K/compatibility#3743, #35). Vita3K/Vita3K#3099, open since
+2023, collects Vulkan crashes and hangs on Steam Deck and AMD Linux in other
+games, one with the same `ErrorDeviceLost` on RADV (Persona 4 Dancing All
+Night). So it fits a known Vita3K fault on AMD Linux, not the console. One
+rule for every game: it waits for Vita3K, and a comment on #3099 goes only on
+his go.
+
+**Not checked yet:** a game's own exit; Killzone: Mercenary and Skullgirls
+2nd Encore; two controllers; the first-run stutter test.
+
+**Open:** his server's `psvita` folder (ES-DE's 26 launch files) shows as a
+game; Play on it says "Couldn't open this game's file".
+
+### 50. Nintendo 3DS (Azahar's libretro core)
+
+**Researched 2026-10-19; go given the same night, with the conditions
+below; built, tested on the TV, and every condition met on 2026-10-20**
+(see "The go, and the build", "The TV run" and "Conditions 4 and 5" at the
+end). Asked by
+MMagTech on the night of 2026-10-19, with no issue: should the console play
+the 3DS, and how. His four questions (a stable core, Vulkan, upscaling for
+the picture quality levels, the pointer), then the tests the Vita had
+(question 49). The 3DS was never decided either way: Cabinet's core list had
+no 3DS core, so the catalog has no `3ds` row. Read: Azahar's source at master
+`987f184` (2026-10-17) and at its release 2126.2 (`219d743`, 2026-10-08),
+its releases, issues and compatibility list (`d282515`, 2026-08-20);
+libretro's page for the core, its core info and its Linux buildbot
+(2026-10-19); libretro-common at `7fc7fee` (Azahar's pin of it); RomM's
+source and its 5.4.0 release notes; No-Intro's 3DS DATs (libretro-database
+`9a899f5`, 2026.10.07); Wikipedia's list of best-selling 3DS games; and his
+RomM, read-only with the Mac token. Nothing was built, and nothing ran on the
+A9 or the VM. Azahar's lines below are at master; at 2126.2 the core is the
+same on every point quoted here.
+
+#### What his server holds
+
+**No 3DS games.** His RomM has 38 platforms and none is the 3DS (RomM's slug
+is `3ds`, `backend/utils/platform_slugs.py`), and none of its 1,706 games is
+a 3DS file (`.3ds`, `.cci`, `.cxi`, `.cia`, `.3dsx` or their compressed `z`
+forms). So the test against his own library is empty; the best-sellers below
+stand in for it.
+
+#### 1. The core: Azahar's own, in Azahar's repository
+
+- **Where:** `src/citra_libretro/` in azahar-emu/azahar, branch `master`. It
+  landed on 2026-02-19 (`d9b77cc`, Azahar PR #1215) and builds with the
+  emulator: one CMake switch, `-DENABLE_LIBRETRO=ON`, which turns the Qt
+  window, SDL and the rest off by itself (`CMakeLists.txt:172-195`). The old
+  libretro/citra fork is a different core; the buildbot still builds it as
+  `citra_libretro`.
+- **Built and released by:** Azahar itself, whose every release since
+  2125.0-alpha5 (2026-03-08) carries `azahar-libretro-linux-x86_64-*.zip`
+  (its a workflow for it under .github/workflows: Ubuntu 22.04, gcc 12); and
+  libretro's buildbot, nightly (`azahar_libretro.so.zip`, 2026-10-19), whose
+  core info names it "Nintendo - 3DS (Azahar)".
+- **How often it moves:** 34 commits touch the core's folder in eight
+  months, the last on 2026-10-12. Azahar made 10 stable releases with a
+  Linux libretro core in six and a half months, from 2125.0.1 (2026-03-26)
+  to 2126.2 (2026-10-08), each on a release branch that takes backported
+  fixes.
+- **A commit to pin and leave: the 2126.2 tag,
+  `219d743a1e698101fe1ab8bef43e6563126c3c27`** (2026-10-08, branch
+  `azahar-2126`, cut from master at `26e608f` on 2026-09-09). Its backports
+  include "Fix Libretro core crash on unload" (#2572). It lacks what master
+  added after the cut, among it the bundle files (test 3 below) and a fix
+  for taps outside the touch screen (#2563, a mouse matter here).
+- **Licence: GPL.** The repository's `LICENSE.txt` is GPLv3; the core's files
+  say GPLv2 or later, two of them GPLv3 or later (`environment.cpp`,
+  `core_settings.cpp`), so the built core is GPLv3. One more GPL line in
+  docs/LICENCES.md, built from source like Dolphin.
+- **Does it build the way the 22 do: on paper, yes.** One case arm shaped
+  like Dolphin's: `BUILDSYS=cmake`, `CMAKE_TARGET=citra_libretro` (the target
+  Azahar's own workflow builds; the file comes out as `azahar_libretro.so`,
+  which the script's discovery finds),
+  `CMAKEARGS=(-DCMAKE_BUILD_TYPE=Release -DENABLE_LIBRETRO=ON -DENABLE_TESTS=OFF -DENABLE_BUILTIN_KEYBLOB=OFF)`
+  (the last of them under "Keys and the network" below), the tag's commit
+  asserted. Its libraries come in 36 submodules, which the script already
+  fetches; it wants CMake 3.25 or newer. Its options are
+  libretro's v2 kind, which the host and `tools/core-options.c` read.
+  **Not built:** whether it compiles in `cabinetos-builder` (Fedora 44, a
+  newer gcc than Azahar's CI) is the first thing to learn, in CI.
+- **The legal point, named so it is decided rather than missed.** Built into
+  the image, a 3DS emulator is one the project distributes, as Dolphin is.
+  Citra was taken down in 2024 with the Yuzu settlement. Azahar, its
+  continuation, removed encrypted-game support in 2025 (`dc1ebb6`,
+  2025-02-27: "Remove encrypted game support"), is distributed by libretro's buildbot
+  and by Flathub, and no action against it was found in public reports;
+  Nintendo's 2026 takedowns named Switch emulators. Eden stays on Flathub for
+  the Switch reason (question 32, "A legal point"); whether the 3DS needs the
+  same care is his call.
+
+#### 2. Vulkan: the core fits the host as it is
+
+What the core asks for (`citra_libretro.cpp:563-618`):
+
+- **It asks the frontend which API it prefers** and takes the answer while
+  its option `citra_graphics_api` is at its default (`environment.cpp:65-100`).
+  The host answers Vulkan wherever there is a usable device
+  (`core_hwrender.cpp`, `GET_PREFERRED_HW_RENDER`).
+- **On Vulkan:** `RETRO_HW_CONTEXT_VULKAN` at Vulkan 1.1 (`:596-597`,
+  `libretro_vk.cpp:34`), and a context negotiation interface. It declares
+  libretro-common's interface version 2 but fills only version 1's two entry
+  points, `get_application_info` and `create_device` (`:608-615`);
+  version 2's are optional ("If non-NULL", libretro-common
+  `libretro_vulkan.h`), so the host's version 1 is what the core relies on.
+  Its `create_device` keeps the extensions the frontend asks for
+  (`libretro_vk.cpp:83-89`), unlike Flycast's, so the host's external-memory
+  extensions reach the device (`vkhost.cpp`, `createCoreDevice`). It hands
+  each frame over by `set_image` with no semaphores (`libretro_vk.cpp:703-708`),
+  as Dolphin and Flycast do. **Served as is.**
+- **On OpenGL, if its option says so:** desktop OpenGL 4.3 core profile
+  (`:573-575`), and `SET_HW_SHARED_CONTEXT`, which the host refuses
+  (`core_hwrender.cpp`, "No. A shared context is for a core that renders
+  from its own thread") and the core ignores (`:567`). The second desktop
+  context made for the DS (#219, PR #508) serves a 4.3 core where the driver
+  makes one. One thing to check on that path: the core declares a largest
+  picture of 7200x4800 (`environment.cpp:314-316`), and the host sizes the
+  GL render target to the declared largest (`ensureHWTarget`).
+- **Nothing is refused by name, on either API.**
+
+**But Azahar does not stand behind its Vulkan renderer as it does OpenGL:**
+
+- Its compatibility list counts OpenGL only: "Vulkan is not included in this
+  compatibility list, as it is considered to be in an unstable state" (the
+  list's README, unchanged since 2024-11-16).
+- Desktop Azahar starts on OpenGL; only Android starts on Vulkan, since
+  2026-04-06 (`common/settings.h:516-529`).
+- Open since 2026-05-05: azahar-emu/azahar#2093 ("[Libretro] Unsynced Video
+  presentation with Vulkan"): in RetroArch on Vulkan, frames are repeated and
+  skipped (Mario Kart 7; seen again in another game 2026-08-08), and not on
+  OpenGL or in Azahar's own window. Both reports are NVIDIA on Windows; a
+  Radeon on Linux is not reported either way.
+
+By the rule (CONTRIBUTING.md, "The rules": Vulkan where there is a Vulkan
+renderer, OpenGL only "where a measurement on real hardware shows it is
+better"), the core starts on Vulkan and the hand test measures both on the
+same scene. Switching is one option, `citra_graphics_api` (`Vulkan`,
+`OpenGL`).
+
+#### 3. Upscaling, and the three levels
+
+- **The lever:** `citra_resolution_factor`, `1` to `18`, default `1`
+  (`core_settings.cpp:380`): "1x (Native 400x240)" up to "18x (7200x4320)".
+  The bottom screen is 320x240 at the same factor.
+- **What else costs:** "Accurate Shader Multiplication", on by default, "can
+  reduce performance" (`:351`); hardware shaders and the shader recompiler,
+  on; a texture filter (`none`, Anime4K for OpenGL only, Bicubic, ScaleForce,
+  xBRZ, MMPX), off: a look, kept out of the levels as Genesis's NTSC filter
+  is (question 23). The disk shader cache is on (`:366`). Building shaders
+  in the background, Dolphin's Balanced lever, is not a libretro option here.
+- **Where the panel's size falls:** on a 3840x2160 TV the two screens
+  stacked are drawn at 4.5x, side by side at 5.33x; on a 1080p TV at half
+  that.
+- **A mapping in the pattern of `quality.cpp`, to measure:**
+
+| Level | `citra_resolution_factor` | Top screen | Why |
+|---|---|---|---|
+| Performance | 1 | 400x240 | the 3DS's own, as PSP, N64 and DS are at Performance |
+| Balanced | 3 | 1200x720 | at or just above a 1080p TV's size in either layout |
+| Quality | 5 | 2000x1200 | about a 4K TV's size in either layout |
+
+  Everything else at the core's own value at every level, accurate
+  multiplication included, unless the A9 shows it costs a level. `azahar`
+  joins `hasLevels`.
+- **Performance on a Radeon 890M: no public measurement found**, of Azahar
+  or Citra, on it or on any Radeon integrated chip. The nearest is a Steam
+  Deck guide that sets 3x on Vulkan in Azahar's own window ("you can
+  confidently set" it, gardinerbryant.com, 2026 update), with no frame rates.
+  Only the A9 can say.
+
+#### 4. The pointer, and the screens on one TV
+
+- **The core does the DS's rule by itself.** Its "Right Analog Function"
+  (`citra_analog_function`, `core_settings.cpp:628`) defaults to "C-Stick and Touchscreen
+  Pointer": the right stick moves a cursor the core draws on the bottom
+  screen, and R3 touches (`citra_libretro.cpp:130-131`;
+  `mouse_tracker.cpp:138-173`). A full push crosses a twentieth of the
+  screen a frame, about a third of a second across (`:143-144`); a 15%
+  dead zone; the cursor hides after 4 still seconds (`:207-216`). Mouse and
+  touch-device input are options too, but the host answers neither device
+  (#374), so they are inert. **No console code and no option override: the
+  default is #374's rule**, right stick moves, R3 taps.
+- **One difference from the DS:** the 3DS has a C-stick (New 3DS) on the
+  same right stick. In the default the stick is both at once: in a game that
+  turns its camera with the C-stick, the cursor moves and shows too, and only
+  R3 taps. The core's other values are "Touchscreen Pointer" (the C-stick
+  lost) and "C-Stick" (touch lost). The default is the one rule that loses
+  nothing; its cost is a cursor that wanders while the camera turns.
+- **Does one rule hold with no exception per game?** As for the DS (#248,
+  "one rule for every game"): the games built around the stylus suffer, the
+  rest play on buttons with the odd tap. Nothing here needs a per-game
+  choice. How many suffer is counted below.
+- **Touch for play, or for menus and maps only** (MMagTech's addition,
+  2026-10-19). A research pass over 50 games, the 25 best-sellers and 25
+  chosen for their touch use (Kid Icarus: Uprising, the Layton games,
+  rhythm, drawing and puzzle games), from Nintendo's and Capcom's
+  electronic manuals, Wikipedia and reviews; Theatrhythm counted twice
+  because Curtain Call changed its controls, so 51 rows. The sample leans
+  towards touch games on purpose.
+  - **Menus and maps only (30):** Mario Kart 7, Pokémon X and Y, Sun and
+    Moon, Omega Ruby and Alpha Sapphire, Ultra Sun and Ultra Moon, New Super
+    Mario Bros. 2, Animal Crossing: New Leaf, Super Mario 3D Land, Super
+    Smash Bros., Luigi's Mansion: Dark Moon, Ocarina of Time 3D, Majora's
+    Mask 3D, A Link Between Worlds, Monster Hunter Generations and 4
+    Ultimate, Fire Emblem Awakening and Fates, Donkey Kong Country Returns
+    3D, Bravely Default, Kirby: Planet Robobot and Triple Deluxe, Xenoblade
+    Chronicles 3D, Star Fox 64 3D, Paper Mario: Sticker Star, Pilotwings
+    Resort, Pokémon Mystery Dungeon: Gates to Infinity, Fantasy Life,
+    Rhythm Heaven Megamix (touch optional), Theatrhythm: Curtain Call
+    (buttons added), Phoenix Wright: Dual Destinies (the weakest call:
+    StrategyWiki calls it touch-led, a review found the buttons easier).
+    Two have menus that only touch reaches, which the pointer reaches:
+    Ocarina of Time 3D assigns items by touch (its manual), Bravely Default's
+    Norende Village and SP Drink menus.
+  - **Touch for play, throughout (15):** Kid Icarus: Uprising (aiming; but
+    Wikipedia says face buttons aim too), Professor Layton and the Miracle
+    Mask and the Azran Legacy, Tomodachi Life, Nintendogs + Cats, Style
+    Savvy: Trendsetters, Picross 3D: Round 2, Happy Home Designer, Super
+    Mario Maker for Nintendo 3DS (its editor), Yo-kai Watch and Yo-kai Watch
+    2 (the battle wheel), Theatrhythm Final Fantasy ("controlled solely with
+    the stylus", Nintendo World Report), Brain Age: Concentration Training,
+    Steel Diver, Dillon's Rolling Western.
+  - **Touch for play, in parts (6):** Professor Layton vs. Phoenix Wright
+    (story puzzles), Metroid: Samus Returns (switching beams, the Grapple
+    Beam among them), Mario & Luigi: Dream Team (Luiginary Works), Kingdom
+    Hearts 3D (Reality Shifts, needed in some boss fights), WarioWare Gold
+    (Touch League), Mario Party: Island Tour (some minigames).
+  - **What the stick pointer covers, with no rule per game:** it reaches
+    every tap and drag (R3 held while the stick moves), at stick speed. So
+    it carries the 30 menu games and the 10 whose touch play waits for the
+    player (the Layton three, Tomodachi Life, Nintendogs + Cats, Style
+    Savvy, Picross 3D, Happy Home Designer, Super Mario Maker's editor,
+    Dream Team): **40 of 51, 78%, of a sample that leans to touch.** The 11
+    whose touch play is against the clock (Kid Icarus, Theatrhythm Final
+    Fantasy, Brain Age, Dillon, the two Yo-kai Watch games, WarioWare Gold,
+    Mario Party: Island Tour, Kingdom Hearts 3D, Steel Diver, Metroid's beam
+    switching in a fight) are where a stick likely cannot keep up; that
+    split is a reading of the sources' descriptions, for the TV to confirm.
+    **Of the best-sellers alone** (24 classified; Japan's Monster Hunter 4
+    was not), 17 use touch for menus only and 4 more wait for the player:
+    **21 of 24**. The other three are the Yo-kai Watch games and Island
+    Tour's minigames.
+  - **His own 3DS games:** none on his server to sort.
+  - **The timed 11 are where a touchpad helps** (below): direct touch, as a
+    stylus, for the players whose pad has one.
+- **A touchpad as the bottom screen, beside the stick (#288's question,
+  asked again for the 3DS, MMagTech 2026-10-19).** melonDS takes one touch
+  mode at a time, so the DS's touchpad would have cost the stick (#288, set
+  aside). **This core takes both at once.** One pass of its pointer code
+  reads the mouse button and libretro's absolute pointer
+  (`RETRO_DEVICE_POINTER`, pressed, X and Y), then the right stick and R3,
+  and ORs the presses: the pointer sets the position, the stick moves it
+  from there, either one touches (`input/mouse_tracker.cpp:100-188` at
+  master; the same order at 2126.2, `:132-240`). Both inputs are on by
+  default ("Mouse Touchscreen Support", "Touch Device Support"). So the
+  console could answer `RETRO_DEVICE_POINTER` from player 1's touchpad when
+  that pad has one, and every pad keeps the stick: one rule, no setting.
+  What it would take, and what to know:
+  - **SDL brings touchpad events into the host already,** in process: the
+    console's event filter names `SDL_EVENT_GAMEPAD_TOUCHPAD_*`, to drop a
+    set-aside pad's (`startup.cpp`); SDL reports a DualShock 4's or a
+    DualSense's touchpad.
+    Whether those events arrive under CabinetOS is still #288's open check,
+    on the A9. `core_input.cpp` answers only the pad and its sticks today;
+    the pointer is new code there.
+  - **Map the touchpad onto the bottom screen's rectangle,** not the whole
+    picture: the core counts a touch only where it starts on the bottom
+    screen (`mouse_tracker.cpp:120`), and the pointer's range is the whole
+    frame (`:114-117`). The console sets the layout, so it knows where the
+    bottom screen is. (At 2126.2 a touch off the bottom screen still taps at
+    the last position, which master fixed in #2563; a mapping that never
+    leaves the rectangle never meets it.)
+  - **No cursor for a touch:** the cursor wakes only when the stick moves
+    (`:167-185`) and hides after 4 still seconds, so touches aim by feel.
+    "Touch Pointer Timeout" off would keep it on screen in every game.
+  - **A brushing thumb taps.** The touchpad touches on contact; #509
+    already met thumbs brushing a DualSense's pad. Touch on contact or only
+    while the pad is clicked is a choice for the TV.
+  - **Port 0 only**, as everything in this core: player 1's pad, which is
+    the 3DS's one player.
+- **The touchpad elsewhere (2026-10-20).** MMagTech asked, for later and
+  blocking nothing: do other console systems and front ends use a
+  DualSense's or DualShock 4's touchpad for game controls? Read: each
+  project's source at the commit named, its issues, pull requests, release
+  notes and docs, and Valve's Steamworks pages. Nothing ran anywhere.
+  "Not found" means nothing said.
+
+| Where | What the touchpad does in games | Default | How it gets there | Source |
+|---|---|---|---|---|
+| Batocera, Knulli | A mouse. For the DS and 3DS libretro cores each player is handed the mouse that shares the pad's device path, its own touchpad, which RetroArch's udev driver also reports as the pointer (as written it passes a device path where RetroArch reads a number; read, not tested) | automatic; the core's touch mode decides (melonDS: the right stick; Azahar: mouse and pointer on) | evdev; Batocera's SDL is built without HIDAPI | batocera.linux `1af1766`: `associated_mouse_mixin.py:33-43`, cores/azahar.py:33, `devices/device.py:141-148`, `sdl3.mk:20`; knulli `ab3a680`: `libretroControllers.py:119-125` |
+| Lakka, ROCKNIX | One more RetroArch mouse (next row); ROCKNIX ships Azahar's touchpad setting off | nothing of their own | evdev | Lakka-v6.1 `4f70542`: `retroarch.cfg:247,287`; ROCKNIX `47b49b6`: `azahar-sa/config/AMD64/qt-config.ini:86-107` |
+| RetroArch, udev input driver | The kernel's touchpad device as an absolute mouse: one finger as pointer, mouse and lightgun over the whole screen, the click as the left button; picked by "Mouse Index", not tied to the pad's port | always, when `/dev/input` is readable | evdev | RetroArch `054ecb4`: `udev_input.c:3580-3583` |
+| RetroArch, SDL2 and SDL3 joypad drivers | The click only, as button 20; the fingers are not read. #16188 (SDL's touchpad as the pointer) closed 2026-10-02: the touchpad waits for an input rewrite, "touch as a per-device capability" | | SDL | `sdl3_joypad.c:67-74,282`; libretro/RetroArch#16188; #19369 (halves as buttons, open) |
+| RetroBat (Windows) | Azahar's bottom screen, from a DSU server the player runs (DS4Windows) | setting "TOUCH DEVICE", CEMUHOOK; the default is the mouse | DSU | emulatorlauncher `7f8dc28`: `Azahar.Controllers.cs:154-162` |
+| EmuDeck | A mouse through Steam Input (both halves absolute mouse, the clicks mouse buttons); its DS and 3DS emulators touch with the mouse | on, in the Steam shortcuts it makes | Steam Input | EmuDeck `dddb302`: `configs/steam-input/emudeck_controller_ps5.vdf:346-390` |
+| Steam Input (SteamOS, Bazzite, ChimeraOS) | The game gets an Xbox pad: no touchpad, the click is Start, unless the player binds the touchpad (mouse, buttons). Since November 2023 a PlayStation pad goes to a game's own support when it has some | per game | Steam has SDL ignore the real pads | Steamworks, "Steam Input Gamepad Emulation: Best Practices"; GamingOnLinux, 2023-11 client beta; libsdl-org/SDL#10073 (smcv) |
+| Bazzite | Nothing for games. Desktop images run Valve's ds-inhibit, which silences the touchpad's evdev device while Steam holds the pad; the Deck (game mode) images remove it | | | bazzite `4be6501`: `Containerfile:281,530,598`; ds-inhibit `ec968e7`: `ds_inhibit.py:122-153` |
+| ChimeraOS | Nothing of its own. InputPlumber runs but leaves outside pads alone; a DualSense it manages becomes a virtual one with the touchpad | not managed | | chimeraos `89b58ba`: `manifest:68`; InputPlumber `d951ef9`: `manager.rs:236` |
+| ES-DE; LaunchBox Big Box | Not found. ES-DE configures no emulator; Big Box is closed source | | | ES-DE `a529a9d`: `FAQ.md:70`; Big Box 13.24 release notes |
+| Sony PS TV | A DualShock 4's touch pad moves the Vita's touch pointer | in the games Sony allowed | | Sony's PS TV user's guide (question 49) |
+| melonDS | Nothing; touch is the mouse. Request #1881 open | | | melonDS `906e9eb`: `Screen.cpp:338-343` |
+| Azahar, its app | The bottom screen: the whole pad on the whole screen, on contact, beside the mouse | setting "Use controller touchpad", off | SDL | azahar-emu/azahar#777 (since 2125.0-rc1, 2026-03-12); `987f184`: `config.cpp:426`, `hid.cpp:285-293` |
+| Azahar, its libretro core | Never reads a pad; takes the front end's `RETRO_DEVICE_POINTER` beside the stick | | libretro | `mouse_tracker.cpp:100-185` (above) |
+| Citra, Lime3DS | The bottom screen, from a DSU server only ("CemuhookUDP" in place of the mouse) | a setting | DSU | Citra `69e758d`: `configure_motion_touch.cpp:84-87` |
+| Vita3K | The front touch screen (the whole pad), up to 8 fingers; the click swaps front and rear | always on, no setting | SDL3 | Vita3K/Vita3K#2904 (2023-09-11); `9a2d096`: `touch.cpp:70-90`, `main_window.cpp:1328-1356` |
+| PPSSPP | The click only, as a button to bind | unbound | SDL | ppsspp `5471f5f`: `SDL/SDLJoystick.cpp:161-162` |
+| Cemu | The Wii U GamePad screen (and the Wii Remote pointer), from a DSU server; SDL's touchpad events ignored. Request #838 open | on once a DSU controller is assigned | DSU only | Cemu `a53cf0e`: `DSUController.cpp:65-100`, `SDLControllerProvider.cpp:195-206` |
+| Dolphin | Inputs to bind, e.g. to the Wii Remote pointer: SDL "Touchpad X/Y", DSU "Touch", evdev "Cursor X/Y" | none bound; the evdev names match the default pointer mapping (#8473) | SDL, DSU, evdev | dolphin-emu/dolphin#13209 (2024-12-10); `cf5cb7e`: `SDLGamepad.cpp:106-121`, `WiimoteEmu.cpp:750-753` |
+| Eden (and yuzu) | The Switch touch screen, two fingers, from a DSU server; no SDL touchpad code | always read; server 127.0.0.1:26760 | DSU only | eden `989768a`: `emulated_console.cpp:24-46`, `settings.h:803-804` |
+| Ryujinx | The click as a button; touch is the mouse | | SDL2 | a 2025-03-07 mirror (the official source did not answer): `TouchScreenManager.cs:11-33` |
+
+  What it means for CabinetOS:
+  - **No system found puts a pad's touchpad on an emulated touch screen by
+    default as its own feature.** Where they use it, it is a mouse;
+    Batocera comes closest, each DS or 3DS player's own touchpad as their
+    RetroArch mouse and pointer. Two emulators take it as touch over SDL
+    (Vita3K always, Azahar's app by a setting), Cemu and Eden only from a
+    DSU server, and RetroArch left SDL's touchpad to a rewrite.
+  - **SDL reports the touchpad only through its HIDAPI driver,** which opens
+    `/dev/hidraw` to read and write; with no access SDL falls back to evdev,
+    which carries neither the touchpad nor its click (the kernel puts both
+    on a separate "Touchpad" device). SDL 3.4.16:
+    `SDL_hidapijoystick.c:510-516`, and only HIDAPI, Apple and virtual
+    drivers add a touchpad; Linux `f47d223`: `hid-playstation.c:947-973`.
+    The console keeps HIDAPI on but for the Wii (`startup.cpp:135`); #288's
+    check on the A9 is whether a DualSense opens through it.
+  - **Reading it through SDL leaves the kernel's device a pointer:** hidraw
+    gives every reader a copy (`hidraw.c:570-590`), and libinput, so
+    gamescope, takes the Touchpad device as a desktop touchpad (#509's
+    arrow). An inhibit (Valve's ds-inhibit, while a program named `steam`
+    holds the pad) or a udev rule stops it; none was found in Bazzite,
+    systemd or libinput.
+  - **An emulator of its own gets nothing here:** the console hands those
+    virtual pads that drop the touchpad, with SDL's HIDAPI off (`vpad.h`,
+    `standalone.cpp:501,540`), as Steam Input's virtual pad has none. A
+    libretro core gets it only if the console answers
+    `RETRO_DEVICE_POINTER`.
+- **L3** is the core's screen swap ("Toggle", `citra_libretro.cpp:239-270`) and the
+  3DS HOME button (`:191-193`); HOME does nothing unless a HOME menu was booted
+  (`core/hle/service/apt/applet_manager.cpp:1743-1753`), so for a game L3
+  only swaps the screens.
+- **The layouts** (`citra_layout_option`, `core_settings.cpp:476`; sizes from
+  `emu_window/libretro_window.cpp:237-293`), on a 3840x2160 TV:
+
+| Layout | Picture | Top screen | Bottom screen |
+|---|---|---|---|
+| "Default Top-Bottom" (the core's default) | 400x480 a factor, fills the height | 1800x1080 | 1440x1080 |
+| "Side by Side" | 720x240 a factor, fills the width | 2133x1280 | 1707x1280 |
+| "Large Screen, Small Screen" (4x proportion, the default) | 480x240 a factor | 3200x1920 | 640x480 |
+| "Single Screen Only" | one screen | top only: no touch screen | |
+
+  The DS precedent is both screens at once, stacked, melonDS's default
+  (#248). For the 3DS the same is the core's default. **My view: side by
+  side.** On a 16:9 TV it draws both screens 19% larger than stacked, and the
+  bottom screen stays large enough to aim a cursor at; Large Screen draws
+  the touch screen at a quarter of the top screen's scale (640x480 on a 4K
+  TV). The downside: it is not how
+  the DS looks here, and a game that carries one scene across both screens
+  reads naturally only stacked. Judged on the TV in the hand test, then one
+  layout for every game.
+
+#### The tests
+
+| Test | Answer | Why |
+|---|---|---|
+| What it needs from RomM | **passes, for decrypted cartridge dumps** | A game is one file. The core loads `.3ds`, `.cci`, `.cxi`, `.3dsx` and the compressed `.zcci`, `.zcxi`, `.z3dsx` (`environment.cpp:267-273`). **Encrypted dumps are refused**: the loader checks the header's NoCrypto flag (`core/file_sys/ncch_container.cpp:261-263`) and the core says the game "must be decrypted" (`citra_libretro.cpp:535-537`); Azahar no longer decrypts games, so no keys are wanted for them. **A `.cia` does not load**: the loader has no CIA case (`core/loader/loader.cpp`, `GetFileLoader`), a CIA has to be installed, and the core installs nothing. No firmware: Azahar carries open-source stand-ins for the shared font, the Mii data, the country list and the bad-word list (`core/file_sys/archive_ncch.cpp:157-205`); Chinese, Korean and Taiwanese games get the Western font, which "will not display properly" (`:193-197`). Nothing goes in RomM's per-platform firmware folder: real system files are a NAND tree from a 3DS, not single files, and Azahar's way to carry them with a game is the bundle file (test 3) |
+| No user interaction | **passes** | Nothing to set up for a decrypted game. A game's on-screen keyboard is answered at once with the 3DS user name, `AZAHAR` (`core/frontend/applets/swkbd.cpp:149-165`, `core/hle/service/cfg/cfg_defaults.cpp:41`); the Mii picker returns a standard Mii (`mii_selector.cpp:55-57`). The core reports a refused game only through `SET_MESSAGE`, which the host does not answer, so the console must look first: read the header flag before launch and refuse an encrypted dump or a `.cia` with a plain reason, as a PS2 disc that will not run gets "Disc can't be read" (`play.cpp`, `refuseLaunch`) |
+| The cache model | **passes: one file per game, nothing installed** | The file is the game. A `.3ds` is its cartridge's size, 128 MB to 4 GB (No-Intro); RomM 5.4.0's library conversion can store it as `.zcci` instead (lossless, the server owner's choice, off by default), which the core reads as it is. Updates and DLC: a 3DS installs them as CIAs, which the core cannot. Azahar's answer is the bundle file, `.bcci`/`.bcxi`, a cartridge dump with its update and DLC CIAs in one uncompressed tar, "simulated as being installed" (Azahar PR #2369, merged 2026-10-12), in master and the 2127.0 alphas from alpha2 only. Until a stable release has it, updates wait with #181 ("Updates and DLC as separate files in RomM (Switch, PS3, Xbox 360)"). For a `.cia` download: RomM 5.4.0 can serve one as `.cci` with `?format=cci` when the server turns its converter on (`ROM_CONVERTO_ENABLED` and `download_conversion_enabled`, both off by default; decryption left out), and says so in the game's `download_formats`; the console could take that when it is offered, which needs no change on RomM |
+| Saves per person | **passes, the PSP way** | At the default "Save Data Location" (`core_settings.cpp:612`), the core keeps its whole 3DS (SD card, NAND, system data, shader cache) in `<save directory>/Azahar/` (`:1078-1110`). The console hands each person their own folder per game (`launch.cpp`, `storage::savesDir`), so that 3DS is per person and per game. Every game's save, cartridge or download, is the folder `sdmc/Nintendo 3DS/<id>/<id>/title/<high>/<low>/data/` (`archive_source_sd_savedata.cpp:22-34`, `core/hle/service/fs/archive.cpp:373-375`), and extdata beside it (`archive_extsavedata.cpp:194-196`). Since the folder holds one game, the directory save is `Azahar/sdmc/Nintendo 3DS`, zipped and sent as PSP's `PSP/SAVEDATA` is (`savetable.cpp`, `directorySaveRoot`), with a save tag of its own. The shader cache sits in the same folder, per person, and is not sent |
+| States | **none, by question 25's rule** (superseded 2026-10-20: states on, no rewind, by his decision; "Full features" below) | Azahar refuses a state made by any other git revision of itself (`core/savestate.cpp:300-305`), so every pin move would strand every state; the 3DS has real saves; Cabinet has no 3DS core. That is the rule's case exactly ("cannot be trusted to load ... on a console that has a real save system of its own"): `azahar` joins `kNoSnapshots` (`savetable.cpp`, `snapshotsAllowed`), and rewind goes with it. Rewind would not suit anyway: the core's `retro_serialize_size` makes the whole state itself (`citra_libretro.cpp:692-710`), and rewind takes one every half second (`pace.cpp`) |
+| Playability | **his call; on the labels, ahead of the Vita and Xbox 360** | below |
+
+**Playability, counted 2026-10-19** from Azahar's list (players' reports on
+any hardware, accepted once a second player agrees, OpenGL only, Azahar's own
+window, not the libretro core):
+
+| | Titles | Share of rated |
+|---|---|---|
+| Perfect | 177 | 32.1% |
+| Great | 188 | 34.1% |
+| Okay ("playable from beginning to end") | 117 | 21.2% |
+| **Playable to the end** | **482** | **87.5%** |
+| Bad, Intro/Menu, Won't Boot | 43, 19, 7 | 12.5% |
+| Not tested | 663 of 1,214 | |
+
+The scales differ from question 49's: there, Vita3K 56.9% playable of its
+reports, Xenia Canary 25.8%.
+
+**The 25 best-selling 3DS games** (Wikipedia's list, from Nintendo's
+figures): 21 are rated Okay or better in every version. Perfect: Mario Kart 7,
+New Super Mario Bros. 2, Animal Crossing: New Leaf, Ocarina of Time 3D,
+Majora's Mask 3D, Donkey Kong Country Returns 3D. Great or Okay: Pokémon X
+and Y, Sun and Moon, Ultra Sun and Ultra Moon, Super Mario 3D Land, Super
+Smash Bros. for Nintendo 3DS (Okay), Yo-kai Watch and Yo-kai Watch 2,
+Tomodachi Life, Luigi's Mansion: Dark Moon (Okay), Nintendogs + Cats,
+Monster Hunter Generations, Monster Hunter 4 Ultimate, A Link Between
+Worlds, Happy Home Designer, Mario Party: Island Tour. The other four:
+Pokémon Omega Ruby "Bad" (Alpha Sapphire "Okay"), Super Mario Maker for
+Nintendo 3DS "Bad", Fire Emblem Fates: Birthright "Bad" (Conquest "Okay"),
+and Japan's Monster Hunter 4, not listed.
+
+#### Keys and the network: two rules the stock build breaks
+
+- **Keys.** Azahar compiles a blob of the 3DS's own keys into the binary
+  unless it is built with `-DENABLE_BUILTIN_KEYBLOB=OFF` (`CMakeLists.txt:160`,
+  `core/hw/aes/key.cpp`, "encrypted in the source to prevent easy access");
+  its own releases and libretro's buildbot leave it on. The project ships
+  "no games, BIOS or keys" (CONTRIBUTING.md, "The rules"), so the arm turns
+  it off. Azahar's own words for the cost (PR #2024, 2026-04-12): without
+  the keys it is "impossible to use some features such as multiplayer,
+  amiibo or accessing the eshop", none of which the console offers. Games
+  do not need them: Azahar no longer decrypts games. Nintendo's HTTPS client
+  certificate is also compiled in, always (`core/hle/service/http/ctr-common-1-*.h`),
+  but as ciphertext that only key slot 0x0D opens (`http_c.cpp:2262-2266`),
+  which the blob would supply; with the blob off it cannot be used. Whether
+  shipping it that way is acceptable is his call.
+- **The network:** moved to docs/decisions/2026-10-20-3ds-games-get-no-network.md (2026-10-26).
+
+#### The New 3DS's extras, gyro and the microphone
+
+- **New 3DS:** the core starts as a New 3DS by default (`core_settings.cpp:201`,
+  `17f4c52`), so the New-3DS-only cartridges start. No-Intro's "Nintendo - New
+  Nintendo 3DS" DAT has four games: Xenoblade Chronicles 3D (Great), Fire
+  Emblem Warriors (Okay), Minecraft: New Nintendo 3DS Edition (Okay), Runbow
+  Pocket (Great). ZL and ZR are L2 and R2, the C-stick the right stick
+  (`citra_libretro.cpp:185-202`). One pad: every binding is port 0, as on
+  the machine.
+- **Gyro: the core takes motion through libretro's sensor interface**
+  (MMagTech's addition, 2026-10-19). Every 3DS has a gyroscope and an
+  accelerometer. With "Gyroscope/Accelerometer Support" on, its default
+  (`core_settings.cpp:699`), the core asks `GET_SENSOR_INTERFACE`, turns both
+  sensors on at 60 Hz with `set_sensor_state`, and reads accelerometer X, Y,
+  Z in g and gyroscope X, Y, Z in radians a second, times "Motion
+  Sensitivity", from port 0 (`input/input_factory.cpp:99-170`,
+  `environment.cpp:57-59`). The host does not answer it today, so a game
+  sees a 3DS lying still: gravity straight down, no turn.
+- **So a DualSense's gyro could serve it** if the host answered that
+  interface. The host reads the real pads in process through SDL, which
+  reports a DualSense's and a DualShock 4's gyroscope and accelerometer (its
+  event filter already handles `SDL_EVENT_GAMEPAD_SENSOR_UPDATE`,
+  `startup.cpp`). What it would take: SDL's accelerometer is in m/s², so it
+  is divided by standard gravity; the axes are turned from a pad held flat to
+  a 3DS held up, and checked by hand; and `set_sensor_state` is refused for
+  a pad with no sensors, so the core keeps its lying-still values instead of
+  reading no gravity at all (`:113-140` reads a sensor only once
+  `set_sensor_state` turned it on, `:162-170`). One
+  rule by pad, not by game: a pad with a gyro moves the 3DS, any other pad
+  holds it still. The same piece serves mGBA's motion carts (question 49).
+- **Which games need motion to play**, not as an option: a research pass
+  over public sources, 2026-10-19. No list exists to read it from: Wikipedia's
+  3DS lists record no controls, and the two community lists found would not
+  open (a GameFAQs thread, the Emulation General wiki's page, which is up for
+  deletion). Found:
+  - **Needed to play at all (3):** Face Raiders (built in), Spirit Camera:
+    The Cursed Memoir, Pokémon Dream Radar. All three need the camera too.
+  - **Needed in a part, a mode or a minigame (13):** Luigi's Mansion: Dark
+    Moon (balance beams); Kirby: Triple Deluxe ("you have to use the 3DS'
+    gyroscope features in order to progress", Nintendo World Report);
+    Yoshi's New Island (every transformation, Wikipedia); Metal Gear Solid:
+    Snake Eater 3D (balancing on walkways); Mario & Luigi: Dream Team (some
+    Giant battles); Sonic Lost World (Special Stages); LEGO City Undercover:
+    The Chase Begins (the scanner, needed in mission 2,
+    azahar-emu/azahar#1309); WarioWare Gold (Twist League); Rhythm Thief &
+    the Emperor's Treasure (gyro stages); Mario Party: Island Tour and Mario
+    Party: The Top 100 (some minigames); Mario & Sonic at the London 2012
+    Olympic Games (Long Jump); Pac-Man & Galaga Dimensions (Pac-Man Tilt).
+  - **Optional, a button or stick does it too (13):** Super Monkey Ball 3D,
+    Cubic Ninja, Ocarina of Time 3D and Majora's Mask 3D (aiming), Star Fox
+    64 3D, Steel Diver, Super Mario 3D Land, Mario Kart 7, Pokémon Sun and
+    Moon (Poké Finder) and Ultra Sun and Ultra Moon, Resident Evil
+    Revelations, Mario Tennis Open, Luigi's Mansion (2018).
+  - **None found (24 checked),** among them Kid Icarus: Uprising,
+    Nintendogs + Cats, Rhythm Heaven Megamix, Kirby: Planet Robobot, New
+    Super Mario Bros. 2, Pokémon X and Y, Animal Crossing: New Leaf.
+  - **Not settled:** whether Ultra Sun and Ultra Moon's first Ultra Warp Ride
+    forces the gyro, and whether Yoshi's and Snake Eater's sections can be
+    skipped.
+  - **Of the 25 best-sellers, two have a required motion part:** Luigi's
+    Mansion: Dark Moon and Mario Party: Island Tour.
+- **Without a gyro**, a game stops at its motion part, and nothing says
+  which game will before it does (Azahar's list does not mark them). **My
+  view: worth building, as its own small piece after the 3DS.** It is one
+  answer in the core host for two systems, the motion parts are in
+  mainstream games (Kirby, Yoshi, Luigi's Mansion), and the rule is the pad,
+  not the game. The downside: a player with an Xbox or 8BitDo pad still
+  stops there, and there is no stick stand-in in the core.
+- **Camera, AR cards and the microphone** (the same pass): the three games
+  above need the camera; Mario Party: Island Tour has an AR-card minigame;
+  WarioWare Gold's Ultra League adds microphone microgames; in Nintendogs +
+  Cats a pet learns its name by voice. The core asks for libretro's
+  microphone interface (`environment.cpp:61-63`), not answered here, so
+  games hear silence; "Static Noise" is the core's other value. No camera.
+
+#### For when it is built
+
+A case arm (above), with the keys off and the network answer in place;
+an option table for it under cores/options from `tools/core-options.c`;
+a catalog row, `3ds` to `azahar`; the levels in `quality.cpp`; the layout,
+if not the core's default, in `coreoptions.cpp`; `azahar` in
+`kNoSnapshots`, a save tag and its directory save root in `savetable.cpp`;
+the header check that greys encrypted dumps and `.cia` files; docs/LICENCES.md
+and docs/ARCHITECTURE.md. No pointer code.
+
+#### The A9 hand test, when he names a time
+
+Needs: the A9 free and him at the TV; 3DS games of his own on RomM, dumped
+decrypted from his cartridges (the console ships no games; the upload is a
+write to his server, so his); a branch with the arm, the row and the option
+table, built in CI and run with `tools/ui-loop.sh`; saves sent to the
+write-test RomM, never his. To see: the core builds; a game starts with no
+dialog, and an encrypted dump is refused in the log; Mario Kart 7 (the
+#2093 game) on Vulkan and on OpenGL at 1x, 3x and 5x, with frames.py and a
+look for repeated or skipped frames; the first play's shader stutter, then
+the second's; the three layouts, judged on the TV; the right stick and R3 on
+a touch menu, and the cursor in a game that turns its camera with the
+C-stick; a save made, the game quit and reopened, the save's zip on the
+write-test server; leaving by the pause menu (the unload crash #2572 fixed);
+with the keys off, that the games still start and that no game opens a
+connection (the log, and `ss` on the A9 while one plays); with his
+DualSense, whether SDL reports its touchpad and its gyro on the A9 (#288's
+open check), before either piece is built.
+
+#### Recommendation, 2026-10-19 (not decided)
+
+**Go, with conditions.** Every test passes on paper: one decrypted file per
+game, nothing to set up, saves per person the PSP way, no states by question
+25's rule, and the touch screen is #374's rule by the core's own default with
+no console code. The core is upstream's own, with a stable tag to pin, and
+on the labels the 3DS is further along than the Vita or Xbox 360 were (87.5%
+of rated titles, 21 of the 25 best-sellers). The conditions: (1) it builds in
+`cabinetos-builder` at 2126.2, with its key blob off; (2) games get no
+network (docs/decisions/2026-10-20-3ds-games-get-no-network.md);
+(3) the hand test passes on Vulkan, frame pacing included
+(azahar-emu/azahar#2093), or OpenGL wins by measurement; (4) he accepts
+that only decrypted cartridge dumps play, `.cia` files and encrypted dumps
+greyed with the reason, and updates wait for bundles in a stable release or
+#181; (5) his legal call on building a 3DS emulator into the image.
+His server has no 3DS games today, so this is for the players who have
+them.
+
+**Touch:** the stick pointer, the core's default, carries 21 of the 24
+best-sellers sorted and 40 of a 51-game sample leaning to touch; the rest
+are timed touch games where a stick likely falls behind. **Recommended
+with it: the touchpad as a second way to touch**, for the pads that have
+one (a DualSense, a DualShock 4), because this core, unlike melonDS, takes
+the touchpad and the stick at once: every pad keeps the stick, a pad with a
+touchpad also touches directly, one rule with no setting. It is #288's
+idea, set aside for the DS only because melonDS could not take both. Its
+open check is SDL reporting the touchpad on the A9.
+
+**Gyro:** the core takes motion through libretro's sensor interface, so a
+DualSense's gyro could serve it once the host answers that interface. 16
+games were found that need motion somewhere, two of them best-sellers.
+**My view: worth building as a small piece of its own after the 3DS**, one
+answer in the core host for the 3DS and the Game Boy Advance motion carts;
+a pad without a gyro still stops at those parts. His call, separate from
+the go.
+
+#### The go, and the build (2026-10-19, night)
+
+MMagTech gave the go with the conditions above. Built, as the research lays
+it out, with nothing redecided:
+
+- **The core:** `cores/build-core.sh`'s `azahar` arm at 2126.2
+  (`219d743a1e69`), CMake, `-DENABLE_LIBRETRO=ON -DENABLE_TESTS=OFF
+  -DENABLE_BUILTIN_KEYBLOB=OFF`, Release, and `-DENABLE_LTO=OFF` as Azahar's
+  own Linux libretro release builds it. **Condition (1) is met:** it built
+  in `cabinetos-builder` on CI on 2026-10-20 (the core workflow run by hand
+  on #524's branch, about 15 minutes), with the patch applied, the revision
+  read back as `219d743`, its 32 options as listed, and a 62 MB core that
+  needs only glibc and the C++ runtime.
+- **Games get no network, condition (2):** moved to docs/decisions/2026-10-20-3ds-games-get-no-network.md (2026-10-26).
+- **The refusal:** `frontend/src/ncch.cpp` reads the file before the core
+  does, by its bytes: an NCSD's first partition's NCCH header, a `.cxi`'s
+  own, or the same header in a Z3DS file's first zstd frame; NoCrypto clear
+  is "Encrypted 3DS games can't be played", a CIA (by its header's fixed
+  sizes, or the name a Z3DS file gives what it holds) "3DS CIA files can't
+  be played". Anything it cannot read goes to the core.
+- **One correction to the research above:** at 2126.2 the repository's
+  licence file is `license.txt`, the GPL v2's text, and the GPL v3 or later
+  files are thirteen elsewhere in `src/core` (`core.cpp` and `core.h`, which
+  the core is built from, among them), not the two libretro files named
+  above, which say GPL v2 or later. The
+  conclusion stands: the core as built is GPL v3. Both texts ship
+  (`licences/SOURCES`).
+- **Not done here:** RetroAchievements for the 3DS (not in this question);
+  the layout (the core's default, stacked, until the TV judges it); the
+  touchpad and the gyro (pieces of their own, his call).
+
+#### Full features (MMagTech, 2026-10-20)
+
+**The ruling:** a core ships only with every feature the other cores have,
+RetroAchievements where they exist for it, save states and loads included;
+no half implementation to finish later. For the 3DS this replaces the
+"States: none, by question 25's rule" row of the tests above. Researched and
+measured on 2026-10-20; nothing built. Read: this repository at #524's head
+(`5581535`); Azahar at 2126.2 (`219d743`); rcheevos as vendored (v12.5.0,
+`1433173`) and at master (`dfdc64e`, 2026-10-17); RetroAchievements' docs
+(`9de47ca`, 2026-10-18); RomM 5.4.0 (`68f7125`); libretro's core info and
+RetroArch's `core_info.h` (master, 2026-10-20); his live RomM, read-only.
+
+**Decided, 2026-10-20** (MMagTech on states and RetroAchievements; the rest
+by the 3DS work's lead session, which he left the 3DS details to, his bar
+"fits the console and is fun"):
+
+- **Save states: yes**, as on every other handheld here, on the
+  understanding that backwards compatibility is not promised: an Azahar
+  update can make older 3DS states stop loading (option (a) below). A build
+  item, planned at the end of this section.
+- **RetroAchievements: built if RetroAchievements supports the 3DS**,
+  whether or not his three games are recognised or their hashes match; his
+  own games are not a gate. Today it does not (below), so nothing is built.
+- **Controls stay as Azahar ships them:** the right stick is both the touch
+  pointer and the C-stick, R3 touches, L3 swaps the screens. No DualSense
+  touchpad piece: the stick is the one rule, as on the DS.
+- **Layout "Side by Side"** for every game.
+- **Levels `citra_resolution_factor` 1, 3, 6** (6x is the 4K step side by
+  side), stepped down only if the A9 cannot hold full speed. The layout and
+  the levels are built by the hand test's session.
+
+**What a libretro core gets on this console, and the 3DS in #524:**
+
+| Feature | Where | Who lacks it, and the code's reason | #524's 3DS |
+|---|---|---|---|
+| Save state and Load latest state (pause menu; shortcut button and R or L; F5, F8) | `pausemenu.cpp:173`, `play.cpp:371`, `input.cpp:287`, `states.cpp` | `kNoSnapshots` (`savetable.cpp:158`): PCSX2, Dolphin, the five separate emulators (question 25, true to the consoles), and `azahar` | no |
+| States on RomM: tagged, a picture beside each, three kept a game (`uploader.h`, `kStatesKept`) | `savetable.cpp`, `emulatorTag` | every core with states has a tag; `azahar` has a save tag only (`:225`) | no |
+| A state picked on the game's page; Home's Resume loading the newest | `detail.cpp:187-197`, `states.cpp:488-519` | follow `snapshotsAllowed` | no (Resume starts the game fresh) |
+| Fast forward, about 4x (shortcut and ZR) | `play.cpp:441`; `app.h:961-966`, "only where states are" | follows states | no, "No fast forward for this system" |
+| Rewind, a snapshot every half second, about 15 s | `pace.cpp:127-140`, `play.cpp:452-454`, `rewind.h` | follows states, and a core whose state size is 0 | no |
+| RetroAchievements, softcore only (no core has hardcore, #74), progress kept in states (#279) | `achievements.cpp:741-800` | a platform not in `consoleFor` (the 3DS among them); MAME 2003-Plus (`coreReadable`, no memory); a game RomM gave no `ra_hash` | no |
+| Picture levels, and the game's own Picture row | `quality.cpp:175`, `pausemenu.cpp:193` | the systems where a level changes nothing | yes: 1, 3, 5 |
+| Saves to RomM | `savetable.cpp` | none | yes, the PSP way |
+| Time played; screenshots | `launch.cpp:992`; `states.cpp` | none | yes (a 3DS screenshot not yet seen) |
+| Look and the system's own rows | `looks.cpp`, `sysopts.cpp` | every system without a look, DS and PSP among them | none, as DS and PSP |
+
+The touchpad and the gyro are not on this list: no other core has them.
+
+**The levels, read against 1, 3, 6.** `quality.cpp` builds each core's
+levels as the system's own resolution at Performance, then the first step
+at or above a 1080p TV and a 4K TV. Side by side the picture is 720x240 a
+factor; a 3840x2160 TV draws it at 5.33x, a 1920x1080 one at 2.67x, so the
+first steps at or above are 6 and 3, and 1 is the 3DS's own, as PSP, N64
+and DS are at Performance. (1, 3, 5 was the same reading for the stacked
+layout, 4.5x on a 4K TV.) Nothing else Azahar offers belongs in the levels:
+it has no anisotropic filtering (none of the 32 options in
+`cores/options/azahar.txt`; Dolphin, PPSSPP and Flycast set 16x because
+they have one), building shaders in the background is not a libretro
+option here (Dolphin's and Eden's levels use theirs), accurate shader
+multiplication is accuracy and stays at the core's value unless the A9
+shows it costs a level, and the texture filter and sampling are looks, kept
+out as Genesis's NTSC filter is (question 23). The level does not change a
+state's cost: factor 5 made and loaded one as fast as factor 1.
+
+**RetroAchievements for the 3DS: no, for three reasons, any one enough.**
+
+1. **RetroAchievements does not support the 3DS.** Its docs list it under
+   "Unsupported Consoles" (docs/developer-docs/unsupported-emulators-and-cores.md:246,
+   the 3DS at `:367`, the three Citra cores marked unusable: "Only exposes
+   64MB of memory", "Does not support save states") and as a rollout still
+   "Pending", with "??" sets (docs/developer-docs/rollouts.md:81; the Wii
+   was the last to launch, 2026-03-19, with 183). Its pages for system 62
+   answered this session with a bot check, which was not passed, so no game
+   count was read there; the API's game list needs a web API key the project
+   does not hold. His three games, hashed with rcheevos' own hasher on the
+   A9 (the decrypted path: the NCCH header with its crypto flags cleared,
+   then the ExeFS; no keys): Mario Kart 7 `d8293968fcf5ffce40fc390389e012b6`,
+   Kirby: Planet Robobot `5ab4756dd3aeb78c83077d8bb4fea1fd`, Super Smash
+   Bros. for Nintendo 3DS `da8f2f45bb575e8056c64b96f20b0769`.
+   `dorequest.php?r=gameid` answers `"GameID":0` for each: unknown.
+2. **rcheevos has no 3DS address space**, so no achievement could be read
+   or written for it: console id 62 exists (`include/rc_consoles.h:77`) and
+   a hash, but no memory regions, in v12.5.0 and at master
+   (`rc_console_memory_regions` falls to `rc_memory_regions_none`). With
+   none, `rc_libretro_memory_init` takes only `retro_get_memory_data`'s
+   system RAM (`src/rc_libretro.c:739-740`), and Azahar answers NULL there.
+3. **RomM gives a 3DS game no hash**: 5.4.0's table of RetroAchievements
+   platforms has no 3DS (`backend/adapters/services/rahasher.py:92-156`).
+   His rows 3645, 3646 and 3644: `ra_hash` empty, `ra_id` null. The console
+   knows a game only by RomM's hash (`achievements.cpp:798`); its own copy
+   of rcheevos compiles the 3DS hash out (`RC_HASH_NO_ENCRYPTED`).
+
+**The core's side is there:** Azahar sends `SET_MEMORY_MAPS` with the heap,
+the linear heaps (Old and New) and VRAM at the 3DS's own addresses
+(`citra_libretro.cpp:309-366`), once, at the end of loading (`:416`), and
+answers NULL to `retro_get_memory_data`, "Memory is exposed via
+RETRO_ENVIRONMENT_SET_MEMORY_MAPS instead" (`:740-748`). Not checked: whether
+a map taken at load covers memory a game allocates after it.
+
+**The console reaches RetroAchievements today** through rcheevos' rc_client:
+the requests rc_client builds (to retroachievements.org) go out on one
+libcurl worker (`ra_net.cpp`), and the game is found by RomM's `ra_hash`.
+**When RetroAchievements launches the 3DS:** a `{"3ds",
+RC_CONSOLE_NINTENDO_3DS}` row in `consoleFor`, rcheevos updated to the
+release that has the map, RomM adding 62 to its table (asked of RomM then,
+by the small-gaps rule; no 3DS achievements here until it ships), and the
+map checked against a running game. About five lines here. Nothing now.
+
+**Save states: what the core does, at 2126.2**
+
+- `retro_serialize_size` makes the whole state: it runs the emulation loop
+  for up to 5 s until no kernel work is pending, then `SaveStateBuffer`;
+  `retro_serialize` only copies it (`citra_libretro.cpp:692-720`).
+- The state is a 256-byte header ("CST", the title id, the build's whole git
+  commit, the time, the build's name and version) and the machine,
+  boost-serialized and packed with zstd at its default level
+  (`core/savestate.cpp:245-279`).
+- **A state from another revision:** `LoadStateBuffer` compares the
+  header's 20-byte commit with the core's own, logs "Save state file created
+  from a different revision", and returns false (`savestate.cpp:300-306`),
+  which `retro_unserialize` returns (`citra_libretro.cpp:722-738`). Seen on
+  the A9: a state with only its commit changed was refused in 1.3 ms with
+  that line. The commit is the git HEAD the core was built from
+  (`CMakeModules/GenerateBuildInfo.cmake:24`), so the arm's patch does not
+  change it and any pin move does. Azahar's own window is looser (it loads a
+  state from another commit of the same release, `savestate.cpp:52-82`), but
+  the libretro path is not, and a build of ours names no release anyway
+  ("0", set only for Azahar's CI builds of a tag,
+  `GenerateBuildInfo.cmake:40-55`).
+
+**Measured on the A9, 2026-10-20, headless:** the image's frontend with
+`--core --rom --state-test` in a bare /dev with only the GPU, dummy audio
+and a scratch home (nothing touched the TV's session), the core from run
+39362460074 through a scratch timing wrapper, Vulkan, factor 1 unless named;
+the games from the write-test RomM, all three decrypted (NoCrypto set).
+
+| Game and scene | Mode | On disk (bytes) | Raw (bytes) | Make (ms) | Load (ms) |
+|---|---|---|---|---|---|
+| Mario Kart 7, title, 25 s | Old 3DS | 9,979,259 | 170,671,683 | 270, 273 | 264, 275 |
+| Mario Kart 7, title, 25 s | New 3DS | 9,990,430 | 309,087,995 | 564, 575 | 496, 502 |
+| Mario Kart 7, title, 2 min | New 3DS | 9,982,907 | | 400, 404 | 345, 358 |
+| Kirby, 1 min, sound playing | New 3DS | 23,632,899 | | 526, 537 | 399, 417 |
+| Kirby, the same at factor 5 | New 3DS | 23,810,989 | | 488, 491 | 391, 403 |
+| Smash, 1 min | New 3DS | 20,859,561 | | 634, 853 | 578, 707 |
+
+- The copy, `retro_serialize`, 0.9 to 2.5 ms. Every round trip passed:
+  runs 2 and 3 identical in picture and sound.
+- **The time follows the raw machine**, 128 MB of FCRAM on an Old 3DS and
+  256 MB on a New 3DS, not the picture: factor 5 cost what factor 1 did. The
+  console keeps the core's New 3DS (four New-3DS-only games).
+- **On disk** the file is the core's bytes as they are (no achievement
+  progress to wrap): 10 to 24 MB, three kept a game on RomM, so up to about
+  72 MB a game a person.
+- **What a player notices:** a save stops the picture and the sound for 0.3
+  to 0.9 s on the frame thread (the work is in `retro_serialize_size`,
+  `core_memory.cpp:77`), before "Saving…" shows; a load takes 0.3 to 0.7 s
+  while the game is held anyway.
+- **Not measured:** a state in play (a race, a level); no headless run gets
+  there without a press. It will be larger on disk; its time should be
+  close, since the time tracks the raw size. The hand test's log reads the
+  size ("[state] N bytes saved locally") once states are on.
+
+**Rewind: no.** A snapshot every half second of play (`pace.cpp:127`) at
+270 to 850 ms each on the frame thread is 30 frames of play, then a stall of
+16 to 51 frames: the game would run at 37% to 65% of its speed, stopping
+twice a second. Thirty snapshots of 10 to 24 MB are 300 to 710 MB, past
+rewind's 192 MB ceiling (`rewind.h:52`), so 8 to 19 would be kept (4 to 9
+s). RetroArch offers none either: libretro's core info gives Azahar
+`savestate_features = "basic"`, which RetroArch reads as states without
+rewind (`core_info.h:33-43`). Opera and MAME 2003-Plus are "basic" there
+too, and rewind here today; following that label as a rule would take it
+from them.
+
+**The rule is MMagTech's, 2026-10-20:** the general rule in
+`catalog::rewindAllowed` (`savetable.cpp`), no rewind for an emulator whose
+save state takes longer than one frame to make (today only Azahar), was
+written by a session and put to him afterwards; he agreed, noting that it
+matches RetroArch, which offers no rewind for this core.
+
+**Fast forward:** nothing to build; it comes with states. How near 4x the
+A9 gets in play is the hand test's frame times, not measured here.
+
+**A state stranded by a pin move, as the console stands:** "Couldn't load
+that state" (`states.cpp:61-64`), the words a damaged state gets. The state
+stays on RomM and on the game's page; Home's Resume tries the newest, is
+refused, says the same, and the game starts from the beginning, until three
+new states rotate the old ones out. It says what happened, not why, and the
+player cannot tell a stranded state from a broken one. **Decided: (a)**,
+backwards compatibility not promised. The options as they were put:
+
+- (a) Leave it: every pin move loses every 3DS state on every console with
+  those words, the data loss question 25 warned of, which the ruling accepts.
+- (b) Grey them: read the commit in a 3DS state's header (bytes 12 to 31,
+  from the local copy, or a 32-byte read of RomM's) against the running
+  core's (its version, "219d743", is the commit's first seven characters,
+  so no state has to be made to know it); grey those on the game's page
+  with a short reason, and Resume passes over them. About 60 to 100 lines
+  in `states.cpp` and `detail.cpp`. Not in the plan; there if he asks.
+- (c) Never move the pin while states exist: not workable, the pin has to
+  move one day.
+
+**Faults found on the way:**
+
+1. **#524 as it stands makes a whole 3DS state at every game's start and
+   throws it away:** `play.cpp:453` calls `core.stateSize()` before it looks
+   at `session.snapshots`, and for Azahar that call is the whole save, 0.3 to
+   0.9 s on the frame thread in its first frames. From the code, not yet seen
+   in a log. Asking `session.snapshots` first fixes it in one line, states or
+   no states.
+2. **On OpenGL the state is made outside the core's context:**
+   `Core::saveState` calls `serialize_size` before its `CoreContext`
+   (`core_memory.cpp:77-83`), and `stateSize` has none (`:71-73`); Azahar
+   runs its emulation loop and its serializer in that call. Nothing changes
+   on Vulkan, where the context does nothing; it matters if the hand test
+   puts the 3DS on OpenGL. About four lines.
+3. **A failed save asks `stateSize()` again for its words**
+   (`states.cpp:79`): for Azahar a second whole state, and 0 when the core
+   gave up waiting (its 5 s limit), so the console would say "No save states
+   for this system". Not `snapshotsAllowed` instead (that would break #222's
+   words for a core with no states at all); a flag in `Core` keeping the
+   size the failed save got would spare the second state (about 6 lines),
+   and the words for a timed-out drain would still be wrong, since the core
+   answers 0 either way. Rare (a save that failed); left out of the plan.
+4. **L3 + R3 for the pause menu reaches the core first.** Each stick click
+   goes to the core on its own (`play.cpp:285-291`, by Cabinet's rule that
+   the menu pair "applies regardless of what either button is otherwise
+   bound to"); the pair is caught on the button-down events
+   (`input.cpp:388-407`, `toggleOverlay` once both are down), and the core
+   is not stepped once the menu is open. So whichever click lands a frame
+   before the other reaches Azahar: L3 first swaps the screens, on its press
+   edge, and they stay swapped (Toggle, `citra_libretro.cpp:239-270`); R3
+   first is a touch at the pointer for as long as it is held
+   (`input/mouse_tracker.cpp:193`). Only two clicks in the same frame's
+   events reach neither. The DS already has the R3 half (#374's tap); the
+   3DS adds the swap, undone by L3 once more. From the code, not tried on
+   the TV. A fix for every core would hold a lone stick click back for a
+   frame or two before the core gets it (about 20 lines in `play.cpp`, and
+   that delay on every stick click in every game); not in the plan, his
+   call.
+
+**The build: save states for the 3DS** (decided; the faults above that it
+carries are 1 and 2). All in #524's branch, about 30 lines of code:
+
+1. **States on** (`savetable.cpp`): take `"azahar"` out of `kNoSnapshots`
+   (`:158`) and rewrite the comment above it (`:154-157`, which gives the
+   old reason). Move its row from `saveTag`'s table (`:221-225`) to
+   `emulatorTag`'s (`kTags`), keeping the tag `azahar`, with the comment it
+   needs: no Cabinet app plays the 3DS, so the name is the emulator's; a
+   state loads only in the same Azahar commit (`core/savestate.cpp:300-306`),
+   so an Azahar update can strand them, accepted (this question). `saveTag`
+   answers from `emulatorTag` first, so saves keep the same tag and rows.
+   Update the doc comment of `snapshotsAllowed` in `savetable.h:350-360` if
+   it names the list. Fast forward, the pause menu's two rows, the shortcut
+   button with R or L, F5 and F8, the game page's states and Home's Resume
+   all follow `snapshotsAllowed` and `emulatorTag`; nothing else changes.
+2. **Rewind refused, its probe not run:** a `bool rewindAllowed(const char*
+   manifestCoreName)` in `savetable.h/.cpp` beside `snapshotsAllowed`: false
+   where states are not allowed, and for a short list, `{"azahar"}`, under a
+   rule stated for every core: no rewind where a state takes longer than a
+   frame, since rewind takes one every half second on the frame thread
+   (`pace.cpp:127`); Azahar's takes 270 to 850 ms on the A9 (measured
+   2026-10-20, 16 to 51 frames), and RetroArch offers none for it either
+   ("basic"). A list, because the only way to ask the core is to make a
+   state. Then `play.cpp:452-454`: decide `allowed = session.snapshots &&
+   catalog::rewindAllowed(session.core.c_str())` first and call
+   `core.stateSize()` only when it is true; `rewindAvailable` from both.
+   That is fault 1's fix as well, and the player hears the words that exist,
+   "No rewind for this system" (`play.cpp:472-475`).
+3. **The context** (fault 2, `core_memory.cpp:71-85`): `serialize_size`
+   inside `CoreContext` in `saveState` (move the call into the scope at
+   `:82-85`) and a `CoreContext` in `stateSize`. A no-op on Vulkan.
+4. **Docs:** this question's tests row "States" (superseded by this
+   section); `docs/wiki/changelog.md`'s entry under "Next", which says
+   "there are no save states" (states now, no rewind, an update can stop
+   older 3DS states loading); #524's body ("there are no save states",
+   `kNoSnapshots`); docs/ARCHITECTURE.md needs nothing new (`savetable.cpp`
+   is already named for both tags).
+5. **Checks:** the build with no new warnings in the touched files; the
+   self-tests. On the A9 with the TV, in play: a state saved (the log's
+   "[state] N bytes saved locally", then "Saved to RomM" on the write-test
+   server), Load latest state, one picked on the game's page, Home's Resume,
+   fast forward in a race, and rewind saying "No rewind for this system"
+   with no pause at the game's start.
+
+**RetroAchievements:** nothing to build until RetroAchievements supports
+the 3DS. On that day, by the decision above and whatever his games' hashes
+say: a `{"3ds", RC_CONSOLE_NINTENDO_3DS}` row in `consoleFor`
+(`achievements.cpp:741-776`); `frontend/third_party/rcheevos` updated to
+the release that carries the 3DS memory map (the same files, and its
+`VERSION` note); RomM giving 3DS games an `ra_hash` (5.4.0's
+`rahasher.py:92-156` has no 3DS; asked of RomM then, by the small-gaps
+rule); and a check on a running game that Azahar's map, sent once at load,
+covers what the set reads.
+
+#### Before the hand test: headless on the A9 (2026-10-20)
+
+His three 3DS games went on his RomM on 2026-10-20, so the library is no
+longer empty. Read from it with the Mac token, copied to the write-test
+RomM (its platform 7, `3ds`), and started there headless on the A9 with
+this branch's frontend and the CI core (run 39362460074), in a scratch
+HOME and storage root with no input devices. Nothing ran on the TV.
+
+- **All three are decrypted cartridge dumps.** Each `.7z` holds one `.3ds`
+  (an NCSD, its first NCCH 0x4000 in, NoCrypto set) and a 27-byte
+  `readme.txt`, which the unpacking writes beside it and the core never
+  sees: Mario Kart 7 (USA) (Rev 1), 634 MB to 1 GiB, `CTR-P-AMKE`; Kirby:
+  Planet Robobot (USA), 621 MB to 1 GiB, `CTR-P-AT3A`; Super Smash Bros.
+  for Nintendo 3DS (USA) (Rev 10), 1.19 GB to 2 GiB, `CTR-P-AXCE`.
+- **Each started with no dialog of the console's, on Vulkan,** at Quality
+  (5x, the A9's own level): the core made its own device, and game frames
+  ran at 60 a second (headless, paced by the clock) with 3 to 6 skipped in
+  the first ten seconds and none after. OpenGL, through
+  `--core-option citra_graphics_api=OpenGL`, started too: the core's own
+  OpenGL 4.6 context (4.3 core asked), 60 a second, the picture upright.
+  Side by side and Large Screen came out as the table above says (720x240
+  at Performance, 2400x1200 at Quality).
+- **Every start unpacks the archive again**, the first and every one after
+  ("already downloaded", then "Unpacking…" on the Play row): to the core,
+  about 12 s for Mario Kart 7, 21 s for Kirby, 37 s for Smash. Only the
+  first start unpacks since #530, "An archived game unpacks again at every
+  start (3DS: up to 37 s)". The
+  download from the write-test RomM over the A9's Wi-Fi took 6 to 13 s.
+  One download of six stalled at 190 MB inside the write-test VM (its
+  rootless port forwarding stopped taking data from RomM's nginx); the
+  console said "Couldn't download this game" after 175 s and the retry
+  took 8 s. Not seen from the live server.
+- **The games' own first screens:** Mario Kart 7 opens on its message that
+  there are no Mii characters in Mii Maker, with an OK on the touch screen;
+  Smash on "Extra data will be created for this software on the SD card",
+  with an OK; Kirby on its intro film.
+- **No connection while a game plays:** no TCP, UDP or raw socket on the
+  process in 85 one-second samples across the three games (`ss`), with the
+  no-network patch in and the keys off; the core logs the HTTP certificate
+  it cannot open ("NormalKey in KeySlot 0x0D missing") and the local
+  wireless it does not start, as expected.
+- **The refusals:** a made-up header-only `.3ds` with NoCrypto clear and a
+  made-up `.cia` header on the write-test RomM were refused before the
+  core, with "Encrypted 3DS games can't be played" and "3DS CIA files can't
+  be played".
+- **Found and fixed on the branch:** the host logged "the core asked for
+  the render interface" every time a core asked, and Azahar asks on every
+  frame, 44 lines a second in the journal; now once per answer, each game.
+  And `--core-option` reached only `--core`; it now reaches a library
+  launch too, which is how the TV switches API and layout without a build.
+
+#### The TV run (2026-10-20, unattended)
+
+On the A9's own session, through `tools/ui-loop.sh`, this branch with side
+by side and the levels 1x, 3x, 6x, against the write-test RomM in a scratch
+HOME and storage root; presses by ydotool's keyboard (the frontend's player
+one) and, for the stick clicks, `tools/fake-pad.c`. MMagTech was at work;
+his Xbox pad was connected for part of it. Frame times from gamescope
+(`frames.py`, 15 to 25 s windows), repeated and skipped game frames from
+the console's own `[pace]` lines. The console was put back on its image
+after (`--restore`).
+
+| Game, scene | Level | Vulkan, first play | Vulkan, second play | OpenGL, second play |
+|---|---|---|---|---|
+| Mario Kart 7, Toad Circuit race | 6x | 59.7/s, 99th 17.75 ms, worst 112 ms, 5 over 34 ms | 60.0/s, worst 18.3 ms, none over 20 ms | 60.0/s, worst 17.8 ms, none over 20 ms |
+| | 3x | | 60.0/s, worst 18.5 ms, none over 20 ms | |
+| | 1x | | 60.0/s, worst 17.8 ms, none over 20 ms | |
+| Kirby: Planet Robobot, stage 1-1 | 6x | 58.4/s, 99th 24.3 ms, worst 118 ms, 8 over 34 ms | 60.0/s, worst 17.6 ms, none over 20 ms | |
+| | 3x | | 60.0/s, worst 18.4 ms | |
+| | 1x | | 60.0/s, worst 17.9 ms | |
+| Smash Bros., a fight | 6x | 59.7/s, 99th 24.2 ms, worst 57.8 ms, 3 over 34 ms | 59.7/s, 99th 18.9 to 20.8 ms, worst 42 to 63 ms, 3 over 34 ms | 59.6/s, 99th 19.5 ms, worst 60 ms, 4 over 34 ms (first GL fight 59.4/s, 7 over 34 ms) |
+| | 5x | | 59.8/s, 99th 19.3 ms, worst 43 ms, 3 over 34 ms | |
+| | 3x | | 59.9/s, 99th 18.5 ms, worst 40.5 ms, 2 over 34 ms | |
+| | 1x | | 59.9/s, 99th 17.7 ms, worst 38.5 ms, 2 over 34 ms | |
+
+- **6x holds full speed** in all three; Quality stays 6x. Smash's few
+  hitches are there at 1x too and the same at 5x, so they are the game's,
+  not the resolution's.
+- **Vulkan stays:** OpenGL tied it in Mario Kart 7 and was a little worse
+  in Smash (3 to 6 refreshes missed in 10 s against Vulkan's 1).
+- **azahar-emu/azahar#2093 not seen:** in play, Vulkan's 10-second windows
+  show 0 to 5 repeated or skipped game frames out of 600 and 0 to 2 missed
+  refreshes, OpenGL's the same or more.
+- **The first play's shader stutter** is real and short: 3 to 8 frames over
+  34 ms in the first 20 s of a new track, stage or fight; none on the
+  second play of the same scene (the disk shader cache, per person per
+  game).
+- **Side by side** filled the TV's width, the top screen on the left
+  (stills in the session's notes folder). **L3** swapped the screens and
+  swapped them back. **L3 + R3** pressed in the same frame opened the pause
+  menu with no swap and no tap (the fake pad presses both at once; a
+  person's two presses a frame apart are "Full features", fault 4, from the
+  code).
+- **Saves:** each game's save zip reached the write-test RomM at Exit to
+  Home (Mario Kart 7 1,585 bytes, Kirby 6,537, Smash 16,459), and Mario
+  Kart 7's came back at its next start. Every game left by the pause menu
+  without a crash (#2572).
+- **States:** made and uploaded under the tag `azahar`: 18.4 MB (a demo),
+  22.4 MB (a race), 20.6 MB (Kirby), 30.4 MB (Smash), each about 0.5 s to
+  make and about a second's hold with its 4320x1440 picture; a load 0.8 s
+  from the press, then "Press (A) to continue". Loaded by Load latest state
+  and by Home's Resume, on Vulkan and OpenGL, at every level.
+- **No connection** from the frontend in 30 one-second `ss` samples while a
+  game played.
+- **Found and fixed:** the first state load crashed the console 2 ms later
+  (radv, in `vk::present()`'s blit): Azahar rebuilds its system to load a
+  state, renderer included, and the host blitted from the image the old one
+  had handed over, while the game waited on "Press (A) to continue".
+  `Core::loadState` now has the host forget that image
+  (`vk::forgetCoreImage`).
+- **Seen, not explained:** two of sixteen loads on Vulkan at 6x showed a
+  black picture after continuing while the game ran on (the same states
+  loaded with their pictures fourteen times after, at every level and on
+  OpenGL). Both were in one run, the one where his Xbox pad connected seven
+  seconds before the first. **Looked for again the same day, not
+  reproduced in 24 more loads:** 6x and 1x; after the frontend was killed
+  in a load's "Press (A) to continue" (the run with the blacks was the
+  first after the load crash); two right after a pad connected; holds of
+  70 and 100 s (the two blacks were held 63 and 98 s, every good load 5 s
+  or less); a still taken during the hold; both together. The host's log
+  of that run matches a good run's line for line; no GPU fault in the
+  kernel's log; no Remote Play stream; Azahar's one warning after a load
+  ("Depth scale unsupported by hardware") comes in good loads too. What
+  is known: it held for the whole run, both loads and across Exit to Home
+  and a new start. Azahar's own lines below warnings are not kept
+  (`core.cpp` keeps warnings and errors), so its renderer's rebuild is not
+  in the log. Not fixed; watch for it. The notes are kept in #531 ("3DS: a
+  black picture after loading a save state (seen twice, not reproduced)"),
+  opened and closed at once on MMagTech's ask.
+- **For the test, not the console:** a `ui-loop.sh` redeploy stops the
+  session, whose reaper kills the frontend at once, so a game left that way
+  sends no save; it waits on the console and goes at that game's next exit.
+
+**3DS CIAs are hidden, not greyed (MMagTech, 2026-10-20, from his
+Discord testers):** a 3DS game that is a CIA by its name in RomM (`.cia`,
+`.zcia`, or an archive named `.cia.7z`, `.cia.zip` and the like) shows
+nowhere: not on the shelf, in Search, Recent, Continue, collections or
+favourites. Built as one answer, `catalog::Support::Hidden` from
+`catalog::coverageFor` (`ncch::namesCia`), which every list already asks
+after counting the game, so the grids' paging (#471) still counts it; the
+3DS tile is counted from its list (`catalog::hidesSomeGames`), so a server
+whose 3DS games are all CIAs gets "0 games", as a platform with none does.
+By the name, because a list carries no file's bytes. A folder game's files
+are not in RomM's lists (`files` is empty there), so a folder shows, and
+Play starts its playable file: Azahar lists no `cia` among its extensions
+at 2126.2, so a folder's CIA never outranks a `.3ds`. A folder of only CIAs,
+or an archive whose name hides one, is still refused after its download
+(`ncch.cpp`), as are encrypted dumps. Not built, measured: RomM 5.4.0's list
+takes `with_files=true`, which would let a folder of only CIAs hide too; on
+his library it adds 12% to every list (31.52 to 35.31 MB, 3.0 to 4.2 s for
+all 1,709 games), a cost on every system, so it waits on his call. **A fact
+for later, not built:** RomM 5.4.0 can serve a CIA converted to `.cci` when
+the server owner turns its converter on (`ROM_CONVERTO_ENABLED` and
+`download_conversion_enabled`, shown in a game's `download_formats`), which
+would make such a game playable; until the console asks for that, those
+games stay hidden too. Tested headless on the A9 against the write-test
+RomM with a made-up `.cia`: the 3DS shelf showed 4 of the server's 5, the
+Library tile "4 games", Search for its name left it out; his three games
+showed. The test file was deleted after.
+
+**L3 is held to swap, decided 2026-10-20 by the lead session**
+(`citra_swap_screen_mode` "Hold", `coreoptions.cpp`): with the core's
+"Toggle", the L3 that lands a frame before R3 when a player opens the pause
+menu left the screens swapped behind it; side by side a swap only trades
+the screens' sides, so holding costs nothing. Tried on the TV the same day
+in Smash's character select, the fake pad's presses overlapping as a
+person's do (`tools/fake-pad.c`'s `down:` and `up:`):
+
+- **L3 held 2 s:** swapped while held, back on release.
+- **L3 + R3 in the same frame, twice:** the pause menu, no swap.
+- **L3 33 ms before R3, twice:** the screens swapped behind the pause menu
+  and came back on Resume: a flicker, not a swap that stays.
+- **R3 33 ms before L3, twice:** nothing visible. R3 alone did nothing
+  visible either: the pointer rests at the touch screen's top-left corner,
+  which holds nothing there, and in Smash the right stick also moves the
+  game's own hand cursor (the C-stick) and no touch cursor showed, so the
+  pointer could not be put on a target. Whether a stray R3 taps was not
+  shown on the TV; by the code it does (fault 4 above).
+- **Built, his call (2026-10-20, "Yeah, I think I agree with that"):** a
+  lone stick click is held back from the core for `App::kStickPairMs`, 33
+  ms, two frames (`play.cpp`); if the other click joins it inside that, the
+  pair reaches only the pause menu, and otherwise the click is delivered, a
+  quick one for a frame, so none is lost. Every libretro core. Fault 4 is
+  fixed by it. **Checked on the TV the same day** (Mario Kart 7's results
+  screen, the same overlapping presses): L3 held still swapped the screens
+  while held; L3 33 ms ahead of R3 now opened the pause menu with no swap
+  behind it, twice (before the change it swapped every time); R3 33 ms
+  ahead and both in one frame opened it with no swap. No game on the
+  write-test RomM uses L3 outside the 3DS, so a lone click reaching another
+  system was not shown there; it is the same code for every core.
+
+#### Conditions 4 and 5: his go for the testing image (2026-10-20)
+
+MMagTech, 2026-10-20, asked about the last two conditions: "Yes, I'm fine
+with those. Build the damn thing already." So every condition is met:
+
+- **(4) Accepted:** only decrypted cartridge dumps play. Encrypted dumps
+  are refused after their download ("Encrypted 3DS games can't be
+  played"), CIAs are hidden (above), and updates and DLC do not play yet
+  (#181, "Updates and DLC as separate files in RomM (Switch, PS3, Xbox
+  360)", or Azahar's bundles in a stable release).
+- **(5) His call:** the 3DS emulator is built into the image, Azahar's own
+  libretro core at 2126.2, with the no-network patch.
+
+#### On the TV in 2026.10.20.5: the save folders, and L3 (2026-10-20, evening)
+
+- **Every 3DS game after the first used the first game's folders.**
+  Azahar's `SetUserPath` (`src/common/file_util.cpp:935` at 219d743) sets
+  each folder with `emplace`, which never replaces one already there, and
+  the core is never really unloaded: `azahar_libretro.so` has about 12,000
+  GNU unique symbols, so glibc keeps it after `dlclose`
+  (`frontend/src/core.cpp`'s `Core::unload`), and its statics outlive the
+  game ("Reinitializing logging backend" at every later start). So every
+  3DS game after the first since the frontend started, and every person
+  after the first (switching person happens inside the same frontend),
+  read and wrote the first game's sdmc, nand, sysdata and shader folders,
+  and their saves went up under the first game. Seen on the A9: Kirby's
+  save, extdata and shader cache in Mario Kart 7's folder, Kirby's own
+  folder empty, and Mario Kart 7's upload carrying them. Every other core
+  checked: only Dolphin and PPSSPP also stay loaded, and both set every
+  folder at each start (each A9 folder holds only its own game). **Fixed by
+  a second patch**, his go ("Yeah, go ahead, build it so I can get this
+  dang thing tested and pushed"): `SetUserPath` empties its table when the
+  folder changes (not when it stays the same, since the core calls it again
+  whenever an option changes during play), in `cores/build-core.sh`'s
+  azahar patch block. Tracked on #534 ("Azahar patch: each game sets its
+  own folders (until Azahar fixes SetUserPath)"), reported upstream as
+  azahar-emu/azahar#2694; dropped when an Azahar release fixes it. Kirby's
+  progress from that evening is only in Mario Kart 7's folder on the A9.
+- **A toggled L3 swap, decided and then dropped the same evening**
+  (MMagTech): Azahar keeps the toggle in a static flag in `retro_run`
+  (`citra_libretro.cpp:241` at 219d743) that outlives a game, as the
+  folder table did, so after a game ended swapped the next 3DS game's first
+  L3 press would have done nothing; fixing it needed a third patch. His
+  rule: the build carries only the patches the emulator needs to work to
+  the console's expectations (games off the internet, each game and person
+  in its own folders), and a toggled swap is not one. L3 stays held to swap
+  (`citra_swap_screen_mode` "Hold").
+
+The testing image 2026.10.21, built from a702faa with the save-folder
+patch, was played on the TV that evening (Mario Kart 7 and Kirby as him,
+then another person's games in their own folders). The frontend crashed once,
+opening the 3DS shelf after a person switch: not the 3DS. Moving up from
+the Library's fourth system wrote past the switcher's two focus animations
+into the grid screen (since c1fa0bb removed `tabChange_`), and the next
+grid opened crashed. Reproduced headless on the A9 and fixed in 500cb88;
+2026.10.21.2 is the testing image with it. He chose no TV check (the
+headless proof stands), and the merge waits on his go.
+
+### 51. Vectrex screen overlays: where the sheets come from, and their rights, issue #224
+
+**Researched 2026-10-19, the night; research only, no code; DECIDED 2026-10-19, late.**
+**Decided: go.** MMagTech, the same night, after the research and the
+Batocera answer: ship the libretro `Game Overlay` set on the same
+non-commercial footing as the Vectrex system ROM, as recommended below;
+#224 is buildable as written, with the Overlays row (the block before
+"Recommendation"). His words: "ship the libretro Game Overlay set on the
+same non-commercial footing as the Vectrex system ROM, as question 51
+recommends. #224 is buildable as written, with the Overlays row."
+
+Asked by MMagTech on 2026-10-19 for #224 ("Vectrex: the cartridges' screen
+overlays"), which he kept in Later that day as a fidelity feature: a Vectrex
+game shows its sheet with no on/off row, a game whose sheet is not reproduced
+shows the bare screen, the sheets ship in the image (the console fetches from
+nothing but RomM and GitHub), and the images' source and rights are settled
+before anything is drawn. This question settles the source and the rights.
+Read: Cabinet's retired source on GitHub (MMagTech/cabinet, commit
+`1896b3741`, 2026-08-22, "Slide the sheet in front of the tube"); the
+libretro repository the images came from (libretro/overlay-borders at
+`385490fa8`, 2017-03-07) and its issue #6; libretro-vecx at the console's pin
+`8f671cc9d737` and at master `dccff5402` (2026-10-16); MAME at master
+(`src/emu/rendlay.cpp`, `layout_files.rst` in its documentation's
+`techspecs`, `hash/vectrex.xml`); RetroArch at master (`config.def.h`,
+`gfx/drivers/gl2.c`); the rec.games.video.classic Vectrex FAQ (version 2.0,
+1994-03-01, and version 4.0 as reposted 2020-09-28); Wikipedia's Vectrex
+articles (list of games last edited 2026-10-15); the Vectrex Museum's home
+page; the libretro, HyperSpin, RetroPie and MiSTer forum threads named below;
+Justia's and IP Australia's trade mark records; Time Extension's Vectrex
+Mini article (2026-06-03); and the Internet Archive item `moonland_202212`.
+Nothing was built and nothing ran on the A9. Every date is the day the page
+or commit was read, 2026-10-19, unless it says otherwise.
+
+#### Short answer
+
+- **Cabinet's sheets are libretro's.** The 38 PNG files Cabinet bundled are
+  byte-identical to the `Game Overlay` folder of libretro/overlay-borders
+  (`1080 GCE Vectrex`), MIT-licensed, credited to THK and Gigapig of the
+  HyperSpin community. They are clean vector recreations, not scans.
+- **The art itself is GCE's, 1982 to 1984, and belongs to Smith Engineering
+  today.** It is not public domain. The only permission anyone has is Jay
+  Smith's second-hand, undated, non-commercial one: "copies of all Vectrex
+  related materials (manuals, games, overlays, etc.) as long as it is not
+  for profit". No primary text of it was found. That is the same permission
+  docs/LICENCES.md already relies on for the Vectrex system ROM inside vecx.
+- **Shipping them in this image is as clean as shipping the ROM**, no more
+  and no less: free, unsold, non-commercial. One new risk the ROM does not
+  carry: ten sheets reproduce third parties' titles and logos (Star Trek,
+  Pole Position, Berzerk, Scramble and the Cinematronics games), which
+  Smith Engineering's permission cannot cover.
+- **Nobody ships them as part of RetroArch or Bazzite.** Batocera does, in
+  four of its decoration sets (Duimon's console drawings with the same
+  sheet art inside, CC BY-NC-ND 4.0), applied by ROM name once a player
+  picks one of those sets; its out-of-the-box set has none. Below.
+- **Recommendation:** ship libretro's `Game Overlay` set at commit
+  `385490fa8`, fetched at build time the way the shaders are; draw the 25
+  sheets that shipped with retail cartridges and the three regional
+  variants; leave the invented ones (prototypes, the 3D Imager games) in
+  the table but off, as Cabinet did. His one decision is the legal one,
+  under "Recommendation" below.
+- **Decided later the same day:** an "Overlays: On / Off" row in the
+  Vectrex pause menu after all, remembered per system like a look, default
+  On (the last block before "Recommendation").
+
+#### What Cabinet shipped, and where it came from
+
+Cabinet drew the sheets from its own bundle, 38 PNG files in
+`RommApp/RommApp/Resources/VectrexOverlays/` plus a table,
+`vectrex-overlays.json`, read by `RommApp/RommApp/Native/VectrexOverlays.swift`,
+all added in one commit, `1896b3741` (2026-08-22). Its `docs/licenses.md`
+("Bundled artwork") says where they came from: "vector recreations of the
+translucent sheets that shipped with every Vectrex cartridge, taken from
+libretro/overlay-borders (MIT-licensed repository; credits THK and Gigapig of
+the Hyperspin community). The underlying overlay designs are 1982 to 1984 GCE
+artwork; they are reproduced here the same way the wider emulation community
+has distributed them for years, non-commercially and for preservation."
+
+Checked, not taken on trust: Cabinet's `Mine_Storm.png` and the
+`Game Overlay/Mine_Storm.png` in libretro/overlay-borders have the same md5
+(`833c5867a71deaea87d0d6c4a2f5111a`), and every one of the 38 file names and
+sizes matches that folder. So Cabinet's bundle is that folder, unmodified.
+
+Cabinet's table is worth carrying over as it stands. It maps a game to its
+sheet by RomM's md5 of the ROM first, then by a normalised name token
+(longest match wins), and marks ten rows `historical: false`: the three 3D
+Imager games, the five prototypes (Dark Tower, Pitcher's Duel, Tour de
+France, Mail Plane) and the 2D Narrow Escape hack, and Mine Storm II. A
+non-historical row draws nothing and blocks its name from borrowing a real
+sheet ("3D Mine Storm" never gets Mine Storm's). Mine Storm II's md5 points
+at the plain Mine Storm sheet on purpose: Cabinet's note says GCE mailed it as
+a bare bug-fix cartridge meant to be played under the console's own sheet. I
+found no source that says whether the mailed cartridge came with a sheet
+(Wikipedia's Mine Storm article says the cartridge was mailed free to people
+who reported the level 13 crash, and says nothing of a sheet), so that row
+stays as Cabinet wrote it, flagged.
+
+How Cabinet drew it (`NativePlayerRenderer.swift`, same commit): the sheet is
+a second quad drawn after the game's, with the game quad's own vertices (so
+it covers exactly the core's picture, stretched with it), alpha-composited,
+premultiplied source-over (`sourceRGBBlendFactor = .one`,
+`destinationRGBBlendFactor = .oneMinusSourceAlpha`), linear sampling. Its
+comment: "The art is authored for exactly this: its play area is a 20% alpha
+tint the vector lines shine through, its frame and legend opaque." Measured
+here on the files (a Swift script sampling the decoded PNGs): the play area
+is alpha 51 of 255 (20%) over 69 to 77% of a sheet's pixels; the frame and
+the control legend are alpha 255 over 20 to 29%; the 3D Mine Storm file is
+87% fully transparent, a frame and nothing else, which is why it is marked
+invented. Cabinet had one Settings row for it, on by default; #224 drops the
+row.
+
+#### 1. Who holds the rights
+
+- **The sheets were GCE's.** General Consumer Electronics published the
+  console and every retail cartridge in the United States from October 1982
+  to February 1984 (Wikipedia, "List of Vectrex games"); Milton Bradley
+  bought GCE in September 1982 and published in Europe and Canada, Bandai in
+  Japan. The sheets' designers are not named anywhere I found; Wikipedia
+  credits designers for three games (Bedlam and Spike to Tom Sloper,
+  Scramble to Paul Allen Newell) and no artist for any sheet.
+- **They are Smith Engineering's now.** Wikipedia ("Vectrex"): "Following
+  the discontinuation, Milton Bradley released all rights back to Smith
+  Engineering", citing the Vectrex Museum's history page. The Museum's own
+  home page: "The Vectrex was developed by Western Technologies/Smith
+  Engineering. It was licensed and distributed first by General Consumer
+  Electric (GCE), and then by Milton Bradley Company after their purchase of
+  GCE." A Vector Gaming forum post (VECTREXER, 2019-02-12): "IP rights for
+  the Vectrex are owned by Jay Smith. They are NOT public domain. Rights were
+  obtained back from Milton Bradley a long time ago and are retained by Jay."
+  No deed, letter or register entry was found for the reversion; every
+  account is second hand.
+- **The trade mark is somebody else's.** VECTREX, US registration 5578730
+  (filed 2017-12-23, registered 2018-10-09, classes 9 and 28), is held by
+  DATA ACCESS, a limited liability company (Justia's record, 2026-10-19;
+  the address is behind a login). VECTREX, Australian trade mark 2607497
+  (filed 2025-11-08, registered), is held by NEO RETRO, 50 avenue des
+  Champs-Elysées, Paris (IP Australia, 2026-10-19). Time Extension
+  (2026-06-03) says the Vectrex Mini is made by a team led by David Oghia,
+  who "secured the rights" for the 1982 launch-era games "originally
+  developed under Smith Engineering", that Jay Smith is a consultant on it,
+  and that Berzerk needed a separate deal with Atari. A Reddit comment
+  (r/Vectrex, 2025-07, not reachable here except through a search summary)
+  says the Mini licenses the mark from "Neo Retro aka Data Access" and that
+  the games' rights "are still owned by Jay Smith and managed by his son
+  Spence Smith". So: the word mark on the sheets' border art is a French
+  company's; the game art is Smith Engineering's. The sheets this question
+  is about carry the games' art and legends, not the Vectrex word mark
+  (the libretro `Game Overlay` files have none; the bordered sets draw the
+  console's nameplate, and are not recommended below).
+- **What Jay Smith's release covers.** The words, in the order they were
+  written down:
+  - The rec.games.video.classic Vectrex FAQ, version 2.0 by Gregg Woodcock,
+    "Created: 9/1/92", posted 1994-03-01: "Fortunately, Smith Engineering has
+    given Usenetters permission to make copies of all Vectrex related
+    materials (manuals, games, overlays, etc.) as long as it is for
+    distribution to members of the group and as long as it is not for
+    profit." No date for the permission itself.
+  - The same FAQ at version 4.0 ("Copyright worldwide (c) 1992, 1996",
+    maintained by BaronVR, as reposted on stevesretrogaming.com,
+    2020-09-28): "Smith Engineering [Jay Smith] has given permission to make
+    copies of all Vectrex related materials (manuals, games, overlays, etc.)
+    as long as it is not for profit." The group-membership condition is
+    gone.
+  - Wikipedia ("Vectrex"), citing Mark J. P. Wolf, Encyclopedia of Video
+    Games (2012), p. 245: in the mid-1990s Jay Smith "allowed new hardware
+    and software development on a fee- and royalty-free basis" and "allowed
+    duplication of the original Vectrex software on a not-for-profit basis".
+  - The Vectrex Museum's home page: "In the mid-1990s, Smith Engineering
+    condoned the duplication of the Vectrex system image and cartridges for
+    non-commercial uses."
+  - The VectrexWii project's page (wiibrew.org): the project "operates
+    strictly under the official policy Jay Smith, Vectrex's creator,
+    established in the mid-1990s", which "permits non-commercial, non-profit
+    reproduction and distribution of Vectrex software and documentation";
+    the original games, manuals and overlays "are not in the public domain";
+    it bundles overlays for every official game and prototype.
+  - Sean Kelly, quoted by Chuck Miller (chuckthewriter.blog, 2013-06-30):
+    Jay Smith "posted a message on the newsgroups saying that the fans and
+    hobbyists could use the Vectrex data for any non-commercial purposes",
+    placed in the late 1980s, no link.
+  - A Vector Gaming forum post (VECTREXER, 2019-02-12): "Jay does allow
+    non-for-profit projects. He asks that commercial projects be reviewed
+    before approval."
+  **So the permission names overlays by that word in its earliest written
+  form, is non-commercial only, has no date anyone can produce (1992 is the
+  FAQ's creation date, which docs/LICENCES.md has been using as the
+  permission's), has no primary text I could find (no post, letter or page
+  in Jay Smith's own words), and is his to withdraw.** It is not a licence
+  and not a release into the public domain, whatever forum posts and the
+  Internet Archive say. Two forum claims that the games "don't have copyright
+  anymore" (MiSTer forum, 2022-03-26 and 2023-03-07) are wrong on their
+  face: works of 1982 are in copyright in every country concerned.
+- **The third-party sheets.** Ten of the 28 games were licensed
+  properties, and their sheets carry those owners' titles and marks: Star
+  Trek: The Motion Picture (Paramount), Pole Position (Namco), Berzerk
+  (Stern, now Atari), Scramble (Konami), and the Cinematronics arcade games
+  Armor Attack, Rip Off, Star Castle, Space Wars, Solar Quest and Star Hawk
+  (Cinematronics' rights have since changed hands). Smith Engineering's
+  permission cannot speak for those marks, and the Vectrex Mini's separate
+  Atari deal for Berzerk shows a commercial product needed one. For a
+  non-commercial reproduction the community has shipped these sheets since
+  at least 2011 (the EmuMovies MAME pack is dated 2011-11-27) with no claim
+  or takedown I could find. That is the whole of the evidence either way.
+
+#### 2. The digitised sets, and their licences
+
+**a. libretro/overlay-borders, folder `1080 GCE Vectrex`** (the one Cabinet
+used). Repository description: "A place for collecting decorative/cosmetic
+overlays for use with RetroArch." `LICENSE`: MIT, "Copyright (c) 2017" with
+no name after it. Added by thatman84 in two pull requests: #1 "GCE Vectrex
+16x9 game viewport overlays" (2017-03-05, commit `144cb60bf`, "Credits for
+original artwork are in the .cfg files and all images have been run through
+PNGCrush") and #2 (2017-03-07, commit `385490fa8`, "Four additional bordered
+sets of the original Vectrex overlays & four source border images"). Last
+push to the repository 2022-04-16. Six folders, 38 games each:
+
+| Folder | Size | What it is | `.cfg` | Credits in the `.cfg` |
+|---|---|---|---|---|
+| `Game Overlay` | 846x1080 (Star Castle 845x1080), RGBA, interlaced | the sheet alone, play area 20% alpha, frame and legend opaque | `overlay0_rect = "0.0,0.0,1.0,1.0"` | THK-Hyperspin, Gigapig-Hyperspin |
+| `Console Bezel Only` | 1920x1080 | the sheet in the console's black screen bezel, sides transparent | `overlay0_full_screen = true` | THK, Gigapig, Nosh01-GitHub |
+| `Full Console Border` | 1920x1080 | the sheet in a photograph-style drawing of the whole console | same | THK, Gigapig |
+| `Generic Border with Full Console`, `Generic Vectrex Border` | 1920x1080 | the same with decorative side art | same | THK, Gigapig, Nosh01 |
+| `_Border Images` | 4 PNG | the border sources | none | |
+
+Looked at (Mine Storm, Star Castle): flat colour, crisp curves, no print
+grain, no scanner noise, no copyright line: redrawn art, not scans. Who drew
+them: the libretro forum thread "Vectrex Overlays" (Thatman84, 2022-02-06)
+says the console and generic borders came from Grizz, THK and Nosh of
+HyperSpin, that "THK cleaned the game overlays", and that "the original game
+sources are fairly unknown"; the HyperSpin thread "Vectrex overlays, bezels"
+(thatman84, 2016-05-07 and 2017-02-11) traces them to an EmuMovies "RL bezel
+pack" credited to Gigapig, at an FTP path ending "Gigapig-THK". So the chain
+is: GCE's printed sheets, redrawn by Gigapig and THK for HyperSpin's
+RocketLauncher bezels (before 2016), cleaned by THK, cut to RetroArch
+overlays by thatman84 (2017), in libretro's repository under MIT. The MIT
+licence is those people's grant for their drawing; it cannot license GCE's
+designs underneath, and nobody in the chain claims it does. The repository's
+issue #6 (amaiorano, 2018-05-06, asking to bundle them in his MIT emulator
+Vectrexy) got a libretro maintainer's answer (hizzlekizzle, the same day):
+"you'll be fine just mentioning the people from the cfgs: THK-Hyperspin,
+Gigapig-Hyperspin, Nosh01-GitHub". Vectrexy ships them with that credit "and
+other unknown authors" (its README, 2026-10-19). Nosh01's own repository
+(nosh01/retroarch-overlays, no licence, last push 2020-06-20) has no Vectrex
+folder; his credit is for the borders.
+
+**b. Internet Archive, `moonland_202212`** ("Vectrex Screen Overlays for
+Retroarch", uploaded 2022-12-22, creator field "General Consumer
+Electronics", licence field Public Domain Mark 1.0). Two folders: `vecx` is
+the libretro `Game Overlay` set renamed to MAME's short names (the sizes
+match file for file: `Bedlam.png` 189,992 bytes, `armora.png` 288,011) plus
+eight homebrew sheets; `vectrex` is a MAME-sized set of small files (3 to
+50 KB). The public-domain mark is the uploader's own claim about GCE's art
+and carries no weight; the set is not an independent source.
+
+**c. MAME.** MAME's source tree has no Vectrex artwork: no layout file for
+the driver (`src/mame/miltonbradley/vectrex.cpp` draws the vector picture
+and has a colour or black-and-white switch, nothing else), and
+`hash/vectrex.xml` (CC0-1.0, 75 software entries) holds names and dumps, no
+pictures. Overlays come from Mr. Do's artwork site (mrdo.mameworld.info) as
+`vectrex.zip` with a `vectrex.lay`; the site did not resolve from here on
+2026-10-19 and the browser refused it, so what follows is from search
+summaries and is unverified: a 2020 rework by "uman" of the console artwork,
+Armor Attack, Clean Sweep, Dark Tower and Star Castle added to complete "the
+official USA overlays", Star Castle still wanting a replacement, no licence
+stated for the files. The EmuMovies "Vectrex Screen Overlay Pack" (uploaded
+2011-11-27 by Circo) is that shape: 36 PNG at 931x1184 with a `.lay`, no
+licence, login to download. MAME's older Vectrex artwork is where the
+community's scans live; the libretro set is the redrawn one.
+
+**d. libretro-vecx** draws no overlay, at the console's pin and at master
+(grep of every source file). What it has is the fit: `vecx_scale_x`,
+`vecx_scale_y` ("Scale vector display horizontally", "vertically", 0.845 to
+1.01) and `vecx_shift_x`, `vecx_shift_y` ("Shift horizontally",
+"vertically"), added by davej with the GPU renderer so a game's picture can
+be fitted into a sheet's window; his RetroPie post (2020-10-14): "the
+emulator was changed to allow scaling/shifting the game screen via game
+options ... it defines values relative to a logical screen, so if you change
+the screen resolution you are using it automatically adjusts". The core's
+picture is 330x410 (`retro_get_system_av_info`), aspect 0.805; the sheet is
+846x1080, aspect 0.783. No fork of vecx that draws overlays was found;
+Vectrexy (a separate emulator, MIT) does, by file-name matching.
+
+**e. The community's scans.** mediamogul's RetroPie set (2018-03-12): "I
+don't even feel a claim to them, as I just adapted existing scans from
+vectrexmuseum.com for use in RetroArch." The Vectrex Museum (vectrexmuseum.com)
+is "an archived version and no longer actively maintained"; its pages
+rendered empty here and no overlay download page was found. UDb23 found
+"some artwork scans" the same day, judged by mediamogul "easily the best I've
+seen by far" but cut from their backgrounds badly; the link was not
+captured. raphkoster/vectrex-overlays (2019-06-03, no licence, 87 PNG
+"sourced from around the Net", most with transparency, many homebrew) is a
+pile, not a set. The libretro forum thread's starter (John.Merrit,
+2017-01-15) had "20 high-quality scans of real Vectrex Game Overlays" and
+"didn't release them all and left the community" (Thatman84, 2022-02-06).
+ParaJVE (vectrex.fr) bundles overlays per forum posts; its page is an empty
+frameset here, credits unknown. vectrex.co.uk and a "Vectrex Fans" site:
+nothing found. Vectrex Multi sells printed reproduction sets (28 titles,
+US$250): commercial, not a source. **No set of scans with a stated licence
+exists, and no scan set covers every title.** The redrawn libretro set is
+the only complete, licensed-as-far-as-it-can-be one.
+
+#### The titles, with and without a sheet
+
+Wikipedia's list (edited 2026-10-15): 28 official releases including the
+built-in Mine Storm. Against the libretro `Game Overlay` folder (38 files):
+
+| Shipped with a screen sheet, and the set has it (25) | File |
+|---|---|
+| AnimAction (light pen) | `AnimAction` |
+| Armor Attack | `ArmorAttack` |
+| Art Master (light pen) | `Art_Master` |
+| Bedlam | `Bedlam` |
+| Berzerk | `Berzerk` |
+| Blitz! Action Football | `Blitz!_Action_Football` |
+| Clean Sweep | `Clean_Sweep` |
+| Cosmic Chasm | `Cosmic_Chasm` |
+| Fortress of Narzod | `Fortress_of_Narzod` |
+| Heads Up Action Soccer | `Heads-Up_Action_Soccer` |
+| Hyperchase: Auto Race | `HyperChase_Auto_Race` |
+| Melody Master (light pen) | `Melody_Master` |
+| Mine Storm (built in; the sheet came with the console) | `Mine_Storm` |
+| Polar Rescue | `Polar_Rescue` |
+| Pole Position | `Pole_Position` |
+| Rip Off | `Rip_Off` |
+| Scramble | `Scramble` |
+| Solar Quest | `Solar_Quest` |
+| Space Wars | `Space_Wars` |
+| Spike | `Spike` |
+| Spinball | `Spinball` |
+| Star Castle | `Star_Castle` |
+| Star Trek: The Motion Picture | `Star_Trek-The_Motion_Picture` |
+| Starhawk | `Star_Hawk` |
+| Web Wars | `Web_Wars` |
+
+| Regional and promotional variants in the set (3) | File |
+|---|---|
+| Flipper Pinball (Spinball, Europe) | `Flipper_Pinball` |
+| Star Ship (Star Trek, Europe) | `Star_Ship` |
+| Mr. Boston Clean Sweep (a liquor promotion of Clean Sweep) | `Mr_Boston_Clean_Sweep` |
+
+Not in the set as separate files: Web Warp, Blitz! American Football and
+Soccer Football (Europe), Harmagedon and Scramble Wars (Japan). Cabinet's
+table sends "web warp" to Web Wars' sheet; whether the European and Japanese
+sheets differed from the American ones I could not establish.
+
+| In the set, but no retail sheet existed, or unsettled (10) | File | Why |
+|---|---|---|
+| 3D Mine Storm, 3D Crazy Coaster, 3D Narrow Escape | `3D_*` | the 3D Imager games coloured the picture through the headset's spinning wheel (one wheel for 3D Mine Storm, one shared by the other two); Cabinet marked their sheets invented. **Unsettled:** the Computer History Museum holds a "3-D overlay for Mine Storm", GCE, c. 1982, 6.5 by 8.25 inches (catalogue 102662882), which is sheet-sized, not a wheel. Nothing found lists a 3D game's box contents. |
+| 3D Pole Position | `3D_Pole_Position` | no such release; a community invention |
+| Mine Storm II | `Mine_Storm_II` | mailed bug-fix cartridge; Cabinet's note says it came bare and maps it to Mine Storm's sheet; no source found either way |
+| Dark Tower, Pitcher's Duel, Tour de France (prototypes), Mail Plane (unreleased, light pen) | `*_Proto`, `Mail_Plane` | never sold; the sheets are community drawings. A printable Dark Tower overlay circulates (AtariHQ's Vectrex page, per a search summary), origin not established |
+| 2D Narrow Escape (hack) | `2D_Narrow_Escape_Hack` | a homebrew hack |
+
+Without any sheet in the set: nothing among the 28. Homebrew (1996 to
+today, dozens of titles) is outside #224.
+
+#### 3. Is shipping a set in this image clean, and which
+
+**As clean as the system ROM, and by the same reasoning.** docs/LICENCES.md
+already says the console ships GCE's software (the system ROM with Mine
+Storm inside vecx) on Smith Engineering's non-commercial permission, under
+the constraint the six non-commercial cores put on the project: free, not
+sold, no donations. The sheets add nothing to that constraint and nothing
+to its legal footing either: the same undated, second-hand permission, which
+names overlays in its earliest written form. What they add is the
+third-party marks on ten sheets, which no permission of Smith
+Engineering's reaches, carried the way MAME's artwork, RetroArch's overlay
+repository, VectrexWii, ParaJVE, Vectrexy and Cabinet carry them.
+
+**Which set: libretro/overlay-borders, `1080 GCE Vectrex/Game Overlay`, at
+commit `385490fa8`.** The only complete set; MIT from the people who drew it,
+with an attribution answer from libretro on record (issue #6); the sheet
+alone, with no console nameplate (no trade mark) and no decoration, which is
+what #224 asks for; already matched to RomM's md5s by Cabinet's table;
+authored for alpha compositing at 20%, so the vector lines read through it
+as they do through the plastic. Not the bordered folders: a drawn console
+around the picture is decoration, and carries the VECTREX word mark.
+
+**How it reaches the image:** not committed to this repository (38 files,
+3.9 MB, somebody else's work), but fetched at build time from GitHub at the
+pinned commit and checked by hash, the way `tools/fetch-shaders.py` fetches
+the screen looks from libretro/glsl-shaders at `435612fe4f10`; installed
+beside them, `/usr/share/cabinetos/vectrex/`. The console itself fetches
+nothing. The table (Cabinet's `vectrex-overlays.json`, carried over) is this
+project's own and lives in the repository.
+
+**The lines for docs/LICENCES.md**, one row in "Files shipped inside the
+image that are not cores", and one paragraph after the Vectrex ROM note at
+the top:
+
+> | **The Vectrex screen sheets** (#224), `/usr/share/cabinetos/vectrex/` | the `Game Overlay` folder of [libretro/overlay-borders](https://github.com/libretro/overlay-borders) (`1080 GCE Vectrex`) at `385490fa8`, 38 PNG files, unmodified, fetched at build time by `tools/fetch-vectrex-overlays.py` (as the shaders are); which sheet belongs to which game is this project's own table, `frontend/data/vectrex-overlays.json`, after Cabinet's | **MIT** for the drawings, which are vector recreations by THK and Gigapig of the HyperSpin community, cut for RetroArch by thatman84 (credited in each file's `.cfg`, and the attribution libretro asked for in its issue #6). **The designs underneath are GCE's, 1982 to 1984, and belong to Smith Engineering**, under the same non-commercial permission as the system ROM (above); ten sheets carry the titles and marks of the games' licensors (Paramount, Namco, Atari, Konami, Cinematronics) as the printed sheets did |
+
+> **The Vectrex sheets are GCE's too.** Every retail cartridge shipped with
+> a translucent printed sheet that sat in front of the screen; the console
+> draws each game's sheet over its picture (#224) from community-drawn
+> copies of them. The drawings are MIT; the designs are Smith Engineering's,
+> allowed for non-commercial use with the games, as above. They are not
+> public domain, and the permission is Jay Smith's to withdraw.
+
+#### 4. How the tools draw a sheet, as the reference
+
+- **Blend: alpha (source over), not multiply.** RetroArch draws every
+  overlay alpha-blended (`gfx/drivers/gl2.c`, `glBlendFunc(GL_SRC_ALPHA,
+  GL_ONE_MINUS_SRC_ALPHA)` around `gl2_render_overlay`) at
+  `input_overlay_opacity`, default 0.7 (0.5 on some builds,
+  `config.def.h:755-757`), the whole image stretched over the viewport
+  (`overlay0_full_screen = true` or `overlay0_rect = "0,0,1,1"`). Cabinet:
+  premultiplied source over, opacity 1, since the files carry their own 20%
+  in the play area. MAME's legacy `<overlay>` element blends by RGB multiply
+  (`src/emu/rendlay.cpp`, `get_blend_mode`: an `overlay` item defaults to
+  `BLENDMODE_RGB_MULTIPLY`, everything else to alpha; the documentation's
+  `blend` attribute takes `none`, `alpha`, `multiply`, `add`), which suits a
+  scanned sheet whose play area is solid colour: the black screen stays
+  black and a white line takes the sheet's colour. The libretro files are
+  authored for alpha: a 20% tint over black lifts the play area to a dim
+  colour, as the real plastic did over the tube's grey, and a white line at
+  full brightness shows through 80% white, 20% sheet colour. **For this
+  console: source-over alpha at opacity 1, the files as they are, the sheet
+  drawn after the core's picture and before the pause menu.** Multiply would
+  need re-authored files (opaque play areas) and would kill the lines'
+  brightness in the dark sheets. Where RetroArch users set 0.375 to 0.6
+  (Folly 2020-10-14; sonkun 2017-02-10; the libretro thread), they are
+  using the bordered 1920x1080 files whose opaque borders would otherwise
+  hide the picture's edges; with the sheet-only files there is nothing to
+  dim.
+- **Placement and scale: the sheet covers exactly the core's picture.**
+  Cabinet drew it with the game quad's vertices. In RetroArch the same thing
+  is done by hand: a custom viewport of 846x1080 and aspect "custom"
+  (Clyde, RetroPie, 2019-02-10: the XMB shows "846:1080, which is the
+  resolution of the overlay's png"), then `vecx_scale_*` and `vecx_shift_*`
+  to pull the picture into the window, since 330x410 (0.805) is a little
+  wider than the sheet (0.783). The console's picture on a 16:9 television
+  is pillarboxed at the core's aspect; the sheet is drawn in that
+  rectangle, scaled with it, linear-sampled (it is smooth art, not pixels).
+  Whether the window needs the core's scale options, and by how much, is
+  the one thing to judge on the A9: Cabinet shipped the core's defaults and
+  called it right on a phone and a television; the sheet's window edges are
+  the test (a Mine Storm field that touches the frame's inner edge).
+- **Order with the looks (#122):** Vectrex has no screen look (`looks.h`
+  lists it with the systems that have none), so the sheet is the only thing
+  between the core's picture and the pause menu's scrim.
+
+#### What the console has on the Vectrex today
+
+- The catalog row: `{"vectrex", nullptr, Support::Playable, "vecx", nullptr}`
+  (`frontend/src/catalog.cpp:81`); the core `vecx` at `8f671cc9d737`, built
+  with `HAS_GPU=0` (`cores/build-core.sh:185-194`), so the picture is the
+  core's software frame, 330x410 at `vecx_res_multi` 1, which
+  `quality.cpp:277` raises to 4 (1320x1640) for every quality level.
+- `cores/options/vecx.txt`: `vecx_res_multi` 1 (1 to 4), `vecx_scale_x` and
+  `vecx_scale_y` 1 (0.845 to 1.01), `vecx_shift_x` 0 (-0.03 to 0.03),
+  `vecx_shift_y` 0 (-0.035 to 0.1). No overlay option exists in the core.
+- No overlay code anywhere in the frontend: `overlay` in `app.h` is the
+  pause menu. `looks.h` lists Vectrex among the systems with no screen
+  look. `credits.h` carries "Vectrex system ROM, Non-commercial" and
+  "vecx, GPL v3"; docs/LICENCES.md the ROM note.
+- A game record has `name` and `fsName` (`romm_types.h`, `struct Game`;
+  `romm_library.cpp:62`) and no hash. RomM's rom file schema has
+  `md5_hash` (rommapp/romm `backend/endpoints/responses/rom.py`,
+  `RomFileSchema`, at `6fae8185f`, 2026-10-14), so md5 matching as Cabinet
+  did it is one more field read from the rom JSON; name matching works with
+  what is there.
+- The smoothness he saw on 2026-10-19 is a separate matter, in hand in the
+  session that asked this question; nothing here touches the core's pacing.
+
+#### Do RetroArch, Batocera or Bazzite already ship the sheets?
+
+Asked by MMagTech the same night, through the parent session: he was fairly
+sure one of them includes them. Checked concretely on 2026-10-19:
+
+- **RetroArch: no.** A stock RetroArch carries libretro/common-overlays
+  (CC BY 4.0): touch gamepads, a few console borders (Game Boy, NES, SNES)
+  and no Vectrex sheet. Its one Vectrex file is a touch-screen gamepad
+  layout, `gamepads/Named_Overlays/GCE - Vectrex.cfg`. That is true of the
+  Online Updater's "Update Overlays" (the buildbot's
+  `assets/frontend/overlays.zip` of 2026-10-20, 27.6 MB, downloaded and
+  listed: one Vectrex match, that gamepad) and of the Flathub build
+  (flathub/org.libretro.RetroArch's manifest bundles common-overlays,
+  retroarch-assets, the shaders, the database and the core info with
+  `HAVE_UPDATE_ASSETS=0`; overlay-borders is not among its modules). The
+  vecx core draws none. A RetroArch player gets a sheet only by fetching
+  overlay-borders from GitHub by hand and writing a per-game config; nothing
+  applies one by itself.
+- **Batocera: yes, in its decoration sets, drawn by Duimon under
+  CC BY-NC-ND 4.0, and not on out of the box.** The image ships
+  batocera-linux/batocera-bezel (pinned in
+  `package/batocera/emulators/retroarch/batocera-bezel/batocera-bezel.mk` at
+  `96c8f8650ff8`, 2026-09-25) into `/usr/share/batocera/datainit/decorations/`.
+  Four of its sets (`default_curve`, `default_curve_night`,
+  `default_nocurve`, `default_nocurve_night`) carry a `games/vectrex/`
+  folder: 37 PNG files at 1920x1080 with an `.info` each, the console drawn
+  around the screen and the game's sheet in the window (centre alpha 51 of
+  255, the same 20% as libretro's; the Mine Storm sheet is the same drawing
+  line for line, so it is the HyperSpin recreation inside Duimon's console),
+  named by the No-Intro ROM name (`Armor..Attack (World).png`,
+  `Mine Storm (World).png`), the picture placed by the `.info` (top 117,
+  left 669, bottom 244, right 669 of 1920x1080; opacity 1.0). Covered: 22
+  of the 25 retail sheets (not the three light-pen games AnimAction, Art
+  Master and Melody Master), Flipper Pinball, Star Ship, Mine Storm II, the
+  Dark Tower, Pitcher's Duel and Tour de France prototypes, 2D Narrow
+  Escape, seven homebrew titles and a generic `Mega.png`; not the 3D games
+  and not Mr. Boston. Added by Duimon on 2022-01-22 (commit `85b29ca49`,
+  "added/updated, optimized decorations"); each file carries
+  "CC BY-NC-ND - https://github.com/Duimon" in its corner, and Duimon's own
+  repository (Duimon/Duimon-Mega-Bezel) is under CC BY-NC-ND 4.0; the
+  batocera-bezel repository has no licence file of its own. **Automatic
+  only after a choice:** the launcher's default decoration is `consoles`
+  (`python-src/batocera-launch/resources/defaults/config.yml`,
+  `bezel: consoles`), a folder the build assembles from `default_unglazed`
+  and the night sets' `systems` folders (the `.mk` above) with no `games/`
+  folder at all, and its `systems/vectrex.png` is a bare console with a
+  transparent window (centre alpha 0). A player who picks DECORATION SET
+  `default_curve` or `default_nocurve` (or their night versions) in GAME
+  SETTINGS then gets the sheet per game by the ROM's file name, with no
+  further setting (`batocera_launch/emulator.py`, the bezel lookup: the
+  game's name under `games/<system>/` first, then the system's bezel, then
+  the set's default). Batocera draws a bezel through RetroArch's overlay
+  for libretro cores (its wiki, "decoration": most RetroArch cores support
+  bezels out of the box; the `.info` gives the opacity) and through its own
+  `batocera-bezel-overlay` window for standalone emulators
+  (`batocera_launch/draw/bezel.py`). On request it also downloads The Bezel
+  Project's Vectrex pack (UPDATES & DOWNLOADS, from updates.batocera.org's
+  mirror of thebezelproject/bezelproject-GCEVectrex, listed in
+  `scripts/linux/thebezelproject/tbp_systems.txt`): 131 PNG at 1920x1080,
+  console bezel with the sheet in the window (Armor Attack: centre alpha
+  51), RetroPie-style per-game configs, `overlay0_full_screen = true`, no
+  licence file. For its MAME alternative the image ships only MAME's own
+  `artwork` folder (`package/batocera/emulators/mame/mame.mk:207`) and a
+  table mapping No-Intro names to MAME's software names
+  (`batocera-launch/resources/data/special/vectrex.toml`), so Mr. Do's
+  `vectrex.zip` would be found if a player added it; none ships.
+- **Bazzite: no.** Nothing of RetroArch is in the image. In ublue-os/bazzite
+  (cloned 2026-10-19) RetroArch appears once, in the Bazaar store's content
+  list (Bazzite's `desktop/shared/usr/share/ublue-os/bazaar/content.yaml`:
+  `org.libretro.RetroArch` and `net.retrodeck.retrodeck` as Flathub
+  suggestions), and EmuDeck is a `ujust get-emudeck` recipe
+  (`82-bazzite-apps.just:660`) that downloads its AppImage. So a Vectrex
+  sheet on Bazzite would come from Flathub's RetroArch (none, above),
+  RetroDECK (nothing Vectrex in RetroDECK/RetroDECK but a folder icon; its
+  "borders" feature is RetroArch's own) or EmuDeck (dragoonDorise/EmuDeck,
+  cloned the same day: its bezel switch covers 27 systems and vectrex is
+  not among them; its bezel pack URL answers 94 bytes). This console's
+  image strips none of that because none of it is there.
+
+**Who applies a sheet by itself, for the record:** Batocera once a player
+chooses one of its four sets that carry `games/vectrex` (by ROM name); The
+Bezel Project's pack once installed on Batocera or RetroPie (by ROM name,
+through RetroArch's per-game config); VectrexWii and Vectrexy (by name);
+ParaJVE for its bundled games; Cabinet (by md5, then name). RetroArch as
+shipped, Bazzite, RetroDECK and EmuDeck: nothing.
+
+**What it changes here:** nothing in the recommendation. Batocera's files are
+the same sheet drawing inside Duimon's console under CC BY-NC-ND, whose
+NoDerivatives term forbids cutting the sheet back out and whose
+NonCommercial term is the ROM's constraint again; libretro's `Game Overlay`
+folder is the sheet alone under MIT. What Batocera adds is a precedent: a
+free Linux distribution has shipped per-game Vectrex sheets inside its image
+since January 2022, under a non-commercial licence, with no claim reported
+that I could find.
+
+#### Decided 2026-10-19, late: an Overlays row in the pause menu, remembered per system
+
+MMagTech, in conversation after reading the research. **This reverses the
+"no on/off row" of his issue comment of 2026-10-19 (the morning's review);
+the comment stands as written, this entry is the later word.** Asked
+whether the sheet should be an option like the looks, the answer given was
+no row (the sheet was part of the hardware, a row is for the few); he
+decided the other way, for a reason of his own: the Vectrex's pause menu is
+nearly empty, since Vectrex has no Look row (`looks.h`: a system with no
+looks), so a row fits there naturally and costs the menu nothing.
+
+- **The row:** "Overlays: On" / "Overlays: Off", in the pause menu where the
+  Look row sits for the other systems, Vectrex only. Default On.
+- **Remembered like the looks:** one choice for the system, not per game.
+  Set in any Vectrex game, it applies to every Vectrex game and is kept,
+  the way `screenfx::choose(platformSlug, index)` keeps a system's look by
+  its RomM platform slug (`looks.h`). The same storage, keyed `vectrex`.
+- **Off shows the bare screen**, the white lines and nothing else, and the
+  bias glow as always (it is white and never samples the picture,
+  `shaders.inc`, `kGlowFS`).
+- **Everything else in this question stands:** the set, the rule for which
+  sheets draw, alpha at opacity 1, no console bezel ever.
+
+The legal footing was decided the same night: go (the top of this question).
+
+#### Recommendation, 2026-10-19 (not decided)
+
+**Build it from libretro's `Game Overlay` set at `385490fa8`, fetched at
+build time and pinned, with Cabinet's table and Cabinet's rule: the 25
+retail sheets and the 3 variants draw, the 10 invented or unsettled ones
+stay in the table marked off.** Alpha composite at opacity 1 over exactly
+the core's picture, linear sampled, before the pause menu. Credits as
+libretro asked (THK, Gigapig; thatman84 for the cut), the LICENCES.md row
+and paragraph above, and a line in credits.h beside the ROM's. The A9
+judges the fit (the window's edges against the field) and whether the
+core's scale options are needed. Mine Storm II and the three 3D games stay
+off until a source shows a sheet in their box; the Computer History
+Museum's "3-D overlay" is the lead, and a question to the Vectrex
+collectors' forum would settle it in a day, on his go.
+
+**The one decision that is his:** whether to ship GCE's sheet designs on
+the same footing as the system ROM. The footing is Jay Smith's non-commercial
+permission, never found in his own words, undated, revocable, already relied
+on for the ROM in docs/LICENCES.md, which the sheets extend to a second kind
+of thing it names (overlays) and to ten sheets carrying other companies'
+marks that it cannot cover. Every emulator and front end that draws these
+sheets ships them this way and none has been asked to stop that I could
+find; and the alternative is no sheets, since no cleaner set exists.
+Yes means #224 is buildable as written. No means #224 closes with the reason
+recorded here.
+
+### 52. Genie Mode: cheats, opt-in per person
+
+**Discussed 2026-10-20 and 2026-10-21 with MMagTech; paused by him, not
+decided whether to build.** His words at the pause: the feature "is only
+being discussed for possible further implementation", it "needs to be not
+thought of again until I bring it up, but we can't forget the discussion we've
+already had". When he raises it, he will either continue it or scratch it.
+Nothing was built, nothing ran on the A9, and there is no issue. Every
+decision below holds only if Genie Mode goes ahead.
+
+#### The brief, as he gave it (2026-10-20)
+
+His brief, "Genie Mode Phase One Brief", is not in the repository; this is
+its substance. It cites his survey of the cheat files (a `cht_survey.py`
+output), which was not read in this discussion.
+
+- **The feature:** an opt-in cheat feature for every system, framed on the
+  Game Genie. Hard rules, in order: (1) off by default, and while off nothing
+  about cheats appears anywhere; (2) when on, the only change is one entry in
+  the in-game menu, the launch flow never changes and no cheat list is shown
+  unprompted; (3) cheats apply live where the core allows, with a restart
+  offered when one does not take; (4) saves and states are unaffected, a
+  state made with cheats on loading fine with them off; (5) RetroAchievements
+  off whenever any cheat is active; (6) the cheat database a read-only SQLite
+  file compiled at image build and replaced each release, never fetched at
+  run time; (7) each person's enabled cheats kept with their other per-game
+  data, keyed by system, normalised game name and cheat description, to
+  survive database refreshes and cache eviction.
+- **The roadmap, a draft he has not settled** ("treat it as context and don't
+  lock any of it in"): a build-time compiler that clones libretro-database
+  and parses every `.cht` file line by line against the survey's faults
+  (unclosed quotes, wrong `cheats = N` counts, entries without a code, empty
+  separators, HTML entities, non-UTF-8, CRLF, stray keys, `.xml` files, `??`
+  and `XX` placeholders), ignoring the enabled-by-default flag; matching by
+  name (system plus title without region, version and device tags,
+  preferring a region match); a filter pipeline (one file per game; hide and
+  auto-apply master codes; hide `[Off]` entries, section headers and rumble
+  files; merge multi-part entries; dedupe and show player 1 only; fold
+  numbered quantities into an infinite entry or a value picker; sections and
+  numbered runs as pickers under "more codes"); a default view of at most
+  eight rows, ideally six, from an allowlist in priority order (lives,
+  health, invincibility, level select, time, ammo, unlock all, one hit kill,
+  debug, movement, money, with synonyms and German descriptions), a
+  blocklist (computer, enemy, player 2 and away-team handicaps, modifiers,
+  button activators, Wi-Fi, anti-piracy and region bypasses, frame-rate and
+  PAL fixes), the first six unblocked entries for the fifth of files that
+  match nothing, and a slur filter; two backends behind one interface, code
+  strings to the core through `retro_cheat_set` (about 1.2 million entries)
+  and RAM edits by an engine the console owns (about 21,600 entries); and a
+  per-core support matrix (RetroArch's cores; PSP through PPSSPP's own cheat
+  file).
+- **Phase one as written:** the RAM-edit engine only, proven on Flycast with
+  one Dreamcast cheat from the database: RetroArch's RAM view from the core's
+  memory descriptors, falling back to `retro_get_memory_data`; each active
+  cheat applied every frame at `memory_search_size` 3, 4 or 5 (8, 16, 32
+  bits) honouring `big_endian` and `address_bit_position`; `cheat_type` 1
+  built, types 4 to 6 and the `repeat_*` fields recognised and left as TODO;
+  one interface taking a normalised cheat with a handler (0 the core, 1 the
+  RAM engine), the code path stubbed; a report on whether Flycast's mapping
+  carries to Stella, FBNeo and the MSX cores. A couple of hundred lines plus
+  tests, no dependencies.
+
+#### Decided in the discussion (if it goes ahead)
+
+1. **The name stays Genie Mode.** "Cheats" was put to him as plainer, the
+   usual word, and free of the Game Genie trademark; he kept Genie Mode:
+   "most everyone knows that a genie grants you three wishes and they're
+   usually obnoxious ones". The screen never says "Game Genie" (the brief's
+   rule 2 wording).
+2. **Per person, a hard requirement** ("if it goes ahead at all"), as
+   RetroAchievements is.
+3. **Cheats are chosen before launch only, never changed mid-game.** His
+   reason: that is how it worked on the systems; codes went in before the
+   game, and changing them meant switching off and going back to the code
+   screen. This replaces the brief's rule 2 (an entry in the in-game menu,
+   the launch flow unchanged) and removes rule 3: codes are in from the
+   first frame, so codes that act at the start of a game and cores that read
+   codes only at load both work, and there is no "does not take" to detect
+   or restart for. Nothing goes in the pause menu.
+4. **The chosen cheats are remembered per person and per game**, so Play,
+   Home's Resume and Recent all start the game with the same cheats; they
+   change only where they are chosen. Fresh each time was the alternative:
+   Resume and Recent skip the game page and would have dropped the cheats a
+   state was played with.
+5. **Rule 4 reworded:** the cheat list is never stored in a save or state;
+   what a cheat changed in the game can be. A RAM cheat writes memory every
+   frame, so a state taken with 99 lives keeps 99 with Genie Mode off, and a
+   game that saves its money while a money cheat is on keeps the money in its
+   save, which goes to RomM for that person. His words: "if that's a by
+   product of the feature we'd have to live with it." Per person keeps it
+   within that person's saves.
+6. **Achievements, his rules (2026-10-21):** a play started with any cheat
+   on checks no achievements; with Genie Mode on but no cheat on for that
+   game, achievements are as normal; Genie Mode never changes the
+   RetroAchievements setting itself, so turning it off restores nothing.
+   The cup on the game page shows when achievements are off for a game; how
+   it looks is open (below).
+7. **The cheat files' licence is no obstacle.** libretro-database is CC
+   BY-SA 4.0 (GitHub's reading of its licence file): a database compiled
+   from it ships with credit, a note that it was changed, and the same
+   licence, as one entry in docs/LICENCES.md.
+
+#### Open when he raises it
+
+- **Where a person chooses the cheats.** A third row on the game page under
+  Play and Download was proposed and rejected: the page's layout was worked
+  on at length, and the cup was chosen over a third row on 2026-10-06
+  because the row pushed Continue from to the foot of the screen
+  (`detailscreen.h`, the `Achievements` struct). A mark beside the heart and
+  the cup was then proposed (a lamp, lit while a cheat is on, absent for a
+  game with no codes as the cup is); he would rather not keep adding icons
+  to the title's corner. Unanswered. The one other place named was Play
+  opening a code screen before every game, like the cartridge at power-on,
+  set against for the extra press on every game and because Resume and
+  Recent skip it.
+- **Turning it on.** Proposed, not confirmed: a row in Settings in the
+  person's own section beside RetroAchievements (`settingsflow.cpp`), named
+  Genie Mode with "Cheats for your games" in grey under it, off by default;
+  the one trace of the feature while it is off, as RetroAchievements' row
+  is. Turned off, the person's choices are kept for when it is turned on
+  again (an assumption, not discussed).
+- **The cup's look while achievements are off.** He asked for the cup to
+  show it and questioned whether grey is the best look. The cup already has
+  three looks, outlined with none earned, filled with some, gold with all,
+  and is dimmer at rest than focused (`detailscreen.cpp`), so a grey cup
+  would read as either. Proposed: a diagonal line through it, the usual
+  "off" sign, over whichever look it has. Hiding it would read as "this game
+  has no achievements". To judge on the TV.
+- **States made with cheats on (his question: how would the console know?).**
+  Proposed: the console writes every state itself, and already wraps one in
+  RetroArch's block layout when it has achievement progress (`statefile.h`:
+  "MEM " for the core, "ACHV" for the progress); one more block marks a
+  state made with any cheat on. Loading a marked state, from the pause menu,
+  a Continue from card or Home's Resume, turns achievements off for the rest
+  of that play. To check before relying on it: that RetroArch's loader skips
+  a block it does not know, so these states still load there. A game's own
+  saves (battery saves, memory cards) are not tracked: the save is rewritten
+  each time, so a mark would block achievements on it for good. Asked, not
+  answered.
+- **The phase order.** He leans toward the code path first: it carries
+  about 1.2 million of the entries and the Game Genie's own systems (NES,
+  SNES, Genesis, Game Boy), and proving it is small (below); the RAM engine
+  second. Not settled.
+- **Not yet discussed:** which systems get cheats (the brief's matrix is
+  RetroArch's cores; the console ships one core per system, its catalog has
+  Flycast, Stella, FBNeo, MAME 2003-Plus and PPSSPP and no MSX core was
+  found, and the separate emulators get nothing from either backend, except
+  perhaps those that read cheat files when a game starts, PPSSPP as the
+  brief says and possibly PCSX2, unchecked); cheat kinds the brief leaves
+  out (1, 2 and 4 bit sizes, and types 2, 3 and 7, from memory of
+  RetroArch's format, unchecked against the survey); "three wishes", up to
+  three cheats on per game, an idea only.
+
+#### Research, 2026-10-20 and 2026-10-21
+
+**Proving one NES Game Genie code.** The NES core is fceumm (`catalog.cpp`),
+pinned at `236ccdf` (`cores/build-core.sh`). Read at that commit
+(`src/drivers/libretro/libretro.c`, `src/cheat.c`):
+
+- `retro_cheat_set` takes Game Genie codes (6 or 8 letters), Pro Action
+  Replay (8 characters), and raw `xxxx:xx` and `xxxx?cc:vv`, several in one
+  string split on `+ , ; . _` and space. It returns nothing; a bad code is
+  logged at debug level only. It ignores its `enabled` argument, so a code
+  passed as disabled is still added: the only way to turn one off is
+  `retro_cheat_reset`, which clears every cheat, then sending the ones still
+  on (RetroArch rebuilds its list the same way, from memory).
+- A Game Genie code, and a raw code at 0x0100 and above, is a read hook: the
+  CPU's read of that address returns the new value, from the next read, with
+  no reset. A raw code below 0x0100 is a RAM write made at the start of every
+  frame. Cheats are not in the state data, survive a state load and a reset,
+  and are capped at 256.
+- A fault: one entry mixing a raw zero-page code before a Game Genie code
+  turns the Game Genie part into a RAM write (the type is not reset between
+  parts).
+- `retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM)` is the 2 KB of work RAM,
+  and the core sends a memory map.
+
+So the proof is about 40 lines: load `retro_cheat_reset` and
+`retro_cheat_set` with the other calls (`core.cpp`; `libretro.h` declares
+them, nothing loads them yet), one method that clears and sends the codes
+that are on, after the game loads (`Core::loadGame`), a test flag on the
+`--core <core> <rom>` path as `--core-option` is, and a log line. The real
+proof is on the TV: "Infinite Lives", `SXIOPO` (libretro-database's
+`Super Mario Bros. (World) (Game Genie).cht`), lives held after a death. A
+headless run can only check a raw code read back from RAM, such as
+`075A:08`, since a Game Genie code changes cartridge reads, not memory, and
+with no controller the game never leaves its title screen; like
+`--state-test` it needs a core and a game, so it runs on the A9 and not in
+CI.
+
+**Matching a game to its cheat file**, his RomM read with the Mac's token
+against libretro-database at `12c21cf` (No-Intro lists for the cartridges,
+Redump's for the Dreamcast):
+
+| | Games | By hash | Hash, then a cheat file by exact name | By name alone | Name matches more than one file |
+|---|---|---|---|---|---|
+| NES | 97 | 94 | 81 | 97 | 88 |
+| SNES | 96 | 92 | 77 | 95 | 92 |
+| Genesis | 49 | 45 | 35 | 43 | 42 |
+| Dreamcast | 29 | 0 | 0 | 19 | 3 |
+
+- RomM's hash of a `.zip` or `.7z` is the ROM inside it, and for NES the
+  whole file with its 16-byte header, which No-Intro's list also carries. So
+  a hash finds the exact release: `Super Mario Bros.zip` is "Super Mario
+  Bros. (World)".
+- From hash to file the gap is names: cheat files write "&" as "_", and some
+  lack tags such as "(Rev 1)" or "(En)"; a build step that normalises both
+  sides the same way closes most of it.
+- A name alone rarely picks one file: other regions, and separate
+  "(Game Genie)", "(Action Replay)" and "(Rumbles)" files. Super Mario Bros.
+  matches five by name; its main file holds 725 entries, mostly raw codes,
+  and its Game Genie file 7 hand-picked ones, a possible default list for a
+  feature named after the Game Genie.
+- The Dreamcast games are CHDs, and Redump lists track hashes, so they match
+  by name only: 19 of 29, and 10 (Ikaruga and Bangai-O among them) not at
+  all.
+- Proposed if it goes ahead: hash first, then name, as the Vectrex sheets
+  are matched (RomM's md5, then the longest name token, `vectrexsheets.cpp`).
+
+**Already in the console, for a RAM engine:** the core's memory map is kept
+for achievements (`core_memory.cpp`, `RETRO_ENVIRONMENT_SET_MEMORY_MAPS`),
+though RetroArch's cheat addresses count from the start of the core's system
+RAM blocks laid end to end (from memory), not as rcheevos' addresses do; and
+the per-frame hook, `Core::setAfterFrame`, holds one function, which
+achievements use (`pace.cpp`), so an engine would have to share it.
+
+### 53. Gameplay recording, and clips in RomM
+
+**Proposed by MMagTech 2026-10-21 and reviewed the same day; paused by him
+until RomM answers.** His words at the pause: "Let's park it. To see what they
+say. But don't lose any insight to the discussion we've already had in the
+implementation of it." Nothing was built, nothing ran on the A9, and there is
+no issue. The review read the code, gamescope's source and RomM's; the
+measurements it calls for were not made.
+
+#### The proposal, as he gave it (2026-10-21)
+
+His document, "CabinetOS Proposal: In-Game Recording (Capture)", is not in the
+repository; this is its substance.
+
+- Gameplay video recording, a sibling of screenshots, in game only.
+- His hunch: the encode cost is manageable, since Remote Play already encodes
+  RPCS3 live with no impact he noticed; reuse the hardware path Remote Play
+  uses, confirmed rather than assumed.
+- One fixed profile, never shown: H.264, 1080p, 60 frames a second, about 6
+  Mbps. 720p and H.265 were considered; 1080p for the 3D systems at their 4x
+  levels, H.264 for playback everywhere.
+- Two ways in. On the shortcut layer, the screenshot combination keeps a tap
+  for a screenshot and adds a hold for record. In the pause menu, Screenshot
+  becomes a "Capture" row with two arrow choices, Screenshot and Record, each
+  fired by confirm. The menu stays open after either, as it does for a
+  screenshot today; while recording, the row reads "Stop recording".
+- The source: the one screenshots use, the emulator's picture under the
+  console's drawing. The menu, the indicator and notices are never in a clip.
+- Record arms it; recording starts on resume, pauses while the menu is open
+  and continues on resume, so a clip never holds frozen frames. Stop in the
+  menu ends it.
+- A small red indicator while recording, and "Recording saved" in the existing
+  notice style on stop.
+- A hard cap of about 15 minutes. Leaving the game stops and saves, never
+  discards.
+- Clips go to RomM with the saves and states, retried the same way, and the
+  console's copy is deleted once RomM confirms it (checked if practical). No
+  gallery or list on the console: RomM is the only place they live.
+- His questions: should recording be unavailable during Remote Play; is a hold
+  on the screenshot combination safe from accidental presses; is pausing
+  across menu visits simple, or is recording the paused frames cleaner; does
+  anything conflict with the structure after #398.
+
+#### Why it waits: RomM
+
+The rule this rests on moved to
+`docs/decisions/2026-10-21-romm-owns-management.md`. A clip endpoint would
+serve every RomM client, not only this one.
+
+**What RomM 5.4 has** (its API description on the project's write-test RomM,
+and RomM's master on GitHub, both read 2026-10-21):
+
+- No endpoint for a person's clips. Its video fields (`video_path`,
+  `video_url`, `youtube_video_id`, `path_video`) are game media from
+  ScreenScraper, LaunchBox and gamelists, not a person's.
+- `POST /api/screenshots` refuses a video: its allow-list is images only
+  (RomM's `media_types.py`), and an `.mp4` gets HTTP 400 with nothing stored.
+  Its web gallery draws each item as an image.
+- A per-upload cap on saves, states and screenshots,
+  `MAX_ASSET_UPLOAD_SIZE_BYTES`, 512 MiB by default (0 removes it). RomM's own
+  nginx sets no limit.
+- Chunked upload exists for ROM files only (`/api/roms/upload/start` and the
+  rest), not for a person's files.
+- Argosy (rommapp/argosy-launcher) records no video; it uploads still
+  screenshots only.
+- Two requests: rommapp/romm#5135 ("Videos/clips storage to go along with
+  Screenshots", 2026-10-04, a person storing a Switch album's MP4s by hand
+  under `assets/users/<id>/videos/<platform>/<rom_id>/`, the screenshot
+  layout) and rommapp/romm#4656 ("Adding our own Videos", 2026-09-20, gameplay
+  videos and playthroughs in the Media tab, shared with an instance's other
+  users). No maintainer had replied on either.
+
+**The options named, and the one chosen:**
+
+1. Wait for RomM to store clips. Chosen.
+2. Keep clips on the console, reached through File access. Rejected: it breaks
+   "RomM is the only place", and the decision of 2026-09-27 that screenshots
+   have no gallery on the console.
+3. Put them in RomM another way, as a save or as a file in the game's own
+   folder through RomM's ROM upload. Rejected: a stand-in, against "RomM's
+   docs are the line"; a game's folder is shared with everyone who can see the
+   game.
+
+**His comment on rommapp/romm#5135**, 2026-10-21, 9:18 AM Eastern
+(https://github.com/rommapp/romm/issues/5135#issuecomment-6317066753),
+introduces him as the owner and maintainer of CabinetOS, thanks RomM, gives
+the reason above, and sketches an implementation that copies RomM's per-user
+screenshots (rommapp/romm#3549):
+
+- a `videos` table like `screenshots` (`rom_id`, `user_id`, `is_public`,
+  private by default);
+- `POST /api/videos?rom_id=` with `videoFile`, scope `ASSETS_WRITE`, checked
+  against RomM's existing `ALLOWED_VIDEO_EXTENSIONS`;
+- stored at `assets/users/<user>/videos/<platform>/<rom_id>/`, the layout
+  rommapp/romm#5135's author already uses;
+- `GET /api/videos/{id}/content` inline with Range support (RomM serves
+  anything that is not an image as an attachment today), and `PUT` for
+  visibility and `DELETE`, owner only;
+- listed on `GET /api/roms/{id}` as `user_videos` and `all_user_videos`;
+- an optional poster image on the same upload, linked by file name stem as a
+  state's picture is, so RomM needs no ffmpeg (its image has none) and its web
+  page can use the plain video element it already has;
+- `/api/videos` under the 512 MiB cap, which holds about 10 minutes of 1080p60
+  at about 6 Mbps; chunked uploads later if longer clips are wanted.
+
+It says what the console would send (H.264 and AAC in MP4 at 1080p60, up to
+about 10 minutes, with a PNG poster) and offers to test a branch.
+
+**If RomM wants a pull request** (his offer, 2026-10-21, "not for today"):
+
+- First a maintainer's yes. RomM's CONTRIBUTING.md asks for an issue and a
+  talk on their Discord before a large feature, and a pull request nobody
+  agreed to can be declined. He already talks with one of RomM's developers.
+- A separate project: a fork of rommapp/romm under his account (public, so his
+  go on the day), in a folder of its own beside this repository, with its
+  sessions' context kept out of RomM's repository: the goal, RomM's rules,
+  where testing happens, and never his live RomM.
+- RomM's rules for the pull request: AI use disclosed in it (their
+  CONTRIBUTING.md calls leaving it out rude), a Conventional Commits title,
+  their template with `Closes #5135`, a diagram for a design change and
+  screenshots for a UI change (their AGENTS.md).
+- Testing on a development RomM built from the branch, on the test VM, on its
+  own port, beside the write-test RomM and not in place of it. GitHub can
+  build the image from the fork, so the VM only downloads it. Then a check
+  list against it: upload through the API, play and skip ahead in the web
+  page, private and shared between two people, delete, a file over the limit
+  refused, and RomM's own tests. Later, the console's recording tested against
+  it.
+- The test VM cannot hold it yet: measured 2026-10-21, 378 MB free of 22 GB on
+  `/var`, and 3 GB of memory. More disk (about 40 GB) and memory (6 to 8 GB)
+  first, on the VM's host, which is his to do.
+
+#### The review (2026-10-21): the console side is feasible
+
+**Remote Play's encoder.** Sunshine reads the screen through KMS and encodes
+with VA-API on the Radeon's video block
+(`system_files/usr/libexec/cabinetos-remoteplay`: `capture = kms`, `encoder =
+vaapi`). The encode is fixed-function hardware, which is why RPCS3 did not
+notice it. Sunshine itself is not reusable: it is a separate streaming server,
+it writes no file, and KMS sees the menus. The base image already carries what
+recording needs (`base-manifest.txt`): GStreamer's VA plugin
+(`gstreamer1-plugins-bad-free`), `pipewire-gstreamer`, and ffmpeg 8.1. The
+measurement of 2026-10-09 (gamescope's node into `vah264enc` at 1080p60)
+converted and scaled on the CPU, which RPCS3 and Eden would feel; a product
+asks gamescope for 1080p instead.
+
+**What a screenshot reads is three things:** a core's frame copied once, at
+the game's own resolution (`screenshotNow`, `frontend/src/states.cpp`);
+PCSX2's window read back once (`Core::snapshot`,
+`frontend/src/core_picture.cpp`); and, for an emulator run as a program,
+`gamescopectl screenshot`, whose default type is the base plane only
+(`App::standaloneScreenshot`). None of them keeps up at 60 frames a second.
+
+**gamescope 3.16.31's PipeWire stream** (its source, read 2026-10-21; the base
+carries `terra-gamescope` 3.16.31):
+
+- Its size is the output's, clamped down to a size the consumer asks for,
+  aspect kept; gamescope scales on the GPU. It offers BGRx and NV12, as
+  DMA-BUF (linear, one plane) or as shared memory.
+- Frames come when a window commits (damage-driven; its frame rate is 0/1).
+- A consumer can make the stream follow one app, and then the overlay window
+  is left out. Without `--steam`, which the console's gamescope does not have
+  (`system_files/usr/bin/cabinetos-session`), an app is chosen by its X window
+  id.
+- A narrow `STEAM_OVERLAY` window without `STEAM_INPUT_FOCUS` goes in
+  gamescope's notification slot, which the stream never paints.
+
+**Recommended: one path for every game.** gamescope's stream, following the
+game's window, encoded by a child process started with `proc::spawn`
+(`frontend/src/proc.h`). For programs and PS2 that leaves the console's
+overlay out. For a core, the game and the console's drawing are one window, so
+recording pauses whenever the game is not on screen (the frame loop's
+`gameOnScreen`, `frontend/src/frame.cpp`), which keeps the menu out; the red
+dot lives in a small notification-slot window (`frontend/src/overlaywin.cpp`
+marks windows today); and notices during play go there too, or wait. A core's
+clip then shows the picture as the TV shows it (screen look, framing, bars),
+not the raw frame a screenshot takes. The alternative, recording inside the
+frontend for cores, means two capture paths, new libraries linked in, and work
+on the frame thread every frame.
+
+**His questions, answered:**
+
+- Remote Play: both can run at once. The video block runs several encodes, and
+  the two read different sources. Keep Record available unless one measurement
+  shows a cost.
+- The hold: unlikely to fire by accident, since while the shortcut button is
+  held the game hears nothing from that pad, and shortcuts are off by default.
+  But the screenshot moves from Y's press to its release, the hold needs the
+  dot as instant feedback, and the combinations exist only for cores and PS2
+  (`readGameInput`, `frontend/src/play.cpp`). Over emulators run as programs
+  the shortcut button only opens the menu (`takeStandaloneEvent`,
+  `frontend/src/standalone_play.cpp`), so Home+Y would be built there first,
+  screenshot included.
+- Pausing: required on the recommended path, not optional, since it keeps the
+  menu out of a core's clip. Simplest as segments: one ends when the game
+  leaves the screen, the next starts on its return, and they are joined at
+  Stop without re-encoding. A finished segment also survives a crash.
+- The structure: no conflict. The recorder is a file of its own
+  (`recorder.cpp`). It touches `pausemenu.cpp` and `app.h` (a menu item),
+  `play.cpp`, `standalone_play.cpp`, `frame.cpp`, `overlaywin.cpp`,
+  `storage.h`, `pending.h`, and `uploader.h`, where `who` stays the last field
+  of a job. Whether the encoder is `gst-launch-1.0` (GStreamer calls it a
+  debugging tool) or a small program of the project's own is his call: a new
+  program is a new kind of place (CONTRIBUTING.md, rule 2).
+
+**Pushback on the proposal:**
+
+- It has no sound. The game's sound and the interface sounds are separate
+  streams (`frontend/src/launch.cpp`, `frontend/src/sound.cpp`), so a clip can
+  carry the game alone; to be measured, sync included.
+- 15 minutes does not fit RomM's default limit. At 6 Mbps plus sound, about
+  0.77 MB a second, 15 minutes is about 690 MB; about 11 minutes fits in 512
+  MiB. And 6 Mbps is lean for fast 3D on a hardware encoder (YouTube
+  recommends 12 Mbps for 1080p60). Both numbers wait for RomM's limit. H.264
+  and 1080p stand.
+- A fixed 60 makes 50 Hz games judder; the stream's frames can keep the game's
+  own timing.
+- Two plain menu rows, "Screenshot" and "Record" (reading "Stop recording"),
+  rather than a Capture row with arrows. Picture and Look step their value on
+  A, so a row where A fires would be the only one of its kind, and Record
+  would hide behind an arrow (unearned focus).
+- The upload path cannot carry a clip. The request is built whole in memory
+  (`postMultipart`, `frontend/src/romm_http.cpp`) with a 30 second limit
+  (`kTimeoutSec`, `frontend/src/romm_internal.h`). A clip needs a streamed
+  upload from its file, a lane of its own so saves never wait behind it, and
+  an accepted cost at power off: the console waits up to 25 seconds for
+  uploads (`frontend/src/power_menu.cpp`), so a clip still sending starts over
+  at the next start.
+- Found on the way: screenshots stay on the console after they upload; nothing
+  removes them.
+
+**To measure on the A9 before building:** the menu absent from a stream that
+follows a program's window; the dot window on the TV and absent from the
+stream; RPCS3 and Eden frame times with recording off, on, and on during
+Remote Play; game-only sound, in sync; how much of the first second a segment
+restart loses.
+
+#### Open when it resumes
+
+- RomM's answer on rommapp/romm#5135, and whether he builds RomM's side.
+- Clip length and bitrate, set by RomM's upload limit.
+- Where the sound comes from, and its sync.
+- The menu rows, and Record pressed before resume (pressing Stop then cancels,
+  with nothing saved).
+- Remote Play: available, or greyed after a measurement.
+- The shortcut over emulators run as programs.
+- Whether the console's own screenshot copies should go once RomM has them, as
+  the proposal wants for clips.

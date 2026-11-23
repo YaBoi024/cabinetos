@@ -13,11 +13,14 @@
 # must carry a signature made with that key. Bazzite's own rule for
 # ghcr.io/ublue-os is the same shape, and is left as it is.
 #
-# THE RULE ONLY BITES ON A CONSOLE SET TO CHECK: one installed by the
-# installer (disk_config/iso.toml switches with --enforce-container-sigpolicy),
-# or switched once by hand. A console still on "ostree-unverified-registry"
-# keeps updating unchecked. MMagTech is the only user (2026-10-09): his A9 is
-# switched once by hand, so there is no automatic migration here.
+# THE RULE ONLY BITES ON A CONSOLE SET TO CHECK: a new one, which
+# cabinetos-update-source.service points at ghcr.io/mmagtech/cabinetos:latest
+# with --enforce-container-sigpolicy at its first start, however it was
+# installed (enabled below), or one switched once by hand. A console still on
+# "ostree-unverified-registry" keeps updating unchecked. MMagTech is the only
+# user (2026-10-09): his A9 is switched once by hand, so there is no automatic
+# migration here, and that unit leaves every console that updated into it as
+# it is.
 #
 # The key itself is MMagTech's: the secret half is in GitHub and his password
 # manager, never in this repository (.gitignore lists cosign.key).
@@ -59,4 +62,14 @@ assert docker[repo][0]["keyPath"] == pub, "our rule is missing"
 assert "ghcr.io/ublue-os" in docker, "Bazzite's own rule went missing"
 PY
 log "  ${REPO} must be signed with ${PUB}"
+
+# A new console follows the signed releases from its first start. Its own
+# script names the image, so a fork changes it there too (CONTRIBUTING.md,
+# "Generate a signing key").
+systemctl enable cabinetos-update-source.service
+grep -q "^readonly REPO=${REPO}\$" /usr/libexec/cabinetos-update-source ||
+    { log "ERROR: cabinetos-update-source does not name ${REPO}"; exit 1; }
+[[ "$(systemctl is-enabled cabinetos-update-source.service)" == enabled ]] ||
+    { log "ERROR: cabinetos-update-source.service is not enabled"; exit 1; }
+log "  a new console follows ${REPO}:latest, signed (cabinetos-update-source)"
 group_end

@@ -9,6 +9,7 @@
 
 #include "power.h"
 #include "prefs.h"
+#include "romm.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
 
@@ -16,9 +17,11 @@ int64_t App::prefNum(const char* key) {
     return static_cast<int64_t>(std::strtoll(prefs::get(key, "0").c_str(), nullptr, 10));
 }
 
-// "0.9 MB", "1.4 GB": one decimal, because a frontend update is under a
-// megabyte and a base image is gigabytes, and both have to read.
+// "1.4 GB", "312.5 MB", "under 1 MB". One decimal, so a base image in
+// gigabytes and a small update in megabytes both read. Below a megabyte one
+// decimal prints 0.0, which reads as nothing at all, so it says "under 1 MB".
 std::string App::updBytes(int64_t b) {
+    if (b < 1000000) return "under 1 MB";
     char buf[32];
     const double mb = static_cast<double>(b) / 1e6;
     if (mb >= 1000.0) std::snprintf(buf, sizeof buf, "%.1f GB", mb / 1000.0);
@@ -26,14 +29,23 @@ std::string App::updBytes(int64_t b) {
     return std::string(buf);
 }
 
-// "0.4 of 0.9 MB": one unit, the total's.
+// "0.4 of 2.1 MB": one unit, the total's. A total under a megabyte is
+// "under 1 MB" alone, since both of its numbers would print 0.0.
 std::string App::updOf(int64_t done, int64_t total) {
+    if (total < 1000000) return updBytes(total);
     char buf[48];
     const bool gb = total >= 1000000000;
     const double d = static_cast<double>(done) / (gb ? 1e9 : 1e6);
     const double t = static_cast<double>(total) / (gb ? 1e9 : 1e6);
     std::snprintf(buf, sizeof buf, "%.1f of %.1f %s", d, t, gb ? "GB" : "MB");
     return std::string(buf);
+}
+
+// "2026.11.09.3 · 312.5 MB", or the version alone when the size is 0.
+// Root writes 0 when it could not work the size out, so 0 is not known to
+// be small, and no size is said rather than a wrong one.
+std::string App::updVersionSize(const std::string& version, int64_t size) {
+    return size > 0 ? version + " \xC2\xB7 " + updBytes(size) : version;
 }
 
 // "Checked today", by the calendar here, not by 24-hour periods.
@@ -62,6 +74,28 @@ bool App::updFoundNewer() {
     return !found.empty() && found != update::bootedVersion();
 }
 
+// THE SERVER'S RomM AS SYSTEM UPDATE GOES BY IT: what a heartbeat said this
+// run, or, with RomM out of reach since the start, the version last heard,
+// written down by pollUpdate (#346; settled 2026-11-17). Empty when the
+// console has never heard one.
+std::string App::updRommSeen() {
+    const std::string heard = romm::heardServerVersion();
+    return heard.empty() ? prefs::get("romm_version", "") : heard;
+}
+
+// Whether an update that needs RomM `needed` waits for the server to be
+// updated: the server's is older, or not a version the console can compare
+// (never heard, or "development"). The rule: the console needs the RomM the
+// wiki names, or newer (cabinetos.env).
+bool App::updHeld(const std::string& needed) {
+    return update::rommFor(updRommSeen(), needed) != update::Romm::NewEnough;
+}
+
+// What is needed, not what the server has (MMagTech, 2026-11-17).
+std::string App::updNeeds(const std::string& needed) {
+    return "Needs RomM " + needed + " or newer.";
+}
+
 screens::SettingsRow App::updateRow() {
     using K = screens::SettingsRow::Kind;
     std::string value, detail;
@@ -75,13 +109,15 @@ screens::SettingsRow App::updateRow() {
             break;
         case update::State::Available:
             value = "Update available";
-            detail = upd.version + " \xC2\xB7 " + updBytes(upd.size);
+            detail = updHeld(upd.romm) ? updNeeds(upd.romm) : updVersionSize(upd.version, upd.size);
             break;
         case update::State::Downloading: {
             const int pct = upd.total > 0
                 ? static_cast<int>(std::min<int64_t>(100, upd.done * 100 / upd.total)) : 0;
             value = std::to_string(pct) + "%";
-            detail = updOf(upd.done, upd.total);
+            // A total of 0 is a size root could not work out: the
+            // percentage alone until bootc says how much it is fetching.
+            detail = upd.total > 0 ? updOf(upd.done, upd.total) : std::string();
             break;
         }
         case update::State::Installing: {
@@ -103,9 +139,11 @@ screens::SettingsRow App::updateRow() {
             break;
         case update::State::None:
             if (updFoundNewer()) {
+                const std::string needs = prefs::get("update_romm", "");
                 value = "Update available";
-                detail = prefs::get("update_found", "") + " \xC2\xB7 " +
-                         updBytes(prefNum("update_size"));
+                detail = updHeld(needs) ? updNeeds(needs)
+                                        : updVersionSize(prefs::get("update_found", ""),
+                                                         prefNum("update_size"));
             } else if (prefNum("update_checked") > 0) {
                 value = "Up to date";
                 detail = updChecked();
@@ -144,13 +182,18 @@ void App::startUpdate(bool download, bool automatic) {
 // pressed opens this, the row opens it again, and Download goes to the
 // PIN. The same shape as "Update ready", so an update is: check,
 // Download, Restart now.
+//
+// HELD BACK (#346): the line says which RomM it needs and Download is
+// greyed out, so Later is the one answer, until the server is updated.
 void App::askUpdateDownload() {
-    const std::string detail = upd.version + " \xC2\xB7 " + updBytes(upd.size);
+    const bool held = updHeld(upd.romm);
+    const std::string detail = held ? updNeeds(upd.romm) : updVersionSize(upd.version, upd.size);
     askChoice("Update available", detail, {"Download", "Later"}, 0, [&](int k) {
         if (k != 0) return;
         askPin("Enter the PIN", "To update",
                [&]() { startUpdate(/*download=*/true, /*automatic=*/false); });
     });
+    if (held) choiceScreen.setDisabled({true, false});
 }
 
 // "Update ready", once per staged version. Restart now is the Power
@@ -174,6 +217,24 @@ void App::tickUpdateTimer(float dt) {
 }
 
 void App::pollUpdate() {
+    // THE SERVER'S RomM, WRITTEN DOWN EACH TIME A HEARTBEAT ANSWERS WITH
+    // ANOTHER, so a start with RomM out of reach still knows the last one
+    // (#346). A server just updated frees a held update at once: the row,
+    // and the panel if it is up.
+    const std::string heard = romm::heardServerVersion();
+    if (!heard.empty() && heard != updRommWritten) {
+        if (prefs::get("romm_version", "") != heard) prefs::set("romm_version", heard);
+        updRommWritten = heard;
+        std::fprintf(stderr, "[update] the server's RomM is %s\n", heard.c_str());
+        if (upd.state == update::State::Available && choiceScreen.isOpen() &&
+            choiceScreen.title() == "Update available") {
+            const bool held = updHeld(upd.romm);
+            choiceScreen.setDetail(held ? updNeeds(upd.romm)
+                                        : updVersionSize(upd.version, upd.size));
+            choiceScreen.setDisabled({held, false});
+        }
+        if (here() == Screen::Settings) buildSettings();
+    }
     const update::Status s = update::read();
     const bool mine = updSaidAt == 0 || s.at >= updSaidAt;
     const bool changed = s.state != upd.state || s.at != upd.at || s.done != upd.done ||
@@ -194,6 +255,12 @@ void App::pollUpdate() {
                      s.version.c_str(),
                      !s.version.empty() && !s.reason.empty() ? ", " : "",
                      s.reason.c_str());
+        if (s.state == update::State::Available && !s.romm.empty()) {
+            const std::string seen = updRommSeen();
+            std::fprintf(stderr, "[update] it needs RomM %s; the server's is %s: %s\n",
+                         s.romm.c_str(), seen.empty() ? "not heard" : seen.c_str(),
+                         updHeld(s.romm) ? "held back" : "offered");
+        }
         // A check that finished: remember when, and what it found.
         // Both kinds of check write the "Checked" line.
         if ((s.state == update::State::UpToDate || s.state == update::State::Available) &&
@@ -202,6 +269,7 @@ void App::pollUpdate() {
             prefs::set("update_found",
                        s.state == update::State::Available ? s.version : "");
             prefs::set("update_size", std::to_string(s.size));
+            prefs::set("update_romm", s.state == update::State::Available ? s.romm : "");
             if (s.state == update::State::Available &&
                 prefs::get("update_announced", "") != s.version) {
                 // Once per new version, and only when nobody asked:
@@ -290,8 +358,12 @@ void App::pressUpdate() {
         askUpdateDownload();
         sound::play(sound::Cue::Activate);
     } else if (retryDownload) {
-        askPin("Enter the PIN", "To update",
-               [&]() { startUpdate(/*download=*/true, /*automatic=*/false); });
+        // Held back since (#346): the panel says so, Download greyed out.
+        if (updHeld(upd.romm))
+            askUpdateDownload();
+        else
+            askPin("Enter the PIN", "To update",
+                   [&]() { startUpdate(/*download=*/true, /*automatic=*/false); });
         sound::play(sound::Cue::Activate);
     } else {
         updAskAfterCheck = true;

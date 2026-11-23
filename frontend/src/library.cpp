@@ -8,10 +8,12 @@
 #include <cstdio>
 
 #include "app.h"
+#include "arcadematch.h"
 #include "cache.h"
 #include "catalog.h"
 #include "favorites.h"
 #include "storage.h"
+#include "wii.h"
 
 using namespace design;   // NOLINT: Card and colorForTitle (card.h)
 
@@ -63,8 +65,11 @@ int appendGame(Library& lib, const romm::Game& g) {
     c.sortKey = g.sortKey;
     c.cover = g.coverPath;
     c.coverLarge = g.coverLargePath;
-    c.platform = g.platformName;
+    c.platform = catalog::systemName(g);
+    c.folder = catalog::folderName(g);
     c.platformId = g.platformId;
+    c.wii = g.platformSlug == "wii";
+    c.needsRemote = c.wii && wii::padDevice(wii::codeFromTitleId(g.titleId)) == 0;
     c.tagLabel = g.tagLabel;
     c.art = colorForTitle(c.title);
     c.unavailable = greyedReason(g);
@@ -87,9 +92,19 @@ int appendGame(Library& lib, const romm::Game& g) {
 // is a different thing and reads differently on the screen.
 bool loadTileGames(romm::Client& client, Library& lib, screens::Tile& tile) {
     if (!tile.cards.empty()) return true;   // already walked into once
-    const std::string& filter = tile.query;
     std::vector<romm::Game> games;
     std::string err;
+    int total = 0;
+    if (!readFirstPage(client, tile.query, &games, &total, &err)) {
+        std::fprintf(stderr, "[library] %s: %s\n", tile.title.c_str(), err.c_str());
+        return false;
+    }
+    takeFirstPage(lib, tile, std::move(games), total);
+    return true;
+}
+
+bool readFirstPage(romm::Client& client, const std::string& filter, std::vector<romm::Game>* games,
+                   int* total, std::string* err) {
     // PAGED, AND CHECKED AGAINST `total`. This asked for ten thousand in one
     // request and called that enough, with a comment claiming it matched
     // fetchGames. It did not: one request is not paging, and a platform past
@@ -100,21 +115,16 @@ bool loadTileGames(romm::Client& client, Library& lib, screens::Tile& tile) {
     // A full MAME set is tens of thousands of roms in a single platform, so
     // this is not a hypothetical library.
     constexpr int kPage = 500;
-    int total = 0;
     // ONLY THE FIRST PAGE, AND THE CALLER DRAWS IT. The rest is somebody
     // else's job — see GridFill. A grid used to fetch the whole platform
     // before anything appeared, which is fine at 141 games and is ten seconds
     // for a full MAME set in one platform.
-    {
-        std::vector<romm::Game> page;
-        // fetchRoms writes the limit itself, so only the offset rides on the
-        // filter.
-        if (!client.fetchRoms(filter, kPage, &page, &err, &total)) {
-            std::fprintf(stderr, "[library] %s: %s\n", tile.title.c_str(), err.c_str());
-            return false;
-        }
-        games = std::move(page);
-    }
+    // fetchRoms writes the limit itself, so only the offset rides on the
+    // filter.
+    return client.fetchRoms(filter, kPage, games, err, total);
+}
+
+void takeFirstPage(Library& lib, screens::Tile& tile, std::vector<romm::Game> games, int total) {
     tile.loadedAtMs = SDL_GetTicks();
     static unsigned reading = 0;
     tile.readId = ++reading;
@@ -158,7 +168,6 @@ bool loadTileGames(romm::Client& client, Library& lib, screens::Tile& tile) {
     std::fprintf(stderr, "[library] %s: %zu game(s)%s\n", tile.title.c_str(),
                  tile.cards.size(),
                  unplayable ? " (some not playable here)" : "");
-    return true;
 }
 
 // A tile's games in the order its grid shows them, each asked again whether
@@ -223,6 +232,42 @@ static std::map<int, romm::Platform> savedPlatforms() {
     return out;
 }
 
+// A tile's query for one or more platforms: "platform_ids=45&platform_ids=55",
+// each once, in id order so the same platforms always make the same tile.
+std::string platformsQuery(std::vector<int> ids) {
+    std::sort(ids.begin(), ids.end());
+    ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
+    std::string q;
+    for (const int id : ids) q += (q.empty() ? "" : "&") + ("platform_ids=" + std::to_string(id));
+    return q;
+}
+
+// The platforms behind each Library tile: one each, except EVERY ARCADE
+// FOLDER, which is one tile (#611, arcadematch::isArcadeSlug). At the TV a
+// player picks a game, not a board, and RomM keeps the folders admins need.
+// The arcade platforms are in id order, so the tile's id is the first.
+//
+// RomM LISTS SEVERAL PLATFORMS IN ONE REQUEST, in its title order across all
+// of them and paged as one list, so the Arcade tile's grid, its pages and its
+// letter index are any platform's (RomM 5.4.0, 2026-10-29: 853 games from 14
+// folders, the first page as quick as FinalBurn Neo's 432 alone). Each game
+// keeps its own platform for everything else: its emulator, BIOS, saves and
+// states.
+std::vector<std::vector<romm::Platform>> tileGroups(const std::vector<romm::Platform>& platforms) {
+    std::vector<std::vector<romm::Platform>> out;
+    std::vector<romm::Platform> arcade;
+    for (const romm::Platform& p : platforms) {
+        if (arcadematch::isArcadeSlug(p.slug)) arcade.push_back(p);
+        else out.push_back({p});
+    }
+    if (!arcade.empty()) {
+        std::sort(arcade.begin(), arcade.end(),
+                  [](const romm::Platform& a, const romm::Platform& b) { return a.id < b.id; });
+        out.push_back(std::move(arcade));
+    }
+    return out;
+}
+
 // Builds the shelf from a real library.
 //
 // THE PLATFORMS THIS CONSOLE CANNOT PLAY ARE LEFT OUT, and that is a decision
@@ -263,36 +308,45 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
     savePlatforms(platforms);
 
     int skippedGames = 0;
-    // A tile per platform, built whether or not this console can play it. The
+    for (const auto& p : platforms) lib.platformNames[p.id] = catalog::displayName(p);
+    // A tile per platform, or for every arcade folder together (tileGroups),
+    // built whether or not this console can play it. The
     // unplayable ones are why `coverageFor` gives four different answers rather
-    // than one boolean: "no core exists", "Cabinet does not ship it", "this
+    // than one boolean: "no core exists", "Cabinet did not ship it", "this
     // console has not built it yet" and "it is built and cannot be driven" lead
-    // to different work and to different words on the screen.
-    for (const auto& p : platforms) {
+    // to different work and to different words on the screen. Every arcade
+    // folder has the same answer (catalog::coverageFor).
+    for (const std::vector<romm::Platform>& group : tileGroups(platforms)) {
+        const romm::Platform& p = group.front();
         const catalog::Coverage cov = catalog::coverageFor(p);
-        lib.platformNames[p.id] = catalog::displayName(p);
         screens::Tile tile;
         tile.id = p.id;
-        tile.query = "platform_ids=" + std::to_string(p.id);
-        // THE NAME AND THE QUALIFIER ARE TWO FACTS ON A TILE, not one string.
-        // Joined, "Arcade (FinalBurn Neo)" and "Arcade (MAME 2003-Plus)" both
-        // came out as "Arcade" over "(FinalBurn ..." and "(MAME 200..." at this
-        // width — so the qualifier that exists SOLELY to tell the two tiles
-        // apart was the part being cut off. See catalog::displayQualifier.
-        tile.title = p.name.empty() ? p.slug : p.name;
-        const std::string qualifier = catalog::displayQualifier(p);
+        std::vector<int> ids;
+        int romCount = 0;
+        std::string updatedAt;
+        for (const romm::Platform& m : group) {
+            ids.push_back(m.id);
+            romCount += m.romCount;
+            // The newest, so a change to any one folder asks for the
+            // tile's cover again (covercache.h).
+            updatedAt = std::max(updatedAt, m.updatedAt);
+        }
+        tile.query = platformsQuery(ids);
+        tile.slug = group.front().slug;
+        tile.title = catalog::displayName(p);
+        tile.namesFolder = arcadematch::isArcadeSlug(p.slug);
         tile.enterable = (cov.support == catalog::Support::Playable);
 
         if (!tile.enterable) {
-            skippedGames += p.romCount;
+            skippedGames += romCount;
             // The tile gets the short form, which is all it has room for. The
             // log keeps the full sentence, because a log is read by somebody
             // trying to find out why.
             tile.detail = catalog::shortReason(cov);
             std::fprintf(stderr, "[library] %s (%d games) — %s\n", tile.title.c_str(),
-                         p.romCount, cov.reason ? cov.reason : tile.detail.c_str());
+                         romCount, cov.reason ? cov.reason : tile.detail.c_str());
             // ONLY WHAT THIS CONSOLE CAN PLAY (#117, MMagTech 2026-10-04), as
-            // Cabinet's tvOS Library does: a system with no emulator here
+            // Cabinet's tvOS Library did: a system with no emulator here
             // (Jaguar, ColecoVision, Vita) or left out by decision (Game &
             // Watch) gets no tile. Search and collections still find its
             // games, whose page says why. A core that SHOULD be here and is
@@ -308,18 +362,33 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
         // THE COUNT COMES OFF THE PLATFORM, which is the finding that made all
         // of this cheap: it was there the whole time, and boot was fetching
         // sixteen hundred games to draw a number the server had already sent.
+        //
+        // EXCEPT WHERE SOME OF A PLATFORM'S GAMES ARE HIDDEN (the 3DS's CIAs,
+        // catalog::hidesSomeGames), which RomM's count includes: that
+        // platform's list is fetched and what shows is counted, so a server
+        // whose 3DS games are all CIAs gets "0 games", as a platform with
+        // none does. One request, only for such a platform.
+        int shown = romCount;
+        if (catalog::hidesSomeGames(p) && shown > 0) {
+            std::vector<romm::Game> games;
+            std::string gerr;
+            if (client.fetchGames(p.id, &games, &gerr)) {
+                shown = 0;
+                for (const auto& g : games)
+                    if (catalog::coverageFor(g).support != catalog::Support::Hidden) ++shown;
+            }
+        }
         char count[48];
-        std::snprintf(count, sizeof count, "%d game%s", p.romCount,
-                      p.romCount == 1 ? "" : "s");
-        tile.detail = qualifier.empty() ? std::string(count)
-                                        : qualifier + "  \xC2\xB7  " + count;
-        lib.tileCache[p.id] = covercache::Tile{"", p.updatedAt, p.romCount};
+        std::snprintf(count, sizeof count, "%d game%s", shown, shown == 1 ? "" : "s");
+        tile.detail = count;
+        lib.tileCache[p.id] = covercache::Tile{"", updatedAt, shown};
         // `tile.cover` is deliberately left empty. It used to be the first
         // cover among the platform's games, which cost a fetch per platform —
         // 1.55 s of a 1.8 s boot, measured against the reference server. The
         // tiles come up in their colour and the covers are filled in behind
-        // Home; see fillTileCovers. MMagTech chose that over both paying for
-        // them at boot and using RomM's platform logo, 2026-09-22.
+        // Home; see App::startCoverFill (coverfill.cpp). MMagTech chose that
+        // over both paying for them at boot and using RomM's platform logo,
+        // 2026-09-22.
         lib.platformTiles.push_back(std::move(tile));
     }
 
@@ -422,7 +491,7 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
     }
 
     // The hero, from the server's play history rather than from anything this
-    // console remembers. A game played on an Apple TV is recent here the moment
+    // console remembers. A game played on another device is recent here the moment
     // this console is paired, which is what lets a machine that has never
     // launched anything still open on the right game.
     //
@@ -444,7 +513,7 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
             // A recent game on a platform this console cannot play is skipped,
             // not shown greyed: Home must not offer a Resume that cannot run.
             // The reference library exercises this — the most recent "Altered
-            // Beast" is the Game & Watch one, which Cabinet does not ship.
+            // Beast" is the Game & Watch one, which this console leaves out.
             if (!catalog::playable(g)) continue;
             const int idx = appendGame(lib, g);
             // THE MOST RECENT ONE STAYS ON THE SHELF — changed 2026-09-21.
@@ -524,7 +593,8 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
 // console with fewer games. So Recent is the games on the drive played most
 // recently by anyone (the entry's own time, a launch touches it), capped as
 // the server's is; the Library has a tile per system with games on the drive,
-// each holding only those; there are no favourites or collections, which are
+// each holding only those, and one Arcade tile for every arcade folder's, as
+// online (tileGroups); there are no favourites or collections, which are
 // the server's. A game with no record cannot be shown (its folder carries no
 // platform slug to launch it with); while online the console fetches the
 // missing ones (backfillDrive), so that is only a game never seen online.
@@ -532,9 +602,17 @@ Library offlineLibrary() {
     Library lib;
     const Uint64 t0 = SDL_GetTicksNS();
     const std::vector<cache::OnDrive> drive = cache::onDrive();
-    std::map<int, std::vector<int>> byPlatform;   // platform id -> cards
+    // Platform id -> cards, with every arcade folder's under 0 (no platform's
+    // id), the Arcade tile.
+    std::map<int, std::vector<int>> byPlatform;
     std::map<int, std::string> platformTitle;
     const std::map<int, romm::Platform> known = savedPlatforms();
+    // The Arcade tile names every arcade folder the server had, as its
+    // online query does, so reading it again once the server is back
+    // (App::openTile) lists them all; and any a game on the drive names.
+    std::vector<int> arcadeIds;
+    for (const auto& [id, p] : known)
+        if (arcadematch::isArcadeSlug(p.slug)) arcadeIds.push_back(id);
     int noRecord = 0, notHere = 0;
     for (const cache::OnDrive& d : drive) {
         romm::Game g;
@@ -546,9 +624,12 @@ Library offlineLibrary() {
             lib.heroIndex = idx;
             lib.heroPlatform = g.platformName;
         }
-        byPlatform[g.platformId].push_back(idx);
-        platformTitle[g.platformId] = g.platformName;
-        lib.platformNames[g.platformId] = g.platformName;
+        const bool arcade = arcadematch::isArcadeSlug(g.platformSlug);
+        if (arcade) arcadeIds.push_back(g.platformId);
+        const int key = arcade ? 0 : g.platformId;
+        byPlatform[key].push_back(idx);
+        platformTitle[key] = catalog::systemName(g);
+        lib.platformNames[g.platformId] = catalog::systemName(g);
     }
     // FAVORITES: this person's, as last seen online, that are on the drive,
     // in their order (MMagTech, 2026-10-05). None on the drive: no shelf, as
@@ -562,12 +643,14 @@ Library offlineLibrary() {
         tile.id = pid;
         tile.query = "platform_ids=" + std::to_string(pid);
         tile.title = platformTitle[pid];
-        std::string qualifier;
-        if (auto k = known.find(pid); k != known.end()) {
-            // The same name and qualifier the online tile has (loadLibrary).
-            if (!k->second.name.empty()) tile.title = k->second.name;
-            qualifier = catalog::displayQualifier(k->second);
-            lib.platformNames[pid] = catalog::displayName(k->second);
+        if (pid == 0) {
+            tile.query = platformsQuery(arcadeIds);
+            tile.id = *std::min_element(arcadeIds.begin(), arcadeIds.end());
+            tile.namesFolder = true;
+        } else if (auto k = known.find(pid); k != known.end()) {
+            // The same name the online tile has (loadLibrary).
+            tile.title = catalog::displayName(k->second);
+            lib.platformNames[pid] = tile.title;
         }
         tile.enterable = true;
         // RomM's order, by its sort key where the record has one, so the
@@ -592,8 +675,7 @@ Library offlineLibrary() {
             }
         char count[48];
         std::snprintf(count, sizeof count, "%zu game%s", idxs.size(), idxs.size() == 1 ? "" : "s");
-        tile.detail = qualifier.empty() ? std::string(count)
-                                        : qualifier + "  \xC2\xB7  " + count;
+        tile.detail = count;
         lib.platformTiles.push_back(std::move(tile));
     }
     std::stable_sort(lib.platformTiles.begin(), lib.platformTiles.end(),
@@ -614,7 +696,7 @@ Library offlineLibrary() {
 
 // A kept game's record: the whole library entry, not a subset.
 //
-// Cabinet's KeptGame embeds the entire Rom captured at keep time so that a kept
+// Cabinet's KeptGame embedded the entire Rom captured at keep time so that a kept
 // game can be browsed and launched with NO NETWORK AT ALL — cover path and
 // platform identifiers included. A subset is how that promise gets broken later
 // by a field nobody thought of, so this writes every field this client knows a
@@ -636,6 +718,7 @@ std::string gameRecordJson(const romm::Game& g) {
     // tell which controllers it takes (romm::gameFromJson).
     json_object_object_add(o, "product_code", json_object_new_string(g.productCode.c_str()));
     json_object_object_add(o, "ra_hash", json_object_new_string(g.raHash.c_str()));
+    json_object_object_add(o, "md5_hash", json_object_new_string(g.md5.c_str()));
     json_object_object_add(o, "path_manual", json_object_new_string(g.manualPath.c_str()));
     json_object_object_add(o, "fs_size_bytes", json_object_new_int64(g.sizeBytes));
     json_object_object_add(o, "has_multiple_files", json_object_new_boolean(g.multiFile));
@@ -650,9 +733,88 @@ std::string gameRecordJson(const romm::Game& g) {
     strings("languages", g.languages);
     json_object_object_add(o, "revision", json_object_new_string(g.revision.c_str()));
     strings("tags", g.tags);
+    // What an arcade game's archive holds (romm_types.h), in RomM's own
+    // field names, for its emulator to be picked offline. A game from
+    // RomM's lists carries none, so the record keeps what a launch learned
+    // (rememberArchive) rather than lose it at every press.
+    romm::Game kept;
+    const bool haveKept = romm::gameFromJson(cache::gameRecord(g.id), &kept);
+    const romm::Game& from = !g.members.empty() || !haveKept ? g : kept;
+    if (!from.members.empty()) {
+        json_object* a = json_object_new_object();
+        json_object_object_add(a, "file", json_object_new_string(from.membersFile.c_str()));
+        json_object_object_add(a, "size", json_object_new_int64(from.membersSize));
+        json_object* list = json_object_new_array();
+        for (const romm::ArchiveMember& m : from.members) {
+            json_object* e = json_object_new_object();
+            char crc[9];
+            std::snprintf(crc, sizeof crc, "%08x", m.crc);
+            json_object_object_add(e, "name", json_object_new_string(m.name.c_str()));
+            json_object_object_add(e, "size", json_object_new_int64(m.size));
+            json_object_object_add(e, "crc_hash", json_object_new_string(crc));
+            json_object_array_add(list, e);
+        }
+        json_object_object_add(a, "members", list);
+        json_object_object_add(o, "archive_members", a);
+    }
+    // The files the game's save channels can be on (romm_types.h,
+    // ChannelFiles), under RomM's own names: `channel_file_id`, and `files`
+    // holding each game file's id. Only the game's own entry carries them, so
+    // the record keeps what a launch or the game's page learned
+    // (rememberChannelFiles).
+    const romm::ChannelFiles& files =
+        !g.channelFiles.files.empty() || !haveKept ? g.channelFiles : kept.channelFiles;
+    if (const int file = g.channelFiles.channelFile != 0 ? g.channelFiles.channelFile
+                                                         : kept.channelFiles.channelFile)
+        json_object_object_add(o, "channel_file_id", json_object_new_int(file));
+    if (!files.files.empty()) {
+        json_object* list = json_object_new_array();
+        for (const int id : files.files) {
+            json_object* f = json_object_new_object();
+            json_object_object_add(f, "id", json_object_new_int(id));
+            json_object_array_add(list, f);
+        }
+        json_object_object_add(o, "files", list);
+    }
     const std::string out = json_object_to_json_string_ext(o, JSON_C_TO_STRING_PRETTY);
     json_object_put(o);
     return out;
+}
+
+void rememberArchive(int romId, const std::string& file, int64_t size,
+                     const std::vector<romm::ArchiveMember>& members) {
+    romm::Game g;
+    if (!romm::gameFromJson(cache::gameRecord(romId), &g)) return;
+    if (g.membersFile == file && g.membersSize == size && g.members.size() == members.size())
+        return;
+    g.membersFile = file;
+    g.membersSize = size;
+    g.members = members;
+    cache::rememberGame(romId, gameRecordJson(g));
+}
+
+std::vector<romm::ArchiveMember> rememberedArchive(int romId, const std::string& file,
+                                                   int64_t size) {
+    romm::Game g;
+    if (!romm::gameFromJson(cache::gameRecord(romId), &g) || g.membersFile != file ||
+        g.membersSize != size)
+        return {};
+    return g.members;
+}
+
+void rememberChannelFiles(int romId, const romm::ChannelFiles& files) {
+    romm::Game g;
+    if (!romm::gameFromJson(cache::gameRecord(romId), &g) ||
+        (g.channelFiles.channelFile == files.channelFile && g.channelFiles.files == files.files))
+        return;
+    g.channelFiles = files;
+    cache::rememberGame(romId, gameRecordJson(g));
+}
+
+romm::ChannelFiles rememberedChannelFiles(int romId) {
+    romm::Game g;
+    return romm::gameFromJson(cache::gameRecord(romId), &g) ? g.channelFiles
+                                                            : romm::ChannelFiles{};
 }
 
 // ---- The kept badges on the store's cards (#398) --------------------------
@@ -671,4 +833,83 @@ void App::refreshKeeps() {
     for (int romId : kept)
         for (Card& c : cards)
             if (c.id == romId) { c.kept = true; break; }
+}
+
+// ---- --arcade-tile-test ----------------------------------------------------
+
+int arcadeTileTest() {
+    int failures = 0;
+    auto check = [&](bool ok, const char* what) {
+        std::printf("  %s  %s\n", ok ? "ok  " : "FAIL", what);
+        if (!ok) ++failures;
+    };
+    auto platform = [](int id, const char* slug, const char* fs, const char* name) {
+        romm::Platform p;
+        p.id = id;
+        p.slug = slug;
+        p.fsSlug = fs;
+        p.name = name;
+        return p;
+    };
+    const std::vector<romm::Platform> server = {
+        platform(8, "snes", "Super Nintendo", "Super Nintendo Entertainment System"),
+        platform(55, "arcade", "FBNEO", "Arcade"),
+        platform(58, "cps2", "CPS2", "Capcom Play System 2"),
+        platform(14, "dc", "Sega Dreamcast", "Dreamcast"),
+        platform(45, "arcade", "MAME2003", "Arcade"),
+        platform(66, "neogeomvs", "NeoGeoMVS", "Neo Geo MVS"),
+        platform(62, "model3", "Model3", "Sega Model 3"),
+    };
+    const auto groups = tileGroups(server);
+    check(groups.size() == 2 + 1, "every arcade folder is one tile, every other platform its own");
+    std::vector<int> arcade;
+    for (const auto& g : groups)
+        if (g.size() > 1)
+            for (const romm::Platform& p : g) arcade.push_back(p.id);
+    check(arcade == std::vector<int>({45, 55, 58, 62, 66}),
+          "the Arcade tile holds every arcade label, RomM's and the boards', in id order");
+    bool alone = true;
+    for (const auto& g : groups)
+        if (g.size() == 1 && arcadematch::isArcadeSlug(g[0].slug)) alone = false;
+    check(alone, "and no arcade folder keeps a tile of its own");
+    check(tileGroups({platform(55, "arcade", "FBNEO", "Arcade")}).size() == 1,
+          "one arcade folder alone is the Arcade tile too");
+    check(platformsQuery({58, 45, 55, 45}) ==
+              "platform_ids=45&platform_ids=55&platform_ids=58",
+          "the Arcade tile's query names each folder once, in id order");
+    check(platformsQuery({5}) == "platform_ids=5", "and any other tile's is its one platform");
+    check(catalog::displayName(server[2]) == "Arcade" &&
+              catalog::displayName(server[1]) == "Arcade",
+          "every arcade folder is called Arcade, whatever RomM names it");
+    check(catalog::displayName(server[0]) == "Super Nintendo Entertainment System",
+          "any other platform keeps RomM's name");
+
+    romm::Game mvs;
+    mvs.id = 1;
+    mvs.name = "Metal Slug";
+    mvs.fsName = "mslug.zip";
+    mvs.platformId = 66;
+    mvs.platformSlug = "neogeomvs";
+    mvs.platformFsSlug = "NeoGeoMVS";
+    mvs.platformName = "Neo Geo MVS";
+    check(catalog::systemName(mvs) == "Arcade" && catalog::folderName(mvs) == "NeoGeoMVS",
+          "an arcade game's system is Arcade and its folder is its RomM folder");
+    romm::Game dcZip = mvs;
+    dcZip.platformSlug = "dc";
+    dcZip.platformFsSlug = "Sega Dreamcast";
+    dcZip.platformName = "Dreamcast";
+    dcZip.fsName = "ikaruga.zip";
+    check(catalog::systemName(dcZip) == "Dreamcast",
+          "a Naomi zip in Dreamcast's folder is a Dreamcast game");
+    romm::Game bare = mvs;
+    bare.platformFsSlug.clear();
+    check(catalog::folderName(bare) == "Neo Geo MVS", "a game with no folder names RomM's name");
+    Library lib;
+    const Card& card = lib.cards[static_cast<size_t>(appendGame(lib, mvs))];
+    check(card.platform == "Arcade" && card.folder == "NeoGeoMVS",
+          "its card says Arcade where a list names the system, and keeps the folder for the "
+          "Arcade tile's line");
+
+    std::printf("%s\n", failures ? "arcade tile test: FAILED" : "arcade tile test: passed");
+    return failures ? 1 : 0;
 }

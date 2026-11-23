@@ -32,8 +32,9 @@
 # "libvirtualhid", the console's rule in players.cpp, isRemote). Steam's own
 # stand-in pads are uinput devices with no driver, so they are never touched.
 # A Bluetooth pad is a uhid device under /sys/devices/virtual, like Sunshine's,
-# so the name is what tells them apart, not the path. Wii Remotes are left
-# alone (hid-wiimote): the Wii bridge owns them, and Steam does not use them.
+# so the name is what tells them apart, not the path. A Wii Remote is never
+# one: the Wii bridge owns it, and the kernel Wii driver's devices are no
+# joystick to udev (72-cabinetos-wii-remote.rules).
 #
 # The record of what was set aside is /run/cabinetos-pads.aside, one
 # "<bus> <device>" per line; `back` reads it and removes it. /run is cleared
@@ -46,7 +47,7 @@ RECORD=/run/cabinetos-pads.aside
 # "<bus> <device>" for each controller to set aside, once each (a pad with a
 # motion sensor or a touchpad has several input devices on one driver).
 controllers() {
-    local i name path d bus drv
+    local i name path d bus
     for i in /sys/class/input/input*; do
         [[ -e "${i}/name" ]] || continue
         name=$(<"${i}/name")
@@ -60,8 +61,7 @@ controllers() {
             d=$(dirname "${d}")
             [[ -L "${d}/driver" ]] || continue
             bus=$(basename "$(readlink -f "${d}/subsystem")")
-            drv=$(basename "$(readlink -f "${d}/driver")")
-            if [[ ( "${bus}" == hid || "${bus}" == usb ) && "${drv}" != wiimote ]]; then
+            if [[ "${bus}" == hid || "${bus}" == usb ]]; then
                 echo "${bus} $(basename "${d}")"
             fi
             break

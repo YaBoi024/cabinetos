@@ -537,24 +537,24 @@ int test() {
     }
     {   // Which files: the game's own, a sheet's tracks with it.
         std::vector<romm::RomFile> f = {
-            {1, "G (Disc 1).cue", 100, "game", true},
-            {2, "G (Disc 1) (Track 1).bin", 100, "game", true},
-            {3, "G (Disc 2).cue", 100, "game", true},
-            {4, "G (Disc 2) (Track 1).bin", 100, "game", true},
-            {5, "G.m3u", 10, "game", true},
-            {6, "Manual.pdf", 10, "manual", false},
-            {7, "Soundtrack.mp3", 10, "soundtrack", true},
+            {1, "G (Disc 1).cue", 100, "game", true, {}},
+            {2, "G (Disc 1) (Track 1).bin", 100, "game", true, {}},
+            {3, "G (Disc 2).cue", 100, "game", true, {}},
+            {4, "G (Disc 2) (Track 1).bin", 100, "game", true, {}},
+            {5, "G.m3u", 10, "game", true, {}},
+            {6, "Manual.pdf", 10, "manual", false, {}},
+            {7, "Soundtrack.mp3", 10, "soundtrack", true, {}},
         };
         const Plan p = plan(f);
         check(p.fetch.size() == 4, "fetch the sheets and their tracks: " + std::to_string(p.fetch.size()));
         check(p.discNames.size() == 2, "two discs, the sheets");
         check(p.listFileId == 5, "the library's list is read, not fetched");
-        std::vector<romm::RomFile> g = {{1, "RE4 (Disc 1).rvz", 1, "game", true},
-                                        {2, "RE4 (Disc 2).rvz", 1, "game", true}};
+        std::vector<romm::RomFile> g = {{1, "RE4 (Disc 1).rvz", 1, "game", true, {}},
+                                        {2, "RE4 (Disc 2).rvz", 1, "game", true, {}}};
         check(plan(g).discNames.size() == 2, "images are discs when there is no sheet");
-        std::vector<romm::RomFile> h = {{1, "One.cue", 1, "game", true},
-                                        {2, "One (Track 1).bin", 1, "game", true},
-                                        {3, "One (Track 2).bin", 1, "game", true}};
+        std::vector<romm::RomFile> h = {{1, "One.cue", 1, "game", true, {}},
+                                        {2, "One (Track 1).bin", 1, "game", true, {}},
+                                        {3, "One (Track 2).bin", 1, "game", true, {}}};
         check(plan(h).discNames.size() == 1, "one sheet and its tracks is one disc");
     }
     {   // The list, and Start over's order.

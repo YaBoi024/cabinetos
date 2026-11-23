@@ -14,8 +14,9 @@
 // DS the resolution comes with the renderer: its software one, at its own
 // size, at Performance, and its OpenGL one above (#219).
 // Everything else that is free is fixed at its best value for every level
-// (anisotropic filtering 16x, 3DO's high resolution, sharp vector lines), and
-// nothing here needs a file from anywhere.
+// (anisotropic filtering 16x, 3DO's high resolution, sharp vector lines),
+// except where forcing it breaks games: on PS3 the filtering is the game's
+// own (rpcs3, in quality.cpp). Nothing here needs a file from anywhere.
 //
 // THE LEVEL FOR A GAME is the game's own choice if the player made one in its
 // pause menu, otherwise the console's. A game's choice survives a change of
@@ -62,7 +63,7 @@ void setGameChoice(int romId, std::optional<Level> l);
 // What a game runs at: its own choice, else the console's.
 Level forGame(int romId);
 
-// Whether a level changes anything for `core` (its manifest name): the ten
+// Whether a level changes anything for `core` (its manifest name): the
 // systems with a resolution to move, the DS only where its OpenGL renderer
 // can run (Core::canServeDesktopGL, #219). Only these get the pause menu's
 // row; Wii U (Cemu) has no lever without resolution packs (#207), Xbox 360 is
@@ -103,6 +104,13 @@ std::string rpcs3(Level l);
 std::string xemu(Level l);
 // Xenia Edge's command line.
 std::vector<std::string> xenia(Level l);
+// Vita3K's config.yml: lines for the whole file standalone_vita3k.cpp writes.
+std::string vita3k(Level l);
+// sm2-emu's render_scale, which standalone_sm2emu.cpp writes into its settings.
+int sm2emu(Level l);
+// Supermodel's picture height, which standalone_supermodel.cpp caps at the
+// screen's and writes into its settings with the width in the screen's shape.
+int supermodelLines(Level l);
 
 // One line on stderr saying what was applied, so a log shows the level a game
 // actually ran at.

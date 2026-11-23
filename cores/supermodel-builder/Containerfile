@@ -1,0 +1,25 @@
+# The build environment for Supermodel, the Sega Model 3 emulator, on Linux
+# x86-64.
+#
+# SEPARATE FROM frontend/Containerfile, for the reason sm2emu-builder gives:
+# every libretro core's CI cache key covers frontend/Containerfile
+# (ci/core-cache-key.sh), so adding SDL 2 and SDL2_net there would rebuild
+# all of them for one program that needs them.
+#
+# Fedora 44 for the same reason as the others: it is what Bazzite 44 is built
+# from, so every library the finished program still asks the system for is the
+# one the image has. Move it when the base moves.
+#
+# WHAT IT TAKES FROM THE SYSTEM, and nothing else: SDL 2 (Fedora's is
+# sdl2-compat, SDL 2 on top of the image's own SDL 3), SDL2_net, OpenGL and
+# GLU, and zlib. Everything else Supermodel builds from its own Src/Pkgs at
+# the pinned commit (cores/build-supermodel.sh): GLEW, minizip, TinyXML-2,
+# Dear ImGui and Musashi.
+FROM registry.fedoraproject.org/fedora:44
+
+RUN dnf install -y --setopt=install_weak_deps=False \
+        gcc gcc-c++ make git \
+        SDL2-devel SDL2_net-devel mesa-libGL-devel mesa-libGLU-devel zlib-devel \
+    && dnf clean all
+
+WORKDIR /src

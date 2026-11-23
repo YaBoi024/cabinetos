@@ -65,9 +65,12 @@ public:
     bool locked() const { return lockLeft_ > 0.0f; }
 
     Outcome key(Nav n);
-    // X on a pad, Backspace on a keyboard: one press to take a digit back,
-    // as on the on-screen keyboard (and Xbox's, and PlayStation's Square).
-    void deleteDigit() { deleteOne(); }
+    // X on a pad, Backspace on a keyboard: a press takes a digit back, as on
+    // the on-screen keyboard (and Xbox's, and PlayStation's Square), and
+    // held it goes on taking them at the console's pace (design::HeldRepeat,
+    // repeated in tick), until releaseDelete (#668).
+    void holdDelete();
+    void releaseDelete() { deleteHold_.stop(); }
     // A digit from a physical keyboard, into the same field. Anything that is
     // not 0 to 9 is ignored.
     Outcome typeDigit(char c);
@@ -96,6 +99,7 @@ private:
     design::Animated appear_;
     design::Animated focus_;
     float shake_ = 0.0f;       // seconds of shake left
+    design::HeldRepeat deleteHold_;
 };
 
 }  // namespace screens

@@ -9,10 +9,11 @@
 # difference printed. Check it against what the console sets (coreoptions.cpp,
 # quality.cpp, sysopts.cpp), then refresh the file in the same commit.
 #
-# A SCRIPT OF ITS OWN, not a function in build-core.sh, because CI keys each
-# core's cache on build-core.sh: while the check lived there, editing it
-# rebuilt all twenty-two cores (2026-10-02). build-core.sh runs this after
-# every build and on every cache hit, so the check still runs every time.
+# A SCRIPT OF ITS OWN, not a function in build-core.sh, because every core's
+# CI cache key covers build-core.sh's shared lines (ci/core-cache-key.sh):
+# while the check lived there, editing it rebuilt every core (2026-10-02).
+# build-core.sh runs this after every build and on every cache hit, so the
+# check still runs every time.
 #
 # Dolphin and FBNeo declare their options only with a real game loaded, which
 # CI does not have; their lists come from the A9 (tools/check-applied.sh).

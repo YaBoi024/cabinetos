@@ -1,0 +1,7 @@
+# Sinden's light-gun software ships in the image
+
+- **Decided:** The image carries Sinden's Linux software, unchanged and with Sinden's licence file, so a player plugs in a Sinden gun and plays with nothing to download or install. If its camera library has to be rebuilt for Fedora, it is built from source Sinden sends, and that source is never shared: it stays out of this repository, every build log and every public place, and only the built library goes into the image. Recoil is never on by default, as the request to Sinden promised.
+- **Date:** 2026-11-02
+- **Why:** Sinden's licence lets only Sinden distribute its software, so the project asked first (contact@sindenlightgun.com, 2026-11-01). Sinden's owner gave permission by email on 2026-11-02, as he did for Batocera, and offered the camera library's source on the one condition that it is not shared. Shipping it keeps "plug in and play" and adds no place the console connects to. The other ways were the console downloading Sinden's zip from sindenlightgun.com the first time a gun is plugged in (a new fixed place, and the internet needed then), or the player bringing the zip through RomM or a USB drive (setup a player must do).
+- **Numbers:** #575, "Sinden light guns: plug in and play gun games (waiting on the guns)".
+- **Replaces:** rule 1 on #575 of 2026-10-24, "Sinden's software is not in the image", and the first question under "To decide before building" there, where a player gets Sinden's software.

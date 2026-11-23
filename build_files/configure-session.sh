@@ -15,11 +15,16 @@ group_start "Configuring the CabinetOS session"
 log "enabling cabinetos-session.service"
 systemctl enable cabinetos-session.service
 
-# File access, Developer access, Remote Play and Tailscale, started at boot
-# from Settings, so a console booted with no TV answering can still be
-# reached while the session waits for one (#268).
+# File access, Developer access and Tailscale, started at boot from
+# Settings, so a console booted with no TV answering can still be reached
+# while the session waits for one (#268).
 log "enabling cabinetos-saved-services.service"
 systemctl enable cabinetos-saved-services.service
+
+# LinkUp's firewall lock, closed, at every boot before the network has an address (#654). LinkUp
+# itself is not enabled: off means off, and the session starts it when it is on and paired.
+log "enabling cabinetos-linkup-lock.service"
+systemctl enable cabinetos-linkup-lock.service
 
 group_end
 

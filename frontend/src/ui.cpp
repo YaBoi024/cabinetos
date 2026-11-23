@@ -65,6 +65,7 @@ bool Renderer::init() {
     wloc_.canvas = glGetUniformLocation(glowProgram_, "uCanvas");
     wloc_.picture = glGetUniformLocation(glowProgram_, "uPicture");
     wloc_.peak = glGetUniformLocation(glowProgram_, "uPeak");
+    wloc_.opaque = glGetUniformLocation(glowProgram_, "uOpaque");
     wloc_.shadow = glGetUniformLocation(glowProgram_, "uShadow");
     wloc_.rect = glGetUniformLocation(glowProgram_, "uRect");
 
@@ -291,8 +292,8 @@ void Renderer::drawSnapshot(float alpha) {
     offsetX_ = keepOffsetX;
 }
 
-void Renderer::drawBiasGlow(float x, float y, float w, float h, float peak) {
-    if (peak <= 0.0f) return;
+void Renderer::drawBiasGlow(float x, float y, float w, float h, float peak, bool opaque) {
+    if (peak <= 0.0f && !opaque) return;
     glUseProgram(glowProgram_);
     // The vertex shader is the shared one, so it needs a rect to cover — the
     // whole canvas here, since the glow lives everywhere the picture is not.
@@ -301,7 +302,14 @@ void Renderer::drawBiasGlow(float x, float y, float w, float h, float peak) {
     glUniform2f(wloc_.canvas, kCanvasWidth, kCanvasHeight);
     glUniform4f(wloc_.picture, x, y, w, h);
     glUniform1f(wloc_.peak, peak);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    // Opaque: the dead space painted black first, with the backdrop's dither, then the glow blended
+    // over it, as a game's own screen has them (#692).
+    if (opaque) {
+        glUniform1f(wloc_.opaque, 1.0f);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    }
+    glUniform1f(wloc_.opaque, 0.0f);
+    if (peak > 0.0f) glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
 void Renderer::drawSafeAreaGuides() {

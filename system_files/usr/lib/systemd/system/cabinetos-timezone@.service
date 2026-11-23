@@ -1,0 +1,7 @@
+[Unit]
+Description=CabinetOS: the time zone a new console is in (%I)
+Documentation=https://github.com/MMagTech/cabinetos/blob/main/docs/decisions/2026-11-03-running-from-a-usb-drive.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/cabinetos-timezone %I

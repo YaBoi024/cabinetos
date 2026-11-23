@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Put the console into the image: the frontend, the twenty-two libretro cores,
+# Put the console into the image: the frontend, the twenty-three libretro cores,
 # and the system files that ship with one of them.
 #
 # ===========================================================================
@@ -108,20 +108,21 @@ log "installed ${cores} cores into /usr/lib/cabinetos/cores ($(du -sh /usr/lib/c
 # proves is that the contents of it reached the image. A copy that silently
 # does nothing leaves a green build, which is the exact failure the
 # system_files overlay in build.sh was written to catch after it happened.
-if [[ "${cores}" -ne 22 ]]; then
-    log "ERROR: expected 22 cores in the image, found ${cores}"
+if [[ "${cores}" -ne 23 ]]; then
+    log "ERROR: expected 23 cores in the image, found ${cores}"
     exit 1
 fi
 
-# The arcade cores' set lists (#310): which games in a generic arcade folder
-# each core runs. Read by catalog.cpp from beside the cores.
-for sets in fbneo_libretro.sets mame2003_plus_libretro.sets; do
-    if [[ ! -s "${PAYLOAD}/cores/${sets}" ]]; then
-        log "ERROR: ${sets} is not in the payload"
+# The arcade emulators' catalogues: each set's files, discs and working
+# status, which pick an arcade game's emulator from its zip. Read by
+# arcadematch.cpp from beside the cores.
+for cat in flycast_libretro.catalogue fbneo_libretro.catalogue mame2003_plus_libretro.catalogue; do
+    if [[ ! -s "${PAYLOAD}/cores/${cat}" ]]; then
+        log "ERROR: ${cat} is not in the payload"
         exit 1
     fi
-    install -m 0644 "${PAYLOAD}/cores/${sets}" /usr/lib/cabinetos/cores/
-    log "  ${sets}: $(grep -vc '^#' "/usr/lib/cabinetos/cores/${sets}") sets"
+    install -m 0644 "${PAYLOAD}/cores/${cat}" /usr/lib/cabinetos/cores/
+    log "  ${cat}: $(grep -vc '^[#!]' "/usr/lib/cabinetos/cores/${cat}") sets"
 done
 
 # --- PlayStation 2 ---------------------------------------------------------
@@ -196,10 +197,13 @@ log "installed /usr/bin/cabinetos-frontend ($(du -h /usr/bin/cabinetos-frontend 
 # (wiiremote.cpp). Its own program because it is GPL; the frontend only starts it.
 install -D -m 0755 "${PAYLOAD}/bin/cabinetos-wii-bridge" /usr/libexec/cabinetos-wii-bridge
 log "installed /usr/libexec/cabinetos-wii-bridge ($(du -h /usr/libexec/cabinetos-wii-bridge | cut -f1))"
+# LinkUp's program (#654, linkup/), which cabinetos-linkup.service starts.
+install -D -m 0755 "${PAYLOAD}/bin/cabinetos-linkup" /usr/libexec/cabinetos-linkup
+log "installed /usr/libexec/cabinetos-linkup ($(du -h /usr/libexec/cabinetos-linkup | cut -f1))"
 # The controller list, beside the binary that reads it (players::loadMappings)
-# and in the same small layer, so its weekly update ships one file.
+# and in the same small layer, so an update of it ships one file.
 install -D -m 0644 /ctx/frontend-data/gamecontrollerdb.txt /usr/share/cabinetos/gamecontrollerdb.txt
-log "installed the controller list ($(grep -c 'platform:Linux' /usr/share/cabinetos/gamecontrollerdb.txt) Linux entries)"
+log "installed the controller list ($(grep -c 'platform:Linux,' /usr/share/cabinetos/gamecontrollerdb.txt) Linux entries)"
 # Which controllers each Wii game accepts, from GameTDB (tools/wii-controls.py):
 # a Wii game plays on a pad only when it takes a Classic Controller or a
 # GameCube pad (wii::padDevice, frontend/src/wii.cpp; the rule is
@@ -225,6 +229,39 @@ for preset in crt/crt-easymode.glslp handheld/lcd3x.glslp; do
     fi
 done
 log "installed the screen looks ($(find /usr/share/cabinetos/shaders -name '*.glslp' | wc -l) presets, $(du -sh /usr/share/cabinetos/shaders | cut -f1))"
+# The Vectrex games' screen sheets (#224), where vectrexsheets::folder looks:
+# the 38 PNG files tools/fetch-vectrex-overlays.py put in the payload (build.yml
+# runs it; a build by hand runs it into image_payload/vectrex first), and the
+# table saying which game takes which, ours, from frontend/data. Checked by
+# count and by every sheet the table names, so a payload that lost one fails
+# here rather than leaving a game with its bare screen on every console.
+if [[ ! -d "${PAYLOAD}/vectrex" ]]; then
+    log "ERROR: ${PAYLOAD}/vectrex is missing; run tools/fetch-vectrex-overlays.py image_payload/vectrex"
+    exit 1
+fi
+mkdir -p /usr/share/cabinetos/vectrex
+install -m 0644 "${PAYLOAD}"/vectrex/*.png /usr/share/cabinetos/vectrex/
+install -m 0644 /ctx/frontend-data/vectrex-overlays.json /usr/share/cabinetos/vectrex/vectrex-overlays.json
+sheets=$(find /usr/share/cabinetos/vectrex -name '*.png' | wc -l)
+if [[ "${sheets}" -ne 38 ]]; then
+    log "ERROR: ${sheets} Vectrex sheets installed, expected 38"
+    exit 1
+fi
+# Read whole first, so a table this cannot read is a count of 0 and fails,
+# rather than a loop that checks nothing.
+named="$(grep -o '"file": *"[^"]*"' /usr/share/cabinetos/vectrex/vectrex-overlays.json |
+    sed 's/.*"\([^"]*\)"$/\1/')"
+if [[ "$(wc -l <<<"${named}")" -ne 38 ]]; then
+    log "ERROR: the Vectrex table does not name 38 sheets"
+    exit 1
+fi
+while read -r sheet; do
+    if [[ ! -s "/usr/share/cabinetos/vectrex/${sheet}.png" ]]; then
+        log "ERROR: the Vectrex table names ${sheet}.png, which did not land"
+        exit 1
+    fi
+done <<<"${named}"
+log "installed the Vectrex sheets (${sheets} sheets, $(du -sh /usr/share/cabinetos/vectrex | cut -f1))"
 
 group_end
 
@@ -234,7 +271,7 @@ group_end
 #
 # The one check that is worth more than all the others here, because it is the
 # only one that asks the question the console actually depends on: can the
-# binary, and each of the twenty-two cores, find everything it links against in
+# binary, and each of the twenty-three cores, find everything it links against in
 # the image it is about to ship in?
 #
 # The frontend is compiled in a Fedora 44 container to match Bazzite 44, so the
@@ -263,6 +300,7 @@ check_links() {
 
 check_links /usr/bin/cabinetos-frontend
 check_links /usr/libexec/cabinetos-wii-bridge
+check_links /usr/libexec/cabinetos-linkup
 for so in /usr/lib/cabinetos/cores/*.so; do
     check_links "${so}"
 done
@@ -291,6 +329,7 @@ missing=0
 for expected in \
     /usr/bin/cabinetos-frontend \
     /usr/libexec/cabinetos-wii-bridge \
+    /usr/libexec/cabinetos-linkup \
     /usr/lib/cabinetos/cores/cabinetos-ps2.so \
     /usr/share/cabinetos/system/PPSSPP/compat.ini \
     /usr/share/cabinetos/system/pcsx2/resources/GameIndex.yaml

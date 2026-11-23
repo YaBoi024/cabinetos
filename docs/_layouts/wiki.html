@@ -10,6 +10,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="{{ '/assets/site.css' | relative_url }}">
+{%- if page.path == 'wiki/README.md' %}
+<script src="{{ '/assets/search.js' | relative_url }}" defer></script>
+{%- endif %}
 </head>
 <body>
 <header class="topbar">
@@ -18,6 +21,7 @@
     <nav class="topnav">
       <a href="{{ '/' | relative_url }}" class="hide-sm">Showcase</a>
       <a href="{{ '/wiki/' | relative_url }}">Wiki</a>
+      <a href="{{ '/wiki/' | relative_url }}#search">Search</a>
       <a href="https://github.com/MMagTech/cabinetos">GitHub</a>
     </nav>
   </div>
@@ -29,6 +33,8 @@
 {%- assign last = nil -%}
 {%- for s in site.data.wiki -%}
   {%- for p in s.pages -%}
+    {%- assign ext = p.file | split: '.' | last -%}
+    {%- if ext != 'md' -%}{%- continue -%}{%- endif -%}
     {%- if found and next == nil -%}{%- assign next = p -%}{%- endif -%}
     {%- assign here = 'wiki/' | append: p.file -%}
     {%- if here == page.path -%}{%- assign found = true -%}{%- assign prev = last -%}{%- endif -%}
@@ -38,7 +44,7 @@
 
 {%- capture sidelist -%}
   {%- for s in site.data.wiki -%}
-    <h5>{{ s.section }}</h5>
+    {%- if s.section -%}<h5>{{ s.section }}</h5>{%- endif -%}
     {%- for p in s.pages -%}
       {%- assign here = 'wiki/' | append: p.file -%}
       {%- if p.file == 'README.md' -%}{%- assign href = '/wiki/' -%}{%- else -%}{%- assign href = '/wiki/' | append: p.file | replace: '.md', '.html' -%}{%- endif -%}

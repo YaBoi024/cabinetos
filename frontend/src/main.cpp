@@ -71,6 +71,11 @@ int App::run(int argc, char** argv) {
                                                   .playtimeTestMode = playtimeTestMode,
                                                   .discTestMode = discTestMode,
                                                   .filesTestMode = filesTestMode,
+                                                  .vectrexSheetsTestMode = vectrexSheetsTestMode,
+                                                  .gpuChoiceTestMode = gpuChoiceTestMode,
+                                                  .tailscaleSwitchTestMode =
+                                                      tailscaleSwitchTestMode,
+                                                  .updateRommTestMode = updateRommTestMode,
                                                   .padsSeconds = padsSeconds,
                                                   .firstRunRulesMode = firstRunRulesMode,
                                                   .firstRunWriteMode = firstRunWriteMode,
@@ -92,6 +97,7 @@ int App::run(int argc, char** argv) {
                           .rommAddress = rommAddress,
                           .romProbeId = romProbeId,
                           .romProbeExts = romProbeExts,
+                          .channelsProbeId = channelsProbeId,
                           .rommProbeMode = rommProbeMode,
                           .rommPair = rommPair,
                           .coreOptionsAudit = coreOptionsAudit,
@@ -134,7 +140,9 @@ int App::run(int argc, char** argv) {
     readUpdateCheckAtStart();
     startAccessAtBoot();
     startRemotePlayAtBoot();
+    linkupStart();
     startTailscaleAtBoot();
+    startGameEventsAtBoot();
     // NOTHING HERE for a Remote Play session already open at start (back
     // from Steam, a crash): the session script starts gamescope composed
     // (cabinetos-session, #304).

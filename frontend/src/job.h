@@ -1,7 +1,7 @@
 // One worker, one result, polled once a frame: first run's five jobs
 // (setup.cpp). Moved out of setup.cpp in the restructure (#398, Part 3
 // section 22) so later code can use it rather than write the thread handling
-// again; setup.cpp is its only user so far.
+// again.
 //
 // Its destructor joins. An owner that also has a cancel flag the worker
 // reads (setup::Flow's btCancel_) declares that flag BEFORE its Jobs, so the
@@ -52,6 +52,10 @@ public:
             done_.store(true);
         });
     }
+
+    // Waits for a worker that is still going, so the next take() has its
+    // result. For the one moment a caller cannot go on without it.
+    void wait() { join(); }
 
     // Consumes a finished result. Returns false while the worker is still
     // going, so a caller can poll this every frame and act on the one frame it

@@ -16,6 +16,13 @@ case "$args" in
       ;;
   "-t -f WIFI radio") echo "enabled" ;;
   "-t -f NAME,TYPE connection show") : ;;   # nothing saved
+  # What a join with a password reads first (net.cpp, onAir).
+  "-t -f SSID,SECURITY,DEVICE device wifi list --rescan no")
+      echo "Loft:WPA2:wlp195s0"
+      echo "Loft-5G:WPA3:wlp195s0"
+      echo "BTWiFi-with-FON::wlp195s0"
+      echo "Campus Secure:WPA2 802.1X:wlp195s0"
+      ;;
   *"device wifi list"*)
       echo ":Loft:82:WPA2"
       echo ":Loft-5G:76:WPA3"

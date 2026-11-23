@@ -18,8 +18,8 @@ namespace catalog {
 // was initialised to. See core.h.
 //
 // This is where a choice goes when CabinetOS wants something OTHER than what a
-// core ships with. Cabinet hand-picks a subset per platform rather than dumping
-// everything a core reports — see docs/CABINET.md, `NativeCoreOptions.swift` —
+// core ships with. Cabinet hand-picked a subset per platform rather than dumping
+// everything a core reports (docs/history/CABINET.md, `NativeCoreOptions.swift`),
 // and that list is the obvious thing to bring across, one platform at a time,
 // with a reason recorded for each.
 std::map<std::string, std::string> optionOverrides(const std::string& coreName);

@@ -1,0 +1,116 @@
+# Build Sega Model 3 (Supermodel) for Linux x86-64, on a machine nobody owns.
+#
+# WHY A WORKFLOW OF ITS OWN, as Model 2 has: Supermodel is a whole emulator
+# run as a program of its own (frontend/src/standalone_supermodel.cpp), not a
+# libretro core, with its own builder container (SDL 2 and SDL2_net).
+#
+# WHY FROM SOURCE: docs/decisions/2026-10-28-model-2-and-model-3.md. The pin
+# and the reasons are in cores/build-supermodel.sh.
+#
+# What it asserts: the source is at the pinned commit, every flag and setting
+# the console writes is in the source, the program finds SDL2_net in its own
+# lib/, and every library it still asks the system for is in Fedora 44, the
+# image's base. With it, its catalogue (cores/arcade-sets.sh), which the
+# arcade match reads beside the cores. What it cannot: that a game runs. That
+# is judged on the A9.
+
+name: Build Model 3
+
+# CALLED BY build.yml, like build-sm2emu.yml, and on pull requests aimed at
+# anything but main for the same reason that file gives.
+on:
+  workflow_call:
+  pull_request:
+    branches-ignore:
+      - main
+    paths:
+      - 'cores/build-supermodel.sh'
+      - 'cores/supermodel-builder/**'
+      - 'cores/arcade-sets.sh'
+      - 'frontend/src/standalone_supermodel.cpp'
+      - '.github/workflows/build-supermodel.yml'
+  workflow_dispatch:
+
+# No `concurrency:`, for the reason build-core.yml sets out.
+
+jobs:
+  build:
+    name: Supermodel
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      # NOTHING CHANGES UNLESS ONE OF THESE DOES: build-supermodel.sh holds
+      # the pinned commit and the options, the Containerfile is the
+      # toolchain, and standalone_supermodel.cpp is what the build checks the
+      # source against (its flags and settings).
+      - name: Restore the build, if this exact one has been built before
+        id: supermodelcache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: cores/build/supermodel
+          key: supermodel-${{ hashFiles('cores/build-supermodel.sh', 'cores/supermodel-builder/Containerfile', 'frontend/src/standalone_supermodel.cpp') }}
+
+      - name: Build it
+        if: steps.supermodelcache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          cores/build-supermodel.sh 2>&1 | tee /tmp/supermodel.log
+
+      # A CACHE HIT STILL HAS TO PROVE WHAT IT RESTORED, as Model 2's does.
+      - name: Check what it has
+        run: |
+          set -euo pipefail
+          out=cores/build/supermodel
+          fail=0
+          for f in bin/supermodel lib/libSDL2_net-2.0.so.0 share/supermodel/Games.xml \
+                   share/supermodel/Assets/p1crosshair.bmp share/supermodel/Assets/p2crosshair.bmp VERSION; do
+            if [ -e "$out/$f" ]; then echo "ok: $f"; else echo "MISSING: $f" >&2; fail=1; fi
+          done
+          pinned=$(sed -n 's/^COMMIT=//p' cores/build-supermodel.sh)
+          built=$(cat "$out/VERSION" 2>/dev/null || true)
+          if [ "$pinned" != "$built" ]; then
+            echo "the build is of $built, the pin is $pinned" >&2
+            fail=1
+          fi
+          exit $fail
+
+      # THE SAME SHAPE AS EVERY OTHER PAYLOAD ARTIFACT, so build.yml's
+      # download merges it with no special case: one top folder, supermodel/,
+      # with its catalogue made from the same pin (install-supermodel.sh puts
+      # it beside the cores, where the arcade match reads it).
+      - name: Stage it
+        run: |
+          set -euo pipefail
+          mkdir -p artifact
+          cp -R cores/build/supermodel artifact/supermodel
+          cores/arcade-sets.sh supermodel artifact/supermodel
+          find artifact -maxdepth 3 | sort
+
+      - name: Upload it
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          # The `-linux-x86_64` suffix is what build.yml's download matches.
+          name: supermodel-linux-x86_64
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Sega Model 3 (Supermodel), Linux x86-64"
+            echo
+            if [[ -f /tmp/supermodel.log ]]; then
+              echo '```'
+              tail -30 /tmp/supermodel.log
+              echo '```'
+            else
+              echo "Restored from cache; see the check step above."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

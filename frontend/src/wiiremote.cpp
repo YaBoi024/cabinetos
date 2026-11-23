@@ -43,6 +43,7 @@ bool isRemoteName(const std::string& name) { return name.rfind(kPrefix, 0) == 0;
 // --- What is paired -------------------------------------------------------------
 
 std::atomic<bool> gAnyPaired{false};
+std::atomic<bool> gAnyWithMotionPlus{false};
 std::mutex gPairedLock;
 std::vector<Paired> gPaired;
 
@@ -59,6 +60,20 @@ std::vector<std::pair<std::string, std::string>> listed(const char* filter) {
         if (isRemoteName(name)) out.emplace_back(address, name);
     }
     return out;
+}
+
+// NINTENDO'S OWN REMOTE, by the id bluetoothd read off it (its Device ID
+// record, "Modalias: usb:v057Ep0306..."): the two the kernel's Wii Remote
+// driver takes (hid-wiimote; 0330 is the Wii Remote Plus). The TechKens say
+// v04E8p7021. When bluetoothd cannot say, it is not counted as Nintendo's,
+// so nothing greys that did not before.
+bool nintendosOwn(const std::string& address) {
+    const proc::Result r = proc::run({"bluetoothctl", "info", address}, 10);
+    if (!r.ok()) return false;
+    std::string out = r.out;
+    for (char& c : out) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return out.find("modalias: usb:v057ep0306") != std::string::npos ||
+           out.find("modalias: usb:v057ep0330") != std::string::npos;
 }
 
 // --- The running Remotes ----------------------------------------------------------
@@ -117,15 +132,15 @@ struct Remote {
     Clock::time_point lastAsk{};
 };
 
-// A Remote reports its battery only when asked. Once a minute, out of a game
-// and only while it is on: one tiny request, its answer carries the buttons
+// A Remote reports its battery only when asked. Once a minute, out of a Wii
+// game and only while it is on: one tiny request, its answer carries the buttons
 // too, and it does not count as the Remote being used (lastActive).
 constexpr auto kBatteryAsk = std::chrono::minutes(1);
 
 constexpr auto kQuiet = std::chrono::milliseconds(1500);
-// A WII'S OWN IDLE TIME: a Remote untouched this long out of a game is switched
-// off, as a Wii does (a Wii Remote has no timer of its own; the console turns it
-// off). In a game the bridge does it when the game lets the Remote go.
+// A WII'S OWN IDLE TIME: a Remote untouched this long out of a Wii game is
+// switched off, as a Wii does (a Wii Remote has no timer of its own; the console
+// turns it off). In a Wii game the bridge does it when the game lets it go.
 constexpr auto kIdleOff = std::chrono::minutes(5);
 
 bool isOn(const Remote& r) { return Clock::now() - r.lastReport < kQuiet; }
@@ -140,7 +155,8 @@ void switchOff(const std::string& address) {
 
 std::mutex gLock;
 std::vector<Remote> gRemotes;
-std::atomic<bool> gGame{false};
+std::atomic<bool> gGame{false};     // a Wii game: Dolphin has the Remotes
+std::atomic<bool> gInGame{false};   // any game: HOME held is the menu
 std::atomic<bool> gHomeHold{false};
 std::once_flag gStarted;
 
@@ -270,7 +286,7 @@ void rescan() {
         r.lastActive = Clock::now();
         r.lastReport = Clock::now();
         r.lastAsk = Clock::now();   // setUp asks
-        // While a game runs Dolphin sets it up, with its own light.
+        // While a Wii game runs Dolphin sets it up, with its own light.
         if (!gGame) setUp(r);
         gRemotes.push_back(std::move(r));
     }
@@ -347,9 +363,10 @@ void run() {
                 r.lastAsk = Clock::now();
                 send(r.fd, {0x15, 0x00});
             }
-            // HOME HELD, while a game runs: the console's own menu. A press is
-            // the game's HOME menu, which Dolphin passes on as a Wii would.
-            if ((r.buttons & kHome) && !r.homeFired && gGame &&
+            // HOME HELD, while any game runs: the console's own menu. In a Wii
+            // game a press is the game's HOME menu, which Dolphin passes on as
+            // a Wii would.
+            if ((r.buttons & kHome) && !r.homeFired && gInGame &&
                 Clock::now() - r.homeSince >= kHomeHold) {
                 r.homeFired = true;
                 gHomeHold = true;
@@ -386,23 +403,29 @@ std::vector<Paired> known() {
 }
 
 bool anyPaired() { return gAnyPaired; }
+bool anyWithMotionPlus() { return gAnyWithMotionPlus; }
 
 void refresh() {
     std::vector<Paired> now;
+    size_t nintendos = 0;
     for (const auto& [address, name] : listed("Paired")) {
         Paired p;
         p.address = address;
         p.name = name;
         now.push_back(p);
+        if (nintendosOwn(address)) ++nintendos;
     }
     const bool any = !now.empty();
-    if (any != gAnyPaired)
-        std::fprintf(stderr, "[wiiremote] %zu Remote(s) paired\n", now.size());
+    const bool motionPlus = now.size() > nintendos;
+    if (any != gAnyPaired || motionPlus != gAnyWithMotionPlus)
+        std::fprintf(stderr, "[wiiremote] %zu Remote(s) paired, %zu of them Nintendo's own\n", now.size(),
+                     nintendos);
     {
         std::lock_guard<std::mutex> lk(gPairedLock);
         gPaired = std::move(now);
     }
     gAnyPaired = any;
+    gAnyWithMotionPlus = motionPlus;
 }
 
 // THE BRIDGE (wiibridge/bridge.cpp, its own program, GPL because it carries
@@ -451,7 +474,15 @@ void setGameRunning(bool running) {
     }
 }
 
+void setInGame(bool inGame) {
+    if (gInGame == inGame) return;
+    gInGame = inGame;
+    gHomeHold = false;
+}
+
 bool takeHomeHold() { return gHomeHold.exchange(false); }
+
+bool isRemote(uint32_t padId) { return padId == kRemoteId; }
 
 std::vector<Battery> batteries() {
     std::vector<Battery> out;

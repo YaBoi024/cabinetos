@@ -8,43 +8,50 @@ from a blank PC to playing.
 ## Set it up
 
 1. [Install](install.md): what you need, the installer, the one question it asks.
+   To try it first without installing: [Run from a USB drive](portable.md).
 2. [First run](first-run.md): network, your RomM server, pairing, a controller.
 3. [Your RomM server](romm.md): what the console reads from it, and how to lay it out.
 4. [Controllers and Bluetooth](controllers.md): pads, Wii Remotes, players.
 5. [Wi-Fi and network](network.md)
 6. [Drives and storage](drives.md): extra drives, downloads, space.
 
-## Play
+## Playing
 
 - [The library](library.md): Home, the Library, Search and a game's page.
 - [The pause menu](pause-menu.md)
-- [Games on several discs](discs.md): one folder in RomM, Insert or Insert and restart.
 - [Saves, states and sync](saves.md)
 - [Players and accounts](players.md): everyone their own, and the PIN.
 - [Screenshots](screenshots.md)
 - [Achievements](achievements.md)
+- [Remote Play](remote-play.md): play from a phone, tablet or computer.
+- [LinkUp](linkup.md): play a game with a friend on their console, from their house.
+- [Steam](steam.md)
+
+## Systems
+
+- [Systems, formats and BIOS](systems.md): what plays, which files, which BIOS.
+- [Arcade](arcade.md): arcade folders in RomM, and what each arcade game gets.
+- [Games on several discs](discs.md): one folder in RomM, Insert or Insert and restart.
 
 ## Settings
 
-- [Picture and colours](picture.md): picture levels, screen looks, colours, dark hours.
-- [Remote Play](remote-play.md): play from a phone, tablet or computer.
-- [Steam](steam.md)
+- [Display and Sound](picture.md): picture levels, screen looks, colours, dark hours, sound.
 - [Updates](updates.md)
 - [File access](file-access.md): copy files to and from the console.
+- [Game events](game-events.md): tell an app at home what is happening in a game.
 
-## Reference
+## Help
 
 - [Buttons and shortcuts](navigation.md): every screen, and the in-game shortcuts.
-- [Systems, formats and BIOS](systems.md): what plays, which files, which BIOS.
+- [Controls guide](controls.pdf): one page to print, every button on it.
 - [When something is wrong](troubleshooting.md): messages, and making a diagnostic report.
 - [What's new](changelog.md): every update, newest first.
 
 ## In one paragraph
 
 CabinetOS is a console operating system for a small PC under the TV. It starts
-straight into its own menus, plays 33 systems with emulators chosen and set up
+straight into its own menus, plays 35 systems with emulators chosen and set up
 for each, and takes every game, cover, BIOS and save from your own
 [RomM](https://github.com/rommapp/romm) server. A controller does everything
 after the first run. It is built on [Bazzite](https://bazzite.gg) and updates
-itself as a single image. The only machine it has been tested on is the
-GEEKOM A9 Max.
+itself as a single image. It is tested on the GEEKOM A9 Max.

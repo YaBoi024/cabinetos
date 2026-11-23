@@ -1,8 +1,8 @@
 # The library
 
-Four places along the top bar: **Home**, **Library**, **Search** and
-**Settings**, with the signed-in person on the right. **L1** and **R1** move
-between them from anywhere.
+The top bar has **Home**, **Library**, **Search**, [LinkUp](linkup.md) where it
+is on, and **Settings**, with the signed-in person on the right. **L1** and
+**R1** move between them from anywhere.
 
 ## Home
 
@@ -22,6 +22,7 @@ Every other cover opens the game's page.
 ![The Library](../media/library.webp)
 
 - **Platforms**: one tile per system on your server, with the number of games.
+  Every arcade folder is one tile, **Arcade**.
 - **Collections**: your RomM collections and smart collections, your
   Favorites first, then A to Z. Below them, other accounts' public
   collections, under "From" and the account's name. Another account's
@@ -42,7 +43,9 @@ controller nobody has paired (a Wii Remote, a Wii U GamePad) are greyed and
 listed last.
 
 Two games with the same name show the tags from their file names after the
-name, such as *(USA) (Rev 1)*; see [Your RomM server](romm.md).
+name, such as *(USA) (Rev 1)*; see [Your RomM server](romm.md). In the Arcade
+tile, the line names each game's folder after its name, such as
+*Metal Slug · NeoGeoMVS*.
 
 ## A game's page
 

@@ -10,8 +10,8 @@
 #
 # THE BASE IS COMPILED ONLY WHERE IT CAN MATTER. A warning in a .cpp comes
 # from compiling that .cpp; one in a header from compiling any .cpp that
-# includes it. So at the base this compiles the touched .cpp and .c files,
-# and every one that includes a touched header, read from the .d files the
+# includes it. So at the base this compiles the touched .cpp files, and
+# every file that includes a touched header, read from the .d files the
 # head's build just wrote (-MMD). Those are the base's own includes too,
 # unless an include line changed, and a file whose include line changed is
 # itself touched, so the .cpp at the top of that chain is compiled anyway.
@@ -20,9 +20,17 @@
 # The Wii bridge is three files and is built whole, at the base and again
 # here at the head, when any of it is touched.
 #
-# A warning is compared by its file and its text, not its line, so moving
-# code is not a new warning. Two of the same warning in one file where the
-# base had one is one new.
+# A WARNING IS COMPARED BY ITS TEXT, across all the touched files, not by
+# its line or its file: code moved within a file, or from one touched file
+# to another (a split, a rename), brings its warning along and nothing new.
+# Two of the same warning where the base had one is one new. What that lets
+# through is the same warning fixed in one touched file and written in
+# another, which leaves the count where it was.
+#
+# VENDORED FILES ARE NOT CHECKED: rcheevos and Sigil (frontend/third_party/) and the
+# libretro API (frontend/src/libretro.h), check-long-files.sh's VENDORED.
+# They are kept as they come, so a warning a new version brings is not one
+# a pull request can fix; the Warnings step still lists it.
 #
 # REPORT ONLY UNTIL A DATE: while today (UTC) is not past REPORT_ONLY_UNTIL
 # (YYYY-MM-DD, set by build-frontend.yml), a new warning is the same report
@@ -74,14 +82,15 @@ if ! git rev-parse -q --verify 'HEAD^2' > /dev/null; then
 fi
 BASE="$(git rev-parse 'HEAD^1')"
 
-# The files the frontend's Makefile and the Wii bridge's compile, as the pull
-# request changed them (a rename is the old file gone and a new one).
+# The files the frontend's Makefile and the Wii bridge's compile, less the
+# vendored ones, as the pull request changed them (a rename is the old file
+# gone and a new one).
 git diff --name-only --no-renames "$BASE" HEAD -- \
-    frontend/src frontend/third_party wiibridge > "$WORK/changed"
+    frontend/src ':!frontend/src/libretro.h' wiibridge > "$WORK/changed"
 grep -E '\.(c|cc|cpp|h|hpp|inc)$' "$WORK/changed" > "$WORK/touched" || true
 
 if [[ ! -s "$WORK/touched" ]]; then
-    finish no "No file the frontend or the Wii bridge compiles changed."
+    finish no "No file the frontend or the Wii bridge compiles changed, vendored ones aside."
 fi
 
 at_base() { git cat-file -e "$BASE:$1" 2> /dev/null; }
@@ -93,7 +102,7 @@ at_base() { git cat-file -e "$BASE:$1" 2> /dev/null; }
 : > "$WORK/headers"
 while read -r f; do
     case "$f" in
-        frontend/*.cpp | frontend/*.c)
+        frontend/*.cpp)
             if at_base "$f"; then
                 rel="${f#frontend/}"
                 echo "${rel%.*}.o" >> "$WORK/objects"
@@ -169,9 +178,12 @@ warnings() {
     warnings "$WORK/bridge-head.log" wiibridge/
 } > "$WORK/head.w"
 
+# By file for the table; by text alone for what is new.
 cut -f1,2 "$WORK/base.w" | sort > "$WORK/base.k"
 cut -f1,2 "$WORK/head.w" | sort > "$WORK/head.k"
-comm -23 "$WORK/head.k" "$WORK/base.k" > "$WORK/new.k"
+cut -f2 "$WORK/base.w" | sort > "$WORK/base.t"
+cut -f2 "$WORK/head.w" | sort > "$WORK/head.t"
+comm -23 "$WORK/head.t" "$WORK/base.t" > "$WORK/new.t"
 
 {
     echo "Base \`$(git rev-parse --short "$BASE")\`: $(wc -l < "$WORK/touched") source" \
@@ -190,20 +202,19 @@ comm -23 "$WORK/head.k" "$WORK/base.k" > "$WORK/new.k"
     fi
 } >> "$REPORT"
 
-if [[ ! -s "$WORK/new.k" ]]; then
+if [[ ! -s "$WORK/new.t" ]]; then
     finish no "No new warnings."
 fi
 
-# Each new warning with every line it is on now: one of them is the new one.
+# Each new warning with every place it is now: one of them is the new one.
 {
     echo
     echo '```'
-    awk -F'\t' 'NR == FNR { n[$1 FS $2]++; next }
-                ($1 FS $2) in n { k = $1 FS $2; at[k] = at[k] sep[k] $3; sep[k] = ", "; c[k]++ }
-                END { for (k in n) { split(k, p, FS)
-                      printf "%s: warning: %s (%d more than at the base; now on line%s %s)\n",
-                             p[1], p[2], n[k], (c[k] > 1 ? "s" : ""), at[k] } }' \
-        "$WORK/new.k" "$WORK/head.w" | sort
+    awk -F'\t' 'NR == FNR { n[$1]++; next }
+                $2 in n { at[$2] = at[$2] sep[$2] $1 ":" $3; sep[$2] = ", " }
+                END { for (t in n)
+                      printf "warning: %s (%d more than at the base; now at %s)\n", t, n[t], at[t] }' \
+        "$WORK/new.t" "$WORK/head.w" | sort
     echo '```'
 } >> "$REPORT"
-finish yes "$(wc -l < "$WORK/new.k" | tr -d ' ') new warning(s) in the files this pull request touches."
+finish yes "$(wc -l < "$WORK/new.t" | tr -d ' ') new warning(s) in the files this pull request touches."

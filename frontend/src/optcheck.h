@@ -6,7 +6,7 @@
 // without Vulkan and for both sensor bar places, quality::coreOptions at every
 // level and on both N64 renderers and both DS renderers, every choice of every
 // sysopts row, and
-// wii::coreOptions both ways) name a key a core does not declare, or a value
+// wii::coreOptions and vectrexsheets::coreOptions both ways) name a key a core does not declare, or a value
 // it does not accept, according to those same files; and when a libretro core
 // the catalog plays a system on has no file there (catalog::libretroCores,
 // which also gives each core's systems). Run by CI on every frontend build,

@@ -1,0 +1,20 @@
+# The installer's waiting line (disk_config/installer-wait.sh). Put on the
+# ISO by ci/brand-installer-iso.sh as
+# /etc/systemd/system/cabinetos-installer-wait.service twice: in the small
+# initrd the boot menu loads after the builder's, wanted by sysinit.target,
+# and in the product image, wanted by anaconda.target (sysinit.target has
+# already been reached by then, so it would not start it again). It stops at
+# the switch to the installer's root, as every initrd service does; when the
+# initrd gives up and opens its emergency shell, which must be seen; and,
+# the second time, by itself when Anaconda starts its console. The line
+# itself gives up after ten minutes.
+
+[Unit]
+Description=CabinetOS installer waiting line
+DefaultDependencies=no
+After=systemd-vconsole-setup.service
+Before=anaconda.service shutdown.target
+Conflicts=emergency.target dracut-emergency.service shutdown.target
+
+[Service]
+ExecStart=/usr/libexec/cabinetos-installer-wait

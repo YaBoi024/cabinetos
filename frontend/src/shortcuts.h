@@ -15,7 +15,10 @@
 // models, so it is remembered per KIND of pad (SDL's GUID), not per pad: set
 // once for a Lite 2, every Lite 2 uses it.
 //
-// Unset, a pad uses its mapped Home, which is right for most pads.
+// Unset, a pad uses its mapped Home, which is right for most pads. A chosen
+// button is ADDED to Home, never put in its place, and Select, Start, L3 and
+// R3 can never be chosen: the coin and the pause inside games, and the menu
+// chord (#313). The row reads "Shortcuts use: Home" (MMagTech, 2026-10-20).
 
 #pragma once
 
@@ -35,15 +38,18 @@ bool held(SDL_Gamepad* gp);
 bool isShortcut(SDL_Gamepad* gp, SDL_GamepadButton b);
 
 // What the button is called, for the Settings row: "Home", "Select",
-// "L3", or "Button 3" for one the mapping does not name.
+// "L3", or "Button 3" for one the mapping does not name. The second form
+// names a raw button that was pressed, saved or not.
 std::string label(SDL_Gamepad* gp);
+std::string label(SDL_Gamepad* gp, int raw);
 
 // Setting it. `raw` is the joystick button number from a
 // SDL_EVENT_JOYSTICK_BUTTON_DOWN on this pad.
-enum class Pick { Taken, Cancel, Ignore };
+enum class Pick { Taken, Cancel, Ignore, Refused };
 // What a press means while the row is listening: B cancels, and a button the
 // game or the shortcuts need (the face buttons, the shoulders, the d-pad) is
-// ignored so listening goes on. Anything else is taken and saved.
+// ignored so listening goes on; Select, Start, L3 and R3 are refused, which
+// the row says, and listening goes on. Anything else is taken and saved.
 Pick pick(SDL_Gamepad* gp, int raw);
 
 }  // namespace shortcuts

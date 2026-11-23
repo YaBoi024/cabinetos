@@ -1,5 +1,7 @@
 #include "screenparts.h"
 
+#include <algorithm>
+
 #include "look.h"
 #include "text.h"
 #include "ui.h"
@@ -10,7 +12,7 @@
 // after a state loads says "Press (A) to continue".
 void drawPressPrompt(ui::Renderer& r, ui::TextRenderer& text, float sc,
                      const char* before, const char* after, float base,
-                     float alpha) {
+                     float alpha, const char* button) {
     const ui::TextStyle st = ui::TextStyle::Title3;
     const float gap = 16.0f;
     const float badge = text.lineHeight(st, sc) * 0.95f;
@@ -22,8 +24,8 @@ void drawPressPrompt(ui::Renderer& r, ui::TextRenderer& text, float sc,
     const float capMid = base - text.ascent(st, sc) * 0.36f;
     r.draw(ui::Rect{x, capMid - badge * 0.5f, badge, badge, badge * 0.5f,
                     ui::Color::white(0.95f * alpha)});
-    const float aw = text.measure("A", st, sc);
-    text.draw(r, "A", x + (badge - aw) * 0.5f, capMid + text.ascent(st, sc) * 0.36f, st,
+    const float aw = text.measure(button, st, sc);
+    text.draw(r, button, x + (badge - aw) * 0.5f, capMid + text.ascent(st, sc) * 0.36f, st,
               ui::Color{0.07f, 0.05f, 0.12f, alpha}, sc);
     x += badge + gap;
     text.draw(r, after, x, base, st, ui::Color::white(0.92f * alpha), sc);
@@ -32,6 +34,60 @@ void drawPressPrompt(ui::Renderer& r, ui::TextRenderer& text, float sc,
 namespace screens {
 
 using design::Card;
+
+// A capsule of words on the margin: the Library's Platforms and Collections, and
+// LinkUp's Status. Its text starts on the margin and its focus sits outside that.
+float pillWidth(ui::TextRenderer& text, const std::string& label, float sc) {
+    return text.measure(label, ui::TextStyle::Title3, sc) + design::kPillPadX * 2.0f;
+}
+
+float pillHeight(ui::TextRenderer& text, float sc) {
+    return text.lineHeight(ui::TextStyle::Title3, sc) + design::kPillPadY * 2.0f;
+}
+
+// THE SWITCHER IS TEXT, AND THE CAPSULE ONLY APPEARS UNDER FOCUS — 2026-09-21.
+//
+// It used to be a filled capsule at rest, which made the Library's first row a
+// pair of controls where Home's first row is a pair of headings. MMagTech:
+// *"the library and collection text dont seem to match home now either."*
+// Home's "Recent" and "Favorites" are Title 3 on the backdrop with nothing
+// behind them; these are the same words doing the same job and they are Title 3
+// on the backdrop now too.
+//
+// It also settles the margin. A capsule cannot be aligned two ways at once —
+// box-aligned puts its label 14 points inside everything else on the screen,
+// text-aligned hangs the capsule 14 points outside the tiles below it — and
+// text with no box behind it simply starts where the margin is, the way the
+// heading on Home does.
+//
+// SELECTION IS STILL NOT FOCUS AND BOTH ARE STILL VISIBLE AT ONCE, which is the
+// rule this has to keep: the SELECTED tab is full white and the other is dimmed
+// to 45%, so which tab you are looking at survives focus walking away from it;
+// FOCUS is the capsule, which appears only under the thing the cursor is on.
+// The two signals are now different in kind rather than different in strength,
+// which reads better from a sofa than two tints of the same white did.
+void drawPill(Ctx& c, const std::string& label, float x, float y, bool selected,
+              float f) {
+    const float w0 = pillWidth(c.text, label, c.sc);
+    const float h0 = pillHeight(c.text, c.sc);
+    const float s = 1.0f + f * (design::kPillFocusScale - 1.0f);
+    const float w = w0 * s, h = h0 * s;
+    // `x` is the TEXT's left edge; the capsule is drawn a padding-width outside
+    // it, so it grows around the label rather than pushing it along.
+    const float px = x - design::kPillPadX - (w - w0) * 0.5f;
+    const float py = y - (h - h0) * 0.5f;
+
+    if (f > 0.001f)
+        c.r.drawGlass(ui::Rect{px, py, w, h, h * 0.5f, ui::Color::white(0)},
+                      design::kThinMaterialBlur,
+                      ui::Color::white(f * design::kFocusedTint));
+    // The label does not move when the capsule grows: a focus scale that shoved
+    // the words along would make the pair jitter as focus crossed them.
+    c.text.draw(c.r, label, x,
+                py + design::kPillPadY * s + c.text.ascent(ui::TextStyle::Title3, c.sc),
+                ui::TextStyle::Title3,
+                ui::Color::white(selected ? 1.0f : 0.45f), c.sc);
+}
 
 // Two caption lines with reserved space, so rows stay aligned whether a title
 // wraps or not. One line truncated almost every real title at these widths —
@@ -150,6 +206,69 @@ void drawCover(Ctx& c, const Card& card, float x, float y, float w, float h,
         edge.borderColor = ui::palette::kFocusRim;
         c.r.draw(edge);
     }
+}
+
+// THE FOCUSED GAME'S LINE beside a heading: Home's shelves, a grid and Search
+// each name the one card focus is on there, and they name it the same way.
+// The name, then RomM's tags dimmer when `tags` (the caller's hasTwin, #383),
+// then the system or the folder after a middle dot (`names`), then a greyed
+// game's reason, dimmer. The system is at the name's brightness: it is part of the
+// answer to "which game is this", where the tags and the reason are notes on
+// it.
+//
+// A GREYED GAME SAYS WHY WHEREVER IT SHOWS. Home's shelves and Search leave
+// such games out when they are built, but a card is shared: opening a grid
+// asks again (gridOrder), so a Wii game on Recent greys there once a stream
+// starts or the last Remote goes, and its line said nothing until this.
+//
+// A NOTE IN THE REASON'S PLACE for the controller a game needs and nobody has
+// on (`on`, App::controllersOn): "Needs a controller" on a game that is not a
+// Wii game while only Wii Remotes are on (a Remote starts only Wii games,
+// App::refuseStartWithoutController), and "Needs a Wii Remote" on a Wii game that needs
+// one while no Remote is on (it would start with nothing to play it, and a
+// Remote turned on mid-game is not seen, #590). Never beside a reason of its
+// own: a greyed game is not made playable by turning a controller on.
+//
+// THE LINE NAMES WHAT THE HEADING DOES NOT. The system, for a list that mixes
+// systems under a heading that names none (Home's shelves, a collection,
+// Search, #579). The folder, in the Arcade tile's grid, whose heading names
+// the system and whose games come from every arcade folder (#611). Nothing
+// in any other platform's own grid: its heading already says it.
+//
+// THE NAME IS WHAT GETS SHORTENED. Everything after it always shows, so a long
+// title cannot push the system or the reason off the end of the line.
+void drawFocusedLine(ui::Renderer& r, ui::TextRenderer& text, float sc, const Card& card,
+                     bool tags, LineNames names, ControllersOn on, float x, float baseline,
+                     float room, float nameAlpha) {
+    const ui::TextStyle st = ui::TextStyle::Callout;
+    const float gap = 24.0f;
+    const std::string& what = names == LineNames::Folder ? card.folder : card.platform;
+    const std::string sys = (names != LineNames::Nothing && !what.empty())
+                                ? "   \xC2\xB7   " + what
+                                : "";
+    const bool showTags = tags && !card.tagLabel.empty();
+    const std::string& reason = !card.unavailable.empty()                    ? card.unavailable
+                                : (on.remote && !on.other && !card.wii) ? kNeedsController
+                                : (!on.remote && card.needsRemote)      ? kNeedsRemote
+                                                                        : card.unavailable;
+    const bool showReason = !reason.empty();
+    const float tagsW = showTags ? gap + text.measure(card.tagLabel, st, sc) : 0.0f;
+    const float sysW = sys.empty() ? 0.0f : text.measure(sys, st, sc);
+    const float reasonW = showReason ? gap + text.measure(reason, st, sc) : 0.0f;
+    const std::string name =
+        text.truncate(card.title, st, sc, std::max(0.0f, room - tagsW - sysW - reasonW));
+    text.draw(r, name, x, baseline, st, ui::Color::white(nameAlpha), sc);
+    x += text.measure(name, st, sc);
+    if (showTags) {
+        text.draw(r, card.tagLabel, x + gap, baseline, st, ui::Color::white(0.45f), sc);
+        x += tagsW;
+    }
+    if (!sys.empty()) {
+        text.draw(r, sys, x, baseline, st, ui::Color::white(nameAlpha), sc);
+        x += sysW;
+    }
+    if (showReason)
+        text.draw(r, reason, x + gap, baseline, st, ui::Color::white(0.45f), sc);
 }
 
 }  // namespace screens

@@ -32,6 +32,13 @@
 
 #include <SDL3/SDL.h>
 
+namespace fightstick {
+struct Stick;
+}
+namespace guitar {
+struct Layout;
+}
+
 namespace players {
 
 constexpr int kMax = 4;
@@ -58,10 +65,20 @@ public:
     bool inGame() const { return inGame_; }
     const std::vector<Seat>& seats() const { return seats_; }
 
+    // A FRIEND IN LINKUP (#654) IS ALWAYS PLAYER TWO. While one is seated a game hears player one and
+    // the friend and no other controller of the TV's, whatever the game allows, and the TV's own
+    // numbers stay underneath, untouched, for when the friend has gone. 0 takes the friend out.
+    void setFriend(uint32_t id) { friend_ = id; }
+    uint32_t friendId() const { return friend_; }
+    // How many players a game has now.
+    int count() const { return friend_ ? 2 : static_cast<int>(seats_.size()); }
+
 private:
     void closeUp();
+    int seatOf(uint32_t id) const;
     std::vector<Seat> seats_;
     bool inGame_ = false;
+    uint32_t friend_ = 0;
 };
 
 // ---- The console's pads ----------------------------------------------------
@@ -96,8 +113,21 @@ void setStreaming(bool on);
 bool streaming();
 bool setAside(SDL_JoystickID id);
 
+// LINKUP'S FRIEND (#654): the pad a friend's presses and tilt arrive as (linkup_pad.h). It is player
+// two (Seats::setFriend), and a set-aside pad to everything else, so no menu or screen ever hears it.
+// Taken out, a game keeps its two players until it ends: an unplugged controller stops some games, and
+// an idle one stops none.
+void seatFriend(SDL_JoystickID id);
+void unseatFriend();
+
 // The pad a game hears as `player`, or null.
 SDL_Gamepad* gamepad(int player);
+// The fight stick an open pad is (fightstick.h), or null for any other pad:
+// the table is read once, as the pad is opened.
+const fightstick::Stick* stick(SDL_JoystickID id);
+// The layout an open pad plays with as a guitar (guitar.h), or null for a pad
+// that is not one: told once, as the pad is opened, as a fight stick is.
+const ::guitar::Layout* guitar(SDL_JoystickID id);
 int playerOf(SDL_JoystickID id);
 // How many players there are, counting a seat held for a pad that went off.
 int count();
@@ -105,7 +135,7 @@ int count();
 struct Pad {
     int player = -1;
     SDL_JoystickID id = 0;
-    std::string name;      // as the pad gives it
+    std::string name;      // as the pad gives it; "Guitar" for a guitar
     std::string address;   // "AA:BB:CC:DD:EE:01", Bluetooth only
 };
 // The seated pads that are on, player one first.

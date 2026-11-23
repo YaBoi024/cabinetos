@@ -9,6 +9,8 @@ fbneo-force-60hz	disabled	disabled|enabled
 fbneo-hiscores	enabled	disabled|enabled
 fbneo-lightgun-crosshair-emulation	hide with lightgun device	hide with lightgun device|always hide|always show
 fbneo-lowpass-filter	disabled	disabled|enabled
+fbneo-memcard-mode	disabled	disabled|shared|per-game
+fbneo-neogeo-mode	DIPSWITCH	DIPSWITCH|MVS_EUR|MVS_USA|MVS_JAP|AES_EUR|AES_JAP|UNIBIOS
 fbneo-resolution	640x480	640x480|800x600|1024x768|1080x810|1280x960|1440x1080|1600x1200|1920x1440|2160x1620|2880x2160
 fbneo-sample-interpolation	4-point 3rd order	disabled|2-point 1st order|4-point 3rd order
 fbneo-samplerate	48000	44100|48000

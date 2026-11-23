@@ -1,7 +1,8 @@
 // The game in play: the pads read into the core with the in-game
 // shortcuts, fast forward and rewind, the picture, and the way out
-// (finishExit: every save, before the unload), at Exit to Home and at a
-// shutdown mid-game (#398, restructure batch f).
+// (finishExit: every save gathered around the unload, then its one snapshot
+// queued for RomM), at Exit to Home and at a shutdown mid-game (#398,
+// restructure batch f).
 
 #include "app.h"
 
@@ -9,13 +10,19 @@
 #include <cmath>
 #include <cstdio>
 
+#include "arcadesettings.h"
+#include "controls.h"
 #include "core.h"
 #include "discs.h"
+#include "fightstick.h"
 #include "ps2.h"
+#include "savepush.h"
 #include "saves.h"
+#include "savetable.h"
 #include "screenfx.h"
 #include "shortcuts.h"
 #include "storage.h"
+#include "vectrexsheets.h"
 #include "vkhost.h"
 #include "wii.h"
 
@@ -40,14 +47,21 @@ void App::dropPressesFromClosing() {
 }
 
 void App::finishExit() {
+    // THE SAVE'S PICTURE FIRST, while the game is still on screen: a save
+    // that changed since its last picture takes one now (savepicture.h).
+    savePicture.leaving(session, SDL_GetTicks());
     // TIME PLAYED (#128): the session ends as the game does, and goes to
-    // RomM with the save.
+    // RomM with the save. Game events (#716) says so, with the minutes.
+    int64_t playedMs = 0;
     if (playClock.active()) {
-        playtime::close(storage::currentUser(), playClock.finish(playtime::wallMs()));
+        const playtime::Session played = playClock.finish(playtime::wallMs());
+        playedMs = played.playedMs;
+        playtime::close(storage::currentUser(), played);
         uploader.sendPlay();
         playedJustNow(session.romId);
     }
-    syncSave(session, uploader);
+    gameEventEnded(playedMs);
+    syncSave(session);
     // The disc in the drive, kept for this person's next Play (#162);
     // GameCube changes its own discs, so the core is asked.
     if (!session.discs.empty()) {
@@ -95,7 +109,17 @@ void App::finishExit() {
     curtain.elapsed = curtain.duration;
     curtain.retarget(0.0f, kCurtainUp);
     cab::Core::shared().unloadGame();
+    vectrexsheets::release();
     closePs2Window();
+    // AND THE EMULATOR SHUT DOWN, retro_deinit, as RetroArch's Close Content
+    // does, before any save below is gathered. Until 2026-10-28 this waited
+    // for the next launch, and libretro MAME writes its NVRAM, settings and
+    // high scores only there (measured on the A9: a quit wrote nothing), so
+    // they came late, or never when the console was switched off. Every core,
+    // since a core may write anything at deinit; the next launch loads it
+    // afresh, as it always has. After closePs2Window, the order PlayStation 2
+    // had at the next launch.
+    cab::Core::shared().unload();
     // AFTER the unload, for the one platform whose save is a tree. The
     // battery above is read out of the core's own memory and is finished
     // the moment the game stopped writing to it; a directory save is files
@@ -105,17 +129,28 @@ void App::finishExit() {
     // once already when it was ignored.
     //
     // Safe to run twice: syncDirSave compares against its own baseline and
-    // sends nothing when nothing moved.
-    if (!session.dirSaveRoot.empty()) syncDirSave(session, uploader);
+    // gathers nothing when nothing moved.
+    if (!session.dirSaveRoot.empty()) syncDirSave(session);
     // The HOME Menu's rumble switch, read back from the game's SYSCONF
     // now that Dolphin has written it (#274, wii.h). Every Wii game has
     // its NAND under its save directory.
     if (session.platformSlug == "wii" && session.core == "dolphin")
         wii::keepRumbleFrom(session.saveDir + "/User/Wii/shared2/sys/SYSCONF");
     // And the same trigger for the same reason, for the class that is one
-    // file rather than a tree. This is where a Dreamcast's card is read
-    // back out of the system directory and taken out of `bios/`.
-    syncFileSaves(session, uploader);
+    // file rather than a tree. This is where a Dreamcast's card, which
+    // Flycast writes under the disc's product number, goes back to the
+    // game's own name.
+    syncFileSaves(session);
+    // The save's picture finished, if it is still being made.
+    savePicture.finish(session, SDL_GetTicks());
+    // WHAT THE SESSION LEFT GOES UP AS ONE SNAPSHOT, ONCE, now that the game
+    // has closed and every kind of save is gathered and written on this
+    // console (#346, savepush.h): marked as owed here, sent on the upload
+    // queue's thread. Nothing changed means nothing sent.
+    savepush::leave(session, storage::currentUser(), uploader);
+    // The game ended: its note that it was playing goes (saves.h,
+    // notePlaying), now that what it saved is marked owed.
+    cab::standalone::removePlayingNote(session.saveDir);
     // Whatever sound the game had queued goes with it, rather than playing
     // on over Home (see where the stream's rate is set, at launch).
     if (audioStream) SDL_ClearAudioStream(audioStream);
@@ -135,9 +170,16 @@ void App::finishExit() {
     detailStates.stale = true;   // Continue from may have changed
     playing = false;
     overlayOpen = false;
-    overlayFade.retarget(0.0f, overlayFadeSeconds);
+    // THE MENU GOES WITH THE GAME, as it does for an emulator of its own
+    // (finishStandalone): faded out, its scrim and panel went on fading
+    // over Home after the game had gone (MMagTech on the TV, 2026-10-19).
+    // exitToHome's wait for a booting core still fades it, since the game
+    // is on screen then.
+    overlayFade.from = overlayFade.to = 0.0f;
+    overlayFade.elapsed = overlayFade.duration;
     dropPressesFromClosing();
     std::fprintf(stderr, "[overlay] exited to Home\n");
+    linkupHostGameEnded();
 }
 
 void App::exitToHome() {
@@ -195,23 +237,31 @@ void App::watchPs2Start() {
     if (playClock.active()) playClock.finish(playtime::wallMs());
     finishExit();
     refuseLaunch(launchJob.biosMissing.load()
-                     ? "No " + launchJob.systemName + " BIOS on your server"
+                     ? "No " + launchJob.systemName + " BIOS on the server"
                      : std::string("Disc can't be read"));
 }
 
 // REAL WII REMOTES (#200): while a Wii game runs Dolphin drives them,
-// and HOME held on one is the console's own menu; a press of HOME is
-// the game's HOME menu, as on a Wii. Out of the game each Remote gets
-// its own light again.
+// and a press of HOME is the game's HOME menu, as on a Wii. Out of the
+// game each Remote gets its own light again. HOME HELD ON ONE IS THE
+// CONSOLE'S OWN MENU IN EVERY GAME, an emulator of its own included, as
+// both stick clicks are on a pad: in any other game the Remote plays
+// nothing, and a Remote that started one with no pad on was stuck in it.
+// The frame loop calls this, and watchStandalone does while an emulator
+// of its own has the screen, since the loop then stops before its call.
 void App::followRemotesInGame() {
     wiiremote::setGameRunning(playing && session.platformSlug == "wii");
-    if (wiiremote::takeHomeHold() && (playing || overlayOpen)) toggleOverlay();
+    wiiremote::setInGame(playing || standaloneRun.active());
+    if (!wiiremote::takeHomeHold()) return;
+    if (standaloneRun.active() && !standalonePaused) openStandaloneMenu();
+    else if (playing || overlayOpen) toggleOverlay();
 }
 
 // Buttons first, then run: a core samples input inside retro_run,
 // so anything set afterwards is a frame late.
 // Returns whether rewind is held this frame (pace.cpp steps the game by it).
 bool App::readGameInput(cab::Core& core) {
+    followControls();
     cab::PadState pad;
     const bool* keys = SDL_GetKeyboardState(nullptr);
     auto held = [&](SDL_Scancode k) { return keys && keys[k]; };
@@ -276,13 +326,35 @@ bool App::readGameInput(cab::Core& core) {
             // from code or watched an attract demo.
             if (down(SDL_GAMEPAD_BUTTON_LEFT_SHOULDER))  st.buttons |= bit(cab::L);
             if (down(SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER)) st.buttons |= bit(cab::R);
-            // L3/R3 also open the overlay as a pair. They still
-            // reach the core individually: Cabinet's rule is that
-            // the hotkey "applies regardless of what either button
-            // is otherwise bound to", and the overlay pauses the
-            // core the instant it opens anyway.
-            if (down(SDL_GAMEPAD_BUTTON_LEFT_STICK))  st.buttons |= bit(cab::L3);
-            if (down(SDL_GAMEPAD_BUTTON_RIGHT_STICK)) st.buttons |= bit(cab::R3);
+            // L3/R3 also open the overlay as a pair (input.cpp), and
+            // a lone click reaches the core only once kStickPairMs
+            // has passed without the other (stickPair, app.h), so
+            // the pair itself reaches nobody: on the DS and 3DS the
+            // click a frame ahead tapped the touch screen as the
+            // menu opened.
+            {
+                StickPair& sp = stickPair[p];
+                if (sp.pad != SDL_GetGamepadID(gp)) sp = {{}, {}, SDL_GetGamepadID(gp)};
+                const Uint64 now = SDL_GetTicks();
+                const bool l3 = down(SDL_GAMEPAD_BUTTON_LEFT_STICK);
+                const bool r3 = down(SDL_GAMEPAD_BUTTON_RIGHT_STICK);
+                auto heard = [now](StickClick& c, bool raw, bool other) {
+                    if (c.tapped) c.tapped = false;   // last frame's tap, let go
+                    if (raw && !c.raw) c = {true, false, false, false, now};
+                    if (raw) {
+                        if (other && !c.heard) c.paired = true;
+                        if (!c.paired && !c.heard && now - c.downAt >= kStickPairMs)
+                            c.heard = true;
+                        return c.heard;
+                    }
+                    const bool tap = c.raw && !c.heard && !c.paired;
+                    c = {};
+                    c.tapped = tap;
+                    return tap;
+                };
+                if (heard(sp.l3, l3, r3)) st.buttons |= bit(cab::L3);
+                if (heard(sp.r3, r3, l3)) st.buttons |= bit(cab::R3);
+            }
 
             // Analog triggers as digital L2/R2, which is what a
             // RetroPad's L2/R2 are for every core in this set.
@@ -325,10 +397,15 @@ bool App::readGameInput(cab::Core& core) {
         // back_button_timeout), so it is the one way to pause from any
         // app (MMagTech, 2026-10-08). The shortcuts themselves stay
         // the switch's. The pads seated during a stream are only the
-        // stream's, so nothing changes at the TV.
+        // stream's, so nothing changes at the TV. A FIGHT STICK'S HOME,
+        // AND A GUITAR'S, OPEN IT THE SAME WAY, in every game: neither has
+        // the stick clicks for the pair to hand (fightstick.h, guitar.h).
         const bool combos = shortcuts::enabled();
+        // LinkUp's friend pauses on their own console: player two's pad holds no shortcut here.
         if (SDL_Gamepad* gp = players::gamepad(p);
-            gp && (combos || players::streaming())) {
+            gp && !players::setAside(SDL_GetGamepadID(gp)) &&
+            (combos || players::streaming() || players::stick(SDL_GetGamepadID(gp)) ||
+             players::guitar(SDL_GetGamepadID(gp)))) {
             ShortcutHold& h = shortcutHold[p];
             const SDL_JoystickID who = SDL_GetGamepadID(gp);
             if (h.down && h.pad != who) h = {};
@@ -349,7 +426,8 @@ bool App::readGameInput(cab::Core& core) {
                     h.used = true;
                     // The screenshot shortcut works in the pause menu too,
                     // on the paused frame. Nothing else does there.
-                    if (combos && overlayOpen && !powerMenu && (fresh & bit(cab::Y))) {
+                    if (combos && overlayOpen && !powerMenu && !controlsPanel.listen &&
+                        (fresh & bit(cab::Y))) {
                         std::fprintf(stderr,
                                      "[shortcuts] player %d: screenshot, paused\n", p + 1);
                         screenshotNow(session, uploader, menuNotice);
@@ -368,7 +446,7 @@ bool App::readGameInput(cab::Core& core) {
                         } else if (save) {
                             std::fprintf(stderr, "[shortcuts] player %d: save state\n",
                                          p + 1);
-                            saveStateNow(session, uploader, menuNotice);
+                            saveStateNow(session, menuNotice);
                         } else if (load) {
                             std::fprintf(stderr, "[shortcuts] player %d: load newest\n",
                                          p + 1);
@@ -380,10 +458,12 @@ bool App::readGameInput(cab::Core& core) {
                 if (!down) {
                     h.down = false;
                     heldThroughMenu[p] |= st.buttons;
-                    if (!h.used && !stateHold && !stateHoldWaiting) {
+                    // Not while Controls listens: the shortcut button
+                    // is no control, and pressing it does nothing there.
+                    if (!h.used && !stateHold && !stateHoldWaiting && !controlsPanel.listen) {
                         std::fprintf(stderr, "[shortcuts] player %d: tap, %s the menu\n",
                                      p + 1, overlayOpen ? "closing" : "opening");
-                        toggleOverlay();
+                        toggleOverlay(who);
                     }
                 } else {
                     st.buttons = 0;
@@ -401,6 +481,37 @@ bool App::readGameInput(cab::Core& core) {
         st.buttons &= ~heldThroughMenu[p];
         if (heldThroughMenu[p] & bit(cab::L2)) st.leftTrigger = 0;
         if (heldThroughMenu[p] & bit(cab::R2)) st.rightTrigger = 0;
+        // A FIGHT STICK IN AN ARCADE GAME (fightstick.h): its eight
+        // buttons, read above as any pad's and kept from the game above
+        // the same way, are moved last to where the game's layout puts
+        // them. No other pad, and no other game, has a layout. CONTROLS
+        // (controls.h): where this person moved the game's buttons for
+        // this kind of pad, the same place, over the layout or the plain
+        // table, in its stead.
+        if (SDL_Gamepad* gp = players::gamepad(p)) {
+            const fightstick::Layout* layout = fightstick::forPort(p, gp, session.arcadeCore());
+            if (const controls::Map* moved = controls::forPort(p, gp, layout))
+                controls::apply(*moved, st);
+            else if (layout)
+                fightstick::apply(*layout, st);
+        }
+        // A DS OR 3DS GAME'S SCREENS (screenview.h): player 1's L3, as the
+        // game is about to hear it, shows both, the top alone or the bottom
+        // alone, at once. The DS's lid moves to R2.
+        if (p == 0)
+            if (const std::optional<screenview::View> v =
+                    screenview::step(screenPress, session.core, st.buttons, core.framesRun()))
+                for (const auto& kv : screenview::coreOptions(session.core, *v))
+                    core.setOptionLive(kv.first, kv.second);
+        // HOLDING START IN AN ARCADE GAME (#577, arcadesettings.h): player
+        // 1's buttons as the game is about to hear them, so a hold kept from
+        // the game above does not count.
+        if (p == 0)
+            core.setKey(arcadesettings::kMenuKey,
+                        arcadesettings::step(arcadeHold, session.arcadeCore(), st.buttons,
+                                             core.framesRun()));
+        else
+            arcadesettings::keepClicks(session.arcadeCore(), st.buttons);
         core.setPad(p, st);
     }
 
@@ -418,8 +529,8 @@ bool App::readGameInput(cab::Core& core) {
     // the thing that is wrong has cost this project a day already.
     // THE OVERLAY PAUSES THE EMULATOR. It did not until 2026-09-19,
     // so the game carried on being played behind the menu — in Crazy
-    // Taxi you would still be driving while reading it. Cabinet has
-    // always done this (`openMenu` sets `renderer.paused = true`);
+    // Taxi you would still be driving while reading it. Cabinet
+    // always did this (`openMenu` set `renderer.paused = true`);
     // this console simply never did, because nobody had opened the
     // overlay with a game they were actually playing.
     //
@@ -443,12 +554,24 @@ bool App::readGameInput(cab::Core& core) {
         std::fprintf(stderr, "[shortcuts] fast forward %s\n", fastForward ? "on" : "off");
     core.setSpeed(fastForward && !rewinding ? kFastForward : 1.0);
     // Whether this game can rewind, decided once it is running.
+    // A core with no rewind is not asked its state's size: for Azahar that
+    // question makes a whole state, up to 0.9 s, in the game's first frames.
+    // NOTHING IS KEPT WITH THE SHORTCUTS OFF (MMagTech, 2026-10-29): the
+    // shortcut is the only way to rewind, so the snapshots would hold the
+    // game's frame twice a second for nothing. The switch is in Settings,
+    // which a game never shows, so asking once per game is enough.
     if (rewindAvailable < 0 && core.running() && core.framesRun() > 0) {
-        const size_t sz = core.stateSize();
-        rewindAvailable = session.snapshots && sz > 0 ? 1 : 0;
+        const bool shortcutsOn = shortcuts::enabled();
+        const bool allowed = shortcutsOn && session.snapshots &&
+                             catalog::rewindAllowed(session.core.c_str());
+        const size_t sz = allowed ? core.stateSize() : 0;
+        rewindAvailable = allowed && sz > 0 ? 1 : 0;
         rewindLastFrame = core.framesRun();
-        std::fprintf(stderr, "[rewind] %s (state %zu KB)\n",
-                     rewindAvailable ? "available" : "not offered", sz / 1024);
+        if (!shortcutsOn)
+            std::fprintf(stderr, "[rewind] off: in-game shortcuts are off\n");
+        else
+            std::fprintf(stderr, "[rewind] %s (state %zu KB)\n",
+                         rewindAvailable ? "available" : "not offered", sz / 1024);
     }
     // WHAT REWIND IS HOLDING, in the log each time it starts: the
     // numbers the memory budget was argued from, measured.
@@ -509,7 +632,7 @@ void App::drawGamePicture(cab::Core& core, int dh) {
         // The declared aspect is still what a picture with square
         // pixels needs and Saturn is unplayable without it, so it
         // keeps winning everywhere else. Nothing is lost by dropping
-        // it here, for the reason Cabinet gives: the platforms whose
+        // it here, for the reason Cabinet gave: the platforms whose
         // pixels are not square never rotate, and the boards that
         // rotate are square-pixel.
         const float declaredAspect = quarterTurn ? 0.0f : core.avInfo().aspectRatio;
@@ -665,6 +788,10 @@ void App::drawGamePicture(cab::Core& core, int dh) {
         else
             ui::drawImageTexture(renderer, core.texture(), px, py, dw, dh, u0, v0, u1,
                                  v1, true, static_cast<int>(core.rotation()));
+        // A VECTREX GAME'S SCREEN SHEET (#224), over exactly the picture, as
+        // the printed sheet sat over the tube: stretched with it, and drawn
+        // only for a Vectrex game with a sheet and Overlays on.
+        vectrexsheets::draw(renderer, px, py, dw, dh);
 
         // The glow goes over the bars, not under the picture: it is
         // drawn after, and its shader discards inside the picture rect,
@@ -680,6 +807,8 @@ void App::drawGamePicture(cab::Core& core, int dh) {
         // a picture that fills the height leaves no room to ramp
         // across. The rect is the whole interface.
         renderer.drawBiasGlow(px, py, dw, dh, glowPeak);
+        // A LinkUp friend draws the same glow on their own TV, from where the picture sits (#692).
+        linkupTellPlace(px, py, dw, dh);
     }
 }
 

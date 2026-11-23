@@ -15,6 +15,7 @@ export image_name := env_var("IMAGE_NAME")
 export repo_organization := env_var("REPO_ORGANIZATION")
 export image_desc := env_var("IMAGE_DESC")
 export default_tag := env_var("DEFAULT_TAG")
+export romm_needed := env_var("ROMM_NEEDED")
 
 [private]
 default:
@@ -80,6 +81,20 @@ build $target_image=image_name $tag=default_tag:
     # booting to say "Updated to ...". A build with no version is `dev`.
     VERSION="${CABINETOS_VERSION:-dev}"
     LABELS+=("--label" "org.opencontainers.image.version=${VERSION}")
+
+    # THE RomM VERSION THE CONSOLE NEEDS, or newer (cabinetos.env). System
+    # update reads this label before it offers the image: a console whose
+    # server is older is held back (cabinetos-update, updateflow.cpp). It is
+    # also the version docs/wiki/romm.md names, so one number is in two
+    # places, and the build stops here when they differ.
+    if [[ ! "${romm_needed}" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]] ||
+       ! grep -qF "**RomM ${romm_needed} or newer.**" docs/wiki/romm.md; then
+        set +x
+        echo "cabinetos.env says the console needs RomM ${romm_needed}." >&2
+        echo "docs/wiki/romm.md must say the same: **RomM ${romm_needed} or newer.**" >&2
+        exit 1
+    fi
+    LABELS+=("--label" "cabinetos.romm-needed=${romm_needed}")
 
     LABELS+=("--label" "org.opencontainers.image.created=$(date -u +%Y\-%m\-%d\T%H\:%M\:%S\Z)")
     LABELS+=("--label" "org.opencontainers.image.description={{ image_desc }}")

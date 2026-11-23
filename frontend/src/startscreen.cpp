@@ -21,9 +21,9 @@ using ui::Color;
 //
 // docs/PROJECT.md, "The icon has two variants and the second one is earned":
 // the warm-screened cabinet with the lit power switch marks a platform that
-// runs more emulators at full power. macOS has it; CabinetOS earned it with
-// PlayStation 2 and GameCube. So this console draws THAT one, not the cyan
-// version `tools/make_icon.swift` generates.
+// runs more emulators at full power. Cabinet's Mac app had it; CabinetOS
+// earned it with PlayStation 2 and GameCube. So this console draws THAT one,
+// not the cyan version `tools/make_icon.swift` generates.
 //
 // Five rounded rectangles and four circles, which is all the icon is. Drawn
 // means sharp at any panel size, no image asset in the OS image, and the
@@ -31,7 +31,7 @@ using ui::Color;
 // wants when somebody builds it.
 //
 // The numbers are the icon's own, in its 1024 space, sampled from
-// AppIconMac.appiconset because that PNG is currently the only definition of
+// AppIconMac.appiconset because that PNG was then the only definition of
 // the Afterburner variant. `s` scales that space; `ox`/`oy` place it.
 static void drawCabinet(ui::Renderer& r, float ox, float oy, float s, float a) {
     auto R = [&](float x, float y, float w, float h, float rad, Color c) {

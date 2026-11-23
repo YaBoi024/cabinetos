@@ -9,8 +9,10 @@
 
 #include "catalog.h"
 #include "quality.h"
+#include "screenview.h"
 #include "storage.h"
 #include "sysopts.h"
+#include "vectrexsheets.h"
 #include "wii.h"
 
 namespace optcheck {
@@ -68,6 +70,10 @@ int run(const std::string& dir) {
                 for (const auto& kv : catalog::optionOverrides(core, vk, above))
                     fromCatalog.emplace(kv.first, kv.second);
         for (const auto& kv : fromCatalog) sets.push_back({kv, "catalog"});
+        // And a DS or 3DS game's screens, every view (screenview.h).
+        for (int v = 0; v < screenview::kViewCount; ++v)
+            for (const auto& kv : screenview::coreOptions(core, static_cast<screenview::View>(v)))
+                sets.push_back({kv, "screen view"});
         for (const std::string& slug : slugs) {
             for (int l = 0; l < quality::kLevelCount; ++l)
                 for (bool vk : {true, false})
@@ -85,6 +91,10 @@ int run(const std::string& dir) {
             for (bool on : {true, false})
                 for (const auto& kv : wii::coreOptions(core, slug, on))
                     sets.push_back({kv, "wii rumble"});
+            // And the Vectrex sheets' fit, both ways (#224).
+            for (bool fitted : {true, false})
+                for (const auto& kv : vectrexsheets::coreOptions(core, slug, fitted))
+                    sets.push_back({kv, "vectrex sheet fit"});
         }
         for (const auto& [kv, from] : sets) {
             ++checked;

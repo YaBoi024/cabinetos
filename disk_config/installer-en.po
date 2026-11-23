@@ -1,0 +1,12 @@
+# The installer's title in English, without a version: "CABINETOS
+# INSTALLATION" where Anaconda's own line would put Fedora's version (or,
+# with the version emptied, a double space) between the two words.
+# ci/brand-installer-iso.sh compiles it into the ISO's product image as
+# /usr/share/locale/en/LC_MESSAGES/anaconda.mo, a catalog Fedora does not
+# ship, and checks that Anaconda still has this line first.
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+
+msgid "%(productName)s %(productVersion)s INSTALLATION"
+msgstr "%(productName)s INSTALLATION"

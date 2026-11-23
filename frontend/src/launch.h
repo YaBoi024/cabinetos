@@ -51,7 +51,7 @@ struct LaunchJob {
     // WHAT A FAILED LAUNCH SAYS, in words (#146, #90). The worker notes
     // whether a system that cannot start without its BIOS got none from the
     // server; if the game then fails, that is what the page says, "No Saturn
-    // BIOS on your server", rather than the core's own wording. It is never
+    // BIOS on the server", rather than the core's own wording. It is never
     // a reason to refuse: the core is still asked, and may manage.
     std::atomic<bool> biosMissing{false};
     std::string systemName;
@@ -105,17 +105,29 @@ struct LaunchJob {
     int platformId = 0;
     // RomM's `ra_hash`, for RetroAchievements (achievements.h).
     std::string raHash;
+    // RomM's `md5_hash`, for the Vectrex sheets (vectrexsheets.h).
+    std::string md5;
     // The server's own file name for this game, with its extension removed —
-    // `Ikaruga (Japan)`, `lethalen`. It is what a save's row on RomM is named
-    // after; see saveRowName.
+    // `Ikaruga (Japan)`, `lethalen`. This console's copy of a save and the
+    // save a snapshot carries are named after it (GameSession::fsStem).
     std::string fsStem;
     std::string corePath;
+    // AN ARCADE GAME (catalog::Coverage::arcade): its emulator was named at
+    // the press by its zip's name, and the worker asks again of its files
+    // (arcadematch.h). `arcadePicked` once it has; `coreChanged` when the
+    // files named another emulator, `coreName` and `corePath` then being
+    // that one's, which the frame thread loads behind the curtain
+    // (pumpLaunch). Written by the worker before Ready, as `romPath` is.
+    bool arcade = false;
+    bool arcadePicked = false;
+    bool coreChanged = false;
     std::string title;
     std::string message;
-    // THE GAME'S SAVES AS RomM HOLDS THEM, fetched by the worker once the game
-    // is on the disk (#481, LAUNCH-17; saves.h, SaveFetch), and for a Wii game
-    // the Mii Channel's. The stages behind the curtain restore from these and
-    // ask the server nothing. Released once the game is up.
+    // THE GAME'S SAVE AS RomM HOLDS IT, fetched by the worker once the game
+    // is on the disk (#481, LAUNCH-17; saves.h, SaveFetch): which save the
+    // start continues from and its bytes; and for a Wii game the Mii
+    // Channel's. The stages behind the curtain restore from these and ask the
+    // server nothing. Released once the game is up.
     SaveFetch saves;
     SaveFetch miiSaves;
 

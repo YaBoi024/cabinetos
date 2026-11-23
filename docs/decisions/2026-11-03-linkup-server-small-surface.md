@@ -1,0 +1,7 @@
+# A LinkUp server holds no logins, has no public page, and keeps its surface small
+
+- **Decided:** The server holds console keys, each account's last RomM username, who is friends with whom, the owner's notes, links, settings and relay counts, and never RomM logins, games, saves or play history. It has no public web page: the console port ignores anything without a paired console's key or a valid code, the relay ports are closed unless the owner turns the relay on, and the admin page is served on a port of its own that owners do not forward and that refuses connections from public internet addresses. The container runs without admin rights, with a read-only filesystem and no shell, and each release is signed. Because a hacked server could send false connection details, the console's LinkUp program is walled off from the home folder that holds the RomM token and the PIN.
+- **Date:** 2026-11-03
+- **Why:** Other people will open this program to the internet, so its surface stays small, and what it can give away stays small. A public page would add something to attack and give players nothing they need, and with no login page on the internet the hardest kind of page to secure does not exist. The worst case of a hacked server is usernames and console addresses seen, relay data used up, and false connection details sent to consoles; it cannot reach anyone's RomM, because it never holds a login.
+- **Numbers:** #654, "LinkUp: play a game with a friend on another CabinetOS console over the internet".
+- **Replaces:** none.

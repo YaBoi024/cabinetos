@@ -79,6 +79,14 @@ struct Remote {
     bool replaying = false;
     // A Mii read's answers still to go to the game (see miiRead).
     Paced miiAnswers;
+    // LINUX'S WII REMOTE DRIVER TAKES THIS REMOTE TOO (Nintendo's own id; never
+    // a TechKen), and undoes the game's report mode and rumble: see putBack.
+    bool linuxDriver = false;
+    bool rumble = false;   // the game's rumble, as its last report said
+    // When to put them back, and whether the report mode too; zero: nothing.
+    std::chrono::steady_clock::time_point putBackAt{};
+    bool putBackMode = false;
+    bool putBackSaid = false;   // logged once per connection
 };
 
 // bridge.cpp: a report to the stand-in, and the acknowledgement of one.

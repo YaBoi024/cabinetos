@@ -1,5 +1,6 @@
 // The library as RomM lists it: platforms, collections and smart collections,
-// games under any filter, one game with its facts and files, firmware, and
+// games under any filter, one game with its facts and files (the one its save
+// channels belong to marked), firmware, and
 // Home's recent and favourite shelves; with the JSON field readers the whole
 // client uses (jstr, jint, jstrs) and the game parser behind every list.
 // Moved out of romm.cpp in the restructure (#398).
@@ -11,6 +12,7 @@
 
 #include <json-c/json.h>
 
+#include <cstdlib>
 #include <ctime>
 
 namespace romm {
@@ -50,6 +52,11 @@ std::vector<std::string> jstrs(json_object* o, const char* key) {
 
 namespace {
 
+// A file RomM may key a game's save channels to: one in its category "game",
+// or in none (`sync_file` at 5.5.0-alpha.2, `handler/snapshots/legacy.py`).
+// A manual, an update or a DLC never is.
+bool isGameFile(const std::string& category) { return category.empty() || category == "game"; }
+
 bool parseGame(json_object* o, Game* g) {
     g->id = static_cast<int>(jint(o, "id"));
     if (g->id == 0) return false;
@@ -62,6 +69,17 @@ bool parseGame(json_object* o, Game* g) {
     g->fsName = jstr(o, "fs_name");
     g->sortKey = jstr(o, "name_sort_key");
     g->sizeBytes = jint(o, "fs_size_bytes");
+    // The files its save channels can be on (ChannelFiles), from the game's
+    // own entry or the console's record of it; RomM's lists carry neither.
+    g->channelFiles.channelFile = static_cast<int>(jint(o, "channel_file_id"));
+    if (json_object* files = nullptr; json_object_object_get_ex(o, "files", &files) &&
+                                      json_object_get_type(files) == json_type_array) {
+        for (size_t i = 0, n = json_object_array_length(files); i < n; ++i) {
+            json_object* f = json_object_array_get_idx(files, i);
+            const int id = static_cast<int>(jint(f, "id"));
+            if (id != 0 && isGameFile(jstr(f, "category"))) g->channelFiles.files.push_back(id);
+        }
+    }
     // A FOLDER BY EITHER OF RomM's NAMES FOR ONE (#400). Since RomM 5.0
     // `has_multiple_files` counts only the files at the top of the folder,
     // so one game file with `manual/` or `soundtrack/` beside it, which
@@ -77,6 +95,7 @@ bool parseGame(json_object* o, Game* g) {
     g->multiFile = multiple || nested;
     g->titleId = jstr(o, "title_id");
     g->raHash = jstr(o, "ra_hash");
+    g->md5 = jstr(o, "md5_hash");
     // BOTH SIZES, because they are for different jobs. See romm_types.h:
     // `small` is a 162x216 thumbnail and `big` is 810x1080. Either may be
     // absent — a game the server never matched has neither — so each falls
@@ -120,11 +139,33 @@ std::string tagLabel(const Game& g) {
 // Wii U rule reads it as needing the GamePad and Home leaves it off (#398,
 // ROMM-31). A record written before it carried one takes the code this
 // console read online (wiiu-codes.txt).
+// RomM's `archive_members`, or the record's copy of them.
+static std::vector<ArchiveMember> parseMembers(json_object* list) {
+    std::vector<ArchiveMember> out;
+    if (!list || json_object_get_type(list) != json_type_array) return out;
+    const size_t n = json_object_array_length(list);
+    for (size_t i = 0; i < n; ++i) {
+        json_object* m = json_object_array_get_idx(list, i);
+        ArchiveMember a;
+        a.name = jstr(m, "name");
+        a.size = jint(m, "size");
+        a.crc = static_cast<uint32_t>(std::strtoul(jstr(m, "crc_hash").c_str(), nullptr, 16));
+        if (!a.name.empty()) out.push_back(std::move(a));
+    }
+    return out;
+}
+
 bool gameFromJson(const std::string& json, Game* out) {
     json_object* o = json_tokener_parse(json.c_str());
     if (!o) return false;
     const bool ok = parseGame(o, out);
     if (ok) out->productCode = jstr(o, "product_code");
+    if (json_object* a = nullptr; ok && json_object_object_get_ex(o, "archive_members", &a) && a) {
+        out->membersFile = jstr(a, "file");
+        out->membersSize = jint(a, "size");
+        json_object* list = nullptr;
+        if (json_object_object_get_ex(a, "members", &list)) out->members = parseMembers(list);
+    }
     json_object_put(o);
     if (ok && out->platformSlug == "wiiu" && out->productCode.empty()) {
         bool known = false;
@@ -305,9 +346,14 @@ bool Client::fetchRoms(const std::string& filter, int limit,
     return true;
 }
 
-bool Client::fetchGame(int romId, Game* out, std::string* err) {
+bool Client::fetchGame(int romId, Game* out, std::string* err, bool* notFound) {
+    if (notFound) *notFound = false;
     std::string body;
-    if (!get("/api/roms/" + std::to_string(romId), &body, err)) return false;
+    long status = 0;
+    if (!get("/api/roms/" + std::to_string(romId), &body, err, &status)) {
+        if (notFound) *notFound = status == 404;
+        return false;
+    }
     json_object* root = json_tokener_parse(body.c_str());
     if (!root) { if (err) *err = "rom response was not JSON"; return false; }
     const bool ok = parseGame(root, out);
@@ -320,6 +366,26 @@ bool Client::fetchGame(int romId, Game* out, std::string* err) {
         out->productCode = one[0].productCode;
     }
     return ok;
+}
+
+bool Client::fetchGameIds(std::vector<int>* out, std::string* err) {
+    out->clear();
+    std::string body;
+    if (!get("/api/roms/identifiers", &body, err)) return false;
+    json_object* root = json_tokener_parse(body.c_str());
+    if (!root || json_object_get_type(root) != json_type_array) {
+        if (root) json_object_put(root);
+        if (err) *err = "the game ids did not come back as a list";
+        return false;
+    }
+    const size_t n = json_object_array_length(root);
+    out->reserve(n);
+    for (size_t i = 0; i < n; ++i) {
+        json_object* v = json_object_array_get_idx(root, i);
+        if (json_object_get_type(v) == json_type_int) out->push_back(json_object_get_int(v));
+    }
+    json_object_put(root);
+    return true;
 }
 
 static bool parseRomFiles(json_object* root, std::vector<RomFile>* out);
@@ -427,12 +493,14 @@ bool Client::fetchFirmware(int platformId, std::vector<Firmware>* out, std::stri
 }
 
 // A game's `files`, from the one rom payload both fetchRomFiles and
-// fetchFacts read. False when the payload has no files array.
+// fetchFacts read, the one `channel_file_id` names marked (RomM 5.5). False
+// when the payload has no files array.
 static bool parseRomFiles(json_object* root, std::vector<RomFile>* out) {
     json_object* files = nullptr;
     if (!root || !json_object_object_get_ex(root, "files", &files) ||
         json_object_get_type(files) != json_type_array)
         return false;
+    const int64_t channelFile = jint(root, "channel_file_id");
     const size_t n = json_object_array_length(files);
     for (size_t i = 0; i < n; ++i) {
         json_object* o = json_object_array_get_idx(files, i);
@@ -445,6 +513,9 @@ static bool parseRomFiles(json_object* root, std::vector<RomFile>* out) {
         if (json_object_object_get_ex(o, "is_top_level", &top) &&
             json_object_get_type(top) == json_type_boolean)
             f.topLevel = json_object_get_boolean(top);
+        if (json_object* m = nullptr; json_object_object_get_ex(o, "archive_members", &m))
+            f.members = parseMembers(m);
+        f.channelFile = channelFile != 0 && f.id == channelFile;
         if (f.id != 0 && !f.fileName.empty()) out->push_back(std::move(f));
     }
     return true;
@@ -463,6 +534,23 @@ bool Client::fetchRomFiles(int romId, std::vector<RomFile>* out, std::string* er
     }
     if (out->empty() && err) *err = "the game lists no files";
     return !out->empty();
+}
+
+ChannelFiles channelFilesOf(const std::vector<RomFile>& files) {
+    ChannelFiles out;
+    for (const RomFile& f : files) {
+        if (f.channelFile) out.channelFile = f.id;
+        if (isGameFile(f.category)) out.files.push_back(f.id);
+    }
+    return out;
+}
+
+bool Client::fetchChannelFiles(int romId, ChannelFiles* out, std::string* err) {
+    *out = ChannelFiles{};
+    std::vector<RomFile> files;
+    if (!fetchRomFiles(romId, &files, err)) return false;
+    *out = channelFilesOf(files);
+    return true;
 }
 
 std::string Client::romFilePath(int romId, const RomFile& f) {

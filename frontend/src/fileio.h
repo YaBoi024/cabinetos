@@ -7,6 +7,18 @@
 // or a full disk halfway through leaves the old file, never an empty or cut
 // one. The fsync matters on the console's btrfs, which commits every 30 s: a
 // renamed file whose bytes were never synced can come back empty.
+//
+// AND NOTHING A POWER CUT MAY HAVE LEFT HALF WRITTEN IS TRUSTED AS COMPLETE
+// (#559). exFAT and NTFS keep no journal, so after a power cut a download's
+// name or an unpacked file's time can be on the drive with the bytes never
+// written; on any drive a note is a file of its own and can arrive before
+// the files it vouches for. Each such mark in a game's folder is listed
+// first, on the console's own drive (unsettled.h), so a power cut before the
+// drive has it all means the game downloads, unpacks or installs again, and
+// nothing waits; where it cannot be listed, it waits for the drive
+// (syncDrive), as a firmware's note always does. btrfs and ext4 put a size
+// on the drive only with its bytes (keepsSizeWithBytes), so there a cut
+// download or unpacked file comes back short and needs neither.
 
 #pragma once
 
@@ -21,17 +33,35 @@ namespace cab {
 
 std::vector<uint8_t> readBytes(const std::string& path);
 
-// Writes `<path>.placing`, checks and syncs it, then renames it over `path`.
-// Creates the parent directories. `mode` is the new file's (0600 for a
+// Writes `<path>.placing`, checks and syncs it, renames it over `path`, then
+// syncs the folder, so the name is on the drive too when it returns: a power
+// cut within btrfs's half minute before the next commit otherwise left a
+// save's marker only as its temporary (#346, step 9, seen with the power-cut
+// kit; 2 to 3 ms more for a small file on the reference console's drive,
+// measured). Creates the parent directories. `mode` is the new file's (0600 for a
 // credential), less the umask, set before any byte is written. False, with
 // the old file untouched and no temporary left, on any failure.
 bool writeBytes(const std::string& path, const void* data, size_t size, mode_t mode = 0666);
 bool writeBytes(const std::string& path, const std::vector<uint8_t>& data, mode_t mode = 0666);
 bool writeBytes(const std::string& path, const std::string& text, mode_t mode = 0666);
 
+// When the file was last written, nanoseconds since 1970; 0 when there is
+// none.
+int64_t modifiedNs(const std::string& path);
+
 // Removes the file, and reports only whether it is gone afterwards. A file
 // that was never there is a success.
 bool removeFile(const std::string& path);
+
+// Waits until everything written to the drive holding `path` (a file or a
+// folder) is on it: syncfs, the one drive rather than every one. False when
+// `path` cannot be opened or the drive reports a write that failed.
+bool syncDrive(const std::string& path);
+
+// Whether the drive holding `path` puts a file's size on it only together
+// with the file's bytes: true on btrfs and ext4, false on exFAT, NTFS and
+// any filesystem it does not know, and when `path` cannot be read.
+bool keepsSizeWithBytes(const std::string& path);
 
 }  // namespace cab
 

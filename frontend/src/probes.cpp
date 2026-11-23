@@ -36,6 +36,10 @@
 #include "selftests.h"
 #include "server.h"
 #include "storage.h"
+#include "tailscale.h"
+#include "timezone.h"
+#include "update.h"
+#include "vectrexsheets.h"
 #include "volume.h"
 
 // Downloads one ROM and says what a core would actually be given.
@@ -101,6 +105,69 @@ static int romProbe(const char* address, int romId, const char* validExts) {
         std::printf("            %s %-44s %zu bytes\n",
                     static_cast<int>(i) == prep.primary ? "->" : "  ",
                     prep.members[i].name.c_str(), prep.members[i].bytes.size());
+    }
+    return 0;
+}
+
+// One game's save channels as RomM 5.5 gives them to the console's person
+// (#346): the game's files, the one RomM makes a new channel on marked, and
+// the channels on every game file (romm::ChannelFiles), each with the file
+// it is on and its current snapshot. It only reads, so it may be pointed at
+// the read-only relay.
+static int channelsProbe(const char* address, int romId) {
+    romm::Client client;
+    std::string err;
+    if (!client.setAddress(address, &err)) {
+        std::fprintf(stderr, "[romm] %s\n", err.c_str());
+        return 1;
+    }
+    if (!accounts::loadActiveToken(client)) {
+        std::fprintf(stderr, "[romm] no account on this console\n");
+        return 1;
+    }
+    std::printf("server      RomM %s, %s\n", client.serverVersion().c_str(),
+                romm::heardServerChannels() ? "with save channels" : "without save channels");
+    std::vector<romm::RomFile> files;
+    if (!client.fetchRomFiles(romId, &files, &err)) {
+        std::fprintf(stderr, "[romm] the files of %d: %s\n", romId, err.c_str());
+        return 1;
+    }
+    for (const romm::RomFile& f : files)
+        std::printf("file        %s %d %s\n", f.channelFile ? "->" : "  ", f.id,
+                    f.fileName.c_str());
+    const romm::ChannelFiles on = romm::channelFilesOf(files);
+    if (on.files.empty()) {
+        std::fprintf(stderr, "[romm] RomM lists no game file for this game's channels\n");
+        return 1;
+    }
+    std::vector<romm::Channel> channels;
+    if (!client.fetchChannels(on.files, &channels, &err)) {
+        std::fprintf(stderr, "[romm] the channels: %s\n", err.c_str());
+        return 1;
+    }
+    std::printf("channels    %zu\n", channels.size());
+    for (const romm::Channel& c : channels) {
+        std::printf("channel     \"%s\"%s, on file %d, %d snapshot(s), changed %s\n",
+                    c.label.c_str(), c.hardcore ? ", hardcore" : "", c.romFileId,
+                    c.snapshotCount, c.updatedAt.c_str());
+        if (c.currentId == 0) {
+            std::printf("  empty\n");
+            continue;
+        }
+        const romm::Snapshot& s = c.current;
+        std::printf("  current   %d, %s, %s, from %s\n", s.id, s.kind.c_str(), s.createdAt.c_str(),
+                    s.deviceOwn ? s.deviceClient.c_str() : "a device RomM does not name");
+        if (s.hasSave)
+            std::printf("  save      %lld bytes, %s %s, %s %s, %s\n",
+                        static_cast<long long>(s.save.sizeBytes), s.save.shape.c_str(),
+                        s.save.format.c_str(), s.save.emulator.c_str(), s.save.core.c_str(),
+                        s.save.contentHash.c_str());
+        for (const romm::SnapshotState& st : s.states)
+            std::printf("  state     %s/%s, %lld bytes%s\n", st.core.c_str(), st.slot.c_str(),
+                        static_cast<long long>(st.file.sizeBytes),
+                        st.file.picturePath.empty() ? "" : ", with its picture");
+        for (const romm::SnapshotHolder& h : s.heldBy)
+            std::printf("  held by   %s, %s\n", h.client.c_str(), h.syncedAt.c_str());
     }
     return 0;
 }
@@ -339,6 +406,8 @@ static int firstRunProbe(romm::Client& client, const char* startAt, bool tryServ
     }
 
     std::printf("\nwhat it sees\n");
+    std::printf("  time zone           %s\n",
+                !f.zoneChosen ? "none" : tz::current().empty() ? "set" : tz::current().c_str());
     std::printf("  online              %s\n", f.online ? "yes" : "no");
     std::printf("  online over a cable %s\n", f.wiredOnline ? "yes" : "no");
     std::printf("  wi-fi radio         %s\n", f.wifiPresent ? "present" : "none");
@@ -359,6 +428,8 @@ static int firstRunProbe(romm::Client& client, const char* startAt, bool tryServ
         std::fprintf(stderr, "[first-run] no step called '%s'\n", startAt);
         return 1;
     }
+    // As setup.cpp starts: the time zone first on a console that has none.
+    if (!startAt && !f.zoneChosen) m.openAt("timezone");
 
     std::printf("\nwalking the chain\n\n");
     for (int guard = 0; guard < 16; ++guard) {
@@ -513,8 +584,9 @@ static int rommProbe(const char* address, bool allowPairing) {
     std::printf("\n%zu platforms, %d games\n\n", platforms.size(), total);
 
     // fs_slug is printed next to the name because it is the field that
-    // distinguishes two platforms the name and the slug cannot — "Arcade" is
-    // FBNeo and MAME 2003-Plus, and a client keying on slug loses one of them.
+    // distinguishes two platforms the name and the slug cannot: RomM calls
+    // the FBNeo, MAME, Naomi and Atomiswave folders all "Arcade", and a
+    // client keying on slug loses all but one of them.
     for (const auto& p : platforms) {
         std::printf("  %5d  %-34s id=%-4d slug=%-22s fs=%s\n", p.romCount,
                     p.name.c_str(), p.id, p.slug.c_str(), p.fsSlug.c_str());
@@ -612,6 +684,10 @@ std::optional<int> earlyProbe(const EarlyProbeOptions& o) {
     const bool playtimeTestMode = o.playtimeTestMode;
     const bool discTestMode = o.discTestMode;
     const bool filesTestMode = o.filesTestMode;
+    const bool vectrexSheetsTestMode = o.vectrexSheetsTestMode;
+    const bool gpuChoiceTestMode = o.gpuChoiceTestMode;
+    const bool tailscaleSwitchTestMode = o.tailscaleSwitchTestMode;
+    const bool updateRommTestMode = o.updateRommTestMode;
     const int padsSeconds = o.padsSeconds;
     const bool firstRunRulesMode = o.firstRunRulesMode;
     const bool firstRunWriteMode = o.firstRunWriteMode;
@@ -638,6 +714,10 @@ std::optional<int> earlyProbe(const EarlyProbeOptions& o) {
     if (playtimeTestMode) return playtime::test();
     if (discTestMode) return disc::test();
     if (filesTestMode) return filesTest();
+    if (vectrexSheetsTestMode) return vectrexsheets::test();
+    if (gpuChoiceTestMode) return cab::gpu::test();
+    if (tailscaleSwitchTestMode) return tailscale::test();
+    if (updateRommTestMode) return update::test();
     if (padsSeconds > 0) return players::report(padsSeconds);
     if (firstRunRulesMode) return firstRunRules();
     if (firstRunWriteMode) return firstRunWriteTest();
@@ -658,6 +738,7 @@ std::optional<int> storageProbe(const StorageProbeOptions& o) {
     const char* rommAddress = o.rommAddress;
     const int romProbeId = o.romProbeId;
     const char* romProbeExts = o.romProbeExts;
+    const int channelsProbeId = o.channelsProbeId;
     const bool rommProbeMode = o.rommProbeMode;
     const bool rommPair = o.rommPair;
     const bool coreOptionsAudit = o.coreOptionsAudit;
@@ -705,18 +786,14 @@ std::optional<int> storageProbe(const StorageProbeOptions& o) {
                                  "nothing deleted\n");
             return 2;
         }
-        const accounts::Login login = accounts::login(who->id);
-        const std::string name = who->name;
         if (!removePersonNow(*who, &err)) {
             std::fprintf(stderr, "[remove] could not: %s\n", err.c_str());
             return 1;
         }
-        // Their token on RomM, as Settings' Remove does (#484).
-        romm::Client c;
-        if (rommAddress && c.setAddress(rommAddress, &err)) accounts::revoke(c, login, name);
         return 0;
     }
 
+    if (rommAddress && channelsProbeId > 0) return channelsProbe(rommAddress, channelsProbeId);
     if (rommAddress && romProbeId > 0)
         return romProbe(rommAddress, romProbeId, romProbeExts);
     if (rommAddress && rommProbeMode) return rommProbe(rommAddress, rommPair);

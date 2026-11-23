@@ -234,5 +234,26 @@ rm -f /usr/lib/udev/rules.d/99-steamos-automount.rules \
 
 group_end
 
+group_start "Removing the help pages"
+
+# NO MANUAL PAGES (docs/decisions/2026-11-04-no-help-pages.md). They are for
+# someone typing commands on a desktop, and nothing on a console reads them.
+# The base rebuilds their index at every start,
+# fedora-atomic-desktop-mandb-update.service, which is not in any package. It
+# takes about a second on an NVMe drive and took 1 to 3.5 minutes on a USB
+# stick, where a user manager started during it once ran out of systemd's 45 s
+# (measured 2026-11-04). With no user manager, no sound server starts, so the
+# console has no sound for that run. The man-db package goes as well, so a job
+# renamed by a later base has nothing to run, and the base-update check's
+# failed-service line shows it.
+remove_pkgs "nothing on a console reads the help pages" \
+    man-db \
+    man-pages
+disable_units "nothing on a console reads the help pages" \
+    fedora-atomic-desktop-mandb-update.service
+find /usr/share/man -mindepth 1 -delete
+
+group_end
+
 # A full Plasma removal was considered and not done: docs/PROJECT.md open
 # question 1 (packages that never run cost nothing).

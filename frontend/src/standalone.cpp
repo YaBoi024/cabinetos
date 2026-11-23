@@ -1,8 +1,10 @@
 #include "standalone.h"
 
+#include "fileio.h"
 #include "proc.h"
 #include "standalone_internal.h"
 #include "storage.h"
+#include "unsettled.h"
 #include "xtitles.h"
 
 #include <dirent.h>
@@ -13,6 +15,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -25,7 +28,8 @@ namespace cab::standalone {
 namespace {
 
 // Eden and xemu are pinned in system_files/usr/share/cabinetos/flatpaks.list.
-// RPCS3 is in the image (build_files/install-rpcs3.sh).
+// RPCS3, Xenia, Cemu, Vita3K, sm2-emu and Supermodel are in the image
+// (build_files/install-*.sh).
 const Emulator kEmulators[] = {
     // Eden's words for a game it cannot load (yuzu/main_window.cpp, before its
     // "Error while loading ROM!" box).
@@ -45,7 +49,7 @@ const Emulator kEmulators[] = {
      // folder (user/save/), as Xenia and Cemu do, so a session cut off by a
      // crash, a power cut or an app restart is sent at the next start or
      // launch instead of being overwritten by the older copy on RomM.
-     "nsp|xci", "keys", false, false, false, false, false, true},
+     "nsp|xci", "keys", false, false, false, false, false, true, false, false, true, false, false},
 
     // PLAYSTATION 3. Its log sits beside its cache, in the game's folder
     // (XDG_CACHE_HOME, rpcs3/ appended: Utilities/File.cpp, get_cache_dir).
@@ -61,8 +65,9 @@ const Emulator kEmulators[] = {
      "Emulation has been frozen",
      nullptr, 0, nullptr,
      // notesPlaying (#213): its savedata is in the person's folder too
-     // (hdd0/home/<user>/savedata), the same case as Eden's.
-     "iso|pkg", "firmware", true, true, true, false, false, true},
+     // (hdd0/home/<user>/savedata), the same case as Eden's. guitars: a
+     // guitar plays as a PS3 guitar (guitar.h).
+     "iso|pkg", "firmware", true, true, true, false, false, true, false, true, false, false, true},
 
     // ORIGINAL XBOX. xemu keeps no log of its own; what it prints is it. A
     // game is a folder, as a PS3 game is, because its hard drive lives beside
@@ -75,7 +80,7 @@ const Emulator kEmulators[] = {
      {nullptr, nullptr, nullptr, nullptr},
      nullptr, nullptr,
      nullptr, 0, nullptr,
-     "iso|xiso", "BIOS", true, false, false, true, true, false},
+     "iso|xiso", "BIOS", true, false, false, true, true, false, false, false, false, false, false},
 
     // XBOX 360. Xenia Edge's own Linux build, in the image
     // (build_files/install-xenia.sh). Its log is where the console tells it
@@ -94,7 +99,7 @@ const Emulator kEmulators[] = {
      nullptr,
      "x> ",
      "Xenia-edge", 2, nullptr,
-     "iso|xex|zar", "", false, false, true, false, false, true},
+     "iso|xex|zar", "", false, false, true, false, false, true, false, false, false, false, false},
 
     // WII U. Cemu main, built from source at a pin (cores/build-cemu.sh) and in
     // the image at /usr/lib/cabinetos/cemu. Its log is under its home
@@ -113,11 +118,79 @@ const Emulator kEmulators[] = {
      nullptr,
      "Unrecoverable error in Vulkan",
      nullptr, 0, "Error",
-     "wua", "", false, false, true, false, false, true},
+     // dualsense (#669): Cemu reads a pad's own sensors, as SDL pairs them;
+     // onlyPlayerOneTilts: the GamePad, the one Wii U controller with a gyro.
+     "wua", "", false, false, true, false, false, true, false, false, true, true, false},
+
+    // PLAYSTATION VITA. Vita3K's own build, in the image
+    // (build_files/install-vita3k.sh), started through its SDL frontend: a
+    // plain window that runs the one game and quits with it, with the game's
+    // own exit status, so no title watch and no error box. A game it cannot
+    // start is one of these two lines in its log (sdl-frontend/session.cpp),
+    // and it exits by itself, 255. SIGTERM is SDL's quit, which stops the
+    // game and exits (measured on the A9 2026-10-20: 0.1 s). Its log is under
+    // its home (XDG_CACHE_HOME/Vita3K). A game is installed before it runs,
+    // as a PS3 package is (`installs`): its zip, with the licence inside, is
+    // extracted and decrypted into the game's folder by Vita3K itself.
+    // Issue #198; open question 49.
+    {"vita3k", nullptr, "/usr/lib/cabinetos/vita3k/bin/Vita3K", "Vita3K", "Vita3K/vita3k.log",
+     {"Failed to load or start the app session", "in apps list"},
+     {nullptr, nullptr, nullptr, nullptr},
+     nullptr,
+     nullptr,
+     nullptr, 0, nullptr,
+     // notesPlaying: Vita3K writes the saves straight into the person's
+     // folder, through the link standalone_vita3k.cpp makes, as Xenia does.
+     // dualsense (#669): Vita3K reads a pad's own sensors, as SDL pairs them;
+     // onlyPlayerOneTilts: the Vita is one handheld, held by player 1.
+     "zip|vpk", "firmware", true, false, false, false, false, true, true, false, true, true, false},
+
+    // SEGA MODEL 2. sm2-emu, built from source at a pin (cores/build-sm2emu.sh)
+    // and in the image at /usr/lib/cabinetos/sm2emu, for the Model 2 games
+    // the arcade match gives it (arcadematch.h). Started on the game's zip with
+    // its set named, it opens no game list and no window of its own but the
+    // game's; it keeps no log of its own, so what it prints is it. A game it
+    // cannot open is one of these two lines (src/rom/rom_loader.cpp), and it
+    // exits 1 before any window. SIGTERM is SDL's quit, which ends its loop,
+    // writes NVRAM and EEPROM and exits 0 (measured on the A9, 2026-10-28).
+    // docs/decisions/2026-10-28-model-2-and-model-3.md.
+    {"sm2emu", nullptr, "/usr/lib/cabinetos/sm2emu/bin/sm2-emu", "sm2-emu", nullptr,
+     {"does not contain any game sm2-emu recognises", "missing required ROM"},
+     {nullptr, nullptr, nullptr, nullptr},
+     nullptr,
+     nullptr,
+     nullptr, 0, nullptr,
+     // notesPlaying: it writes the board's NVRAM straight into the person's
+     // folder, as Cemu writes its saves.
+     "zip|7z", "", false, false, false, false, false, true, false, false, false, false, false},
+
+    // SEGA MODEL 3. Supermodel, built from source at a pin
+    // (cores/build-supermodel.sh) and in the image at
+    // /usr/lib/cabinetos/supermodel, for the Model 3 games the arcade match
+    // gives it (arcadematch.h). Started on the game's zip, it opens no window
+    // of its own but the game's; its log is Supermodel.log in its home, its
+    // working folder (standalone_supermodel.cpp). A zip it cannot use is one
+    // of these two lines (src/GameLoader.cpp), and it exits 1 before any
+    // window. SIGTERM is SDL's quit, which ends its loop, writes NVRAM and
+    // exits 0 (measured on the A9, 2026-10-29). It opens a zip only, never a
+    // 7z (arcadematch.cpp). docs/decisions/2026-10-28-model-2-and-model-3.md.
+    {"supermodel", nullptr, "/usr/lib/cabinetos/supermodel/bin/supermodel", "supermodel",
+     "Supermodel.log",
+     {"No complete Model 3 games found", "Could not open"},
+     {nullptr, nullptr, nullptr, nullptr},
+     nullptr,
+     nullptr,
+     nullptr, 0, nullptr,
+     // notesPlaying: its NVRAM is written straight into the person's folder,
+     // through the link standalone_supermodel.cpp makes, as Vita3K's saves are.
+     "zip", "", false, false, false, false, false, true, false, false, false, false, false},
 };
 
 // How long a program that was asked to close gets before it is made to.
 // Eden took 0.8 s on the A9; ten is room for a slow disk flushing a save.
+// One that crashes as it closes is gone at once (no core file, proc::spawn);
+// this is spent only on one that hangs, as Eden 0.2.1 now and then does
+// (docs/lessons/emulators.md, "Switch (Eden)").
 constexpr int64_t kStopGraceMs = 10 * 1000;
 // A failed load shows the emulator's own error box and waits for a click
 // nobody can make, so its log is watched for this long after a start.
@@ -136,6 +209,34 @@ std::string binaryOf(const Emulator& e) {
     const std::string var = std::string("CABINETOS_BINARY_") + e.core;
     if (const char* v = std::getenv(var.c_str()); v && *v) return v;
     return e.binary ? e.binary : "";
+}
+
+// NO EMULATOR REACHES THE NETWORK (#557; the ones inside the console's
+// program, netblock.h). This is the sandbox for a program in the image, up to
+// its "--", the emulator's command to follow. bwrap gives it a network of its
+// own with nothing in it, and hides systemd-resolved's folder, whose Unix
+// socket otherwise still answers a name lookup there: measured on the A9, the
+// Mario Kart Wii server's name resolved in 0.1 s; hidden, a lookup failed in
+// 8 ms and a connection in 1 ms. Everything else is the console's own, devices
+// included, and gamescope's X11 socket is a path, so it is reached as before.
+// A Flatpak is given --unshare=network instead (Run::start, startXemu), whose
+// sandbox already hides the folder.
+std::vector<std::string> noNetwork() {
+    return {"bwrap", "--dev-bind", "/", "/", "--unshare-net",
+            "--tmpfs", "/run/systemd/resolve", "--"};
+}
+
+// THE SAME FOR A RUN THAT ONLY INSTALLS SOMETHING (rpcs3Headless,
+// vitaHeadless), which proc::run waits for, up to the emulator's `env`.
+// proc::run stops what it started, and that is bwrap, with the emulator below
+// it, so --die-with-parent takes the emulator with it on a cancel. Without it
+// the install goes on writing into a folder the console is deleting. No core
+// file either: RPCS3 aborts on the way out of every install (rpcs3Headless).
+std::vector<std::string> noNetworkInstall() {
+    std::vector<std::string> args = noNetwork();
+    args.insert(args.begin() + 1, "--die-with-parent");
+    args.insert(args.end(), {"prlimit", "--core=0", "--"});
+    return args;
 }
 
 int64_t nowMs() {
@@ -165,6 +266,27 @@ bool writeFile(const std::string& path, const std::string& data) {
         if (!out) return false;
     }
     return std::rename(tmp.c_str(), path.c_str()) == 0;
+}
+
+// A NOTE THAT SAYS WHAT IS BESIDE IT IS COMPLETE. On any drive, a note is a
+// file of its own and can be there after a power cut with the files it
+// vouches for never written, and be trusted at every start (#559, fileio.h).
+//
+// A firmware's stamp, shared by every game of its system, is written only
+// once the drive holding it has every file the install wrote; it is on the
+// console's own drive, so that is quick. No note when the drive did not take
+// them, so the next start installs again.
+bool writeDoneNote(const std::string& path, const std::string& note) {
+    return cab::syncDrive(path.substr(0, path.find_last_of('/'))) && writeFile(path, note);
+}
+
+// What was installed into a game's folder (kInstalledNote), which can be on a
+// slow USB drive: listed first (unsettled.h), so a power cut before the drive
+// has the install means that game installs again at its next start. With no
+// list to put it in, it waits for the drive as writeDoneNote does.
+bool writeInstalledNote(const std::string& path, const std::string& note) {
+    return (unsettled::note({path}) || cab::syncDrive(path.substr(0, path.find_last_of('/')))) &&
+           writeFile(path, note);
 }
 
 // Copies `from` to `to` unless `to` already holds the same bytes.
@@ -287,6 +409,36 @@ std::string yamlQuote(const std::string& v) {
     return out + "\"";
 }
 
+// `link` made a link to `target`, whatever was there. A real folder there
+// is the emulator's own, made while a link was missing (Vita3K's under
+// ux0/user, Supermodel's NVRAM): it is moved aside, never deleted, since it
+// may hold saves.
+bool placeLink(const std::string& target, const std::string& link) {
+    struct stat st;
+    if (::lstat(link.c_str(), &st) == 0) {
+        if (S_ISDIR(st.st_mode)) {
+            const std::string aside = link + ".aside-" + std::to_string(std::time(nullptr));
+            std::fprintf(stderr, "[standalone] %s was a folder; moved to %s\n", link.c_str(),
+                         aside.c_str());
+            if (::rename(link.c_str(), aside.c_str()) != 0) return false;
+        } else {
+            ::unlink(link.c_str());
+        }
+    }
+    return ::symlink(target.c_str(), link.c_str()) == 0;
+}
+
+// An arcade game's set, from its zip's name: `scud` from `.../scud.zip`. The
+// arcade match picked the emulator by that name (arcadematch.h), so it is in
+// that emulator's list.
+std::string arcadeSet(const std::string& romPath) {
+    std::string base = romPath.substr(romPath.find_last_of('/') + 1);
+    const size_t dot = base.find_last_of('.');
+    if (dot != std::string::npos) base.erase(dot);
+    for (char& c : base) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return base;
+}
+
 }  // namespace detail
 
 // What the emulators' files share (standalone_internal.h), used here bare.
@@ -329,6 +481,13 @@ std::string bootPath(const std::string& entryPath) {
         const std::string eboot = entryPath + "/" + name + "/USRDIR/EBOOT.BIN";
         if (isFile(eboot)) return eboot;
     }
+    // An installed Vita game, in the folder's own Vita storage
+    // (standalone_vita3k.cpp): what Vita3K is started on, by its title ID.
+    {
+        const std::string apps = entryPath + "/" + kVitaGameFs + "/ux0/app";
+        for (const std::string& id : listDir(apps))
+            if (isFile(apps + "/" + id + "/eboot.bin")) return apps + "/" + id;
+    }
     // A stamped decrypted disc image, which RPCS3 opens as it is (open
     // question 19). The largest, should there ever be more than one.
     std::string pick;
@@ -350,6 +509,8 @@ bool installGame(const Emulator& e, const std::string& entryPath,
                  std::string* message) {
     if (std::strcmp(e.core, "xemu") == 0)
         return installXbox(entryPath, cancel, romPath, message);
+    if (std::strcmp(e.core, "vita3k") == 0)
+        return installVita3k(e, entryPath, cancel, romPath, message);
     if (std::strcmp(e.core, "rpcs3") != 0) {
         *message = "Couldn't install this game";
         return false;
@@ -357,19 +518,25 @@ bool installGame(const Emulator& e, const std::string& entryPath,
     return installRpcs3(e, entryPath, cancel, romPath, message);
 }
 
-bool prepare(const Emulator& e, const std::string& entryPath, const std::string& saveDir,
-             const std::string& player, int players, quality::Level level, bool* missingKeys,
-             std::string* err) {
+bool prepare(const Emulator& e, const std::string& entryPath, const std::string& romPath,
+             const std::string& saveDir, const std::string& player, const std::string& title,
+             int players, quality::Level level, bool* missingKeys, std::string* err) {
     *missingKeys = false;
     storage::makeDirs(saveDir);
     if (std::strcmp(e.core, "eden") == 0)
         return prepareEden(e, saveDir, player, players, level, missingKeys, err);
     if (std::strcmp(e.core, "rpcs3") == 0)
-        return prepareRpcs3(e, entryPath, saveDir, player, players, level, missingKeys, err);
+        return prepareRpcs3(e, entryPath, saveDir, player, title, players, level, missingKeys, err);
     if (std::strcmp(e.core, "xemu") == 0)
         return prepareXemu(e, entryPath, players, level, missingKeys, err);
     if (std::strcmp(e.core, "xenia") == 0) return prepareXenia(e, saveDir, err);
     if (std::strcmp(e.core, "cemu") == 0) return prepareCemu(e, saveDir, players, err);
+    if (std::strcmp(e.core, "vita3k") == 0)
+        return prepareVita3k(e, entryPath, saveDir, player, players, level, missingKeys, err);
+    if (std::strcmp(e.core, "sm2emu") == 0)
+        return prepareSm2emu(e, saveDir, players, level, err);
+    if (std::strcmp(e.core, "supermodel") == 0)
+        return prepareSupermodel(e, romPath, saveDir, players, level, err);
     *err = std::string("nothing prepares ") + e.core;
     return false;
 }
@@ -386,6 +553,17 @@ std::string saveRoot(const Emulator& e, const std::string& saveDir) {
     if (std::strcmp(e.core, "rpcs3") == 0)
         return saveDir + "/hdd0/home/" + kPs3User + "/savedata";
     if (std::strcmp(e.core, "eden") == 0) return edenSaveRoot(e, saveDir);
+    // Vita: the person's `savedata/`, linked in as Vita3K's ux0/user/00/savedata.
+    if (std::strcmp(e.core, "vita3k") == 0) return vita3kSaveRoot(saveDir);
+    // Model 2: the board's NVRAM and EEPROM, as sm2-emu names them.
+    if (std::strcmp(e.core, "sm2emu") == 0) return sm2emuNvram(saveDir);
+    // Model 3: the board's NVRAM, as Supermodel names it.
+    if (std::strcmp(e.core, "supermodel") == 0) return supermodelNvram(saveDir);
+    return {};
+}
+
+std::string saveProfile(const Emulator& e) {
+    if (std::strcmp(e.core, "eden") == 0) return edenProfileFolder(e);
     return {};
 }
 
@@ -460,21 +638,34 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
     ::unlink(logPath_.c_str());
     logRead_ = 0;
 
-    // THE SANDBOX SEES THREE THINGS OF OURS: the emulator's own home, this
-    // person's save folder for this game, and the folder the game is in,
+    // A FLATPAK'S SANDBOX SEES THREE THINGS OF OURS: the emulator's own home,
+    // this person's save folder for this game, and the folder the game is in,
     // read-only. Nothing else of the console's and nobody else's saves. The
     // game may be on an external drive, which is why its folder is named per
-    // launch rather than granted once.
+    // launch rather than granted once. A program in the image sees all of it
+    // and only loses the network (below).
     std::string gameDir = romPath;
     if (const size_t slash = gameDir.find_last_of('/'); slash != std::string::npos)
         gameDir.erase(slash);
     storage::makeDirs(storage::logsDir());
+    // ITS OWN LOG, LINKED BESIDE WHAT IT PRINTS: the diagnostic report
+    // (system_files/usr/libexec/cabinetos-report) reads logs/*.log, and an
+    // emulator's own log is elsewhere, in the game's folder for RPCS3 and a
+    // .txt for Eden and Cemu.
+    if (e.log) {
+        const std::string link = storage::logsDir() + "/" + e.core + ".own.log";
+        ::unlink(link.c_str());
+        if (::symlink(logPath_.c_str(), link.c_str()) != 0)
+            std::fprintf(stderr, "[standalone] could not link %s: %s\n", link.c_str(),
+                         std::strerror(errno));
+    }
 
-    // A PROGRAM IN THE IMAGE has no sandbox and no `flatpak run` to carry its
-    // settings, so `env` does, and then becomes it: the pid started is the
-    // emulator's own. Its settings are in its home (XDG_CONFIG_HOME); what it
-    // builds per game goes in the game's folder (XDG_CACHE_HOME, when
-    // `cacheInGame`), which is how a removed game takes its cache with it.
+    // A PROGRAM IN THE IMAGE has no `flatpak run` to carry its settings, so
+    // `env` does, and then becomes it, under bwrap: the emulator is bwrap's
+    // child, found as a Flatpak's is. Its settings are in its home
+    // (XDG_CONFIG_HOME); what it builds per game goes in the game's folder
+    // (XDG_CACHE_HOME, when `cacheInGame`), which is how a removed game takes
+    // its cache with it. It has no network (noNetwork).
     if (e.binary) {
         // THE GRAPHICS DRIVER'S MEMORY STAYS SHARED, where the console's own
         // is, even though RPCS3's cache moves into the game's folder: Mesa
@@ -490,7 +681,8 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
         const std::string mesaCache = xdgCache && *xdgCache
                                           ? std::string(xdgCache)
                                           : std::string(userHome ? userHome : "") + "/.cache";
-        const std::vector<std::string> args = {
+        std::vector<std::string> full = noNetwork();
+        full.insert(full.end(), {
             "env",
             "XDG_CONFIG_HOME=" + dir,
             "XDG_CACHE_HOME=" + (e.cacheInGame ? entryPath : dir),
@@ -500,12 +692,17 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
             "QT_QPA_PLATFORM=xcb",
             "SDL_JOYSTICK_HIDAPI=0",
             binaryOf(e),
-        };
-        std::vector<std::string> full = args;
+        });
         if (std::strcmp(e.core, "xenia") == 0) {
             xeniaArgs(full, dir, saveDir, logPath_, level, romPath);
         } else if (std::strcmp(e.core, "cemu") == 0) {
             cemuArgs(full, dir, romPath);
+        } else if (std::strcmp(e.core, "vita3k") == 0) {
+            vita3kArgs(full, e, dir, romPath);
+        } else if (std::strcmp(e.core, "sm2emu") == 0) {
+            sm2emuArgs(full, dir, saveDir, romPath);
+        } else if (std::strcmp(e.core, "supermodel") == 0) {
+            supermodelArgs(full, e, dir, romPath);
         } else {
             full.insert(full.end(), {"--no-gui", "--fullscreen", romPath});
         }
@@ -515,7 +712,6 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
             root_ = -1;
             return false;
         }
-        program_ = root_;
         startMs_ = nowMs();
         std::fprintf(stderr, "[standalone] started %s (pid %d) on %s\n", e.program, root_,
                      romPath.c_str());
@@ -526,6 +722,7 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
 
     const std::vector<std::string> args = {
         "flatpak", "run",
+        "--unshare=network",
         "--cwd=" + dir,
         "--filesystem=" + dir,
         "--filesystem=" + saveDir,
@@ -554,9 +751,16 @@ bool Run::start(const Emulator& e, const std::string& romPath, const std::string
     return true;
 }
 
+// The emulator itself, below what was started. A program in the image is
+// bwrap's one child, whatever it calls itself (Cemu names its main thread
+// "cemu"); a Flatpak's is found by its name.
+int Run::findProgram() const {
+    return proc::findDescendant(root_, emu_->binary ? "" : emu_->program);
+}
+
 void Run::freeze() {
     if (!active() || frozen_ || stopping()) return;
-    if (program_ <= 0) program_ = proc::findDescendant(root_, emu_->program);
+    if (program_ <= 0) program_ = findProgram();
     if (program_ <= 0) return;
     ::kill(program_, SIGSTOP);
     frozen_ = true;
@@ -574,7 +778,7 @@ void Run::stop() {
     if (!active() || stopping()) return;
     thaw();
     stopAtMs_ = nowMs();
-    if (program_ <= 0) program_ = proc::findDescendant(root_, emu_->program);
+    if (program_ <= 0) program_ = findProgram();
     if (program_ > 0 && emu_->closesByWindow && gTitles.closeWindowsOf(program_) > 0) {
         std::fprintf(stderr, "[standalone] asked %s's window (pid %d) to close\n",
                      emu_->program, program_);
@@ -591,7 +795,7 @@ void Run::stop() {
 }
 
 void Run::kill9() {
-    if (program_ <= 0) program_ = proc::findDescendant(root_, emu_->program);
+    if (program_ <= 0) program_ = findProgram();
     if (program_ > 0) ::kill(program_, SIGKILL);
     ::kill(root_, SIGKILL);
     // And whatever it started: RPCS3 shows a fatal error as a second RPCS3
@@ -638,7 +842,11 @@ bool Run::poll() {
     }
 
     const int64_t now = nowMs();
-    if (program_ <= 0 && now - startMs_ > 200) program_ = proc::findDescendant(root_, emu_->program);
+    if (program_ <= 0 && now - startMs_ > 200) {
+        program_ = findProgram();
+        if (program_ > 0)
+            std::fprintf(stderr, "[standalone] %s is pid %d\n", emu_->program, program_);
+    }
     const bool watchLoad = !failedLoad_ && now - startMs_ < kLoadWatchMs;
 
     if (stopping() && now - stopAtMs_ > kStopGraceMs) {

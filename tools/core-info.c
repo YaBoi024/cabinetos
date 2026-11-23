@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
 
     // RTLD_LOCAL is what gives one core's symbols namespace isolation from
     // another's on Linux, and it is the reason the entire prefix-and-merge
-    // apparatus Cabinet needs for Apple does not exist here. Load the way the
+    // apparatus Cabinet needed for Apple does not exist here. Load the way the
     // frontend loads, so this tests the real thing.
     void *core = dlopen(path, RTLD_NOW | RTLD_LOCAL);
     if (!core) {

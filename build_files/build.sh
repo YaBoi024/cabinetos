@@ -74,6 +74,8 @@ for expected in \
     /usr/lib/systemd/system/cabinetos-flatpak-setup.timer \
     /usr/share/cabinetos/flatpaks.list \
     /usr/libexec/cabinetos-update \
+    /usr/libexec/cabinetos-update-source \
+    /usr/lib/systemd/system/cabinetos-update-source.service \
     /usr/lib/systemd/system/cabinetos-update-check.service \
     /usr/lib/systemd/system/cabinetos-update-download.service \
     /usr/share/polkit-1/rules.d/61-cabinetos-update.rules \
@@ -91,11 +93,22 @@ for expected in \
     /usr/libexec/cabinetos-steam \
     /usr/lib/systemd/system/cabinetos-steam@.service \
     /usr/share/polkit-1/rules.d/66-cabinetos-steam.rules \
+    /usr/libexec/cabinetos-linkup-firewall \
+    /usr/lib/systemd/system/cabinetos-linkup.service \
+    /usr/lib/systemd/system/cabinetos-linkup-lock.service \
+    /usr/lib/sysusers.d/cabinetos-linkup.conf \
+    /usr/share/polkit-1/rules.d/69-cabinetos-linkup.rules \
     /usr/libexec/cabinetos-pads \
     /usr/lib/systemd/system/cabinetos-pads@.service \
     /usr/share/polkit-1/rules.d/67-cabinetos-pads.rules \
     /usr/libexec/os-session-select \
     /usr/libexec/cabinetos-system-disk \
+    /usr/libexec/cabinetos-grow-root \
+    /usr/lib/systemd/system/cabinetos-grow-root.service \
+    /usr/libexec/cabinetos-timezone \
+    /usr/lib/systemd/system/cabinetos-timezone@.service \
+    /usr/share/polkit-1/rules.d/68-cabinetos-timezone.rules \
+    /usr/lib/systemd/system/chronyd.service.d/50-cabinetos.conf \
     /usr/libexec/cabinetos-steam-download \
     /usr/libexec/cabinetos-steam-libraries \
     /usr/libexec/cabinetos-report \
@@ -105,9 +118,12 @@ for expected in \
     /usr/lib/systemd/system/cabinetos-drive-claim.service \
     /usr/share/polkit-1/rules.d/63-cabinetos-drives.rules \
     /usr/lib/udev/rules.d/90-cabinetos-system-disk.rules \
+    /usr/lib/udev/rules.d/71-cabinetos-motion-devices.rules \
     /usr/lib/udev/rules.d/72-cabinetos-wii-remote.rules \
     /usr/lib/udev/rules.d/99-cabinetos-wii-remote.rules \
-    /etc/ssh/sshd_config.d/30-cabinetos.conf
+    /etc/ssh/sshd_config.d/30-cabinetos.conf \
+    /usr/lib/NetworkManager/dispatcher.d/50-cabinetos-wifi-scans \
+    /usr/lib/NetworkManager/conf.d/50-cabinetos-wifi.conf
 do
     if [[ -e "${expected}" ]]; then
         log "  overlaid: ${expected}"
@@ -116,12 +132,15 @@ do
         exit 1
     fi
 done
+# A portable install fills its drive (cabinetos-grow-root); the one unit here
+# that is on at every start of every console, and does nothing off a USB drive.
+systemctl enable cabinetos-grow-root.service
 
 # ---------------------------------------------------------------------------
 # The licences, INSIDE the image.
 # ---------------------------------------------------------------------------
 #
-# This image contains twenty-two emulator cores. Most are GPL and six are free
+# This image contains twenty-three emulator cores. Most are GPL and six are free
 # for non-commercial use only, and the person most likely to redistribute it is
 # the one who does `docker pull` and never sees this repository at all. Terms
 # that live only beside the binaries are terms that do not travel with them.
@@ -226,6 +245,9 @@ log "base image has $(wc -l < /usr/share/cabinetos/packages-before-strip.txt) pa
 # checksummed. After the strip, so nothing it pulls in is taken out again.
 /ctx/install-sunshine.sh
 
+# What LinkUp needs (#654), for the same reason.
+/ctx/install-linkup.sh
+
 # ---------------------------------------------------------------------------
 # Enable SSH.
 # ---------------------------------------------------------------------------
@@ -313,7 +335,7 @@ log "base image has $(wc -l < /usr/share/cabinetos/packages-before-strip.txt) pa
 # cannot complete first run at all (open question 15b's one hard gate), and one
 # that cannot pair a controller finishes setup owning a games console nobody can
 # play from a sofa.
-# tailscale and tailscaled: Remote Play away from home (#286) runs the
+# tailscale and tailscaled: Tailscale's switch in Network (#286) runs the
 # command and starts the daemon. Bazzite's, like the three above.
 # wpctl: the volume keys (#351, volume.cpp). WirePlumber's, in the base.
 # pdfinfo and pdftoppm: a game's manual (#364, manual.cpp) is measured and its
@@ -352,6 +374,34 @@ for needed in /usr/lib64/libvulkan.so.1 /usr/lib64/libvulkan_radeon.so; do
         exit 1
     fi
 done
+
+# ---------------------------------------------------------------------------
+# The sound rule still fits WirePlumber (#655).
+# ---------------------------------------------------------------------------
+#
+# Fails the build, saying what to redo, if a WirePlumber update changed a step
+# the sound rule stands on: the rule failing would not stop the sound, only
+# send it to the wrong output on some PCs.
+/ctx/sound-output-rule.sh
+
+# ---------------------------------------------------------------------------
+# A backup sound output while the TV's is gone (#228).
+# ---------------------------------------------------------------------------
+#
+# Starts pipewire-pulse at every login of the console's user, so PipeWire's
+# Dummy Output catches the console's sound while the TV sleeps, and fails the
+# build if a PipeWire update moved the unit or that output's default.
+/ctx/sound-backup-output.sh
+
+# ---------------------------------------------------------------------------
+# Wi-Fi scans only on a weak signal, and Wi-Fi power saving off (#666).
+# ---------------------------------------------------------------------------
+#
+# Fails the build, saying what to redo, if a NetworkManager or wpa_supplicant
+# update changed what the scan rule replaces or stands on, or NetworkManager
+# no longer reads the power saving setting: either failing would not stop
+# Wi-Fi, only bring back a stutter in streamed games.
+/ctx/wifi-scan-rule.sh
 
 # ---------------------------------------------------------------------------
 # The console itself is NOT installed here, as of 2026-09-23.
@@ -501,6 +551,16 @@ done
 
 check_present "emulator flatpak manifest" /usr/share/cabinetos/flatpaks.list || failed=1
 
+# NO EMULATOR REACHES THE NETWORK (#557): every emulator in the image is
+# started under bwrap with no network (frontend/src/standalone.cpp). Without
+# it no PS3, Xbox 360, Wii U or Vita game starts.
+if command -v bwrap >/dev/null 2>&1; then
+    log "  ok: bwrap ($(command -v bwrap))"
+else
+    log "  MISSING: bwrap, which every emulator in the image is started under"
+    failed=1
+fi
+
 # SYSTEM UPDATE, docs/SETTINGS.md, System. The root half is a script that runs
 # these; every one is in the base today and none is something we install, so
 # a strip pass or a base bump that took one away would ship a console whose
@@ -595,10 +655,44 @@ for needed in python3 findmnt install; do
         failed=1
     fi
 done
+# A PORTABLE INSTALL, a disk image on a USB drive
+# (docs/decisions/2026-11-03-running-from-a-usb-drive.md): it fills its drive
+# at its first start, it hides the PC's own drives, and it keeps the PC's
+# hardware clock in local time, asking the time zone on first run's first
+# screen. An image with a zone of its own would never ask. The zone's helper
+# reads the PC's clock from the kernel's rtc0.
+for needed in sfdisk partx btrfs xfs_growfs resize2fs unshare lsblk realpath; do
+    if ! command -v "${needed}" >/dev/null 2>&1; then
+        log "  MISSING: ${needed}, which a portable install runs (cabinetos-grow-root, cabinetos-system-disk, cabinetos-timezone)"
+        failed=1
+    fi
+done
+[[ "$(systemctl is-enabled cabinetos-grow-root.service 2>/dev/null)" == enabled ]] || {
+    log "  MISSING: cabinetos-grow-root.service is not enabled; a portable would never fill its drive"
+    failed=1
+}
+for needed in /usr/share/zoneinfo/zone.tab /usr/share/zoneinfo/iso3166.tab /usr/lib/systemd/system/chronyd.service; do
+    if [[ ! -s "${needed}" ]]; then
+        log "  MISSING: ${needed}, which first run's Time zone screen and the PC's clock rely on"
+        failed=1
+    fi
+done
+if [[ -e /etc/localtime || -L /etc/localtime ]]; then
+    log "  WRONG: the image has a time zone ($(readlink /etc/localtime)); a portable would never ask for one"
+    failed=1
+fi
+if [[ "$(sed -n 3p /etc/adjtime 2>/dev/null)" != LOCAL ]]; then
+    log "  WRONG: /etc/adjtime does not say LOCAL; a portable would set a Windows PC's clock to UTC"
+    failed=1
+fi
+grep -q 'cabinetos-timezone@' /usr/share/polkit-1/rules.d/68-cabinetos-timezone.rules || {
+    log "  MISSING: 68-cabinetos-timezone.rules no longer names cabinetos-timezone@"
+    failed=1
+}
 # THE DIAGNOSTIC REPORT (#195) runs these. It survives any one being gone
 # (it says so in the report), but a report without the log or the hardware
 # list cannot find a fault, so a strip pass that removed one fails here.
-for needed in journalctl lspci lsusb lsblk lscpu nmcli bluetoothctl edid-decode vulkaninfo du; do
+for needed in journalctl lspci lsusb lsblk lscpu nmcli bluetoothctl edid-decode vulkaninfo du flatpak; do
     if ! command -v "${needed}" >/dev/null 2>&1; then
         log "  MISSING: ${needed}, which the diagnostic report runs"
         failed=1

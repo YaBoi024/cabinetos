@@ -26,6 +26,12 @@ namespace catalog {
 // the server and mean nothing on the other end — the reference implementation
 // says exactly that and it is right.
 //
+// NINTENDO 3DS THE SAME WAY (docs/PROJECT.md question 50): Azahar keeps a
+// whole 3DS under `Azahar/` in the save directory, and every game's save and
+// extra data are under its SD card's `Nintendo 3DS/`, rooted there. The save
+// directory holds one game, so the whole folder is that game's. Not the rest
+// of `Azahar/`: its NAND, system data and shader cache stay here.
+//
 // WII TOO, from 2026-09-30, rooted at `User/Wii/title` in Dolphin's user
 // directory, which is under this person's save directory for this game, so
 // it is a NAND of its own. A game saves to `<kind>/<code in hex>/data/`
@@ -149,6 +155,35 @@ enum class Untouched {
     // data file, 0xCC for a game and 0x00 for a free slot. So "this card holds
     // a save" is a fact the bytes state outright.
     VmuDirectory,
+    // A Saturn backup cartridge with no save on it (#346, step 11). Beetle
+    // Saturn puts one in almost every game (`beetle_saturn_cart` = Auto
+    // Detect, libretro.c at our pin) and formats it as the Saturn does: the
+    // format's name, `BackUpRam Format`, over the first 512-byte block, and
+    // nothing after (CART_Backup_Init, mednafen/ss/cart/backup.c). A save
+    // begins at a block from the third on whose first four bytes are 0x80 00
+    // 00 00, the mark Sigil lists a volume's saves by (src/card_saturn.c at
+    // RomM's pin); a save deleted on the Saturn loses that mark. So "holds a
+    // save" is one such block.
+    SaturnCartridge,
+};
+
+// WHAT ANOTHER EMULATOR'S SAVE MUST BE BEFORE THIS CONSOLE USES IT (#346, step
+// 8; decided 2026-10-12). A save a CabinetOS console made is used as RomM
+// stores it. Any other is asked of RomM in this console's own form (saveForm
+// below) and then checked: the size this core's file has, the marks its
+// format carries, and that it holds a save (holdsASave). One that fails is
+// not used, and the game starts from this console's own save with "Couldn't
+// use the newest save".
+struct SaveCheck {
+    // The sizes the file may have, in bytes; empty for any. A battery may
+    // be no longer than the core's, checked once the core is loaded
+    // (saves.h, coreReadsBattery).
+    std::vector<size_t> sizes;
+    // Bytes the format always carries, at `markAt` from the start, or from
+    // the end when `markFromEnd`; empty for a format that carries none.
+    std::string mark;
+    size_t markAt = 0;
+    bool markFromEnd = false;
 };
 
 // One file a core writes for itself.
@@ -166,51 +201,46 @@ struct SaveFile {
     // Sega CD is the case: `4Mbit_cart.brm` also ends in `.brm`, and without
     // this the cartridge and the internal RAM overwrite each other.
     std::string captureExclude;
-    // The extension this console uploads the row under, which is also how a
-    // restore tells two regions of one game apart. "srm" for the game's own
-    // save and "cart" for Sega CD's external RAM cartridge — the reference
-    // implementation's convention, and the reason its Lunar has two rows.
+    // Which of a game's saves this file is: "srm" for the game's own save,
+    // "cart" for a cartridge beside the machine's own memory (Sega CD's
+    // external RAM cartridge, Saturn's backup cartridge), "ps2" for a
+    // PlayStation 2 card. It is the extension of this console's own copy
+    // (saveRowName) and of the row a save from before save channels has on
+    // RomM, one row a region, which is how a start tells them apart
+    // (savepick.h, regionOfRow). A CARTRIDGE IS NEVER A SAVE'S ONE FILE: a
+    // snapshot's save that is one file is the machine's own memory, and a
+    // cartridge travels only in a zip beside it.
     std::string region = "srm";
     Untouched untouched = Untouched::Blank;
-    // What the row on the server calls the core, or empty when naming the game
-    // is enough.
-    //
-    // ARCADE AND ONLY ARCADE: one game can legitimately have two of these, one
-    // per emulator, and RomM matches a row for overwrite by FILENAME ALONE
-    // with the emulator tag not included. So two arcade cores both uploading
-    // `smashtv (Cabinet).srm` would quietly overwrite each other's high scores
-    // on the server despite being tagged differently — a fault nobody would
-    // see until the scores were gone.
-    //
-    // The strings are the reference implementation's, not this console's
-    // manifest names, and they were read off the rows already on the server
-    // rather than guessed: `smashtv (Cabinet fbneo).srm` and `lethalen
-    // (Cabinet mame2003Plus).srm`. Matching them is the point — see
-    // saves.cpp's saveRowName.
-    std::string coreRowName;
-    // DREAMCAST ONLY. Flycast keeps the VMU in the libretro SYSTEM directory —
-    // `bios/dc/` here — because libretro gives a core exactly one of those and
-    // that is where the core looks. It is the one file in `bios/` that cannot
-    // be fetched again, which is the last rough edge the folder layout left
-    // open: see docs/PROJECT.md, open question 18. So the card is placed there
-    // for the length of a session and taken back out afterwards, and what
-    // lives in `bios/dc/` at rest is `dc_nvmem.bin`, the console's own clock
-    // and language, which rebuilds itself if it is lost.
-    bool inSystemDir = false;
-    // NAMED THE WAY THE MAC NAMES IT, rather than this console's own
-    // `<game> (Cabinet).<region>`.
-    //
-    // PlayStation 2 is the platform where a save already existed on the
-    // server written by a DIFFERENT implementation of this same product, and
-    // RomM matches a row for overwrite by filename alone. Cabinet
-    // for Mac calls a PS2 card `cabinet-604.ps2`; this console would call it
-    // `Burnout 3 Takedown (Cabinet).srm`. Same bytes, same emulator tag, two
-    // rows — and a restore that never finds the card the person actually made.
-    //
-    // So there the Mac's convention wins, because matching it was the entire
-    // point. It is a deliberate exception to the naming rule above and
-    // not a drift into one.
-    bool macRowName = false;
+    // What another emulator's save of this file must be (SaveCheck).
+    SaveCheck check;
+    // THE CORE READS `path` ONLY WHEN NO FILE OF ITS OWN NAMING IS THERE, and
+    // always writes under that name. Dreamcast: with one card per game
+    // (MMagTech, 2026-11-17; `reicast_per_content_vmus` = `VMU A1`), Flycast
+    // reads `<disc's product number>.A1.bin`, else `<content name>.A1.bin`,
+    // and writes the first (getVmuPath, shell/libretro/oslib.cpp at our pin).
+    // So a start puts the person's card at `path` and takes away any other
+    // file ending in `captureSuffix`, which would be read first; a game on
+    // several discs, whose discs may have different product numbers, then
+    // finds the card from any disc. After the game the file the core wrote is
+    // read, moved to `path`, and is what travels.
+    bool coreNamesItself = false;
+    // THIS PERSON'S CARD FROM BEFORE, copied once to `path` when a start
+    // finds none there (MMagTech, 2026-11-17): Dreamcast's card lived in the
+    // system directory until #346, and this console kept each person's copy
+    // at saveRowName(stem, region) in the save folder (saves.cpp). The old
+    // file is left as it is.
+    bool fromFormerCopy = false;
+    // THE CORE WRITES IT ONLY AS THE GAME CLOSES (read off each core at our
+    // pin, 2026-11-19, #346): the save lives inside the core until then, so
+    // no moment of saving can be seen while it runs, and the save's picture
+    // does not look at it (savepicture.h). Flycast also writes a board's
+    // memory whenever a state is made, which is not the game saving.
+    bool writtenAtClose = false;
+    // ITS NAME IN A ZIP BESIDE THE BATTERY (SaveForm::batteryFirst), Sigil's
+    // for the device it is: `cart.ram` for Saturn's cartridge. Empty: the
+    // file travels under `path`.
+    std::string unitName;
 };
 
 // --- Firmware a core can actually find --------------------------------------
@@ -267,24 +297,25 @@ bool needsBios(const std::string& slug);
 FirmwareAliases firmwareAliases(const std::string& slug, const std::string& fsSlug);
 
 // What this platform's core writes, or empty for the cores that expose a
-// battery and need none of this.
+// battery and need none of this. Saturn has both: its battery, and its
+// backup cartridge beside it (SaveForm::batteryFirst).
 //
 // Keyed on the platform rather than the core, because one core serves several
 // systems and only some of them are in this class: Genesis Plus GX writes a
 // `.brm` for Sega CD and nothing at all for Genesis, Game Gear or Master
 // System, whose cartridges have real batteries the core exposes. The audit's
-// own table is the source; `stem` is the basename of the file the core was
-// handed, without its extension, which is what these cores name the save
+// own table is the source; `fileName` is the basename of the file the core
+// was handed, and without its extension it is what these cores name the save
 // after.
 //
-// EXCEPT ARCADE, which is keyed on `core`, the manifest name of the core the
-// game is actually running in (#310): one arcade folder can hold games for
-// both arcade cores, so the folder no longer says which file is written.
+// EXCEPT AN ARCADE GAME (`arcade`, catalog::Coverage::arcade), which is keyed
+// on `core`, the manifest name of the emulator its zip picked
+// (arcadematch.h): a folder no longer says which file is written.
 std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core,
-                                const std::string& stem);
+                                const std::string& fileName, bool arcade);
 
 // The tag a save or state is filed under on RomM, for a given manifest core
-// name. This is the compatibility marker: Cabinet greys out a state whose tag
+// name. This is the compatibility marker: Cabinet greyed out a state whose tag
 // does not match the core about to run, which is what stops someone being
 // offered a save that cannot load.
 //
@@ -293,11 +324,11 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
 // Linux x86-64 build AT THE SAME COMMIT; core-manifest.json pins that commit,
 // build-core.sh asserts it, and CI proved the artifact reproducible across two
 // machines. Those three together make a shared tag a fact rather than a hope,
-// and they are why a state written on an Apple TV loads on this console.
+// and they are why a state from Cabinet's Apple TV app loaded on this console.
 //
 // THE RULE, AS DECIDED 2026-09-23: every core that has states uses Cabinet's
-// tag for that emulator, so its states upload and Cabinet recognises them,
-// whether or not the other device can load a particular one. MMagTech:
+// tag for that emulator, so its states upload and Cabinet recognised them (as
+// Cabinet Go will), whether or not the other device can load one. MMagTech:
 // "regardless of if it will actually load". A state that will not load is
 // refused on the other side and costs nothing else; one that never leaves the
 // console is lost with it. Where a build is known to differ from Cabinet's,
@@ -337,6 +368,75 @@ const char* emulatorTag(const char* manifestCoreName);
 // Returns nullptr when even a save should stay local.
 const char* saveTag(const char* manifestCoreName);
 
+// HOW RomM HANDS THIS CORE A SAVE ANOTHER EMULATOR MADE, and the name the
+// console gives the core on everything it sends (#346, step 8; the plan's
+// "Checked against Sigil"). RomM converts a save through Sigil, the save
+// library it builds in, for whichever emulator a request names, and answers
+// with the files that emulator reads, by their paths in its save folder.
+struct SaveForm {
+    // Sigil's name for the core: its library name without `_libretro`, or
+    // the emulator's own id, as Sigil's layout table spells it. Four of this
+    // console's names differ: `beetle_*` is `mednafen_*`, `fbneo_libretro`
+    // is `fbneo`, and `mupen64plus` is `mupen64plus_next` (our build is
+    // libretro's mupen64plus-libretro-nx). Sent with every push as `core`,
+    // beside the tag the save travels under, so the same core in another app
+    // gets the same bytes (answer 7 of 2026-11-17), and named in every
+    // request. Empty for a core whose saves stay on this console.
+    std::string sigil;
+    // The core options that decide where this core's save lives, as Sigil
+    // reads them, sent with a request so RomM writes the file this console's
+    // core reads: Dreamcast's card per game, Sega CD's backup memory per
+    // game, PlayStation 2's card per game.
+    std::vector<std::pair<std::string, std::string>> options;
+    // The one profile this console's emulator keeps, for an emulator whose
+    // saves Sigil files under a profile (Switch, Wii U, PS Vita, PS3).
+    std::string profile;
+    // A folder save: what comes before this console's own root (its
+    // directorySaveRoot, or the emulator's saveRoot) in the paths of RomM's
+    // answer, each `*` one folder of any name. Empty for a file.
+    std::string answerRoot;
+    // SIGIL NAMES A DIFFERENCE between emulators' files for this system that
+    // RomM does not convert yet (MMagTech, 2026-11-17: DS, Game Boy Advance,
+    // Mega Drive, Master System, Game Gear, 32X). Another emulator's save is
+    // used only when RomM converted it or this core made it (RomM's own
+    // `may_load` rule: the core first, else the emulator). When RomM converts
+    // these systems, the same rule lets them through with no change here.
+    bool sameCoreOnly = false;
+    // THE CARTRIDGE'S CLOCK TRAVELS WITH THE SAVE (#346, step 11; the
+    // decision of 2026-10-12): Gambatte's, for Game Boy and Game Boy Color,
+    // its `RETRO_MEMORY_RTC`, 8 bytes, the time the game's clock counts
+    // from. A clock game's save is then a zip of Gambatte's own two files,
+    // `<game>.srm` and `<game>.rtc`, a shape Sigil reads as one from before
+    // it (Sigil's sync.md, "Units from before sigil") and converts for other
+    // emulators; the console writes no Sigil `clock.rtc` of its own. A
+    // change to the clock alone is no new save: Sigil's identity covers the
+    // RAM only. Snes9x's clock stays on the console (two games): Sigil does
+    // not convert it (its snes.md, open items).
+    bool clock = false;
+    // THE BATTERY IS THE SAVE'S FIRST PART, WITH THE CORE'S FILES BESIDE IT
+    // (#346, step 11): Saturn's own memory, which Beetle Saturn exposes, and
+    // its backup cartridge, `<game>.bcr`, a file it writes (saveFiles). The
+    // save is then a zip of the two under Sigil's names for them,
+    // `backup.ram` (kInternalVolume) and `cart.ram` (SaveFile::unitName), as
+    // Argosy sends them (MMagTech, 2026-11-20): Sigil reads those for every
+    // Saturn emulator it knows, where it matches Beetle Saturn's own names
+    // only for Beetle Saturn. The battery goes alone, as `<game>.srm`,
+    // while the cartridge holds no save: a formatted, empty cartridge is
+    // never sent.
+    bool batteryFirst = false;
+};
+
+// Sigil's name for a machine's own memory in a zip of its save (its
+// sync.md, "What syncs"): the battery's, beside a cartridge.
+inline constexpr char kInternalVolume[] = "backup.ram";
+SaveForm saveForm(const char* manifestCoreName, const std::string& platformSlug);
+
+// What another emulator's battery save must be for this system (SaveCheck):
+// its marks, and its size where every game's is the same. Any other battery
+// may be no longer than the core's, checked once it is loaded (saves.h,
+// coreReadsBattery).
+SaveCheck batteryCheck(const std::string& platformSlug);
+
 // WHETHER THIS SYSTEM OFFERS SAVE STATES AT ALL — docs/PROJECT.md, open
 // question 25. False for PlayStation 2, GameCube and anything later, and the
 // pause menu then has no Save state or Load latest state to press.
@@ -347,10 +447,18 @@ const char* saveTag(const char* manifestCoreName);
 // question: a PCSX2 state breaks when the image updates the emulator, these
 // consoles have memory cards every game uses, and their states open nowhere
 // else. PRECISELY: no states where they cannot be trusted to load, because
-// they cannot travel to Cabinet (GameCube: a different Dolphin on the Mac) or
+// they could not travel to Cabinet (GameCube: a different Dolphin on the Mac) or
 // break when the emulator updates (PS2: embedded PCSX2, not libretro). PSP and
 // DS are later consoles and keep theirs, because theirs are proven portable. A
-// new emulator is checked against that rule the day it lands.
+// new emulator is checked against that rule the day it lands. The 3DS is the
+// exception, by MMagTech's decision of 2026-10-20: a handheld, it has states,
+// though an Azahar update can strand them (savetable.cpp, emulatorTag).
 bool snapshotsAllowed(const char* manifestCoreName);
+
+// Whether a game on this core may rewind: never where snapshotsAllowed is
+// false, nor where making a state takes longer than a frame, since rewind
+// makes one every half second (Azahar, savetable.cpp). The pause shortcut then
+// says "No rewind for this system" (play.cpp).
+bool rewindAllowed(const char* manifestCoreName);
 
 }  // namespace catalog

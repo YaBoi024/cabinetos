@@ -61,6 +61,7 @@ on:
       - 'tools/core-info.c'
       - 'frontend/src/libretro.h'
       - 'frontend/Containerfile'
+      - 'ci/core-cache-key.sh'
       - '.github/workflows/build-core.yml'
   workflow_dispatch:
 
@@ -179,6 +180,8 @@ jobs:
           # GameCube, added 2026-09-21. Wii comes free from the same core when
           # somebody has Wii games to try it with.
           - dolphin
+          # Nintendo 3DS, Azahar's own core (docs/PROJECT.md question 50).
+          - azahar
 
     steps:
       - name: Checkout
@@ -208,12 +211,27 @@ jobs:
             echo "builder=cabinetos-builder" >> "$GITHUB_OUTPUT"
           fi
 
-      # A CORE CANNOT CHANGE UNLESS ONE OF TWO FILES DOES, so a cache keyed on
-      # them is not a guess about staleness — it is the whole input.
-      # cores/build-core.sh holds the pinned commit, the patches and the build
-      # arguments; frontend/Containerfile is the toolchain. Upstream cannot
-      # shift underneath either, because the checkout is by commit SHA and not
+      # A CORE CANNOT CHANGE UNLESS ITS OWN RECIPE, THE SHARED PART OF THE
+      # SCRIPT OR THE TOOLCHAIN DOES, so a cache keyed on those is not a guess
+      # about staleness: it is the whole input. cores/build-core.sh holds every
+      # core's pinned commit, patches and build arguments, each in that core's
+      # case arm and patch block, and the steps every core runs;
+      # frontend/Containerfile is the toolchain. Upstream cannot shift
+      # underneath any of it, because the checkout is by commit SHA and not
       # by a tag.
+      #
+      # ONE CORE'S PART, NOT THE WHOLE FILE. The key was hashFiles over those
+      # two files until 2026-10-20, when adding the 3DS's recipe (#524)
+      # changed every core's key and rebuilt all twenty-three: eighteen
+      # minutes of that day's testing build before the image could start
+      # (Dolphin alone is sixteen and a half). hashFiles cannot hash part of a
+      # file, so ci/core-cache-key.sh prints the key instead: the script with
+      # every other core's arm and patch blocks taken out, and the
+      # Containerfile. A change inside one core's arm or patches rebuilds that
+      # core alone; a change to any other line of the script, or to the
+      # Containerfile, rebuilds them all. Splitting the recipes into a file
+      # per core would let hashFiles do it, at the price of a new folder and
+      # every recipe moved; reading the arms where they are costs one script.
       #
       # Why it is worth the machinery: PPSSPP alone is eight and a half
       # minutes, FBNeo nearly seven, and build.yml builds every core before
@@ -224,6 +242,14 @@ jobs:
       # THE PINNED-REVISION ASSERTION STILL RUNS ON A HIT — see the step below
       # and the --verify-only block in build-core.sh. Skipping the proof to
       # save ten seconds would trade away the only thing this workflow buys.
+      - name: Name the cache after what can change this core
+        id: corekey
+        run: |
+          set -euo pipefail
+          key=$(ci/core-cache-key.sh "${{ matrix.core }}")
+          echo "${{ matrix.core }}: $key"
+          echo "key=$key" >> "$GITHUB_OUTPUT"
+
       - name: Restore the built core, if this exact one has been built before
         id: corecache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
@@ -231,7 +257,7 @@ jobs:
           path: |
             cores/build
             cores/system
-          key: core-${{ matrix.core }}-${{ hashFiles('cores/build-core.sh', 'frontend/Containerfile') }}
+          key: core-${{ matrix.core }}-${{ steps.corekey.outputs.key }}
 
       - name: Build the core
         if: steps.corecache.outputs.cache-hit != 'true'
@@ -277,9 +303,9 @@ jobs:
           if [ -n "$(ls -A cores/system 2>/dev/null)" ]; then
             cp -R cores/system/. artifact/system/
           fi
-          # An arcade core's set list, from its own DAT at the pinned commit
-          # (#310). Every other core writes nothing. Run on a cache hit too,
-          # since the list is not in the cache.
+          # An arcade emulator's catalogue, from its own list at the pinned
+          # commit (frontend/src/arcadematch.h). Every other core writes
+          # nothing. Run on a cache hit too, since it is not in the cache.
           cores/arcade-sets.sh "${{ matrix.core }}" artifact/cores
           find artifact -type f | sort
 

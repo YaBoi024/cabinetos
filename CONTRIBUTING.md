@@ -1,12 +1,13 @@
 # Contributing to CabinetOS
 
 This is for people who can program and want to find their way around
-CabinetOS, build it, test it, and change one thing safely without having to
-ask first (a new kind of part is the one thing to raise on an issue
-before building it). It is written from what the code does today. Where an older doc
-describes the code differently, the code wins; docs/PROJECT.md stays the
-record of what was decided. The known disagreements are listed at the end of
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+CabinetOS, build it, test it, and change one thing safely. A small fix needs
+no asking; anything that decides something new is raised on an issue first
+("Pull requests and issues", below). It is written from what the code does today. Where an older doc
+describes the code differently, the code wins; docs/decisions/, and
+docs/PROJECT.md before it, stay the record of what was decided. Any known
+disagreement is listed in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md),
+section 7.
 
 **Read in this order:**
 
@@ -37,13 +38,14 @@ downloads a whole new image and boots into it.
   how a console is recovered by hand: docs/WORKING.md, "Machines".)
 - **The frontend is one C++20 program** (SDL3, EGL with OpenGL ES 3, and a UI
   layer of its own, no toolkit). It draws every screen, and it hosts the
-  emulators: 22 libretro cores and PCSX2 (PlayStation 2, built as a library)
+  emulators: 24 libretro cores and PCSX2 (PlayStation 2, built as a library)
   run inside its process.
-- **Five emulators run as separate programs**, started and stopped by the
+- **Eight emulators run as separate programs**, started and stopped by the
   frontend like a game: Eden (Switch) and xemu (Xbox) from Flathub, and RPCS3
-  (PlayStation 3), Xenia Edge (Xbox 360) and Cemu (Wii U) built into the
-  image. Steam's Big Picture is a sixth, an optional entry that hands the
-  screen over and comes back.
+  (PlayStation 3), Xenia Edge (Xbox 360), Cemu (Wii U), Vita3K (PlayStation
+  Vita), sm2-emu (Sega Model 2) and Supermodel (Sega Model 3) built into the
+  image. Steam's Big Picture is a ninth,
+  an optional entry that hands the screen over and comes back.
 - **Everything comes from RomM:** games, covers, firmware, saves and save
   states. The console keeps a cache of downloaded games and its own
   settings, and nothing else the server does not know. Updates come from the
@@ -88,11 +90,28 @@ podman run --rm -v "$PWD":/src:Z -w /src cabinetos-builder make
 Unlike the frontend's, its Makefile lists its source files by hand: a new
 file there must be added to `wiibridge/Makefile`. `make test` there builds
 and runs its one test, `wiibridge/pacing-test.cpp` (#480): two Remotes on
-socket pairs through the bridge's own loop, no hardware. CI does not run
-it yet.
+socket pairs through the bridge's own loop, no hardware.
+
+**LinkUp's program** (`linkup/`, its own program so a firewall can tell it from the frontend), in the
+same builder, with the whole repository mounted, because it borrows the frontend's `fileio.cpp` and
+`linkup_wire.h`, from the repository root:
+
+```bash
+podman run --rm -v "$PWD":/repo:Z -w /repo/linkup cabinetos-builder make cabinetos-linkup
+```
+
+Like the bridge's, its Makefile lists its files by hand. `make test` there builds and runs
+`linkup/noise-test.cpp`: its hand-written Noise against the published vectors and the server's own
+answers, names cleaned on the way in, sealed boxes that do not fit, what an address means, and the
+friend's sound queue keeping a host's pace, simulated, no network and no hardware. `tools/linkup-interop.sh` holds the rest of what it says to a server
+against two real containers, on a Linux machine with podman; `make linkup-probe` builds what it drives.
+What a console and a server say is `PROTOCOL.md` in MMagTech/cabinet-linkup, and CabinetOS pins the one release it is tested against in
+`ci/linkup-server.txt`. `--linkup-gallery` shows every screen with made-up friends and needs no server;
+`--linkup-script "<steps>"` runs a real session between two real consoles with nothing pressed
+(`frontend/src/linkupsession.cpp` lists its steps).
 
 **A libretro core:** `cores/build-core.sh <core>` from the repository root,
-where `<core>` is the name of one of its `case` arms (the same 22 names as
+where `<core>` is the name of one of its `case` arms (the same 23 names as
 `build-core.yml`'s list). Git runs on the host and the compile runs in
 `cabinetos-builder`, so build that first. Each arm holds the core's
 upstream, pinned commit and make arguments. The result lands in
@@ -101,18 +120,25 @@ folder by itself (`--core-dir` points it anywhere else; with neither, it
 uses the image's `/usr/lib/cabinetos/cores`). The script then checks the
 core's options against `cores/options/<core>.txt` and prints any
 difference; for a new core, that printed list (from `tools/core-options.c`)
-is what the file is made from. **PCSX2, Cemu and Sunshine** (Remote Play's
-streaming host) each have a script beside it, `cores/build-pcsx2.sh`,
-`cores/build-cemu.sh` and `cores/build-sunshine.sh`, which builds its own
-container from `cores/<name>-builder/` the first time. Each script's header
-says how to run it.
+is what the file is made from. **PCSX2, Cemu, sm2-emu, Supermodel and
+Sunshine** (Remote Play's streaming host) each have a script beside it,
+`cores/build-pcsx2.sh`, `cores/build-cemu.sh`, `cores/build-sm2emu.sh`,
+`cores/build-supermodel.sh` and `cores/build-sunshine.sh`, which builds its
+own container from
+`cores/<name>-builder/` the first time. **MAME 0.289** is
+the one core not built: `cores/fetch-mame.sh cores/build` fetches
+libretro's own build, checks it against its pins, and adds its plugins and
+its catalogue (docs/decisions/2026-10-28-prebuilt-mame-core.md). Each
+script's header says how to run it.
 
 **The whole image** is normally built only by CI (`build.yml`). On a Linux
 box it is `ci/stage-image-payload.sh` with no arguments, which collects and
 checks your local builds into `image_payload/`, then `just build`. It needs
-every piece built first: the frontend, the Wii bridge, all 22 cores,
-PCSX2, Cemu and Sunshine under `cores/build/`, the two arcade cores' set
-lists (`cores/arcade-sets.sh`) and PPSSPP's and Dolphin's files in
+every piece built first: the frontend, the Wii bridge, LinkUp's program, all 23 cores,
+MAME 0.289, PCSX2, Cemu, sm2-emu, Supermodel and Sunshine under `cores/build/`,
+the arcade emulators' catalogues (`cores/arcade-sets.sh`, sm2-emu's into
+`cores/build/sm2emu/` and Supermodel's into `cores/build/supermodel/`) and
+PPSSPP's and Dolphin's files in
 `cores/system/`. That path is not walked
 through here; read the Justfile's `build` recipe first.
 
@@ -153,8 +179,12 @@ presses would land on a Home nobody can see yet and be dropped. It does not
 reach first run's screens, which run before it. Its words are `up`, `down`,
 `left`, `right`, `a`, `b`, `l1`, `r1` and a PIN digit; `key:<name>` (a key
 by SDL's name, `key:]`, `key:F5`), `held:<name>` (the system's repeat of a
-key already down) and `start` (the pad's Start) go through the event
-handler, `input.cpp`, as SDL's own events do.
+key already down), `start` (the pad's Start), `pad:<name>` (a pad button by
+SDL's name, pressed and let go: `pad:y`, `pad:dpup`) and `text:<text>` (what
+a physical keyboard types) go through the event handler, `input.cpp`, as
+SDL's own events do. The on-screen keyboard is driven only that way:
+`--keyboard --nav "text:romm,pad:dpup,pad:dpup,pad:dpleft"` puts focus in its
+field with the cursor before the last letter.
 
 `--no-setup` skips first run; on a machine with no server address it shows
 a stand-in library of six made-up games. The server is the first of
@@ -173,7 +203,9 @@ the server for a real code, which expires by itself: `--setup` walked to
 the pairing step, or `--setup --setup-step pair`, reaches your real server,
 so point it at the read-only relay, which refuses that request (a POST), unless
 a real code is what you are checking. `--setup-step <name>`
-opens it at `network`, `server`, `pair`, `controller` or `done`; Wi-Fi is
+opens it at `timezone`, `network`, `server`, `pair`, `controller` or `done`
+(first run itself opens at `timezone` only on a console with no time zone,
+`timezone.h`); Wi-Fi is
 part of `network`.
 
 **Reports that print and quit before a window opens**, so over SSH they
@@ -185,6 +217,7 @@ leave a console's screen alone:
 | `--network` | the link, the Wi-Fi radio, and whether this session may save a Wi-Fi network (`--network-scan` adds the networks in range) |
 | `--storage` | the storage root, each drive's free space, floors and evictable games, and who kept what |
 | `--core-options` | every option every core in the core folder declares, and what the console answers it |
+| `--arcade-changes <old> <new>` | every arcade set whose emulator differs between two folders of catalogues, or whose files changed in the emulator that keeps it (CI runs it, `ci/list-arcade-changes.sh`) |
 
 `--launch <id>` and `--download <id>` press Play and Download for a game by
 its RomM id once Home is up, and `--unkeep <id>` removes its download
@@ -195,24 +228,59 @@ with 0 when it passes, and CI runs every one ("What CI checks"):
 
 | Flag | What it checks |
 |---|---|
-| `--first-run-rules` | all 144 combinations of facts first run can be handed, asserting what it must refuse |
+| `--first-run-rules` | all 576 combinations of facts first run can be handed, from the network and from the time zone, asserting what it must refuse |
 | `--first-run-writes` | that finishing first run actually sticks |
 | `--accounts-test` | the rules for the people on a console and switching between them |
-| `--players-test` | the rules for which controller is which player |
+| `--players-test` | the rules for which controller is which player, and LinkUp's friend as player two: no third seat, a TV's other controllers heard by no game, and the TV's numbers back as they were |
+| `--tilt-test` | a controller's motion sensors for a game that asks (`tilt.h`), on two controllers made inside the test, one with an accelerometer and a gyroscope and one with neither, and no real controller opened: asking says yes only for the one with them, what it reads is SDL's own numbers, player 1 never reads player 2's controller, an empty seat reads nothing, off stops the sensor, the request stays with the player's seat when a controller leaves, a new one arrives or two swap, and a reset turns every controller's sensors off |
+| `--fightstick-test` | which fight sticks are known, and where a game's buttons go on one: every count of buttons in the arcade cores' orders, a Naomi board's in Flycast, MAME 0.289's from its catalogue's count with its 7th and 8th on the stick clicks, and no layout for any other pad or a Dreamcast game |
+| `--guitar-test` | which controllers are guitars, by name, by the XInput subtype in their USB descriptors and by the rows measured on a console, and that an ordinary pad is not one; a guitar's whammy and tilt as PCSX2's guitar takes them and in a PS3 guitar's shape, the tilt held through a flicker, and the lines RPCS3 is given for its Guitar Hero and Rock Band guitars |
+| `--arcade-settings-test` | holding Start in an arcade game: a hold of about a second presses a MAME's menu key once, in MAME 2003-Plus or MAME 0.289, or a Naomi or Atomiswave board's Test button in Flycast, a tap or a shorter hold presses nothing, a second hold closes MAME's menu, player 1's left stick click never reaches MAME 2003-Plus and does reach MAME 0.289 (its button 7), no player's stick clicks reach a board, and nothing changes on FinalBurn Neo, a Dreamcast game or any other core |
+| `--arcade-match-test` | which emulator plays an arcade game (`arcadematch.cpp`), on catalogues written in the test: by the zip's name for a grid, by its files and CHDs at Play, an emulator that marks the set not working skipped, MAME 2003-Plus before MAME 0.289 and never for a 7z, a disc going to the MAME its CHD was made for, a disc name with spaces, a light-gun game greyed for a light gun, one any list marks as made for anything but a controller not supported, a Dreamcast zip only Flycast's, and the reason when no emulator's files fit |
+| `--arcade-tile-test` | the Library's one Arcade tile (`library.cpp`, `tileGroups`): every arcade label, RomM's and the boards', in it and none left a tile of its own, one folder alone the Arcade tile too, its query naming each folder once in id order, every arcade folder called Arcade and every other platform keeping RomM's name, and an arcade game's card saying Arcade with its folder kept for the tile's line |
+| `--screen-view-test` | a DS or 3DS game's screens: player 1's L3 shows the top screen alone, the bottom alone, then both, once per press however long it is held, and never reaches the emulator; on the DS, R2 is the lid (melonDS's L3) and never its swap, and the microphone and the touch go through; on the 3DS, the touch, ZL and ZR go through; both is the layout a 3DS game starts with; a new game starts with both; and nothing changes in any other game |
+| `--controls-test` | an arcade game's Controls: every state a person can reach by every press, from the default, on a pad and on the fight stick (each press a swap or a move, two buttons never on one, nothing lost, every refused press changing nothing), which buttons are rows and what they are called, a trigger's pull following its button, and the file written, read back after a hand edit, and deleted by Reset |
+| `--netblock-test` | that no emulator reaches the network (`netblock.cpp`): the program's own `socket`, lookups and `pthread_create` are what every library reaches; code standing in for an emulator is refused an IPv4, IPv6 or raw socket and every lookup, and so is curl inside its call, on curl's own lookup thread; a Unix socket, and the console's own sockets and lookups, even from inside the emulator's call, are left alone |
+| `--idle-test` | the screen's dim and off, and the 3 seconds after a wake in which no press does anything in a menu |
+| `--keyboard-test` | the on-screen keyboard (`keyboard.cpp`): typing and del at the cursor, a two-byte character stepped over and deleted whole, Up from the digits into the field and Down or A back to the key it left, an address kept behind a message brought back to fix but not while the panel waits; Shift's one press capitalising the next letter only (a digit leaves it waiting), two locking capitals on through show and hide, three turning them off; a held direction moving once, again after the console's delay and faster after, stopping only when that direction is let go, circling a row; a held X deleting the same way until the field is empty, and a tap deleting one character; and a held Up out of Search's field reaching the results once |
 | `--battery-test` | how a controller's battery reading becomes the row in the top bar |
 | `--volume-test` | the volume keys' rules |
 | `--playtime-test` | time played: the clock and what is reported to RomM |
 | `--disc-test` | the rules for games on several discs |
 | `--same-names-test` | the diagnostic report's list of games with the same name |
-| `--files-test` | that a full disk leaves the file it was replacing whole, credentials stay 0600, a cut save's marker is not counted as owed, two settings changed at once both stick, the cover sweeps spare the tile map, a cover being written and what a link points at, and a game's archive keeps its folders and refuses a name outside them or one that comes twice |
-| `--check-option-tables cores/options` | that every option the console sets (`coreoptions.cpp`, `quality.cpp`, `sysopts.cpp`, and the Wii's rumble in `wii.cpp`, with every answer that depends on the machine or a setting) exists in the core it is set on, and that every libretro core in `catalog.cpp`'s table has its list in `cores/options/` (CI runs it as a step of its own) |
+| `--linkup-test` | LinkUp's rules with no network in them: the friends list's order and its names, the pairing code's format, and the idle rule: a pause at 10 minutes with no press, never over a menu, and the session's end 25 minutes after the last press whatever is on the screen |
+| `--linkup-pad-test` | a LinkUp friend's controller at both ends (`linkup_pad.h`), on controllers made inside the test and no network: the friend's console sends its presses and tilt with the sensors its controller has, never the console's own button, and, while its own panel is up, lets go and holds the controller still; the host reads an older console's shorter state as a controller with no sensors, seats the friend with exactly the sensors theirs has, so a game asking player 2's hears none for a controller without them, reads back the friend's numbers in SDL's units, and a controller lying flat and still for a sensor the friend's no longer has; for the idle rule, a state sent again or a tilt alone is no press, and a button going down or a stick past the deadzone is |
+| `--files-test` | that a full disk leaves the file it was replacing whole, credentials stay 0600, a cut save's marker is not counted as owed, two settings changed at once both stick, the cover sweeps spare the tile map, a cover being written and what a link points at, and a game's archive keeps its folders and refuses a name outside them or one that comes twice, and is not unpacked again at a later start, but is when a file that came out of it was changed or cut short, its unpacking was cancelled, or it was downloaded again |
+| `--gone-games-test` | a game RomM no longer has (#625, `gonegames.h`): gone only when its own entry answers 404 to every person on the console, never for a 5xx, a 403, no answer, a list that does not come or a game another person can see; and on a scratch drive, a played copy with its manual, a download kept by two people with both keeps, the record and the covers removed, a game being played or still holding Xbox saves left, a game RomM has untouched; then every person's saves, states, screenshots, owed snapshot, copy of RomM's saves and the snapshot the console holds of it removed, the signed-in person's owed save and owed snapshot only once RomM has refused each this run, a person's saves still in an emulator's folder left with their owed snapshot, and a live game's owed save still owed |
+| `--save-notes-test` | what the console remembers about each game's save (#346, `savemirror.h`, `pending.h`), in a scratch root: RomM's save channels as last seen read back with every field, an empty one and a hardcore one among them; each current's save kept by its hash and dropped once no channel holds it, RomM's old rows and their bytes beside them each left by the other, and channels that are not a list read as none; forgetting RomM's copy leaves the snapshot the console holds, with every save's hash it has had, and a game gone takes it; a game's owed snapshot read back with every field, replaced whole by a newer one, cleared by a push that lands only while it is the one that push sent, and a cut write's temporary no marker; and the markers today's version writes, one per file, written as it writes them, read back beside an owed snapshot as the upload queue sends them, each cleared on its own; and the files a game's save channels can be on (step 12): its game files, never a manual or an update, with the one RomM makes new channels on, read from its files and from its own entry by one rule, kept in its record, kept when RomM's list writes the record again, and replaced by what RomM says later |
+| `--save-pick-test` | which save a start continues from (#346, `savepick.h`), on a table of cases with no server: this console's own save the newest, another console's newer (with the pill), two channels, a hardcore one the newest, a save not yet sent winning, an empty save on RomM never taken, the server away, RomM's saves from before channels against a channel's (the one stored later, and never a snapshot's save taken for an old one), and another emulator's save, in a channel or another app's in no channel, named to be asked for in this console's form, with the newest this console can use when it could not be, the session told (step 8), and RomM's `may_load` rule, and an arcade game refusing every other app's save; the pill "Continuing from another device" only when the console's note or RomM's says the save was made elsewhere, never for a save of its own that RomM's website put back on top, never after a reinstall unless another app's device made it and no console holds it, and never for the bytes it already had; the note a start leaves; then, in a scratch root with no core, a core's save file and a save folder written from a snapshot and from an old save, the save each replaces kept aside first (one copy a game, under its name in the save folder) and only when it differs, a zip of two save files each to its own file, and an empty save, a pick of the console's own and a fetch gone stale each leaving the console's own; and a snapshot that changed only its states dated by its save's own row, for the pick, the page's "Saved" line and a save from before channels weighed against it; and a save from before channels that a start put in place brought into a channel (step 7): which rows, as RomM's copy of one (a battery, a core's first file, a save folder's zip) or one zip of several (Sega CD's two), none from a start of the console's own or from a channel, from one that could not use the newest, of a snapshot's save or a row RomM did not list, nor GameCube's card from before #344; the game's push marked by the start, into "default" or onto the snapshot held, made when RomM stored the row, carrying the states owed before it, never over a save of the console's still owed, and no save the console owes; nothing for a row that held no save; then another emulator's save (step 8): RomM's answer put in this console's form for every system (a battery, a clock's zip, Dreamcast's card under the disc's number, Sega CD's two files, a PS2 card, a save folder under its emulator's root) and each system's check refusing a wrong size, a wrong mark and an empty file, the core's name in Sigil's spelling and the systems marked "Sigil names a difference"; another app's save in no channel put in place with the pill and nothing held, and a start that could not use the newest saying so; and Sigil's shape for Wii and 3DS zips, both ways, with a zip from before read as it is; then the clock and Saturn's cartridge (step 11): RomM's answer for a Game Boy cartridge with a clock kept as a zip of its battery and clock, a Super Nintendo clock left out, Saturn's internal memory with a cartridge holding a save zipped under Sigil's names (`backup.ram`, `cart.ram`), the cartridge found by its end or its name, an answer under Sigil's names read the same, a cartridge alone a zip of it alone, an empty one left out and one of another size or with no format's name refused, and Saturn's one file handed over as stored its battery; a start writing a zip's cartridge to the cartridge, never a snapshot's one file, and never a cartridge with no save over one with a save; the empty-cartridge rule; a battery's zip read for its battery and its clock, and which clock a start sets (RomM's with a battery that is new to the console, else the console's own); and a battery with its clock from before channels brought in as one zip, a clock or a cartridge alone never as a save's one file; then Switch saves through Sigil (the Switch step): a push in Sigil's unit, the profile's `<title>/...` and the device's `device/<title>/...`, without Eden's folders above them, the size file or another profile's saves, held name for name and byte for byte to the pinned Sigil's own collect; a start putting each back under the profile and the device's folder, a Switch zip from before under the profile whole, and a leave sending the same unit back and nothing for a size file or another profile's folder alone; another app's unit restored by Sigil for Eden, with its device save, Animal Crossing's from before Sigil in the device's folder, and another game's, an empty zip or nothing refused; and the game's ID read from a name when Sigil cannot open the dump |
+| `--save-push-test` | leaving a game (#346, `savepush.h`), in a scratch root with no server and no core, against a stand-in for RomM that answers as scripted and keeps what it was sent: what a session left for a battery, one file a core wrote, two files (one zip, each under the path its core reads it from, which a start writes back as the two files) and a save folder, Dreamcast's card, one per game in the game's folder (the card from before copied once to the game's name and kept; the card Flycast wrote under the disc's number moved back to the game's name on leaving and sent; one left under the number by a crash read and moved; and put under the game's name by a start on another console; a game on several discs named after its disc list), nothing changed marking nothing, a zip's name outside ASCII marked UTF-8 and such a zip read back and unpacked whole, a name that is not UTF-8 put in unmarked as its bytes, hashed as RomM reads it (CP437) and read back and unpacked as the same bytes, a name marked only when it is UTF-8 by the strict rule RomM reads it by, and a save file owed from before save channels no longer owed once the snapshot is; where a push is aimed: the snapshot the console holds, the person's "default" when it holds none, "softcore" for a session that started from a hardcore channel, and what an unsent push could not go on top of carried to the next; then every answer: made (a channel RomM makes, and on the snapshot held, with the copy for offline), unchanged, the channel moved on (put on top with no bytes when this console's save was made later; left beside the current when the other was, when the session could not use the newest save, or when it moved on again; bytes sent again when RomM asks), a hardcore channel never saved into, by RomM's list or its 409, a refusal leaving the save owed, a snapshot or channel RomM no longer has asked once more and no more, no answer, a RomM too old for save channels asked nothing and the push waiting, then going as it was owed once RomM has them, a game in play keeping its owed snapshot, the game's files asked for when unknown or stale and the channels listed on every one, a push into a channel naming that channel's own file and only a channel RomM makes the file it names for new ones (a `.cue` added beside the CHD a channel is on: the push into it lands, a console that holds nothing goes into the person's "default" on the CHD and makes no second one, and "softcore" on its own file or made on the new one), and nothing pushed when RomM names no file for a new one, a game RomM no longer has, the save's file gone, and a newer save marked while the older was on its way going up next on top of it; then the states (step 6): Save state marking one owed at once, states alone, which holds no start back, the newest three kept, a save marked at the leave carrying them, leaving a game that owes only states queuing its push, states alone aimed as a save would be and a core with no state tag marking nothing; what a game offers (of RomM's list of the game's states, the three newest under the console's own name wherever they are, one from before channels among them and another app's not, dated by the time in each name or else when RomM stored it; the ones made since and still owed first, off the console when it has the file, one state and not two when RomM lists an owed one; offline, and for a core whose states never leave the console, the console's own files); a push naming those three in slots 1 to 3, newest first (the new ones with their bytes and pictures, RomM's by hash, read off this console's copy, the channels' currents or the channel's history asked once, one with no hash left out, a state made here named even when RomM has three newer, no save so the snapshot's is carried), RomM's list not had leaving it owed, the save's date kept, this console's copy of a state the push did not name let go and the named ones and one made while the push was on its way kept; states alone going onto the channel's current as RomM lists it, beside another device's newer save, the note of the snapshot held keeping this console's own save so the next start says "Continuing from another device", going again onto a current that moved on while they were sent, and left beside a current whose save is another emulator's or from a session that could not use the newest; a save and states put on top naming neither, states alone waiting while the game has a save from before channels on RomM or on the console and going with no save when it has none, a named state RomM lacks sent from this console's copy under the name it gave it, with its picture, or dropped with the slots closing up, a state from before channels named by its copy's hash and sent when RomM asks, a state's marker from before save channels adopted into its game's push, its file deleted by hand sending nothing, and a channel that moved on to a snapshot of states alone dated by its save's row, so a later save of this console's goes on top; then the save's picture: sent in the same push as the save, named after it, its file deleted once the push lands, a picture whose file is gone sent or named by no push, and a sitting that took none owing none; then saves from before channels (step 7): the push a start owes sent as RomM's copy of the row (no hash, no bytes), the console then holding that snapshot made when RomM stored the row and keeping the row's bytes as the copy's for offline (not when RomM's copy is other bytes); a row changed, deleted or now in a channel since the start not brought in; a channel that moved on taking the copy on top only when RomM stored the row later; states owed before the start, the console's own from before channels (sent as their bytes) and one made in play going with it, and the session's own save at the leave taking its place; Sega CD's two rows sent as their zip; and a save's marker from before save channels made the game's push (its file, made when written, into "default"; two files zipped under their own names, the states owed carried; beside a push of the console's own, only gone); which ends of a push stay owed (no answer and a RomM too old for channels tried again on the timer, a refusal not); then a game in a core that never ended (step 9): the note a start writes and what it reads back as, nothing for a battery, nothing sent when nothing was written after it, what the core wrote after it sent as the session's snapshot (owed, made when the core wrote it, under the name a leave gives it), a file that fails the save check not kept, a note with no time taken away, and a save folder sent whole or not at all; then a battery with its clock or its cartridge (step 11): a Game Boy clock game's save a zip of `<game>.srm` and `<game>.rtc`, sent naming `gambatte`, a change to the clock alone marking nothing, no clock the battery as it is and a Super Nintendo clock left on the console; Saturn's battery with a cartridge holding a save one zip under Sigil's names, written back on another console as the cartridge's file and the battery, an empty cartridge or none never sent, a save to the cartridge alone sent with the battery the console last had, and a Saturn game that never ended sending the cartridge it wrote; and a battery and its clock from before channels one zip of the two rows |
+| `--save-picture-test` | the save's own picture (#346, `savepicture.h`), in a scratch root with no core, no screen and no server, against a pretend game whose battery, files and save folder the test changes as a game would and whose frame is a plain colour saying when it was taken: no change and no picture, nor for a battery the core reports none of; the first look that sees a change taking none, and the next look, the save as it was, taking the picture of that moment, made no wider than 640 with its shape kept; a save changing at every look taking none until it stops; a newer picture replacing the sitting's earlier one, one a game; a save left before it settled pictured as the game is left; the snapshot owed naming the picture after the save, a state made after keeping it, a sitting with no save keeping the one still owed, a newer save's picture deleting the older save's, and the picture going with its marker; a picture no snapshot names deleted at the game's next start, and no frame meaning no picture; a core's file written again with the same bytes, one a core writes by starting up holding nothing, and one the core writes only as the game closes (written in play, as Flycast writes a board's memory for a state), taking none; a game with a save folder reading no battery, and any file of the save taking one; for an emulator run as a program, gamescope asked on the worker and never the caller's thread, its picture read back once its size stops changing (the whole of it) and made 640 wide, its own file deleted, the picture named in the playing note for a power cut's recovery, none for a program that went by itself after another save, one asked as it closes and kept though it writes the last of its save closing, gamescope writing nothing given up after ten seconds, and the next save still getting its picture; PlayStation 2 in its own window taking gamescope's picture while it plays, PCSX2's frame never read then, and PCSX2's frame as it is left; and the shrink averaging the pixels it covers and leaving a smaller picture as it is |
+| `--vectrex-sheets-test` | which Vectrex game takes which screen sheet: RomM's md5 first, then the longest name token, and the sheets that never shipped drawing nothing, against `frontend/data/vectrex-overlays.json` |
+| `--gpu-choice-test` | which GPU the games draw on (#659, `gpu.h`), on made-up devices: with one GPU that one; with two, the one the screen is on, in either order and whether or not it is the discrete card; the screen's GPU not known or not among them, a discrete card first and then the first listed; no device, none |
+| `--tailscale-switch-test` | Tailscale's own switch (#286, `tailscale.h`), on every combination of Tailscale, Remote Play and the update's step saved: the step turns off only a Tailscale saved on with Remote Play off, never turns one on, leaves Remote Play alone and changes nothing a second time; the boot script's rule and the app's agree on the first boot after the update, and after the step the switch alone decides |
+| `--update-romm-test` | which RomM a console update waits for (#346, `update.h`): RomM 5.4.1 is too old for an update that needs 5.5, RomM's alpha 5.5.0-alpha.2 and 5.5.0 are new enough, each part compared as a number with a missing one as 0, anything after a "-" or "+" not read; a server never heard, "development" (a RomM built from source) or anything else that is not a version is unknown, never new enough; an update that names none waits for nothing; and the status file's `romm=` line read as written |
+| `--game-events-test` | Game events (#716, `gameevents.h`), with a receiver on loopback inside the test and no other network: every message with every field, a LinkUp friend's (joined) without `rom_id`, `system` and `cover`, and a hosting console's saying so; the home-address rule on a table of addresses, a name that gives one public address among private ones refused, and a public address refused before anything connects; the knock first on each network, nothing else sent on a network that did not answer it, and nothing with no network; a redirect not followed; a slow receiver given up on at five seconds without holding the caller; and with no address, no sender and nothing sent |
+| `--romm-snapshots-test` | RomM 5.5's save channels in the RomM client (#346, `romm_snapshots.cpp`), against answers recorded from RomM 5.5.0-alpha.2 and no network: the heartbeat's save channels block read in 5.5's and missing from 5.4.1's; RomM's content hash of a save, a state and a zip (each file's under its name, sorted, a folder and a name marked UTF-8 among them), a zip the console makes hashed by the same rule, names that are not UTF-8 among them (left unmarked, read as CP437 and sorted as that text, against RomM's own function run by Python), the marks of a zip's names read from its central directory, and bytes that only begin like a zip hashed as bytes; a game's channels read whole, each current's save and state by hash with the names they were pushed with, the picture, the device and who holds it, and a hardcore channel; every answer to a push: bytes missing, made, unchanged, moved on (from the current expected, and from an older snapshot) and hardcore, and refused: a wrong hash, a file RomM does not have, a 400 that names nothing missing, a 201 that is no snapshot, a 409 RomM never sends; and the manifest: a new channel with no id and no parent, an empty channel expected as null, the save by hash, shape and format with the emulator's and the core's names, the save and the states carried from the parent when not named, an older parent named, the states a core at a time, and a save RomM copies in named by its row's id with no hash |
+| `--dualsense-test` | the stand-in DualSense (#669, `vdualsense.h`), made for real through `/dev/uhid` beside two test pads, one with sensors and one with none: the kernel's driver made its gamepad, motion and touchpad devices with one uniq; the console refuses to seat it and the player count stays; SDL, standing in for the emulators' (Eden, Cemu, Vita3K), takes it as a game controller with the GUIDs Eden's lines and Cemu's profile carry, pairs its motion device (the udev rule) and reads a written tilt back in SDL's units, and a press and a stick where the layout puts them, by its own mapping and by the console's line; a pad without sensors gets a stand-in on which SDL finds none; rumble comes back; closing takes every device away. On a machine with no `/dev/uhid`, which CI's builder is, it says so and passes |
+| `--check-option-tables cores/options` | that every option the console sets (`coreoptions.cpp`, `quality.cpp`, `sysopts.cpp`, the Wii's rumble in `wii.cpp` and the Vectrex sheets' fit in `vectrexsheets.cpp`, with every answer that depends on the machine or a setting) exists in the core it is set on, and that every libretro core in `catalog.cpp`'s table has its list in `cores/options/` (CI runs it as a step of its own) |
 
 `--romm-race-test <address> <seconds>` checks the RomM client's thread rule
 under load, against the stand-in server `tools/racemock.py <port>` only
 (start it, then `--romm-race-test 127.0.0.1:<port> 30`; it exits 0 when
 nothing went out wrong); do not point it at a real RomM.
 
-**Every flag is in `frontend/src/cli.cpp`**, 105 of them plus
+`--motion-device-test` checks the PS3's motion devices (`vpad.h`, #683) on a
+console, not in CI: it makes them for real through `/dev/uinput`, beside test
+pads inside the test with and without sensors, and opens them as RPCS3 does,
+which needs the image's udev rule. It asserts that only a player whose pad
+has sensors gets one, the shape RPCS3 looks for, a tilt landing in the
+DualShock 3's units, player 2's tilt never reaching player 1, rest when a
+pad has gone, and the sensors off and the devices gone when the pads close.
+Never run it while a PS3 game runs on the same console: RPCS3 finds the
+devices by name.
+
+**Every flag is in `frontend/src/cli.cpp`**, 135 of them plus
 `--check-option-tables` in `main.cpp`; there is no `--help`.
 `frontend/README.md` holds the build recipe and the storage tree. What it
 said about running and the flags in September 2026 is history, in
@@ -221,7 +289,10 @@ docs/history/frontend-readme-2026-09.md.
 **Against a RomM server: your own, never someone else's.** The console
 writes to RomM as the signed-in person: saves, states, screenshots, time
 played, favourites. Some test flags write too: `--sync-test` saves a state,
-sends the battery save and sends the file saves when it quits.
+and sends it with the game's save as a snapshot when it quits;
+`--save-write-at <frame>` changes the battery at that frame of the game as
+a game saving would, so the save goes up when it quits with its picture of
+that moment (#346).
 `tools/romm-readonly-relay.py <port>` forwards reads only and answers every
 write with 403, which is the safe way to test against a real library; point
 the console at it with `CABINETOS_ROMM=127.0.0.1:<port>` and a scratch
@@ -230,16 +301,44 @@ in: run it on a console already signed in to your server, with the real
 `HOME` on purpose (the tokens are there, above), copy the console's
 `config/*.json` into the scratch root's `config/`, and set
 `CABINETOS_DRIVES` to an empty folder, or downloads go to the real games
-drive (docs/lessons/testing.md, the bullet on the read-only relay). **Its upstream server comes from
+drive (docs/lessons/testing.md, the bullet on the read-only relay).
+`--romm-channels <id>` reads one game's save channels that way (RomM 5.5,
+#346): the game's files, the one RomM makes a new channel on marked, and
+the channels on every game file, each with its file, its current snapshot,
+its save and its states. **Its upstream server comes from
 `CABINETOS_RELAY_UP`** (`http://<your server>:<port>`), and so does
 `tools/offline-relay.py`'s.
+
+**A RomM server for write tests.** The project has a RomM server of its
+own, on the RomM version the maintainer's server runs, holding only free
+homebrew from GitHub releases and test accounts. **Writes are allowed
+there, and only there:** pairing, saves, states, time played, favourites
+and the test flags that write. Its address comes from
+`CABINETOS_TEST_ROMM` (`http://<server>:<port>`); its login is in the
+maintainer's local notes, never here. Point a run at it with
+`CABINETOS_ROMM=<server>:<port>` and the scratch `HOME`, `CABINETOS_DRIVES`
+and `--storage-root` above, with nothing copied from a real console. Pair
+as a console does: `--romm-probe --romm-pair` prints a code, and a user of
+that server approves it, on its pairing page or with `POST
+/api/auth/device/approve`; the token lands where the console keeps it. Then
+`--no-setup --launch <id>` plays one of its games, and SIGTERM leaves the
+game the way Exit to Home does, so its saves and time played are sent (time
+under a minute is not, and neither is time held on "Press A to continue",
+where `--sync-test` leaves a game after it loads the state back). A run
+that signs out restarts itself with the same flags; under `--no-setup` that
+signs out again and again, because first run is what finishes a sign-out,
+so stop it and start it once without `--no-setup`. Without access to that
+server, run a RomM of your own the same way (RomM's documentation, "Quick
+Start").
 
 **The tools in `tools/` take their machines from the environment;** none
 has an address written in. `CABINETOS_A9` is the test console, as
 `cabinet@<address>` (`ui-loop.sh`, `base-checks.sh`, `check-applied.sh`,
 `installer-vm.sh`); `CABINETOS_KEY` is the SSH key (`~/.ssh/cabinetos`
 when unset); `CABINETOS_VM` is the build machine for
-`ui-loop.sh --via-vm`; `CABINETOS_RELAY_UP` is the relays' server. A tool
+`ui-loop.sh --via-vm`; `CABINETOS_RELAY_UP` is the relays' server;
+`CABINETOS_TEST_ROMM` is the server for write tests (above), which no tool
+reads yet. A tool
 stops at once, naming the variable, when one it needs is unset.
 CLAUDE.local.example.md has the lines to fill in.
 
@@ -267,22 +366,31 @@ something besides `.md` files and `docs/`):
 
 - **Lint**: shellcheck over every `.sh` in `build_files/`, `ci/` and
   `cores/`, over every shell script in `system_files/` (picked by its
-  first line), and over the installer's `%pre` and `%post` in
+  first line), and over the installer's `%pre` in
   `disk_config/iso.toml`; and every Python file, the ones that ship
   included, is parsed. `just lint` runs the first two commands.
 - **The frontend** (`build-frontend.yml`): it compiles the frontend and the
-  Wii bridge in the builder, runs `--check-option-tables` and the self-tests,
+  Wii bridge and LinkUp's program in the builder, runs LinkUp's Noise test and the console's probe
+  against the pinned LinkUp server (both report only until 2026-11-14),
+  runs the bridge's `make test` (report only
+  until the date below), `--check-option-tables` and the self-tests,
   summarises the compiler's warnings, fails a new one, and lists the code
-  nothing calls (below).
+  nothing calls (below). When the pull request changes what an arcade
+  emulator's catalogue is made from, it also lists every arcade game whose
+  emulator would change, old catalogues against new
+  (`ci/list-arcade-changes.sh`), a report that never fails: a game that
+  moves loses its saves and states.
 - **The changelog check** (`changelog.yml`): see "Pull requests and issues".
 
 **No new warnings in the files you touch** (`ci/check-new-warnings.sh`,
 after the Warnings step of `build-frontend.yml`, on every pull request it
-runs on): each warning in a file the pull request changes is compared with
-the same file compiled at the base, by file and text, so moved code is not
-new. Only what can put a warning in a touched file is compiled again at the
-base: one touched `.cpp` took 6 seconds, and `app.h`, which 53 files
-include, 38 seconds against 80 for the whole compile in the same run
+runs on): the warnings in the files the pull request changes are compared
+with the same files compiled at the base, by their text across all those
+files, so code moved within a file or from one changed file to another is
+not new. Vendored files (`frontend/third_party/`, `frontend/src/libretro.h`)
+are not checked. Only what can put a warning in a touched file is compiled
+again at the base: one touched `.cpp` took 6 seconds, and `app.h`, which 53
+files include, 38 seconds against 80 for the whole compile in the same run
 (2026-10-18). The run's summary lists each touched file's count at the base
 and now, and every new warning. Report only for its first week, like the
 checks below.
@@ -306,19 +414,23 @@ the linked program, so a header's function that one file never calls is
 not. Constants are not listed (a `constexpr` is folded where it is used),
 nor the C++ library or vendored rcheevos, and an inline function nobody
 calls is never compiled, so the linker never sees it. The binary that ships
-is not that one. A report only: it never fails the job.
+is not that one. A report only: it never fails the job. On a pull request
+the names in the files it touches are also a warning on each file and a list
+at the end of the report (`ci/warn-unused-touched.sh`, with the names held on
+purpose, none today): each is removed, or kept with the reason in the pull
+request (CLAUDE.md, rule 6).
 
-**A pull request to `main` never builds the image**, the cores, PCSX2 (and
-so `frontend/ps2`), Cemu or Sunshine; a mistake there first shows when the
-maintainer pushes to `testing`. That includes the check of each core's
-options against `cores/options/` (`cores/check-options.sh`, which
+**A pull request to `main` never builds the image**, the cores, MAME 0.289,
+PCSX2 (and so `frontend/ps2`), Cemu, sm2-emu, Supermodel or Sunshine; a mistake there first shows
+when the maintainer pushes to `testing`. That includes the check of each
+core's options against `cores/options/` (`cores/check-options.sh`, which
 `cores/build-core.sh` runs on every core it builds or takes from the
-cache): a pull request to `main` that moves a core's pin passes, and a
+cache, and `cores/fetch-mame.sh` on MAME 0.289): a pull request to `main` that moves a core's pin passes, and a
 difference in its options shows at the testing push. Dolphin's and FBNeo's
 lists need a game loaded, so `tools/check-applied.sh` compares them on the
 reference console. A pull request into any other branch runs
-`build-frontend.yml`, `build-core.yml`, `build-pcsx2.yml`, `build-cemu.yml`
-and `build-sunshine.yml` when it touches their paths (each workflow's
+`build-frontend.yml`, `build-core.yml`, `build-mame.yml`, `build-pcsx2.yml`,
+`build-cemu.yml`, `build-sm2emu.yml`, `build-supermodel.yml` and `build-sunshine.yml` when it touches their paths (each workflow's
 `paths:` list).
 
 **Every pull request**, whatever it is aimed at and whatever it changes,
@@ -343,8 +455,8 @@ runs `checks.yml`, a few seconds each:
 - **PROJECT.md index** (`ci/check-project-index.sh`), report only, never a
   failure: a numbered question in `docs/PROJECT.md` (`### 32.`) with no line
   in its index, an index line with no question, or the index's count of
-  questions gone wrong is a warning on the pull request. Add the line under
-  "The open questions, and where each ended".
+  questions gone wrong is a warning on the pull request. The file is frozen
+  (CLAUDE.md, rule 7), so no question is added to it.
 - **Long files** (`ci/check-long-files.sh`), report only, never a failure:
   every source file over 1,500 lines in `frontend/`, `wiibridge/`,
   `build_files/`, `ci/`, `cores/`, `system_files/` and `tools/` is listed in
@@ -353,13 +465,80 @@ runs `checks.yml`, a few seconds each:
   Source is code (`.c`, `.cpp`, `.h`, `.sh`, `.py`, or a script starting
   `#!`); vendored files (`frontend/third_party/`, `frontend/src/libretro.h`)
   are on the script's list and left out.
+- **Docs list** (`ci/check-docs-list.sh`): a `.md` file directly under
+  `docs/`, or a folder under `docs/` that holds `.md` files, that is not named
+  in "The docs, each with its one job" (above) fails, so a new doc has to say
+  what its one job is (CLAUDE.md, rule 2). What is inside a folder is not
+  read here.
+- **Decisions** (`ci/check-decisions.sh`): a file in `docs/decisions/` that
+  is not named `YYYY-MM-DD-short-name.md`, is over 60 lines, or does not have
+  exactly one line in the index of `docs/decisions/README.md` fails, as does
+  an index line with no file; and a pull request that makes `docs/PROJECT.md`
+  longer by more than 5 lines net fails, since the file is frozen. A line a
+  pull request adds to a decision file or to PROJECT.md that says "known gap",
+  "not fixed", "still open" or "left for later" is a warning on the pull
+  request and never a failure: a decision file holds no fault (CLAUDE.md,
+  rule 7).
+- **LinkUp holds no internet in the main program** (`ci/check-linkup-no-network.sh`): an internet call in
+  one of the frontend's LinkUp files fails, because everything on LinkUp's network is its own program, which
+  is what lets a firewall tell it from RomM. Report only until 2026-11-14.
+- **The console against the pinned LinkUp server** (`ci/linkup-server.txt`, run in
+  `build-frontend.yml`): two containers of the one server release CabinetOS is tested against start
+  with podman, and the console's probe (`linkup/probe.cpp`, built and run in the builder) speaks every
+  part of PROTOCOL.md to them through `tools/linkup-interop.sh`. Moving the pin is a pull request.
+  Report only until 2026-11-14.
+- **Flathub pins** (`ci/check-flatpak-pins.sh`, in `flatpak-pins.yml`), on a pull request that changes
+  `system_files/usr/share/cabinetos/flatpaks.list`: each pinned build must still be on Flathub with at
+  least two older builds behind it, so a mistyped commit, or one about to go, fails before it ships. The
+  same check runs on the 1st of each month.
+- **Licences** (`ci/check-licences.sh`): a text in `licences/` that
+  `licences/SOURCES` lists and that is missing, or whose first line does not
+  name the repository, path and revision SOURCES pins, fails: a text added by
+  hand or a pin moved without running `tools/fetch-licences.py`. Nothing is
+  downloaded. Report only until 2026-11-08.
+- **RPCS3 snapshot** (`ci/check-rpcs3-snapshot.sh`): the pin recorded in
+  `build_files/rpcs3-config-database.pin`, which
+  `tools/fetch-rpcs3-config-database.py` writes beside the snapshot of
+  RPCS3's per-game settings, must be the `RPCS3_VERSION` of
+  `build_files/install-rpcs3.sh`: a pin moved without running the tool
+  fails. Nothing is downloaded. Report only until 2026-11-13.
+- **Vendored copies** (`ci/check-vendored-copies.sh`): every file in each
+  folder of `frontend/third_party` (rcheevos, Sigil) but its `VERSION` must
+  be, byte for byte, the file at the same path in that library, or in the
+  submodule it is under, at the commits its `VERSION` names, so a file edited
+  by hand in this repository, or copied from another commit, fails. It
+  fetches each library's trees from GitHub, without the files' contents.
+  Report only until 2026-11-29.
+- **Sigil's pin** (`ci/check-sigil-follows-romm.sh`, in `sigil-pin.yml`), on
+  a pull request that changes Sigil's `VERSION`, `cabinetos.env` or the
+  check: the newest release of the RomM the console needs (`ROMM_NEEDED`)
+  must build in the Sigil commit `VERSION` names
+  (docs/decisions/2026-11-22-sigil-pin-follows-romm.md). RomM's being newer,
+  or the two having parted, fails, with the commits between them; the
+  console's being newer passes with a note. The same check runs on the 1st of
+  each month. Report only until 2026-11-29.
+- **Code and docs agree** (`ci/check-code-and-docs-agree.py`): only what the
+  pull request touches, so the old tree never fails it. A comment it adds or
+  changes in `frontend/src`, `frontend/ps2`, `wiibridge`, `build_files`, `ci`,
+  `system_files`, `tools` or `cores` fails when it names something of ours that
+  is not there: a file, an `ns::name`, a name it pairs with a file of ours
+  (launch.cpp's startPlaying), or a frontend flag. Other projects' names do not
+  count: the script's header says what does, and its `SKIP` holds what is left
+  over. A header in `frontend/src` or `frontend/ps2` that declares a function
+  nothing defines fails, on a line the pull request changes or when it takes the
+  definition away, and so does a private address (10/8, 172.16/12, 192.168/16) on
+  a line it adds to any tracked file, outside the script's list of documented
+  examples. A stale comment on a line no pull request touches is for
+  `--whole-tree`, which the skill `check-code-and-docs-agree` runs. Report only
+  until 2026-11-10.
 
 **A check's first week is report only.** Until the end of the date in
 `checks.yml`'s `REPORT_ONLY_UNTIL` (2026-10-25, UTC; `build-frontend.yml`
 has its own, the same date, for its checks), a check that can fail marks
 what it finds as warnings on the pull request and passes; from the next
 day it fails. A new check that can fail starts the same way, with that
-date set a week ahead in its pull request.
+date set a week ahead in its pull request: the Docs list and Decisions
+checks have their own, 2026-10-31, in their jobs in `checks.yml`.
 
 **Not checked by CI:** the frontend's tests that need a screen, a core or a
 server, the shell scripts under `tools/`, what any Python does (Lint only
@@ -437,16 +616,17 @@ signed with MMagTech's key, whose secret half is never in the repository
    files that use it for updates: `build_files/require-signed-updates.sh`
    (`REPO`, the policy's rule),
    `system_files/etc/containers/registries.d/cabinetos.yaml` (where the
-   signatures are found) and `disk_config/iso.toml` (the image the installer
-   points a console at for its updates). The diagnostic report names it too,
-   in `cabinetos-report`'s `PUBLIC` list of words it never scrubs.
+   signatures are found) and `system_files/usr/libexec/cabinetos-update-source`
+   (`REPO`, the image a new console is pointed at for its updates at its
+   first start). The diagnostic report names it too, in `cabinetos-report`'s
+   `PUBLIC` list of words it never scrubs.
 
 The image name itself needs no edit: `build.yml` publishes to
 `ghcr.io/<owner>/cabinetos`, from the repository's owner in lower case and
 `IMAGE_NAME` in `cabinetos.env`. The key and the image name in the four
 files above are written into tracked files today, so a fork edits them.
 Until it does, its image carries MMagTech's key and a rule for his image,
-and its installer points every console it installs at his image.
+and points every new console at his image.
 
 ### Going back to an earlier version
 
@@ -486,6 +666,13 @@ here, not reworded; follow the link for the full text.
   together with RomM's behaviour is the source of truth" (MMagTech; it
   stands in docs/NEXT-SESSION.md's first paragraph, and is quoted here so it
   stays when that file is rewritten).
+- **The console uses RomM, never manages it.** Looking at, sorting and
+  deleting a person's saves, screenshots and the rest is RomM's job; no
+  gallery, list or manager goes on the console
+  (`docs/decisions/2026-10-21-romm-owns-management.md`).
+- **No option on a main screen for a few players.** Home, a system's grid
+  and a game's page carry only what every player uses
+  (`docs/decisions/2026-10-13-no-ui-for-the-few.md`).
 - **The controller is the input the design assumes.** A keyboard is the
   guaranteed input at first run, and a mouse "moves focus and clicks the
   focused thing, and nothing else" (docs/PROJECT.md, open question 16,
@@ -499,22 +686,26 @@ here, not reworded; follow the link for the full text.
   (docs/PROJECT.md, "Dreamcast, PSP and N64 draw right", 2026-09-27). The A9
   is the reference console. The same rule opens with a Cabinet clause that
   the next point overtakes.
-- **Cabinet, the Apple TV app CabinetOS came from, is a reference, not a
-  constraint.** PROJECT.md's banner says to read docs/CABINET.md before
-  designing anything. Since 2026-10-11 "Cabinet on Apple platforms is no
+- **Cabinet, the retired Apple TV app CabinetOS came from, is a reference,
+  not a constraint.** Since 2026-10-11 "Cabinet on Apple platforms is no
   longer a constraint" (docs/PROJECT.md, open question 12b, the GameCube save
   decision, #344, "GameCube: a save restored from RomM never reaches Dolphin
   (card.raw vs card.USA.raw)"); it is newer than the rule above. One thing
-  stays: the save tags already on RomM (`savetable.cpp`, many in Cabinet's
-  spelling) are what existing saves are filed under, so changing one hides
-  those saves from the console. docs/CABINET.md is worth reading for how a problem was solved
-  before; Cabinet's own source is not required reading.
+  stays: save labels never change. Every save the console sends carries a
+  label naming the emulator that made it (`savetable.cpp`, many spelled as
+  Cabinet spelled them), and beside it the emulator's name as Sigil spells
+  it, so other apps can use the save
+  (`docs/decisions/2026-11-15-save-channels.md`). The console knows its own
+  saves and states by that label: rename one and it takes them for another
+  app's, which go through RomM's conversion and, where RomM can't convert
+  yet, are refused. Cabinet Go, Cabinet's unfinished pocket version, will
+  read the same labels.
+  docs/CABINET.md says what Cabinet is now; docs/history/CABINET.md is
+  worth reading for how a problem was solved before.
 - **Emulators favour stability over the newest version**: a pin moves only
-  for something a player gets, and the question is asked out loud on the
-  issue or pull request (docs/PROJECT.md, "Constraints and principles", 8).
-  This is the rule for moving a core's pin; the older comment in
-  `cores/build-core.sh` saying pins follow Cabinet's manifest is out of date
-  (docs/ARCHITECTURE.md, section 7).
+  for one of five named reasons, with its evidence, and the question is
+  asked out loud on the issue or pull request
+  (`docs/decisions/2026-10-23-when-an-emulator-pin-moves.md`).
 - **Fewer settings; no emulator settings page** (docs/SETTINGS.md, "The screen";
   "fewer settings is the rule", docs/PROJECT.md, the glow decision of
   2026-10-04).
@@ -542,7 +733,17 @@ here, not reworded; follow the link for the full text.
 - **The console connects only to fixed places the code chooses:** the
   player's RomM server, GitHub for updates, and RetroAchievements, Flathub,
   Tailscale or Steam when the player uses them. Never to an address found in
-  the data, such as a cover's web address.
+  the data, such as a cover's web address. LinkUp and Game events are the
+  two curated exceptions. While a player has LinkUp on, it connects to the
+  LinkUp server they paired with and the addresses that server hands it: a
+  friend's console, a relay and STUN helpers. While it is off, its program
+  does not run and the firewall blocks it. While the owner has Game events
+  on, the console sends what is happening in a game to the one address they
+  typed, and only while that address is on their own network, checked every
+  time it sends. While it is off, no part of it runs and nothing is sent.
+- **A feature a person does not use is completely off:** off to start with,
+  and off means its program is not running, nothing listens and nothing is
+  contacted.
 - **No em dashes in anything the console shows on screen.** Use a full stop,
   a comma or two short sentences.
 - **No CabinetOS fix may need Steam.** Steam is optional, so a fix never asks
@@ -550,9 +751,31 @@ here, not reworded; follow the link for the full text.
 - **Every emulator uses Vulkan when it has a Vulkan renderer**, even where
   upstream defaults to OpenGL. OpenGL only where there is no Vulkan renderer,
   or where a measurement on real hardware shows it is better.
+- **A patch to an emulator's source is proposed and agreed first (MMagTech,
+  2026-10-20),** and tracked on an issue linked to its upstream report until
+  upstream fixes it or declines it (docs/WORKING.md, "Patches to an
+  emulator's code").
+- **Made for a PC attached to a TV (MMagTech, 2026-10-21).** CabinetOS is
+  built for a computer connected to a television: a mini PC, or a larger
+  desktop PC. A computer monitor with built-in speakers counts as a TV. A
+  fix never risks that experience for another kind of machine. Handhelds (a
+  Steam Deck) and laptops are not targets. Since 2026-10-22, a fault is not
+  looked at if it shows only on a handheld PC, a laptop, or a computer that
+  is not attached to a TV, and not on a mini PC or desktop attached to a TV.
+  Remote Play with no screen connected (#381) is the one exception.
+- **Test what varies inside a system, not one game per system (MMagTech,
+  2026-11-22).** Before a change is called tested, list what differs between
+  that system's games for the thing changed (save chip and size, controller,
+  file format, region) and prove each kind with a real game. Say which kinds
+  were not covered.
 
 ### Duties that come with some changes
 
+- **A RomM update:** read what changed in RomM's save code and libraries
+  since the version the console needs, and test only that, plus one game per
+  kind of save with each app (the console, RomM's web player, Argosy, Ludo).
+  A full run of every system only when the console's channel code changes a
+  lot.
 - **Moving a core's pin:** in the same commit, refresh
   `cores/options/<core>.txt` (`cores/build-core.sh` prints the difference
   after it builds the core; Dolphin's and FBNeo's lists need a real game and
@@ -561,7 +784,35 @@ here, not reworded; follow the link for the full text.
   `docs/LICENCES.md`. A stale options list fails the core's build, which a
   pull request to `main` does not run: it fails at the testing push. Then
   check the console's own option tables still fit (`--check-option-tables`),
-  and ask the stability question above.
+  and ask the stability question above. Moving any emulator's or Sunshine's
+  pin, go through its rows in docs/ARCHITECTURE.md, "What leans on other
+  projects", too.
+- **Moving RPCS3's pin:** in the same pull request, after the pin has
+  moved, run `tools/fetch-rpcs3-config-database.py` and commit what it
+  changes: `build_files/rpcs3-config-database.json`, the snapshot of the
+  RPCS3 team's per-game settings the image carries, and
+  `build_files/rpcs3-config-database.pin`, the pin it was taken against
+  (docs/decisions/2026-11-06-rpcs3-settings-database-snapshot.md). It is
+  not refreshed between pin moves. `ci/check-rpcs3-snapshot.sh` fails a
+  pull request whose snapshot was taken against another pin, and the image
+  build stops on it too. The pull request says how many of its entries the
+  new build rejects: on the testing image, start any PlayStation 3 game and
+  count the serials after `Config database error - Invalid config for` in
+  its `RPCS3.log`, under the game's folder in the cache (each is logged
+  twice, since RPCS3 reads the file twice). The console never fetches it.
+- **Leaning on another project's internals** (asked for by MMagTech,
+  2026-10-21): anything that works only because another project behaves a
+  way it does not promise (a patch to its source, a settings key or file it
+  does not document, its output or its log read as text, a setting's name, a
+  file laid over one of its own) gets, in the same pull request, a check in
+  the place that is read when that project moves, and a row in
+  docs/ARCHITECTURE.md, "What leans on other projects". For a package of the
+  Bazzite base, that place is its area in `ci/base-watch.txt`: a `log:` line,
+  run on the reference console as `tools/base-checks.sh` runs it and seen to
+  fail when its answer is wrong, or a `tv:` line when only eyes can tell. For
+  something pinned here (a core, an emulator, Sunshine), an assertion in its
+  build or install script that stops the build. Where nothing can check it,
+  the row says so, and what would show it broken.
 - **Changing the controls:** change About, How to, and
   `docs/wiki/navigation.md` together (docs/SETTINGS.md, About).
 - **A new emulator or library in the image:** `docs/LICENCES.md`,
@@ -569,9 +820,9 @@ here, not reworded; follow the link for the full text.
   credits in `frontend/src/credits.h` change together (credits.h's header).
 - **Adding to the App** (`frontend/src/app.h`): member order is destruction
   order, and threads hold `this`; read app.h's header first. The RomM
-  client is called from many threads at once (romm.h's header). Two more
-  things are positional: `Uploader::Job`'s fields (uploader.h's header) and
-  the rows of catalog.cpp's table (its struct's comment).
+  client is called from many threads at once (romm.h's header). One more
+  thing is positional: the rows of catalog.cpp's table (its struct's
+  comment).
 - **What counts as "in the image"** is written four times and all four
   must stay the same: `build.yml`'s `paths`, once for pull requests and once
   for pushes; `ci/promote-tested.sh`'s `in_image`; and `changelog.yml`'s
@@ -581,6 +832,26 @@ here, not reworded; follow the link for the full text.
 
 ## Pull requests and issues
 
+- **Ask first for anything that decides something new.** A fix of a few lines
+  that puts back what was already meant to work goes straight to a pull
+  request: a typo on screen, a label cut off, a crash from a missing check. A
+  feature, a setting, a changed default, a new emulator or system, a pin move,
+  a new file or folder, a new download or checksum, a change to the build or
+  CI, or a refactor across files needs an issue the maintainer has agreed to
+  before you write it, linked from the pull request. A fix for one game is
+  never taken. If you are unsure which this is, ask on an issue. A pin moves
+  only for one of the five reasons in
+  `docs/decisions/2026-10-23-when-an-emulator-pin-moves.md`, with its evidence.
+- **AI-assisted pull requests are welcome; CabinetOS is built with AI
+  itself.** AI tools read `AGENTS.md`. An AI may help write an issue or a pull
+  request; a person reads it, sends it and answers for it, and the pull request
+  says which tool helped and which checks were run. The maintainer reads every
+  pull request, and CI does not run on one from a fork until he approves it.
+- **Skills:** a procedure for one job lives in
+  `.claude/skills/<job>/SKILL.md`, plain Markdown that any AI tool can read as
+  instructions. Name a skill for the job it does: verb first, plain words, no
+  project jargon (`check-emulator-update`, not `pin-check`). One job per skill,
+  and it points at the docs for the rule instead of repeating it.
 - **One branch, one pull request, aimed at `main`.** Its body says first what
   the change does and why it exists, in plain words, then the detail, and
   "Closes #N" for an issue it finishes (docs/WORKING.md, "The loop").
@@ -601,20 +872,40 @@ here, not reworded; follow the link for the full text.
 - **Security problems** are reported privately, never in a public issue:
   [SECURITY.md](SECURITY.md).
 
-## Where decisions live
+## The docs, each with its one job
 
-Before proposing a change, look for the decision that already covers it:
+Before proposing a change, look for the decision that already covers it: the
+index in docs/decisions/, then docs/PROJECT.md for anything before
+2026-10-23.
 
-- **docs/PROJECT.md**: the specification, the phase history and 51 numbered
-  open questions, most of them decided. Code cites them by number ("open
-  question 32"), so the numbers never change. It is 17,000 lines, too large
-  for GitHub to render, so it shows as plain text there. Its index, at the
-  top, lists every section and every question with where it ended; then
-  search it by question number (`### 32.`) or keyword.
+- **docs/decisions/**: what the project decided and why, one small file
+  each, with an index. Since 2026-10-23.
+- **docs/PROJECT.md**: the old record of decisions and why, up to
+  2026-10-23, frozen. Code cites its questions by number ("open question
+  32"), so the numbers never change. It is too large for GitHub to render,
+  so it shows as plain text; its index, at the top, lists every section and
+  question with where it ended. Search it by question number (`### 32.`) or
+  keyword.
 - **docs/SETTINGS.md**: every Settings decision, as the screen is.
-- **docs/ROADMAP.md**: milestones, and "Decided against", kept so nobody
-  proposes those again.
+- **docs/ROADMAP.md**: how the release was reached, the Later milestone, and
+  what was decided against, kept so nobody proposes it again.
+- **docs/ARCHITECTURE.md**: how the code is laid out, what each part owns and
+  must never do, and the main flows.
+- **docs/NEXT-SESSION.md**: what the next session works on, and what state
+  things are in.
+- **docs/WORKING.md**: how MMagTech works: the loop, the testing branch,
+  merges.
 - **docs/lessons/**: what cost hours, with the reasons.
+- **docs/LICENCES.md**: every emulator and library in the image, with its
+  licence, its source and the exact version built.
+- **docs/CABINET.md**: what CabinetOS shares with Cabinet Go, the pocket app:
+  the save and state names on RomM, which must not change. It points to the
+  history of the retired Apple apps.
+- **docs/wiki/**: the pages for players, with the changelog.
+- **docs/history/**: what is kept as history, not current.
+  docs/CORE-OPTIONS-AUDIT.md, docs/PCSX2-HOST-SURFACE.md and
+  docs/SETTINGS-INVENTORY.md are one-line pointers to files that moved
+  there.
 - **GitHub issues**: one per piece of work; the audit and restructure of the
   code are #398 ("Audit the code and restructure it for contributors
   (main.cpp is 20,000 lines)"). Its audit comments each start "Audit, Part
@@ -630,5 +921,8 @@ Before proposing a change, look for the decision that already covers it:
 - The Wii bridge is GPL-2.0-or-later and its own program, because it carries
   Dolphin's extension encryption; the frontend stays MIT and only starts it
   (`wiibridge/bridge.cpp`'s header).
+- LinkUp's program (`linkup/`) is MIT, like the frontend. It links GStreamer (LGPL) and is its own program
+  for another reason: a firewall can tell it from RomM. Its test vectors keep their own terms, named at the
+  top of `linkup/noise-vectors.txt`.
 - The `Containerfile`, `Justfile`, `disk_config/` and `.github/workflows/`
   derive from the Universal Blue image template (Apache-2.0).

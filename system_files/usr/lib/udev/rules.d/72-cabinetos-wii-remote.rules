@@ -1,6 +1,16 @@
 # A real Wii Remote is the Wii bridge's alone (issue #200, wiibridge/): no seat
 # access grant on its raw node. With 99-cabinetos-wii-remote.rules.
 SUBSYSTEM=="hidraw", KERNELS=="0005:*", PROGRAM="/usr/bin/grep -q ^HID_NAME=Nintendo.RVL-CNT /sys%p/device/uevent", TAG-="uaccess"
+# A REMOTE WITH NINTENDO'S OWN ID (Nintendo's, and copies that carry it) is
+# taken by the kernel's Wii Remote driver too, hid-wiimote, which makes a
+# controller of its own: SDL seated it as a second player beside W1, and every
+# press counted twice (issue #548). The driver has to stay: the kernel keeps
+# these ids for it (hid_have_special_driver), so without it the Remote gets no
+# raw node and the bridge cannot reach it. Its devices are kept from everyone
+# instead: no seat access, no joystick to anything that looks for one, and
+# nothing for libinput (its D-pad is the arrow keys). These are the ids
+# hid-wiimote takes, over Bluetooth only; the bridge's stand-ins are USB.
+SUBSYSTEM=="input", KERNELS=="0005:057E:0306.*|0005:057E:0330.*", TAG-="uaccess", ENV{ID_INPUT_JOYSTICK}="", ENV{LIBINPUT_IGNORE_DEVICE}="1"
 # The bridge makes its stand-ins through /dev/uhid. Bazzite grants it today, in
 # ublue-os-udev-rules (60-sunshine-ublue.rules, for Sunshine); said here too, so
 # real Wii Remotes do not depend on a streaming app's rule staying in the base.

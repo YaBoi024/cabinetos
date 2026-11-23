@@ -6,11 +6,13 @@
 
 #include <utility>
 
+#include "controls.h"
 #include "core.h"
 #include "ps2.h"
 #include "quality.h"
 #include "screenfx.h"
 #include "sysopts.h"
+#include "vectrexsheets.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
 
@@ -87,7 +89,7 @@ void App::closeOverlay(bool cue) {
     if (cue && overlayOpen) powerCue(sound::Cue::Back);
     overlayOpen = false;
     overlayFade.retarget(0.0f, overlayFadeSeconds);
-    if (playing && choiceScreen.isOpen()) choiceScreen.close();
+    if ((playing || standalonePaused) && choiceScreen.isOpen()) choiceScreen.closeWithMenu();
 }
 
 // AS A SETTINGS CHOICE ROW BEHAVES (settings.cpp): left and right stop at
@@ -121,7 +123,7 @@ void App::overlayActivate() {
             overlayOpen = false;
             overlayFade.retarget(0.0f, overlayFadeSeconds);
             break;
-        case OvSaveState: saveStateNow(session, uploader, menuNotice); break;
+        case OvSaveState: saveStateNow(session, menuNotice); break;
         case OvLoadState: beginLoadLatestState(stateLoad, session, liveClient, menuNotice); break;
         // THE PAUSED MOMENT, the menu not in it: a screenshot reads the
         // game's frame, not the screen. MMagTech's idea, 2026-09-27: pause
@@ -136,6 +138,7 @@ void App::overlayActivate() {
             if (session.discInserting) menuNotice.say("Not while the disc is changing", Tone::Info);
             else openDiscPanel();
             break;
+        case OvControls: openControlsPanel(); break;
         case OvExit:
             // An emulator of its own is asked to close (thawed first) and
             // the menu goes; finishStandalone takes the rest of the way
@@ -143,7 +146,7 @@ void App::overlayActivate() {
             if (standaloneRun.active()) {
                 overlayOpen = false;
                 overlayFade.retarget(0.0f, overlayFadeSeconds);
-                standaloneRun.stop();
+                stopStandaloneGame();
             } else {
                 exitToHome();
             }
@@ -152,19 +155,25 @@ void App::overlayActivate() {
     }
 }
 
-void App::toggleOverlay() {
+void App::toggleOverlay(SDL_JoystickID opener) {
     if (!playing && !standalonePaused) return;
     if (overlayOpen && remoteOnlyHere() && !powerMenu) {
         sound::play(sound::Cue::Edge);
         return;
     }
     overlayOpen = !overlayOpen;
-    // A question asked over the menu goes with it (Change disc).
-    if (!overlayOpen && playing && choiceScreen.isOpen()) choiceScreen.close();
+    // A question asked over the menu goes with it (Change disc), and a
+    // level of it fades with its panel (Controls), over a game of ours or
+    // an emulator of its own.
+    if (!overlayOpen && (playing || standalonePaused) && choiceScreen.isOpen())
+        choiceScreen.closeWithMenu();
     // Only on the way IN: the list must not change under a panel that is
     // still fading out.
     if (overlayOpen) {
         powerMenu = false;
+        menuOpener = opener;
+        // Nothing of a level left showing from the last time it closed.
+        choiceScreen.forget();
         pauseItems.clear();
         if (!remoteOnlyHere()) pauseItems.push_back(OvResume);
         // NOT WHILE A STATE PICKED ON THE GAME'S PAGE IS ON ITS WAY (#484,
@@ -235,6 +244,26 @@ void App::toggleOverlay() {
             c.apply = [slug](int i) { screenfx::choose(slug, i); };
             pauseChoices.push_back(std::move(c));
         }
+        // THE SCREEN SHEET (#224), where the Look row sits for the other
+        // systems (the Vectrex has no look), only for a game that has a
+        // sheet: a row that does nothing is worse than none. One choice for
+        // the system, kept as a look is. Changes at once, behind the menu,
+        // and the picture's fit with it (vectrexsheets::coreOptions).
+        if (session.standaloneCore.empty() && vectrexsheets::ready()) {
+            PauseChoice c;
+            c.label = "Overlays";
+            c.values = {"On", "Off"};
+            c.current = vectrexsheets::on() ? 0 : 1;
+            const std::string core = session.core;
+            const std::string slug = session.platformSlug;
+            c.apply = [core, slug, &pauseRedrawFrames = pauseRedrawFrames](int i) {
+                vectrexsheets::setOn(i == 0);
+                for (const auto& kv : vectrexsheets::coreOptions(core, slug, i == 0))
+                    cab::Core::shared().setOptionLive(kv.first, kv.second);
+                pauseRedrawFrames = 2;
+            };
+            pauseChoices.push_back(std::move(c));
+        }
         // THE SYSTEM'S OWN ROWS (#73), for everyone: they are looks.
         // Built-in cores only; none of the separate emulators has any.
         if (session.standaloneCore.empty()) {
@@ -255,6 +284,13 @@ void App::toggleOverlay() {
             }
         }
         for (size_t i = 0; i < pauseChoices.size(); ++i) pauseItems.push_back(OvChoice);
+        // CONTROLS (controls.h), directly above Exit to Home: only in an
+        // arcade game whose buttons give it a row, sm2-emu's and Supermodel's
+        // among them, and only with a controller on to change them on. Every
+        // game's start says whether it has rows (controls::beginGame and
+        // beginProgram), so none are left from the last.
+        if (controls::offered() && !players::connected().empty())
+            pauseItems.push_back(OvControls);
         pauseItems.push_back(OvExit);
     }
     overlaySlot = 0;
@@ -269,14 +305,17 @@ void App::remotePlayHandover() {
     players::setStreaming(on);
     // A DEVICE ARRIVING COUNTS AS SOMEBODY THERE (#294): the idle timer
     // starts again and a dim or dark screen lifts, so the phone sees
-    // the console, not the black layer, and its first press is not
-    // spent waking it. Only the timer: no press reaches the menus. The
-    // screen itself was already woken by the start step, before Sunshine
-    // looked (cabinetos-remoteplay).
-    if (on) idleWatch.input(clockSeconds());
-    // Remote Play's section greys out for the stream, and back after. A
-    // panel already open from it (Paired devices, Tailscale's menu)
-    // closes, so nothing in it can be pressed from the stream either.
+    // the console, not the black layer. The screen itself was already
+    // woken by the start step, before Sunshine looked
+    // (cabinetos-remoteplay). AND IT IS A WAKE (idle.h, #411): presses
+    // that arrived with the connection started the game Home had
+    // focused, so for the first seconds the stream's presses do nothing
+    // in a menu.
+    if (on) idleWatch.woke(clockSeconds());
+    // Remote Play's section, and Tailscale's row in Network, grey out for
+    // the stream, and back after. A panel already open from either (Paired
+    // devices, Tailscale's menu) closes, so nothing in it can be pressed
+    // from the stream either.
     if (here() == Screen::Settings) {
         if (on && choiceScreen.isOpen()) choiceScreen.close();
         buildSettings();
@@ -291,6 +330,16 @@ void App::remotePlayHandover() {
         else if (!remoteOnlyHere() && !has) pauseItems.insert(pauseItems.begin(), OvResume);
         overlaySlot = 0;
     }
+}
+
+// The 64 is the padding above and below the buttons. There used to be 44
+// more, reserved for the line the menu answered with; that answer is the
+// notification pill now, so the panel is just its buttons and has no empty
+// band at the foot.
+float App::pauseMenuHeight() {
+    const int n = ovCount();
+    return static_cast<float>(n) * kOverlayButtonHeight +
+           static_cast<float>(n - 1) * kOverlayButtonGap + 64.0f;
 }
 
 void App::tickPauseMenu(float dt) {
@@ -322,16 +371,23 @@ void App::drawPauseScrim() {
 // solid, not glass (below).
 void App::drawPauseMenu(float sc) {
     const float ovl = overlayFade.value();
-    // NOT UNDER A QUESTION ASKED FROM IT (Change disc, #162): the panel
-    // takes its place, and the menu's words showed through the glass.
-    if (ovl > 0.001f && !(playing && choiceScreen.isOpen())) {
-        // The 64 is the padding above and below the buttons. There used to
-        // be 44 more, reserved for the line the menu answered with; that
-        // answer is the notification pill now, so the panel is just its
-        // buttons and has no empty band at the foot.
+    // A LEVEL OF IT (Controls, choice.h, setOverPauseMenu) is drawn in this
+    // panel, which stays: only the rows give way to the level's, and come
+    // back as it goes. Over an emulator of its own too, which is paused
+    // rather than playing (standalone_play.cpp).
+    const bool inGame = playing || standalonePaused;
+    const bool level = inGame && choiceScreen.overPauseMenu();
+    choiceScreen.setMenuFade(ovl);
+    const float rowsA = ovl * (level ? choiceScreen.menuRows() : 1.0f);
+    // NOT UNDER A QUESTION ASKED OVER IT (Change disc, #162; LinkUp's panels
+    // over the host's game): the panel takes its place, and the menu's words
+    // showed through the glass. Nor while one closed with the menu fades out
+    // with it (ChoiceScreen::closeWithMenu): Resume, Save State and Load State
+    // showed for the length of the fade, as if the menu had come back.
+    const bool question = choiceScreen.isOpen() || choiceScreen.fadingWithMenu();
+    if (ovl > 0.001f && !(inGame && question && !level)) {
         const int ovN = ovCount();
-        const float panelH = static_cast<float>(ovN) * kOverlayButtonHeight +
-                             static_cast<float>(ovN - 1) * kOverlayButtonGap + 64.0f;
+        const float panelH = pauseMenuHeight();
         const float px = (ui::kCanvasWidth - kOverlayPanelWidth) * 0.5f;
         // Rises slightly as it arrives rather than only fading: a panel that
         // just materialises reads as a glitch.
@@ -364,7 +420,7 @@ void App::drawPauseMenu(float sc) {
         panel.shadowColor = ui::Color::black(kOverlayPanelShadowAlpha * ovl);
         renderer.draw(panel);
 
-        for (int i = 0; i < ovN; ++i) {
+        for (int i = 0; i < ovN && rowsA > 0.001f; ++i) {
             const bool on = (i == overlaySlot);
             const float f = on ? overlayFocus.value() : 0.0f;
             // 1.04, the pause menu's own tier. A full-width button growing
@@ -384,20 +440,20 @@ void App::drawPauseMenu(float sc) {
             ui::Rect btn{bx, by, bw, bh, kOverlayButtonRadius,
                          ui::Color::white(
                              (kOverlayButtonRestFill +
-                              f * (kOverlayButtonFocusFill - kOverlayButtonRestFill)) * ovl)};
+                              f * (kOverlayButtonFocusFill - kOverlayButtonRestFill)) * rowsA)};
             if (f > 0.0f) {
                 btn.border = f * kFocusRimWidth;
                 // FADED WITH THE PANEL. It was the one part of the menu
-                // that did not follow `ovl`, so the focus rim arrived at
+                // that did not follow the fade, so the focus rim arrived at
                 // full strength on the first frame, floating over a panel
                 // that had not faded in yet — MMagTech on the Power menu,
                 // 2026-09-22: *"it opens in pieces."*
                 btn.borderColor = ui::palette::kFocusRim;
-                btn.borderColor.a *= ovl;
+                btn.borderColor.a *= rowsA;
                 btn.shadowBlur = kOverlayButtonFocusShadowBlur;
                 btn.shadowOffsetY = kOverlayButtonFocusShadowY;
                 btn.shadowColor =
-                    ui::Color::black(kOverlayButtonFocusShadowAlpha * f * ovl);
+                    ui::Color::black(kOverlayButtonFocusShadowAlpha * f * rowsA);
             }
             renderer.draw(btn);
 
@@ -418,7 +474,7 @@ void App::drawPauseMenu(float sc) {
             if (PauseChoice* choice = powerMenu ? nullptr : choiceAt(i)) {
                 const ui::TextStyle st = ui::TextStyle::Title3;
                 const ui::Color c = ui::Color::white(
-                    (kOverlayButtonRestText + f * (1.0f - kOverlayButtonRestText)) * ovl);
+                    (kOverlayButtonRestText + f * (1.0f - kOverlayButtonRestText)) * rowsA);
                 const float baseY = by + (bh - text.lineHeight(st, sc)) * 0.5f +
                                     text.ascent(st, sc);
                 const std::string line =
@@ -433,9 +489,9 @@ void App::drawPauseMenu(float sc) {
                         choice->current + 1 < static_cast<int>(choice->values.size());
                     const bool canLeft = choice->current > 0;
                     text.draw(renderer, kBack, bx + 28.0f, baseY, st,
-                              ui::Color::white((canLeft ? 0.70f : 0.18f) * f * ovl), sc);
+                              ui::Color::white((canLeft ? 0.70f : 0.18f) * f * rowsA), sc);
                     text.draw(renderer, kNext, bx + bw - 28.0f - aw, baseY, st,
-                              ui::Color::white((canRight ? 0.70f : 0.18f) * f * ovl), sc);
+                              ui::Color::white((canRight ? 0.70f : 0.18f) * f * rowsA), sc);
                 }
                 continue;
             }
@@ -447,7 +503,7 @@ void App::drawPauseMenu(float sc) {
             // six-per-cent white, which was invisible. It reads like a
             // brightness and is not one.
             const ui::Color labelColor = ui::Color::white(
-                (kOverlayButtonRestText + f * (1.0f - kOverlayButtonRestText)) * ovl);
+                (kOverlayButtonRestText + f * (1.0f - kOverlayButtonRestText)) * rowsA);
             text.draw(renderer, label, bx + (bw - tw) * 0.5f,
                       by + (bh - text.lineHeight(ui::TextStyle::Title3, sc)) * 0.5f +
                           text.ascent(ui::TextStyle::Title3, sc),

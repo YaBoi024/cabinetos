@@ -14,8 +14,8 @@
 //
 // ONE .so PER CORE, dlopen'd with RTLD_LOCAL. On Apple, where everything is
 // statically linked into one binary, only one core can carry the standard
-// retro_* names, so Cabinet renames every other core's symbols with a prefix
-// and merges each into a single relocatable object. On Linux that entire
+// retro_* names, so Cabinet renamed every other core's symbols with a prefix
+// and merged each into a single relocatable object. On Linux that entire
 // apparatus is unnecessary: RTLD_LOCAL gives each core its own namespace for
 // free. See docs/PROJECT.md, open question 13.
 //
@@ -83,6 +83,15 @@ struct PadState {
     // A pad whose triggers are digital — a Switch Pro Controller's ZL and ZR
     // are switches, not springs — simply reports 0 or 1 here.
     float leftTrigger = 0, rightTrigger = 0;
+};
+
+// One of a game's joypad buttons as the core declared it
+// (RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS): the RetroPad id, and the core's
+// own word for what it does in this game.
+struct InputDescriptor {
+    unsigned id = 0;
+    std::string label;
+    bool operator==(const InputDescriptor&) const = default;
 };
 
 class Core {
@@ -155,6 +164,16 @@ public:
     // core's own stated default. An override is for the cases where CabinetOS
     // wants something other than what the core ships with.
     void setOptionOverrides(const std::map<std::string, std::string>& overrides);
+
+    // One option from the command line (`--core-option key=value`,
+    // repeatable), for finding out what a value does before it goes into
+    // catalog::optionOverrides or quality.cpp, without a rebuild per value.
+    // Laid ON TOP of every setOptionOverrides, so it reaches a library launch
+    // (`--launch <id>`, or Play on the television) as well as `--core`, wins
+    // over the picture level and the system's own rows, and can take a
+    // shipped override back off to see what it was buying. Said in the log
+    // at each launch. Before the first launch: cli.cpp, as it reads the flag.
+    static void setCommandLineOption(const std::string& key, const std::string& value);
 
     // One option changed WHILE THE GAME RUNS (the pause menu's system rows,
     // #73): kept with the overrides, and the core is told on its next
@@ -306,6 +325,12 @@ public:
     const std::vector<int16_t>& drainAudio();
 
     void setPad(int port, const PadState& pad);
+    // A key of the core's keyboard, as libretro numbers it (RETROK_*), held
+    // or let go, for port 0: asked by the core, and told to a core that
+    // gave its keyboard callback, as it changes. No real keyboard is passed
+    // to a core; the one key pressed is a MAME's menu key
+    // (arcadesettings.h). Every key is let go when a game loads.
+    void setKey(unsigned retrok, bool down);
     // How many players there are, so the core is told a controller is in
     // each of their ports. Before loadGame it sets what the game starts with;
     // during a game a higher number plugs the new ports in. Never unplugs: a
@@ -329,6 +354,20 @@ public:
     // Remote is plugged in, and Dolphin seats each Remote the OS has connected
     // in the first free one, now or mid-game. Cleared when the game unloads.
     void setRealRemotesFrom(int firstPort);
+
+    // WHAT EACH PORT'S BUTTONS DO IN THIS GAME, as the core last declared
+    // them and in its order: the joypad's ids, index 0, for the four ports
+    // (core_input.cpp). Empty for a port the core said nothing about.
+    // Replaced when the core declares them again, emptied when a game loads,
+    // and the version moves only when they change, so a reader can keep
+    // what it made of them (fightstick.cpp).
+    const std::vector<InputDescriptor>& inputDescriptors(int port) const;
+    unsigned inputDescriptorsVersion() const;
+    // THE GAME'S BUTTONS DECLARED BY THE CONSOLE, for every port, in place of
+    // what the core declared, for a core that names none of a game's own:
+    // MAME 0.289, whose list is the same for every game and is emptied with
+    // the rest at loadGame (fightstick::mameButtons). After loadGame.
+    void declareButtons(const std::vector<InputDescriptor>& buttons);
 
     // --- PlayStation 2 ---------------------------------------------------
     //
@@ -365,9 +404,9 @@ public:
 
     // --- Save states ---------------------------------------------------------
     //
-    // The whole product rests on these. A state written on an Apple TV has to
-    // load on this machine, which is what core parity is for (docs/PROJECT.md,
-    // "Core parity is a hard constraint").
+    // The whole product rests on these. A state written on another console has
+    // to load on this one; core parity once meant Cabinet's Apple TV app too
+    // (docs/PROJECT.md, "Core parity is a hard constraint", since overtaken).
     //
     // THREADING: both must run on the thread that drives runFor. A snapshot
     // taken part-way through a retro_run is corrupt by definition.
@@ -396,6 +435,16 @@ public:
     bool readSaveRam(std::vector<uint8_t>& out) const;
     bool writeSaveRam(const std::vector<uint8_t>& data);
     size_t saveRamSize() const;
+
+    // THE CARTRIDGE'S CLOCK BESIDE THE BATTERY (#346, step 11):
+    // RETRO_MEMORY_RTC, a region of its own. Gambatte's is 8 bytes, the time
+    // the game's clock counts from, for a cartridge with one; 0 for any other.
+    // Live as the battery is: written before the first frame, it is the clock
+    // the game reads. A clock of another size is no clock this core keeps,
+    // and is refused.
+    bool readClock(std::vector<uint8_t>& out) const;
+    bool writeClock(const std::vector<uint8_t>& data);
+    size_t clockSize() const;
 
     // --- In-game saves, read by --state-test ---------------------------------
     //
@@ -466,13 +515,15 @@ public:
     uint64_t frameDigest() const;
 
     // THE GAME'S OWN PICTURE, AS RGBA, THE WAY UP IT IS SHOWN: for the
-    // picture a save state carries (#99). Read from the game's frame, never
-    // from the screen, so the pause menu drawn over it is not in it. Rows top
-    // first, flipped and quarter-turned exactly as the player draws it, at the
-    // core's own resolution (Cabinet sends the same). False with nothing to
-    // read: no frame yet, or the PS2 path, which has no states. Call on the
-    // GL thread.
-    bool snapshot(std::vector<uint8_t>& rgba, unsigned& width, unsigned& height) const;
+    // picture a save state carries (#99) and a save's (#346, savepicture.h).
+    // Read from the game's frame, never from the screen, so the pause menu
+    // drawn over it is not in it. Rows top first, flipped and quarter-turned
+    // exactly as the player draws it, at the core's own resolution (as
+    // Cabinet sent), or no wider than `maxWidth` as shown, made that small on
+    // the graphics chip before it is read where the core draws there. False
+    // with nothing to read: no frame yet. Call on the GL thread.
+    bool snapshot(std::vector<uint8_t>& rgba, unsigned& width, unsigned& height,
+                  unsigned maxWidth = 0) const;
 
     // Emulated frames run since the game loaded, and audio frames produced.
     // Audio against the core's own sample rate is the only direct read on

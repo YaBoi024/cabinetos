@@ -1,27 +1,29 @@
 # Install
 
 CabinetOS replaces everything on the drive you install it to. It is a whole
-operating system, not an app.
+operating system, not an app. To try it first without installing:
+[Run from a USB drive](portable.md).
 
 ## What you need
 
-- **A PC for under the TV.** x86-64, with an AMD Radeon graphics chip. The
-  only machine CabinetOS has been tested on is the **GEEKOM A9 Max** (Ryzen AI 9
-  HX 370, Radeon 890M). Other AMD machines may work; reports are welcome, with
-  the machine named.
+- **A PC for under the TV.** x86-64, with an AMD Radeon graphics chip.
+  CabinetOS is tested on the **GEEKOM A9 Max** (Ryzen AI 9 HX 370, Radeon 890M).
+  Other AMD machines may work; reports are welcome, with the machine named.
+  On a PC with two graphics chips, such as a gaming laptop, the console draws
+  on the one the screen is plugged into.
 - **A USB stick** of 8 GB or more, for the installer.
 - **A USB keyboard** for the installer and for first run. After that a
   controller does everything.
 - **A controller.** Most Bluetooth and USB pads work. See
   [Controllers and Bluetooth](controllers.md).
-- **A [RomM](https://github.com/rommapp/romm) server**, version 5.1 or newer,
+- **A [RomM](https://github.com/rommapp/romm) server**, version 5.5 or newer,
   on your network, with your games, BIOS and firmware in it. See
   [Your RomM server](romm.md).
 - **A network.** Ethernet or Wi-Fi.
 
 **Handhelds are not supported.** Bazzite keeps a separate image for handhelds
 (`bazzite-deck`); CabinetOS builds on Bazzite's desktop image and is made for a
-TV, tested on one mini PC by a maintainer who will never own a handheld. It may
+TV, tested on a mini PC by a maintainer who will never own a handheld. It may
 run on one, but nothing handheld-specific is tested or planned: the console
 uses a classic controller layout only, and a handheld's extra buttons,
 trackpads and paddles do nothing on its screens. The one exception is a Steam
@@ -35,14 +37,15 @@ GameCube need Vulkan, and every system starts on the lowest picture level.
 ## Get the installer
 
 **[Download cabinetos.iso](https://download.mmagtech.com/cabinetos.iso)**
-(about 6.7 GB). No account needed; it is always the newest release. What
-has changed in each update: [What's new](changelog.md).
+(about 7 GB). No account needed; it is made again from the newest version
+at least once a month. What has changed in each update:
+[What's new](changelog.md).
 
 Optional: check it is whole against [its SHA-256](https://download.mmagtech.com/cabinetos.iso.sha256)
 (`shasum -a 256 cabinetos.iso`; on Windows `certutil -hashfile cabinetos.iso SHA256`).
 
-The installer only has to be new enough to install. Once installed, the
-console updates itself (see [Updates](updates.md)).
+Anything newer than the installer comes after it: once installed, Settings,
+**System**, **System update** (see [Updates](updates.md)).
 
 ## Write it to a USB stick
 
@@ -67,8 +70,9 @@ during the logo) and change two things:
 ## Install
 
 1. Plug in the stick and the keyboard. Start the PC and open its boot menu (on
-   the A9 Max: **F7** during the logo). Pick the USB stick, then
-   **Install CabinetOS**.
+   the A9 Max: **F7** during the logo) and pick the USB stick. The stick
+   shows **Install CabinetOS** and starts by itself after a few seconds
+   (**Enter** starts it at once).
 2. The installer lists the internal drives (USB drives are never offered). With
    more than one, type the number of the one to use.
 3. It asks once: *This will erase this machine's 2.0 TB drive (model).

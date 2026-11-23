@@ -1,0 +1,32 @@
+# The build environment for sm2-emu, the Sega Model 2 emulator, on Linux
+# x86-64.
+#
+# SEPARATE FROM frontend/Containerfile, for the reason cemu-builder gives, and
+# one more: every libretro core's CI cache key covers frontend/Containerfile
+# (ci/core-cache-key.sh), so adding glslc there would rebuild all of them for
+# one program that needs it.
+#
+# Fedora 44 for the same reason as the others: it is what Bazzite 44 is built
+# from, so every library the finished program still asks the system for is the
+# one the image has. Move it when the base moves.
+#
+# WHAT IT TAKES FROM THE SYSTEM, and nothing else: SDL 3 (the image's own, the
+# one the frontend links), the Vulkan headers and loader, HarfBuzz and
+# fontconfig. Everything else sm2-emu needs it builds from its own submodules,
+# pinned by its commit (cores/build-sm2emu.sh): pugixml, miniz, Dear ImGui,
+# VulkanMemoryAllocator, SheenBidi, Musashi, ymfm, and its committed LZMA SDK
+# and stb, so no -devel package for those is installed here.
+#
+# glslc compiles its shaders at build time (BUILDING.md); it runs here and
+# never ships. NO libcurl-devel: without it the artwork downloader, the one
+# part of sm2-emu that reaches the internet, compiles out
+# (cmake/Dependencies.cmake), and build-sm2emu.sh checks that it did.
+FROM registry.fedoraproject.org/fedora:44
+
+RUN dnf install -y --setopt=install_weak_deps=False \
+        gcc gcc-c++ cmake ninja-build git pkgconf-pkg-config glslc \
+        SDL3-devel vulkan-headers vulkan-loader-devel \
+        harfbuzz-devel fontconfig-devel \
+    && dnf clean all
+
+WORKDIR /src

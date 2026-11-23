@@ -52,7 +52,7 @@ the loop deploy restarted the session and ended the game.
   in-game at 11:14 was on the console but never uploaded, because the upload
   happens when a game is left. At the next start RomM's older card (two days
   old) would have been put over it: the launch takes RomM's newest save
-  unless the console's is marked as still owed (`cache::isPending`). It was
+  unless the console's is marked as still owed (`pending.h`). It was
   saved by uploading the console's card to RomM on his go.
 - **Check for a game that is running now:** the newest `[pace]` or
   `[ps2] .. fps` lines within the last minute, or the cores mapped into the
@@ -290,6 +290,15 @@ then `YDOTOOL_SOCKET=/tmp/ydotool.sock ydotool key 108:1 108:0` (Down; Up
   running gamescope; stale sockets from earlier instances sit there looking
   identical.
 
+- **`gamescopectl <convar>` WITH NO VALUE DOES NOT READ IT: IT SETS IT TO
+  0.** gamescopectl sends the name and an empty value, and gamescope
+  parses the empty value as false or 0 (gamescope 3.16.31,
+  `gamescopectl.cpp` and `convar.h`). 2026-10-19 (#253, "4K: the console
+  misses a screen refresh 1 to 5 times every 10 s (gamescope)"): a "read
+  back" after `vblank_debug 1` switched it off again, and its log stayed
+  empty. Check a switch by what it does (vblank_debug's lines in the
+  journal), never by asking for it.
+
 - **`Environment=` IN A SYSTEMD DROP-IN SPLITS ON WHITESPACE.** An unquoted
   `CABINETOS_APP=/path --core-dir x` sets the path and silently discards every
   argument, and the console comes up looking correct on the default core
@@ -324,9 +333,47 @@ then `YDOTOOL_SOCKET=/tmp/ydotool.sock ydotool key 108:1 108:0` (Down; Up
   status` shows the HDMI sink before and after. If it is already broken,
   `systemctl --user restart wireplumber` brings the sink back.
 
+- **A PROGRAM RESTART PUTS SDL ON ITS PULSEAUDIO ROUTE, AND STOPPING
+  PIPEWIRE-PULSE UNDER IT LEAVES NO SOUND AT ALL.** SDL 3.4.18 takes its
+  PipeWire route only if PipeWire shows a sound output the instant SDL
+  starts (`PIPEWIRE_PREFERRED_Init`); otherwise it falls back to PulseAudio,
+  which starts pipewire-pulse through its socket. A session start remakes
+  the TV's output (below), so after `systemctl restart cabinetos-session` or
+  a loop deploy the console's program came up on the PulseAudio route (2 of
+  2, 2026-10-25, #228, "Sound can die until a restart"); after a reboot it
+  took the PipeWire route. On the PulseAudio route pipewire-pulse is the
+  program's only way to PipeWire: stopping it left no stream and no sound
+  until the program was restarted. Read the route before judging any sound
+  test across a restart: the console's stream in `pw-dump` has
+  `node.loop.name` `SDLAudioP` and a number on the PipeWire route,
+  `data-loop.0` on the PulseAudio one. Never stop pipewire-pulse under a
+  running console. Since `build_files/sound-backup-output.sh` pipewire-pulse
+  runs from login; which route a restart takes then is not measured yet.
+
+- **Testing where the sound goes with nothing to hear it.** WirePlumber and
+  PipeWire run as they do on a console, on cards made by the kernel's
+  `snd-dummy`, so a VM can run every step of the sound rule (#655). Load it
+  with `modprobe snd-dummy enable=1,1 pcm_devs=2,2`: without a second device
+  an HDMI mapping has nothing to open, and the card shows no output at all.
+  Add jacks by name through libasound's `snd_ctl_elem_add_boolean`
+  (`Headphone Jack`, `Speaker Phantom Jack`, `HDMI/DP,pcm=1 Jack`, on the
+  card interface), and set one with `amixer cset numid=N`: the comma in the
+  HDMI name defeats `name=`. Give each card a profile set of your own that
+  maps `analog-output-speaker` and `analog-output-headphones` to `hw:%f,0` and
+  `hdmi-output-0` to `hw:%f,1`, through `ACP_PROFILES_DIR` in a drop-in for
+  `wireplumber.service` and `device.profile-set` in `monitor.alsa.rules`.
+  Run the steps on two cards and on one card holding both, since a card that
+  can run only one output at a time behaves differently. Then read the default
+  and each stream's link from `pw-dump`.
+
 - **gamescope crashes on its way out when the app is stopped**
   (`wl_display_destroy`, SIGSEGV or SIGABRT). It is every session stop, not
-  the thing being tested; look at what stopped the app.
+  the thing being tested; look at what stopped the app. A crash while the
+  app was running is something else: 2026-10-22's, as a game's window
+  closed (`wlserver_presentation_feedback_discard` in the core's journal
+  entry), is gamescope's own bug, fixed upstream and waiting for the base
+  (PROJECT.md, "Waiting for stable: gamescope crashes when a game's window
+  closes").
 
 - **A SESSION START REMAKES THE TV'S SOUND OUTPUT.** Measured 2026-10-11
   (#351): the HDMI sink was node 65, then 70, then 55 within a second of
@@ -356,6 +403,11 @@ then `YDOTOOL_SOCKET=/tmp/ydotool.sock ydotool key 108:1 108:0` (Down; Up
   the system's repeat itself (#484): `--nav "key:],held:],held:]"` ends on
   the Library, where a repeat that acted would end on Search.
 
+- **A SHORT YDOTOOL TAP CAN BE DROPPED.** 2026-10-19 (#253): with key-down
+  and key-up 0.15 s apart, the Return after `ydotool type` into Search was
+  dropped about half the time. Hold 0.25 s, and read the journal for the
+  result (`[keyboard] committed N characters`) before the next press.
+
 - **frames.py CANNOT SEE A REPEATED GAME FRAME.** (frames.py is a frame-time
   script kept on the reference console, not in this repository; it reads
   gamescope's frame times.) The console presents at
@@ -363,6 +415,16 @@ then `YDOTOOL_SOCKET=/tmp/ydotool.sock ydotool key 108:1 108:0` (Down; Up
   frame times read a clean 16.67 ms over a game that repeats and skips
   frames every second. Read the console's own `[pace]` line (#221, "Built-in
   cores: no audio rate control, a frame repeats or drops every 10 to 17 s").
+
+- **AND `[pace]` CANNOT SEE A PICTURE GAMESCOPE HOLDS.** `[pace]` counts
+  only the console's own lateness. The message `frames.py` skips (app
+  frame time all ones) carries the visible frame time: the time between
+  the kernel's flips that put a new console frame on screen. 33.3 ms there
+  is a picture shown for two refreshes. 2026-10-19 (#253): with
+  `GAMESCOPE_DISABLE_TIMERFD=1`, Axelay showed 4 such pictures in 38 s
+  while every `[pace]` window read 0 refreshes missed. Read both. The
+  layout after mtype is version u32, pid u32, app frame time u64, two u8,
+  visible frame time u64.
 
 - **`--env` REACHES THE FRONTEND, NOT THE SESSION SCRIPT.** It goes on the
   frontend's command line, so `CABINETOS_OUTPUT` given that way changes
@@ -387,8 +449,15 @@ minute and guessing at it for twenty.
 
 ## Testing emulators headless
 
-- **`--core-option k=v` only reaches the `--core <so> --rom <file>` path.**
-  A `--launch <id>` run ignores it and uses `catalog::optionOverrides` only.
+- **`--core-option k=v` wins over everything the console sets**, on every
+  route: `--core <so> --rom <file>`, `--launch <id>` and Play on the
+  television (`Core::setCommandLineOption`). Until 2026-10-20 it reached
+  `--core` only, and a `--launch` run ignored it in silence. So a picture
+  level's own key (`citra_resolution_factor`, `dolphin_efb_scale`) passed
+  this way pins that value at every level; to try the levels, set the game's
+  level instead (`config/picture-quality.json` under the storage root, or
+  the pause menu's Picture row, from the next start). Each launch logs
+  `[core] option from the command line: k = v`.
 
 - **`--core-options-detail` sees only options declared at load.** FCEUmm
   and FBNeo declare theirs with a game loaded and show "0 options"; read a
@@ -429,6 +498,18 @@ minute and guessing at it for twenty.
   presses, opened its power menu and started Wild West Guns offscreen (it
   restored a save folder; nothing was lost). **Never run a headless frontend
   while he is at the TV**; use `tools/ui-loop.sh` and let him watch instead.
+
+- **And the TV's frontend reads a headless test's devices.** The other way
+  round: a self-test that makes real controllers (`--dualsense-test`'s
+  stand-ins through `/dev/uhid`) shows them to every program on the machine.
+  2026-11-11: the A9's TV ran the testing image, whose frontend did not yet
+  refuse the stand-ins (#669's `players.cpp`), so it seated them as two
+  DualSense Edges, took the test's Cross and d-pad presses as Play, and
+  started Mario Kart 8 Deluxe on Home; each later run paused and resumed it.
+  It ran 35 seconds unpaused, under the minute time played needs. **Run a
+  test that makes controllers only while the TV runs a build that refuses
+  them**: the branch's own, through `tools/ui-loop.sh`, or an image that
+  carries the refusal.
 
 - **Offline is tested with a wrong address, never by stopping RomM.**
   `CABINETOS_ROMM=<server host>:6099`, the server with a port nothing
@@ -549,15 +630,29 @@ minute and guessing at it for twenty.
   default D-Bus timeout on logind's ReleaseDevice. The same stall shows on
   gamescope exits that are not handovers. The brief's lead, the
   frontend's D-Bus calls on exit, was wrong: those run only inside a
-  pairing. **To open Steam and come back in a test:** on Home, Escape
-  (the Power menu, Cancel focused), Down (Switch to Steam), Return,
-  Return (Start); come back with `steam -shutdown` as `cabinet` with
-  `XDG_RUNTIME_DIR=/run/user/1000`, which ends Steam's session the way
-  its own menu does, so the session's whole return path runs. Escape on
-  Settings goes Back to Home rather than opening the menu. Capture with
+  pairing. **The session now cuts it** (#305; cabinetos-session,
+  `wait_for_compositor`): two seconds after the reaper has gone it logs
+  `has not ended 2 s after its app; stopping it (TERM)`, then `(KILL)` a
+  second later, and the handover takes about 3.2 s; one of four handovers
+  on the A9 stalled by itself on 2026-10-19 and read exactly so. **To
+  stall one on purpose**, as `cabinet`: `waitpid` on the
+  `gamescopereaper`, then `kill -STOP` its parent gamescope (the STOP
+  lands within 2 ms of `Primary child shut down!`), and `kill -CONT` it
+  later if it is still there. **To open Steam and come back in a test:**
+  on Home, Escape (the Power menu, Cancel focused), Down (Switch to
+  Steam), Return, Return (Start); come back with `steam -shutdown` as
+  `cabinet` with `XDG_RUNTIME_DIR=/run/user/1000`, which ends Steam's
+  session the way its own menu does, so the session's whole return path
+  runs. Escape on Settings goes Back to Home rather than opening the
+  menu. Capture with
   `gamescopectl screenshot` into a file of your own while other sessions
   run headless frontends: they write and remove the same
-  `/tmp/cabinetos-frame.bmp` the SIGUSR1 capture uses.
+  `/tmp/cabinetos-frame.bmp` the SIGUSR1 capture uses. Under
+  `ui-loop.sh --session-script` the session's lines carry the identifier
+  `bash`, not `cabinetos-session`, so `journalctl -t cabinetos-session`
+  shows none of them; and pick gamescopectl's socket by the exact name
+  `gamescope-<n>`, since `gamescope-<n>-ei` beside it has the same time
+  and gamescopectl hangs on it.
 
 - **A TEST GAME ON THE CONSOLE ENDS INSIDE A MINUTE, BY `--restore`, NEVER
   BY A KILL.** 2026-10-15, move 4 of #398: a loop launch (`tools/ui-loop.sh

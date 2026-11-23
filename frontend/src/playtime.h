@@ -19,7 +19,7 @@
 // sessions only. Every
 // CabinetOS console pairs under the same device identifier, so for one person
 // that is all their play on any CabinetOS console, surviving a reinstall; RomM's
-// web player and the Apple TV are not in it. rommapp/romm#4837 asks for the
+// web player and other apps are not in it. rommapp/romm#4837 asks for the
 // whole total.
 
 #pragma once

@@ -23,18 +23,6 @@ std::string keyFor(SDL_Gamepad* gp) {
 int gEnabled = -1;                 // -1 until read
 std::map<std::string, int> gChosen;  // key -> raw button, -1 for none
 
-// The raw button chosen for this kind of pad, or -1 for none.
-int chosen(SDL_Gamepad* gp) {
-    const std::string key = keyFor(gp);
-    if (auto it = gChosen.find(key); it != gChosen.end()) return it->second;
-    const std::string w = prefs::get(key, "");
-    char* end = nullptr;
-    const long n = w.empty() ? -1 : std::strtol(w.c_str(), &end, 10);
-    const int raw = (!w.empty() && end && *end == '\0' && n >= 0) ? static_cast<int>(n) : -1;
-    gChosen[key] = raw;
-    return raw;
-}
-
 // The gamepad button a raw button is mapped to on this pad, or INVALID.
 SDL_GamepadButton mappedTo(SDL_Gamepad* gp, int raw) {
     SDL_GamepadButton out = SDL_GAMEPAD_BUTTON_INVALID;
@@ -50,6 +38,30 @@ SDL_GamepadButton mappedTo(SDL_Gamepad* gp, int raw) {
     }
     SDL_free(binds);
     return out;
+}
+
+// SELECT, START, L3 AND R3 ARE NEVER THE SHORTCUT BUTTON (#313, MMagTech
+// 2026-10-20): Select is the coin in every arcade game and Start the pause in
+// most games, so a tap of either must reach the game; L3+R3 is the pause
+// menu on every pad, and with L3 chosen the tap opened the menu and the R3
+// closed it again. The row refuses them (pick), and a choice saved before
+// this rule reads as none, so nobody is left with it.
+bool isReserved(SDL_GamepadButton b) {
+    return b == SDL_GAMEPAD_BUTTON_BACK || b == SDL_GAMEPAD_BUTTON_START ||
+           b == SDL_GAMEPAD_BUTTON_LEFT_STICK || b == SDL_GAMEPAD_BUTTON_RIGHT_STICK;
+}
+
+// The raw button chosen for this kind of pad, or -1 for none.
+int chosen(SDL_Gamepad* gp) {
+    const std::string key = keyFor(gp);
+    if (auto it = gChosen.find(key); it != gChosen.end()) return it->second;
+    const std::string w = prefs::get(key, "");
+    char* end = nullptr;
+    const long n = w.empty() ? -1 : std::strtol(w.c_str(), &end, 10);
+    int raw = (!w.empty() && end && *end == '\0' && n >= 0) ? static_cast<int>(n) : -1;
+    if (raw >= 0 && isReserved(mappedTo(gp, raw))) raw = -1;
+    gChosen[key] = raw;
+    return raw;
 }
 
 std::string nameOf(SDL_Gamepad* gp, SDL_GamepadButton b) {
@@ -83,23 +95,35 @@ void setEnabled(bool on) {
     prefs::set("in_game_shortcuts", on ? "on" : "off");
 }
 
+// HOME ALWAYS WORKS, chosen button or not (#313, MMagTech 2026-10-20): a
+// chosen button is added for a pad that has no Home, never put in Home's
+// place. Until now choosing one replaced Home, so a stream's on-screen
+// controls, whose only way in is the Home that Sunshine makes of a long
+// Select, lost the menu whenever another button had been chosen for that
+// kind of pad.
 bool held(SDL_Gamepad* gp) {
     if (!gp) return false;
+    if (SDL_GetGamepadButton(gp, SDL_GAMEPAD_BUTTON_GUIDE)) return true;
     const int raw = chosen(gp);
-    if (raw >= 0) return SDL_GetJoystickButton(SDL_GetGamepadJoystick(gp), raw);
-    return SDL_GetGamepadButton(gp, SDL_GAMEPAD_BUTTON_GUIDE);
+    return raw >= 0 && SDL_GetJoystickButton(SDL_GetGamepadJoystick(gp), raw);
 }
 
 bool isShortcut(SDL_Gamepad* gp, SDL_GamepadButton b) {
     if (!gp) return false;
+    if (b == SDL_GAMEPAD_BUTTON_GUIDE) return true;
     const int raw = chosen(gp);
-    return raw >= 0 ? mappedTo(gp, raw) == b : b == SDL_GAMEPAD_BUTTON_GUIDE;
+    return raw >= 0 && mappedTo(gp, raw) == b;
 }
 
 std::string label(SDL_Gamepad* gp) {
     if (!gp) return "";
     const int raw = chosen(gp);
     if (raw < 0) return SDL_GamepadHasButton(gp, SDL_GAMEPAD_BUTTON_GUIDE) ? "Home" : "Not set";
+    return label(gp, raw);
+}
+
+std::string label(SDL_Gamepad* gp, int raw) {
+    if (!gp || raw < 0) return "";
     const SDL_GamepadButton b = mappedTo(gp, raw);
     if (b != SDL_GAMEPAD_BUTTON_INVALID) {
         const std::string n = nameOf(gp, b);
@@ -137,6 +161,10 @@ Pick pick(SDL_Gamepad* gp, int raw) {
         case SDL_GAMEPAD_BUTTON_DPAD_DOWN:
         case SDL_GAMEPAD_BUTTON_DPAD_LEFT:
         case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: return Pick::Ignore;
+        case SDL_GAMEPAD_BUTTON_BACK:
+        case SDL_GAMEPAD_BUTTON_START:
+        case SDL_GAMEPAD_BUTTON_LEFT_STICK:
+        case SDL_GAMEPAD_BUTTON_RIGHT_STICK: return Pick::Refused;
         default: break;
     }
     prefs::set(keyFor(gp), std::to_string(raw));

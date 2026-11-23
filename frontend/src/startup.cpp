@@ -33,13 +33,17 @@
 #include "dolphinprep.h"
 #include "fileio.h"
 #include "firstrun.h"
+#include "gonegames.h"
+#include "gpu.h"
 #include "offline_sync.h"
 #include "overlaywin.h"
 #include "prefs.h"
 #include "quality.h"
 #include "samplelibrary.h"
+#include "savepush.h"
 #include "saves.h"
 #include "storage.h"
+#include "vkhost.h"
 #include "volume.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
@@ -89,11 +93,6 @@ std::optional<int> App::startStorage() {
                          "kept on it will be fetched from RomM again\n", gone.c_str());
     }
 
-    // THE MACHINE CLASS, worked out at every start (#63 phase 2), so a new
-    // graphics card is noticed the next time the console comes up. It only
-    // decides anything while nobody has moved the dial. quality.h.
-    if (!shotMode) quality::machineClass();
-
     // Runs before SDL, deliberately. This needs no window, no GL and no
     // controller, and on a headless machine it must work anyway — the whole
     // point is to test the server conversation on its own.
@@ -131,7 +130,8 @@ std::optional<int> App::startDisplay() {
     SDL_SetHint(SDL_HINT_GAMECONTROLLER_IGNORE_DEVICES, "0x1209/0xCAB0");
     // A WII REMOTE IS NOT ONE OF SDL'S PADS HERE (#200): wiiremote.h drives
     // them, and the bridge's stand-ins carry Nintendo's id, which SDL's own Wii
-    // driver would otherwise take as a second controller.
+    // driver would otherwise take as a second controller. The kernel's Wii
+    // driver's controllers are kept from SDL by udev (72-cabinetos-wii-remote.rules).
     SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_WII, "0");
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD | SDL_INIT_AUDIO)) {
         std::fprintf(stderr, "[frontend] SDL_Init failed: %s\n", SDL_GetError());
@@ -203,8 +203,8 @@ std::optional<int> App::startDisplay() {
 
     // GLES 3.0, which is what the libretro hardware-rendered cores ask for via
     // RETRO_ENVIRONMENT_SET_HW_RENDER. The UI and the cores share one context
-    // on purpose: that is what removes the readback the Apple build cannot
-    // avoid. See docs/PROJECT.md, "Video: two paths".
+    // on purpose: that is what removes the readback Cabinet's Apple build could
+    // not avoid. See docs/PROJECT.md, "Video: two paths".
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
@@ -254,6 +254,17 @@ std::optional<int> App::startDisplay() {
     std::fprintf(stderr, "[frontend] GL_VENDOR   %s\n", glGetString(GL_VENDOR));
     std::fprintf(stderr, "[frontend] GL_RENDERER %s\n", glGetString(GL_RENDERER));
     std::fprintf(stderr, "[frontend] GL_VERSION  %s\n", glGetString(GL_VERSION));
+
+    // THE GPU THE SCREEN IS ON, now that there is a context to ask: the
+    // games draw on it (#659, gpu.h). Here and not at the probe, because the
+    // probe runs with no window (--gpu-probe); gpu.cpp chooses again if it
+    // has already answered.
+    cab::gpu::screenIs(cab::vk::screenDeviceUuid());
+    // THE MACHINE CLASS, worked out at every start (#63 phase 2), so a new
+    // graphics card is noticed the next time the console comes up. It only
+    // decides anything while nobody has moved the dial. quality.h. After the
+    // screen's GPU is known, since it is read from that GPU.
+    if (!shotMode) quality::machineClass();
     if (!renderer.init()) {
         std::fprintf(stderr, "[frontend] renderer init failed\n");
         return 1;
@@ -449,7 +460,7 @@ std::optional<int> App::connectToServer(char** argv) {
         // Where the cores are, so the catalog can tell "the manifest has a core
         // for this" apart from "this console has it built".
         catalog::setCoreDirectory(coreDir);
-        setup::showWaiting(waitDeps, std::string("Looking for your server at ")
+        setup::showWaiting(waitDeps, std::string("Looking for the server at ")
                                          .append(rommAddress)
                                          .append("…")
                                          .c_str());
@@ -678,14 +689,9 @@ std::optional<int> App::startDeveloperLaunch() {
         storage::makeDirs(saveDir);
         core.setDirectories(storage::biosDir(), saveDir);
         // The same overrides the library path applies, so --core plays the
-        // core the same way the product does. See beginLaunch.
-        std::map<std::string, std::string> overrides = catalog::optionOverrides(corePath);
-        for (const auto& [key, value] : cliOptionOverrides) {
-            std::fprintf(stderr, "[core] option from the command line: %s = %s\n",
-                         key.c_str(), value.c_str());
-            overrides[key] = value;
-        }
-        core.setOptionOverrides(overrides);
+        // core the same way the product does. See beginLaunch. --core-option
+        // goes on top inside the call (Core::setCommandLineOption).
+        core.setOptionOverrides(catalog::optionOverrides(corePath));
         if (!core.load(corePath)) {
             std::fprintf(stderr, "[frontend] core: %s\n", core.error().c_str());
             return 1;
@@ -755,9 +761,13 @@ void App::settleScreensAtStart() {
 void App::startBrowsing() {
     libraryScreen.build(platformTiles, collectionTiles);
     if (rommAddress) startCoverFill();
-    if (rommAddress && !platformTiles.empty()) {
+    // EVERY PLATFORM THE SERVER LISTED, not every tile: the Arcade tile holds
+    // many (#611), and each keeps its covers under its own id. And only with
+    // the server's list: a library from the drive names only the systems on
+    // it (covercache::sweep).
+    if (rommAddress && !libFromDrive && !lib.platformNames.empty()) {
         std::vector<int> live;
-        for (const screens::Tile& t : platformTiles) live.push_back(t.id);
+        for (const auto& [id, name] : lib.platformNames) live.push_back(id);
         coverTidy = std::thread([live]() {
             covercache::sweep(live);
             covercache::evict(covercache::kBudgetBytes);
@@ -772,6 +782,12 @@ void App::startBrowsing() {
 
 void App::startSync() {
     uploader.start(&liveClient);
+    // A game RomM no longer has loses its saves only after this queue has
+    // tried what this start owes (gonegames.h).
+    gone::setQueue({[this] { return uploader.pending(); },
+                    [this](const storage::User& who, int romId, const std::string& file) {
+                        return uploader.refusedThisRun(who, romId, file);
+                    }});
     for (const storage::User& u : storage::knownUsers()) playtime::recover(u);
     // Whatever an earlier run could not send goes first.
     uploader.resendOwed();
@@ -782,6 +798,7 @@ void App::startSync() {
         if (!libFromDrive) backfillDrive(rommAddress);
     }
     shownAway = romm::serverAway();
+    shownChannels = romm::heardServerVersion().empty() ? -1 : romm::heardServerChannels();
 }
 
 // SAVES A POWER CUT LEFT ON A DRIVE: an Xbox game's folder still holding
@@ -800,19 +817,27 @@ void App::recoverPowerCutSaves() {
         }
     }
     // AND THE NOTES IN THIS PERSON'S OWN FOLDERS, `saves/<platform>/<rom
-    // id>/<core>/`: an Xbox 360, Wii U, Switch or PS3 game's (`notesPlaying`,
-    // the emulator writes there), and an Xbox game's whose saves another
-    // person's start brought off the drive for them (recoverDriveSaves,
-    // below). Only this person's, since the upload goes as them; anyone
-    // else's is finished when they next start a game of that kind here, or
-    // the console starts as them.
+    // id>/<core>/`: an Xbox 360, Wii U, Switch, PS3, Vita, Model 2 or Model 3
+    // game's (`notesPlaying`, the emulator writes there), an Xbox game's
+    // whose saves another person's start brought off the drive for them
+    // (recoverDriveSaves, below), and a game's in a core whose save is files (notePlaying:
+    // DS, Dreamcast, PlayStation 2, PSP, 3DS, GameCube, Wii, Saturn's backup cartridge).
+    // Only this person's, since the upload goes as them; anyone else's is
+    // finished when they next start that game here, or the console starts as
+    // them.
     const std::string saves = storage::userDir(storage::currentUser()) + "/saves";
     for (const std::string& platform : listNames(saves))
         for (const std::string& rom : listNames(saves + "/" + platform))
-            for (const cab::standalone::Emulator* emu : cab::standalone::all()) {
-                const std::string dir = saves + "/" + platform + "/" + rom + "/" + emu->core;
-                if (cab::standalone::hasPlayingNote(dir))
-                    finishInterruptedSave(*emu, dir, uploader);
+            for (const std::string& core : listNames(saves + "/" + platform + "/" + rom)) {
+                const std::string dir = saves + "/" + platform + "/" + rom + "/" + core;
+                if (!cab::standalone::hasPlayingNote(dir)) continue;
+                const cab::standalone::Emulator* program = nullptr;
+                for (const cab::standalone::Emulator* emu : cab::standalone::all())
+                    if (emu->core == core) program = emu;
+                if (program)
+                    finishInterruptedSave(*program, dir, uploader);
+                else
+                    finishInterruptedPlay(dir, uploader);
             }
 }
 
@@ -836,12 +861,8 @@ void App::recoverPowerCutSaves() {
 bool App::recoverDriveSaves(const cab::standalone::Emulator& xemu, const std::string& path) {
     if (!cab::standalone::hasPlayingNote(path)) return true;
     const std::string text = cab::standalone::playingNote(path);
-    std::istringstream note(text);
-    std::string id, dir, title, tag;
-    std::getline(note, id);
-    std::getline(note, dir);
-    std::getline(note, title);
-    std::getline(note, tag);
+    std::string dir;
+    GameSession owed = sessionOfPlayingNote(text, &dir);
     const std::string mine = storage::userDir(storage::currentUser()) + "/";
     const bool theirs = dir.compare(0, mine.size(), mine) != 0;
     if (theirs) {
@@ -868,11 +889,7 @@ bool App::recoverDriveSaves(const cab::standalone::Emulator& xemu, const std::st
             return false;
         }
     }
-    GameSession owed;
-    owed.romId = std::atoi(id.c_str());
-    owed.title = title;
     owed.saveDir = dir;
-    owed.saveTag = tag;
     owed.dirSaveRoot = cab::standalone::saveRoot(xemu, dir);
     owed.dirAtLaunch = cab::listTree(owed.dirSaveRoot);
     std::string aerr;
@@ -886,7 +903,8 @@ bool App::recoverDriveSaves(const cab::standalone::Emulator& xemu, const std::st
         return true;
     }
     std::fprintf(stderr, "[xbox] finished what a stop left on %s\n", path.c_str());
-    syncDirSave(owed, uploader);
+    syncDirSave(owed);
+    savepush::leave(owed, storage::currentUser(), uploader);
     return true;
 }
 
@@ -973,11 +991,19 @@ int App::shutDown(char** argv) {
     uploader.shutdown();
     // And an unlock still waiting to go out is written to its queue on disk.
     ra::shutdown();
+    // Game events (#716): a game_ended still waiting gets one message's time
+    // to go, as Power off leaves the game, then its sender is joined.
+    gameevents::shutdown();
     if (!restartSelf) boundTheRestOfTheExit();
     // A STEAM DOWNLOAD IS CANCELLED, not waited for (#485, SETTINGS-04):
-    // SteamJobStop joins its thread as the App goes, and the download script
-    // ends only on a cancel or its parent gone. Cancelled, proc::run stops it
-    // and the join returns within about two seconds.
+    // SteamJobStop joins the Steam job's thread as the App goes, and the
+    // download script ends only on a cancel or its parent gone. Cancelled,
+    // proc::run stops it within about two seconds. Only the download has a
+    // cancel: making, growing or removing Steam's space (steam.cpp) clears
+    // cached games and then waits on the root helper, up to 15 minutes, and
+    // an install cancelled meanwhile stops once its space is made. A quit
+    // ends two seconds after the saves anyway (the bound above); a restart
+    // in place execs before the App goes, so it joins nothing.
     if (steamInstall) steamInstall->cancel = true;
     // THE WATCHING THREADS JOINED BEFORE THEY ARE DESTROYED: a std::thread
     // still running at exit ends the process with abort().

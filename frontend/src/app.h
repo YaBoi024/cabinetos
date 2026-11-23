@@ -43,6 +43,7 @@
 
 #include "accountpanel.h"
 #include "accounts.h"
+#include "arcadesettings.h"
 #include "achievements.h"
 #include "achlist.h"
 #include "battery.h"
@@ -54,12 +55,19 @@
 #include "downloads.h"
 #include "drives.h"
 #include "files.h"
+#include "gameevents.h"
 #include "grid.h"
 #include "idle.h"
 #include "image.h"
 #include "job.h"
 #include "keyboard.h"
 #include "libraryscreen.h"
+struct json_object;
+
+#include "linkup_link.h"
+#include "linkup_wire.h"
+#include "linkuprules.h"
+#include "linkupscreen.h"
 #include "look.h"
 #include "manualview.h"
 #include "net.h"
@@ -73,7 +81,9 @@
 #include "report.h"
 #include "rewind.h"
 #include "romm.h"
+#include "savepicture.h"
 #include "screens.h"
+#include "screenview.h"
 #include "searchscreen.h"
 #include "server.h"
 #include "settings.h"
@@ -127,7 +137,7 @@ struct App {
     int initialFocus = -1;
     // Which row to start on, so each of Home's rows can be photographed without
     // a controller. 0 Recent, 1 Favorites. The bar is not a row any more — see
-    // the Row enum — so a capture of it wants --focus-bar, not --row 0.
+    // the Row enum — so a capture of it wants --focus-bar, not --focus-row 0.
     int initialRow = -1;
     // What to type into Search for a capture. See the route below.
     const char* searchQuery = nullptr;
@@ -205,6 +215,10 @@ struct App {
     bool lookDark = false;
     // Walks the notification pill through every message it can show.
     bool noticeGallery = false;
+    // --linkup-gallery: every LinkUp screen with made-up friends (linkupgallery.cpp).
+    // --linkup-scene opens it at one, for a --screenshot.
+    bool linkupGallery = false;
+    int linkupGalleryStart = 0;
     // --ra-sample: RetroAchievements as for somebody signed in, with a made-up
     // set on every game's page and an unlock a few seconds into a game, so
     // the page and the pop-up can be captured without an account (#74).
@@ -251,20 +265,6 @@ struct App {
     // The same audit with the prose and the value list, which is what turns
     // "here are 78 keys" into something a person can decide from.
     bool coreOptionsDetail = false;
-    // One core option, set from the command line, for finding out what a value
-    // actually does before writing it into catalog::optionOverrides.
-    //
-    // It exists because the alternative is a rebuild per value, and an option
-    // is exactly the kind of thing that has to be tried rather than reasoned
-    // about — `catalog::optionOverrides` already says so, and open question 7
-    // asks for Cabinet's whole per-platform table to be brought across "with a
-    // reason recorded beside each choice", which means somebody has to be able
-    // to see the difference each one makes. Two of the four overrides in that
-    // table today were found by a launch failing, not by reading.
-    //
-    // These are applied ON TOP of catalog::optionOverrides, so this can also be
-    // used to take a shipped override back off and see what it was buying.
-    std::map<std::string, std::string> cliOptionOverrides;
     const char* initialScreen = nullptr;
     int initialTile = 0;
     const char* navScript = nullptr;
@@ -320,6 +320,9 @@ struct App {
     // that gets checked against a real server rather than assumed.
     int romProbeId = 0;
     const char* romProbeExts = "gb|gbc|dmg";
+    // Lists one game's save channels as RomM 5.5 gives them to the console's
+    // person, reading only (#346, `--romm-channels <id>`).
+    int channelsProbeId = 0;
     // Where the built cores are. Where games and saves go is storage.h's
     // answer, not a constant here — see --storage-root.
     //
@@ -340,6 +343,10 @@ struct App {
     // upload it, then fetch the newest one back and restore it. Headless, so
     // the sync can be proved on a machine nobody is sitting at.
     bool syncTest = false;
+    // --save-write-at N (#346, the save's picture): the battery written at
+    // the core's Nth frame as a game saves (testhooks.cpp), so a run shows a
+    // save made mid-game going up with its picture (savepicture.h).
+    uint64_t saveWriteAt = 0;
     // See --overlay-test below. A test instrument for open question 24.
     bool overlayTest = false;
     // Opens the overlay once the game is up, so it can be looked at on a
@@ -350,7 +357,7 @@ struct App {
     // --load-state N: after N frames of play, what the pause menu's "Load
     // latest state" does. The other half of --sync-test, which loads back the
     // state it has just made; this loads whatever is newest on the server, so
-    // a state from an Apple TV can be tried here without a controller.
+    // a state made on another device can be tried here without a controller.
     int loadStateAfter = 0;
     // --state-check N: after N frames, save a state IN MEMORY, play on, load
     // it, and save again at once. Equal bytes mean the load put the machine
@@ -365,6 +372,14 @@ struct App {
     bool discTestMode = false;
     // --files-test: what survives a full disk, through cab::writeBytes (#482).
     bool filesTestMode = false;
+    // --vectrex-sheets-test: which Vectrex game takes which sheet (#224).
+    bool vectrexSheetsTestMode = false;
+    // --gpu-choice-test: which GPU the games draw on, with two (#659).
+    bool gpuChoiceTestMode = false;
+    // --tailscale-switch-test: Tailscale's own switch (tailscale.h).
+    bool tailscaleSwitchTestMode = false;
+    // --update-romm-test: which RomM an update waits for (update.h, #346).
+    bool updateRommTestMode = false;
     // Opens the overlay and takes Exit to Home, so the whole leave-a-game path
     // can be proved on a machine with nothing attached.
     bool overlayExitDemo = false;
@@ -559,10 +574,13 @@ struct App {
     // people the bar is decorative. Since 2026-09-24 moving across the bar
     // switches the screen, so the lit item is always where you stand, and
     // Home is simply one of them. A bar slot is now its destination's number.
-    enum BarItem { BarHome = 0, BarLibrary, BarSearch, BarSettings, BarAccount, BarCount };
-    const char* kBarLabels[BarCount] = { "Home", "Library", "Search", "Settings", "Account" };
+    enum BarItem { BarHome = 0, BarLibrary, BarSearch, BarLinkUp, BarSettings, BarAccount, BarCount };
+    const char* kBarLabels[BarCount] = { "Home", "Library", "Search", "LinkUp", "Settings", "Account" };
     // How many of those draw as labelled capsules. The chip draws itself.
     static constexpr int kBarCapsules = BarAccount;
+    // LinkUp's place in the bar, opening and closing (App::linkupBarRoomNow).
+    design::Animated linkupBarRoom;
+    bool linkupBarRoomSet = false;
     size_t shelfSlots();
     bool haveResume();
     bool haveFavorites();
@@ -586,7 +604,7 @@ struct App {
     int focusRow = RowRecent;
     int focusSlot = 0;
     // Home is taller than the screen once there are two shelves, so it scrolls
-    // to follow focus — the same as tvOS, which puts Home in a ScrollView.
+    // to follow focus, as Cabinet did on tvOS, where Home was a ScrollView.
     design::Animated scrollY;
     int homeTopRow();
     void homeFromTheStart();
@@ -615,7 +633,7 @@ struct App {
     // is what makes quitting a game return to the launch screen and backing out
     // again return to the browsing.
     enum class Screen { Home, Library, Grid, Detail, Search, AddAccount, TailscaleSignIn, Report,
-                        HowTo, Settings, WhatsNew };
+                        HowTo, Settings, WhatsNew, LinkUp, LinkUpPlay, LinkUpRunOwn };
     std::vector<Screen> stack{Screen::Home};
     // Which screen last set the room, so a change of screen can be told apart
     // from focus moving within one. See the backdrop block in the frame loop.
@@ -653,6 +671,101 @@ struct App {
     // ABOUT, WHAT'S NEW (#329): the same screen once more, its code the What's
     // new page's, made once by tools/make-wiki-qr.py like How to's Wiki.
     screens::QrLinkScreen whatsNewScreen;
+    // LINKUP (#654): its top-bar screen, what a friend's console shows with no
+    // picture to show, Run your own's QR code, and what they all show. In memory
+    // only until the LinkUp program answers (step 3); linkupgallery.cpp fills it.
+    screens::LinkUpScreen linkupScreen;
+    screens::LinkUpPlayScreen linkupPlay;
+    screens::QrLinkScreen linkupRunOwn;
+    linkup::State linkUp;
+    std::string linkupHost;             // whose game this console is in, as a friend
+    std::string linkupGuest, linkupGame;  // who the host invited, and to what
+    // The live side (linkupsession.cpp): the local socket to the LinkUp program, who is signed in as
+    // it sees them, and a session with a friend.
+    linkup::Link linkupLink;
+    bool linkupProgramWanted = false;
+    bool linkupHelloSent = false;
+    bool linkupSignedIn = false;
+    bool linkupAwaySent = false;
+    std::string linkupStatusSent;
+    bool linkupChoiceToSend = false;   // Status pressed here and not yet sent as the person's choice
+    romm::User linkupUser;
+    int linkupUserFor = 0;
+    cab::Job<romm::User> linkupUserJob;
+    std::string linkupPairingCode;      // waiting for the program to be there
+    // --linkup-script: a real session with nothing pressed (linkupsession.cpp, runLinkUpScript).
+    std::string linkupScript;
+    double linkupScriptWaitUntil = 0.0;
+    uint32_t linkupScriptPad = 0;
+    enum class LinkupSide { None, Host, Friend };
+    LinkupSide linkupSide = LinkupSide::None;
+    std::string linkupGuestId;
+    int linkupGameId = 0;
+    bool linkupJoined = false;
+    bool linkupStreamUp = false;
+    bool linkupGameAsked = false;
+    double linkupGameStartedAt = 0.0;
+    bool linkupPictureSent = false;
+    // The host: where the game was last said to sit (linkupTellPlace), so it is said again only when
+    // it moves. All zero until a game shows.
+    float linkupPlaceSent[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    bool standaloneNoticeUp = false;   // a pill over an emulator run as a program (drawOverGame)
+    bool linkupFriendShowsPicture = false;
+    bool linkupOverlayMarked = false;
+    bool linkupPausedHere = false;
+    bool linkupPausedThere = false;
+    bool linkupLost = false;
+    float linkupLostFor = 0.0f;
+    float linkupIdleFor = 0.0f;
+    bool linkupIdlePaused = false;
+    bool linkupPressHere = false;
+    bool linkupPressHeard = false;
+    double linkupHeardAt = -1.0;        // when the other console's press last reached this one
+    float linkupPressAge = 0.0f;
+    bool linkupHeldRemotePlay = false;
+    linkupwire::Pad linkupFriendPad;     // the host: what the friend's pad is doing
+    bool linkupFriendPadHeard = false;   // the host: a state of it has come this session
+    uint32_t linkupPadsHeard = 0;
+    bool linkupStartPending = false;     // the host: the first game waits for the friend's pad
+    double linkupConnectedAt = 0.0;
+    linkupwire::Pad linkupVpadSaid;      // the host: what an emulator of its own was last told
+    uint16_t linkupLastPadSeq = 0;
+    linkupwire::Pad linkupPadSent;       // the friend: what was last sent
+    uint16_t linkupPadSeq = 0;
+    float linkupPadAge = 0.0f;
+    std::string linkupPairingAddress;   // the address being paired with
+    float linkupPairingLeft = 0.0f;     // until the pairing's answer
+    static constexpr float kWaitEndsFade = 0.75f;
+    static constexpr float kWaitEndsGap = 0.12f;
+    float linkupWaitEndsIn = 0.0f;
+    // The game list after quitting a game with a friend, and how long it has left.
+    std::string linkupAnswering;        // whose invite the Join or Decline panel is for
+    bool linkupNextOpen = false;
+    float linkupNextLeft = 0.0f;
+    std::function<void()> linkupWaitEndsThen;
+    // What the gallery plays the other side of.
+    int linkupGalleryAt = -1;
+    int linkupGallerySection = 0;
+    bool linkupGalleryPin = false;
+    bool linkupGalleryOffline = false;
+    bool linkupGalleryStreaming = false;
+    bool linkupGallerySession = false;
+    std::string linkupGalleryGame;
+    float linkupGalleryPictureIn = 0.0f;
+    float linkupGalleryJoinIn = 0.0f;
+    float linkupGalleryFriendIn = 0.0f;
+    float linkupGalleryChosenIn = 0.0f;
+    float linkupGalleryNoAnswerIn = 0.0f;
+    float linkupGalleryDeclineIn = 0.0f;
+    float linkupGalleryHostQuitIn = 0.0f;
+    float linkupGalleryRefusedIn = 0.0f;
+    float linkupGalleryInviteEndsIn = 0.0f;
+    float linkupGalleryDownloadLeft = 0.0f;
+    bool linkupGalleryNextSpedUp = false;
+    float linkupGalleryDropEndsIn = 0.0f;
+    float linkupGalleryInviteIn = 0.0f;
+    bool linkupGalleryDropReturns = false;
+    bool linkupGalleryDimmed = false;
     // ABOUT, HOW TO (#314): the controls, in Settings' own shape (a section
     // per row on the left, its lines on the right), so it looks like the
     // console rather than a page of text (MMagTech on the TV, 2026-10-10).
@@ -715,8 +828,8 @@ struct App {
     // every screen that draws from it.
     struct CoverFill {
         std::mutex m;
-        std::vector<std::pair<int, std::string>> done;   // platform id -> cover
-        std::vector<int> want;
+        std::vector<std::pair<int, std::string>> done;   // tile id -> cover
+        std::vector<std::pair<int, std::string>> want;   // tile id, its query
         std::atomic<size_t> next{0};
         std::atomic<bool> quit{false};
         std::vector<std::thread> workers;
@@ -750,6 +863,18 @@ struct App {
         std::thread th;
     };
     std::vector<std::unique_ptr<GridFill>> gridFills;
+    // LinkUp's invite: the first page of each system whose games are judged
+    // one by one, read ahead as the LinkUp tab opens (readAheadForInvite), and
+    // the person it was read for.
+    struct FirstPage {
+        std::string query;   // the tile's (Tile::query)
+        std::vector<romm::Game> games;
+        int total = 0;
+        bool ok = false;
+        std::string err;
+    };
+    cab::Job<std::vector<FirstPage>> inviteReadAhead;
+    int inviteReadAheadFor = 0;
     // The tile the grid screen was last opened on, and which reading of it.
     std::string gridTileQuery;
     unsigned gridReadId = 0;
@@ -802,6 +927,10 @@ struct App {
     uint64_t previous = 0;
     int frame = 0;
     bool pressing = false;
+    // Whether the last press came from a Wii Remote (wiiremote::isRemote),
+    // for a press that starts a game (refuseStartWithoutController). Any other
+    // controller's press, a key or a click clears it.
+    bool lastPressFromRemote = false;
 
 
     // Starting a game from the UI. Everything it needs was decided elsewhere:
@@ -842,6 +971,9 @@ struct App {
     // next frame this window drew, which was the pause menu (2026-09-28,
     // Metroid Prime 4 loading behind its own launch page).
     int standaloneClearFrames = 0;
+    // The dim this window last drew over the game in play (drawOverGame), so
+    // a frame is drawn only while it changes.
+    float standaloneDimDrawn = 0.0f;
     // The shortcut button's tap, per player, as the in-process path reads it:
     // down, and whether anything else was pressed while it was, and by which
     // pad: a hold whose pad left is dropped, not released (ShortcutHold).
@@ -853,6 +985,36 @@ struct App {
     // held back because the other was already down (Emulator::blocksBackStart).
     struct { bool passed[2] = {false, false}, held[2] = {false, false}; }
         backStart[cab::vpad::kMaxPlayers];
+    // THE POINTER over a game whose emulator is touched through the console
+    // (Emulator::touchPointer: the Vita, played as a PS TV, docs/PROJECT.md
+    // question 49, decision 4). Two dots, white and red, drawn by this window
+    // over the game: the sticks move them and L2 and R2 touch with them,
+    // through the virtual touch screen (vtouch.h). A long press of L3 shows
+    // and hides them. standalone_play.cpp, pointerButton and the rest.
+    struct Pointer {
+        bool on = false;          // the dots show
+        int player = -1;          // who drives them: whoever long-pressed L3
+        float x[2] = {0.5f, 0.5f}, y[2] = {0.5f, 0.5f};   // fractions of the screen
+        bool second = false;      // the red dot has come, since the dots last showed
+        float stick[4] = {};      // the driver's sticks, -1 to 1: left x, y, right x, y
+        bool finger[2] = {};      // L2 and R2 holding a finger down
+        // The driver's sticks and triggers as they are, by SDL's axis number,
+        // given back to the game when the dots go.
+        int16_t raw[SDL_GAMEPAD_AXIS_COUNT] = {};
+        // L3's press, held back until it is a click (the game's) or a long
+        // press (the dots'): whose, and since when (SDL_GetTicks).
+        int l3Player = -1;
+        uint64_t l3SinceMs = 0;
+        // A click passed on, released this long after (the game reads L3 as
+        // a held state, so a press and release in one instant is missed).
+        int clickPlayer = -1;
+        uint64_t clickUpAtMs = 0;
+        // The touch screen made and gamescope asked to pass touch through,
+        // for this game, at the first long press.
+        bool madeTouch = false;
+        // Frames still to draw: the dots moved, came or went.
+        int dirty = 0;
+    } pointer;
     // A screenshot being written by gamescope, which takes about two seconds.
     // askedMs and checkedMs are SDL_GetTicks: when it was asked for, and when
     // its size was last looked at (pumpStandaloneShot).
@@ -862,6 +1024,9 @@ struct App {
         int64_t size = -1;
         uint64_t askedMs = 0, checkedMs = 0;
     } standaloneShot;
+    // THE SAVE'S OWN PICTURE (#346, savepicture.h): the game's save watched
+    // while it runs, and its picture taken the moment it changes.
+    savepicture::Watch savePicture;
     // One worker for every upload. Started here and drained on the way out, so
     // quitting does not discard a save someone has already made.
     Uploader uploader;
@@ -870,6 +1035,10 @@ struct App {
     playtime::Clock playClock;
     float playCheckpointClock = 0.0f;
     bool shownAway = false;
+    // Whether the server had save channels when last heard (#346, step 9):
+    // 1 or 0, and -1 before it was first heard. followServer sends what
+    // waited when it gains them.
+    int shownChannels = -1;
     float onlineAgainClock = 5.0f;   // a failed reload waits before the next
     // The library being fetched for a console that started offline (#88).
     struct OnlineLoad {
@@ -958,6 +1127,35 @@ struct App {
         SDL_JoystickID pad = 0;
     };
     ShortcutHold shortcutHold[players::kMax];
+    // A LONE STICK CLICK WAITS kStickPairMs BEFORE THE GAME HEARS IT
+    // (MMagTech, 2026-10-20). L3 + R3 is the pause menu (input.cpp), and the
+    // clicks used to reach the core one by one as well, so whichever landed a
+    // frame first got through as the menu opened: on the DS and the 3DS an R3
+    // tapped the touch screen, on the 3DS an L3 swapped the screens. Now a
+    // click the other one joins inside the window reaches nobody; one it does
+    // not is delivered when the window ends, and one let go inside it is
+    // delivered for a frame, then let go, so no click is lost or reordered.
+    // Two frames, about 33 ms: shipped, to reopen on a report.
+    static constexpr Uint64 kStickPairMs = 33;
+    struct StickClick {
+        bool raw = false;      // the pad's button as it is
+        bool heard = false;    // delivered to the game
+        bool paired = false;   // the other click joined it: the menu's
+        bool tapped = false;   // let go inside the window, delivered for a frame
+        Uint64 downAt = 0;
+    };
+    struct StickPair {
+        StickClick l3, r3;
+        SDL_JoystickID pad = 0;   // as ShortcutHold: another pad in the seat drops it
+    };
+    StickPair stickPair[players::kMax];
+    // HOLDING START IN AN ARCADE GAME (#577, arcadesettings.h): player 1's
+    // hold, which opens MAME 2003-Plus's own menu. FinalBurn Neo counts its
+    // own.
+    arcadesettings::Hold arcadeHold;
+    // A DS OR 3DS GAME'S SCREENS (screenview.h): player 1's L3, and which
+    // screens show.
+    screenview::Press screenPress;
     // FAST FORWARD (#77): the shortcut button and ZR, held. Fast while held,
     // normal on release, the sound discarded meanwhile. About 4x, a fixed top
     // speed rather than a setting. ONLY WHERE STATES ARE (MMagTech,
@@ -969,7 +1167,8 @@ struct App {
     // every half second of play, the last 15 seconds kept in memory; held,
     // it steps back one every kRewindStep and plays on from there on release.
     // On every system with states and nowhere else (fast forward and rewind
-    // go with states). Dropped when a state loads or the game ends.
+    // go with states), and only with In-game shortcuts on (play.cpp).
+    // Dropped when a state loads or the game ends.
     cab::Rewind rewindKeep;
     int rewindAvailable = -1;          // -1 not yet decided for this game
     uint64_t rewindLastFrame = 0;      // framesRun at the last snapshot
@@ -986,10 +1185,10 @@ struct App {
     design::Animated overlayFade;
     design::Animated overlayFocus;
     enum OverlayItem { OvResume = 0, OvSaveState, OvLoadState, OvScreenshot, OvChoice, OvExit,
-                       OvDisc, OvCount };
+                       OvDisc, OvControls, OvCount };
     const char* kOverlayLabels[OvCount] = {
         "Resume", "Save state", "Load latest state", "Screenshot", "", "Exit to Home",
-        "Change disc",
+        "Change disc", "Controls",
     };
     // CHOICE ROWS in a list of buttons: "Picture: Console" (#63) and a
     // system's own options, "3D glasses: Off" (#73). Built when the menu
@@ -1018,6 +1217,34 @@ struct App {
     // that says no.
     std::vector<OverlayItem> pauseItems{OvResume, OvSaveState, OvLoadState, OvExit};
     PauseChoice* choiceAt(int slot);
+    // THE PAD THAT OPENED THE PAUSE MENU, 0 when no pad's press did (Escape,
+    // a pad going off, a stream, a Wii Remote): L3 + R3 (input.cpp) and the
+    // shortcut tap (play.cpp) say which. Controls starts on its kind.
+    SDL_JoystickID menuOpener = 0;
+    // CONTROLS (controls.h): an arcade game's buttons, in the Change disc
+    // panel over the pause menu (controlsflow.cpp).
+    struct ControlsKind {
+        std::string kind;          // fightstick::kind
+        int player = 0;            // the lowest player holding one, 0-based
+        SDL_JoystickID pad = 0;    // that player's pad: the rows show its layout
+        std::string name;          // as the pad gives it, written beside the kind
+    };
+    struct ControlsPanel {
+        bool open = false;
+        std::vector<ControlsKind> kinds;   // one per kind connected, by player
+        int shown = 0;                     // the kind the rows are for
+        std::vector<std::string> labels;   // the rows as last shown
+        int padsSeen = -1;                 // players::generation when shown
+        unsigned rowsSeen = 0;             // controls::generation when shown
+        // LISTENING: the next press on this pad gives row `row` its control.
+        SDL_JoystickID listen = 0;
+        int row = -1;
+        // A trigger held as listening began is let go before it counts.
+        bool triggerDown[2] = {};
+        // The pad that last pressed a button on the panel: A on a row listens
+        // to it when it is of the kind shown.
+        SDL_JoystickID lastPressed = 0;
+    } controlsPanel;
 
     // ---- The Power menu — docs/PROJECT.md, open question 10b ------------
     //
@@ -1286,9 +1513,8 @@ struct App {
     // pressing a second direction takes over rather than queueing, so a person
     // rolling their thumb around the pad never ends up with two repeats
     // fighting each other.
-    bool navHeld = false;
+    design::HeldRepeat navHold;
     screens::Nav heldNav = screens::Nav::Down;
-    float heldFor = 0.0f, nextRepeat = 0.0f;
     void holdNav(screens::Nav n);
     void releaseNav(screens::Nav n);
     void letGoOfHeld();
@@ -1392,6 +1618,9 @@ struct App {
     // for that same press (same timestamp) goes no further: a B that cancels
     // must not also leave Settings.
     SDL_JoystickID shortcutListen = 0;
+    // The last press while listening was refused: what the row says until
+    // the next press (shortcuts::Pick::Refused). Empty otherwise.
+    std::string shortcutRefused;
     Uint64 shortcutTakenAt = 0;
     std::vector<drives::Drive> formatable;
     std::map<int, std::string> driveNames;   // a drive row's id -> its name
@@ -1421,9 +1650,10 @@ struct App {
     // status file (update.h); the frame loop reads it twice a second and this
     // decides what it means on screen. What has to outlive a boot is kept in
     // settings.json: Manual or Weekly, when the last check succeeded and what
-    // it found, the version already announced, and the version waiting for a
-    // restart with the boot it was staged in, which is how the first start
-    // after a restart knows whether it applied.
+    // it found and the RomM that needs, the version already announced, the
+    // version waiting for a restart with the boot it was staged in, which is
+    // how the first start after a restart knows whether it applied, and the
+    // server's RomM version last heard.
     update::Status upd;   // the first poll reads it, so a status already there is acted on
     // A state said on screen before root has written it: "Checking…" the
     // moment the row is pressed, or why systemd refused. Root's next write
@@ -1441,8 +1671,16 @@ struct App {
     static int64_t prefNum(const char* key);
     static std::string updBytes(int64_t b);
     static std::string updOf(int64_t done, int64_t total);
+    static std::string updVersionSize(const std::string& version, int64_t size);
     std::string updChecked();
     bool updFoundNewer();
+    // HELD BACK (#346): an update that needs a newer RomM than the server's
+    // says "Needs RomM 5.5 or newer." and Download is greyed out until the
+    // server is updated.
+    std::string updRommWritten;      // romm_version in settings.json, as last written
+    std::string updRommSeen();
+    bool updHeld(const std::string& needed);
+    static std::string updNeeds(const std::string& needed);
     screens::SettingsRow updateRow();
     files::State filesState;
     int64_t filesSaidAt = 0;
@@ -1489,11 +1727,11 @@ struct App {
     // Digits handed over: the name given to Sunshine, when, and the devices
     // paired before, so the new one is the one not among them.
     struct { std::string name; int64_t at = 0; std::set<std::string> before; } rpPairing;
-    // TAILSCALE, for Remote Play away from home (tailscale.h says why it is
-    // the one way in from outside). tailscaled.service runs only while
-    // Streaming AND Tailscale are on; turning Streaming off stops it too, and
-    // turning Streaming on starts it again when Tailscale was on. Signed in
-    // or not is remembered as well, so a console turned off can still say
+    // TAILSCALE, for Remote Play away from home and a RomM server at its
+    // Tailscale address (tailscale.h says why it is the one way in from
+    // outside). Its own switch, in Network: tailscaled.service runs whenever
+    // Tailscale is on, whatever Remote Play is. Signed in or not is
+    // remembered as well, so a console turned off can still say
     // "Disconnected" (signed in, not running) rather than "Off" (never).
     static constexpr const char* kTsUnit = "tailscaled.service";
     bool tsWant = false;
@@ -1701,6 +1939,18 @@ struct App {
     // The address the keyboard is waiting on, while it says "Checking…".
     std::string serverKeyboardFor;
     void askNetwork();
+    // ---- Game events (#716), gameeventsflow.cpp ----------------------------
+    //
+    // Done's test message, off the frame thread: up to five seconds. The
+    // keyboard says "Checking…" meanwhile, 700 ms at least, the server row's
+    // shape. Joined as the App goes (job.h).
+    cab::Job<gameevents::Tried> geCheck;
+    std::string geCheckFor;       // the address being tried
+    Uint64 geCheckAt = 0;         // SDL_GetTicks when it started
+    // The address the keyboard is waiting on, while it says "Checking…".
+    std::string geKeyboardFor;
+    void askGameEventsAddress(const std::string& typed, const std::string& why);
+    void startGameEventsCheck(const std::string& address);
     // ---- Downloads (downloads.h), #68 --------------------------------------
     //
     // Every downloaded game, for Settings' Downloads panel, named as the
@@ -1712,13 +1962,13 @@ struct App {
     void downloadsOutcome(screens::DownloadsPanel::Outcome o);
     std::vector<screens::DownloadItem> downloadItems();
 
-    // THE TAILSCALE ROW (#286), under Streaming and greyed while it is off.
-    // Its value is the address to give Moonlight; its second line is the
-    // console's name there and when its sign-in ends. MMagTech, 2026-10-08.
-    // "Sign in again" is offered for the last two weeks only.
+    // THE TAILSCALE ROW (#286), in Network after Wi-Fi, greyed while a device
+    // streams. Its value is the console's Tailscale address, the one to give
+    // Moonlight; its second line, the console's name there and when its sign-in
+    // ends (MMagTech, 2026-10-08). "Sign in again": the last two weeks only.
     static constexpr int64_t kTsWarnDays = 14;
     bool tsEndsSoon(const tailscale::Status& st);
-    screens::SettingsRow tailscaleRow(bool streaming, bool inUse);
+    screens::SettingsRow tailscaleRow(bool inUse);
     void buildSettings();
     void startUpdate(bool download, bool automatic);
     void askUpdateDownload();
@@ -1739,7 +1989,7 @@ struct App {
     void askDeviceName(const std::string& id, const std::string& current, bool justPaired);
     // THE PAIRED DEVICES: a list, however long, each one pressed for Remove
     // (the PIN when set). One row on the page, so a household with many
-    // devices does not push Tailscale off it (MMagTech, 2026-10-07).
+    // devices does not push the rows below off it (MMagTech, 2026-10-07).
     std::vector<remoteplay::Device> rpRowsShown;
 
     // THE PANEL: File access's, with the port. Same password, same New
@@ -1834,6 +2084,7 @@ struct App {
     void activateHome();
     void goToDestination(int d);
     int destinationHere();
+    int barSlotHere();
 
     // SWITCHING TOP-BAR DESTINATIONS IS A DISSOLVE — 2026-09-24.
     //
@@ -1878,12 +2129,15 @@ struct App {
     void switchDestination(int delta);
     bool shoulderOnPage(int dir);
     bool barKey(screens::Nav n);
+    bool screenTakesFocus();
     void removeDownloads();
     void pumpSwitch();
     void pumpLeave();
     void pumpArrive();
     void refuseLaunch(const std::string& why);
     void showWhyUnplayable(int romId);
+    bool refuseStartWithoutController(int romId);
+    screens::ControllersOn controllersOn() const;
     void startStandalone(const cab::standalone::Emulator& emu);
     static void dropPressesFromClosing();
     void finishStandalone();
@@ -1908,7 +2162,6 @@ struct App {
     // nobody chose. Found by someone actually playing it.
     enum class InputOwner { Keyboard, Overlay, Game, UI };
     InputOwner inputOwner();
-    void keyboardUp();
     void keyboardResult(ui::KeyboardResult res);
 
     // Leaving a game. The save goes up FIRST — this is the trigger that matters
@@ -1947,6 +2200,9 @@ struct App {
     void powerActivate(PowerItem item);
     void backToPauseMenu();
     void standaloneScreenshot();
+    // An emulator of its own asked to close, its save's picture taken first
+    // while it is still on screen (savepicture.h).
+    void stopStandaloneGame();
     void pumpStandaloneShot();
     void stepChoice(int slot, int delta, bool wrap);
     void beginInsert(int n);
@@ -1971,8 +2227,21 @@ struct App {
     } discScript;
     void openDiscPanel();
     void pickDisc(int n);
+    // controlsflow.cpp
+    void openControlsPanel();
+    void showControls(bool fresh);
+    void pickControlsRow(int answer);
+    void stepControlsKind(int dir, bool wrap);
+    void takeControl(int control);
+    void stopListening();
+    bool interceptControls(const SDL_Event& e);
+    void followControls();
+    // The pause menu's panel height for its rows now, which a level opened
+    // from it is drawn at (choice.h, setOverPauseMenu).
+    float pauseMenuHeight();
     void overlayActivate();
-    void toggleOverlay();
+    // `opener` is the pad whose press opened it, when one did (menuOpener).
+    void toggleOverlay(SDL_JoystickID opener = 0);
     void openStandaloneMenu();
     void openPowerMenu();
     // Set while logind is waiting on us to leave a game before it proceeds.
@@ -2100,6 +2369,18 @@ struct App {
     // serveraddressflow.cpp
     void takeServerCheck();
     void pressServer();
+    // gameeventsflow.cpp
+    screens::SettingsRow gameEventsRow();
+    void pressGameEvents();
+    void takeGameEventsCheck();
+    void startGameEventsAtBoot();
+    gameevents::Who gameEventsWho();
+    void gameEventStarted();
+    void gameEventEnded(int64_t playedMs);
+    void followGameEventsPause();
+    void gameEventUnlocked(const ra::Popup& p);
+    void gameEventFriendStarted();
+    void gameEventFriendEnded();
     // curtain.cpp
     void startCurtain();
     void drawCurtain(float sc);
@@ -2108,6 +2389,9 @@ struct App {
     bool takeGridPages(GridFill& f, bool toScreen);
     void fillGrid(screens::Tile& t);
     void openTile(const screens::Result& res);
+    void readAheadForInvite();
+    void takeInviteReadAhead(bool wait);
+    bool inviteHasSystem(screens::Tile& t);
     // about.cpp
     void pressCredits();
     void pressHowTo();
@@ -2115,6 +2399,8 @@ struct App {
     // downloadsflow.cpp
     void pressDownloads();
     void pressRemoveDownload(const screens::Result& res);
+    void pressStopDownload(const screens::Result& res);
+    void followStopAsk();
     // steamflow.cpp
     void pressSteamShow();
     void pressSteam();
@@ -2122,7 +2408,6 @@ struct App {
     void playFromState(const screens::Result& res);
     void loadPendingStates();
     void drawStateHold(float sc);
-    void sayStateUploaded();
     // favorites.cpp
     void toggleFavorite(const screens::Result& res);
     // ps2window.cpp
@@ -2141,6 +2426,12 @@ struct App {
     bool takeStandaloneEvent(const SDL_Event& e);
     bool watchStandalone(float dt);
     void closeStandaloneAtExit();
+    bool pointerButton(int player, SDL_GamepadButton b, bool down);
+    bool pointerAxis(int player, SDL_GamepadAxis a, int16_t value);
+    void pointerTick(float dt);
+    void showPointer(bool on, int player);
+    void endPointer();
+    void drawOverGame();
     // play.cpp
     void followRemotesInGame();
     bool readGameInput(cab::Core& core);
@@ -2152,6 +2443,7 @@ struct App {
     // launch.cpp
     void forgetLaunchAsks();
     bool takeFinishedJob();
+    bool loadPickedCore();
     void prepareSaveDirAndDiscs(LaunchContext& c);
     void restoreBeforeLoad(LaunchContext& c);
     bool loadLaunchedGame(LaunchContext& c);
@@ -2169,6 +2461,130 @@ struct App {
     void overlayHooks();
     void stateHooks();
     void noticeGalleryHook(float dt);
+    // linkupsession.cpp
+    void linkupStart();
+    void linkupWantProgram(bool on);
+    void linkupSend(json_object* o);
+    void linkupSetSwitch(bool on);
+    void linkupBeginPairing(const std::string& address, const std::string& code);
+    void linkupFollowAccount();
+    std::string linkupStatusWord() const;
+    void linkupChooseStatus(bool offline);
+    void linkupTookChosen(bool offline);
+    void linkupKeepStatus(bool offline);
+    void linkupFollowStatus();
+    void linkupFollowLink();
+    void linkupOnMessage(const uint8_t* data, size_t len);
+    void linkupOnEvent(json_object* o);
+    void linkupSaidPairing(const std::string& result);
+    void linkupTookFriends(json_object* list);
+    void linkupTookInviteEnded(const std::string& invite, const std::string& reason);
+    bool linkupHostWaiting() const;
+    void linkupSessionOpens(LinkupSide side);
+    void linkupSessionClosed();
+    void linkupSendInvite();
+    void linkupFetchGame();
+    void linkupSendCancel();
+    void linkupSendJoin(const linkup::Friend& f);
+    void linkupSendDecline(const linkup::Friend& f);
+    void linkupTellPeer(const std::string& word, const std::string& game = "");
+    void linkupSendPeer(json_object* inner);
+    void linkupTellPlace(float x, float y, float w, float h);
+    void linkupTookPlace(json_object* message);
+    void linkupConnected(const std::string& path);
+    void linkupStartGame();
+    void linkupConnectFailed(const std::string& reason);
+    void linkupSeatFriend();
+    void linkupUnseatFriend();
+    void linkupFriendPadChanged(const linkupwire::Pad& pad);
+    void linkupPassToEmulator();
+    bool linkupGameAloneOnScreen() const;
+    void linkupFollowGame();
+    void linkupHostGameEnded();
+    void linkupPauseGame();
+    void linkupResumeGame();
+    void linkupHostPanel(const std::string& title, std::function<void()> then);
+    void linkupFriendHandover(bool on);
+    void linkupFriendPicture(bool on);
+    bool linkupPictureOnly();
+    bool linkupPictureBehind();
+    void linkupSendPad(float dt);
+    bool takeLinkUpEvent(const SDL_Event& e);
+    bool linkupWatchPicture(float dt);
+    void linkupFromPeer(const std::string& word, json_object* message);
+    void linkupFriendAsksPause();
+    void linkupFriendLeaves();
+    void linkupFriendLeft();
+    void linkupPeerEndedSession();
+    void linkupPeerLost();
+    void linkupPeerBack();
+    void linkupPeerGone();
+    void linkupProgramLost();
+    void linkupIdlePause();
+    void tickLinkUpSession(float dt);
+    void tickLinkUpLive(float dt);
+    void runLinkUpScript();
+    // linkup.cpp
+    bool linkupInBar() const;
+    bool linkupSessionOpen() const;
+    bool linkupOffline() const;
+    bool barItemReachable(int item) const;
+    bool linkupInUse() const;
+    void refreshLinkUpScreen();
+    void applyLinkUp(const screens::Result& res);
+    void linkupPickGame(const std::string& who);
+    void linkupEndPick();
+    bool linkupFriendCanPlay(int cardIndex) const;
+    bool linkupPickedGame(int cardIndex);
+    void linkupInvite(const std::string& game);
+    void linkupGameStarts();
+    void linkupCancelInvite();
+    float linkupBarRoomNow(float dt);
+    static float linkupBarFade(float room);
+    void linkupGameQuit();
+    void linkupNextStarts(const std::string& game);
+    void linkupNextClose();
+    void linkupNextDone();
+    void linkupAskEndSession();
+    void linkupNextRanOut();
+    void linkupDeclinedBy(const std::string& who);
+    void linkupNoAnswerFrom(const std::string& who);
+    void linkupWaitEndsWith(const std::string& words);
+    void linkupNotAvailable(const std::string& who);
+    void linkupInviteEnded(const std::string& who);
+    void linkupWaitEnds(std::function<void()> then);
+    bool linkupHoldsScreen();
+    void linkupSayInvited(const std::string& who);
+    void linkupPanel(const std::string& title, const std::string& detail,
+                     std::vector<std::string> options, int focus, std::function<void(int)> then);
+    void linkupAnswerInvite(const linkup::Friend& f);
+    void linkupJoin(const linkup::Friend& f);
+    void linkupAskLeave();
+    void linkupPausePanel(const std::string& title);
+    // linkupflow.cpp
+    std::vector<screens::SettingsRow> linkupRows();
+    bool pressLinkUpRow(int id);
+    void linkupAskPin(const std::string& detail, std::function<void()> then);
+    void pressLinkUpSwitch();
+    void linkupAskAddress(const std::string& typed);
+    void linkupAskCode(std::string address, const std::string& typed);
+    void linkupRetypeAddress();
+    void pressRunYourOwn();
+    void pressLinkUpServer();
+    void linkupEnterCode();
+    void pressLinkUpLeave();
+    void tickLinkUp(float dt);
+    // linkupgallery.cpp
+    void linkupGalleryLibrary();
+    bool linkupGalleryOpenTile(const screens::Result& res);
+    void linkupGalleryJoined(const std::string& game);
+    void linkupGalleryInvited();
+    void linkupGalleryTick(float dt);
+    void linkupGalleryStep(int dir);
+    int linkupGalleryFirst() const;
+    int linkupGalleryLast() const;
+    void linkupGalleryShow(int index);
+    void drawLinkUpGalleryCaption(float sc);
     void captureFrame(int dw, int dh);
     void refuseCaptureOverAnotherWindow(const char* whose);
     // discrig.cpp
@@ -2180,7 +2596,7 @@ struct App {
     // notice.cpp
     void drawNotice(float sc);
     // idle.cpp
-    void drawDim();
+    void drawDim(bool onOverlay = false);
     void wakeTvAtExit();
     // input.cpp
     void handleEvent(const SDL_Event& e);

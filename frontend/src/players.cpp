@@ -1,6 +1,8 @@
 #include "players.h"
 
 #include "battery.h"
+#include "fightstick.h"
+#include "guitar.h"
 
 #include <algorithm>
 #include <atomic>
@@ -16,21 +18,31 @@ namespace players {
 
 // ---- The rules --------------------------------------------------------------
 
-int Seats::playerOf(uint32_t id) const {
+int Seats::seatOf(uint32_t id) const {
     if (id == 0) return -1;
     for (size_t i = 0; i < seats_.size(); ++i)
         if (seats_[i].id == id) return static_cast<int>(i);
     return -1;
 }
 
+int Seats::playerOf(uint32_t id) const {
+    if (!friend_) return seatOf(id);
+    if (id == friend_) return 1;
+    return seatOf(id) == 0 ? 0 : -1;
+}
+
 uint32_t Seats::idOf(int player) const {
+    if (friend_) {
+        if (player == 1) return friend_;
+        if (player != 0) return 0;
+    }
     if (player < 0 || player >= static_cast<int>(seats_.size())) return 0;
     return seats_[player].id;
 }
 
 int Seats::add(uint32_t id, const std::string& key) {
     if (id == 0) return -1;
-    if (const int p = playerOf(id); p >= 0) return p;
+    if (const int p = seatOf(id); p >= 0) return p;
     // A pad coming back to the game it left takes its own number back. Known
     // by its key, never by position: two people's pads can both be away.
     if (!key.empty())
@@ -100,6 +112,10 @@ std::map<SDL_JoystickID, bool> gIsRemote;
 std::mutex gIsRemoteLock;
 std::map<SDL_JoystickID, SDL_Gamepad*> gOpen;
 std::map<SDL_JoystickID, std::string> gDir;   // its HID device, for its battery
+std::map<SDL_JoystickID, const fightstick::Stick*> gStick;   // the open fight sticks
+std::map<SDL_JoystickID, const ::guitar::Layout*> gGuitar;   // the open guitars
+std::atomic<SDL_JoystickID> gFriend{0};   // LinkUp's, read by setAside on that thread too
+bool gHoldTwo = false;                    // a friend has left, and the game they left runs on
 
 // The seats a game hears now.
 Seats& active() { return gStreaming ? gRemote : gSeats; }
@@ -165,19 +181,36 @@ std::string addressOf(SDL_Gamepad* gp) {
     return asAddress(uniq);
 }
 
+// The name the kernel gives the device at `path`, which SDL does not pass on:
+// an input device's name, or a HID device's HID_NAME.
+std::string deviceNameAt(const std::string& path) {
+    if (path.rfind("/dev/input/", 0) == 0)
+        return firstLine("/sys/class/input/" + path.substr(11) + "/device/name");
+    if (path.rfind("/dev/hidraw", 0) == 0)
+        return firstLine("/sys/class/hidraw/" + path.substr(5) + "/device/uevent", "HID_NAME=");
+    return {};
+}
+
+std::string deviceName(SDL_Gamepad* gp) {
+    const char* p = SDL_GetGamepadPath(gp);
+    return p ? deviceNameAt(p) : std::string();
+}
+
+// THE CONSOLE'S OWN STAND-INS (vpad.h) are real controllers to this SDL too,
+// and a console that seated them would pass each press back to itself. The
+// plain ones are kept from SDL by their id (startup.cpp); the stand-in
+// DualSense carries Sony's id (vdualsense.h), so it is told apart by the name
+// the console gives both kinds, read before the pad is opened.
+bool isConsoleStandIn(const std::string& deviceName) {
+    return deviceName.rfind("CabinetOS player", 0) == 0;
+}
+
 // A PAD THAT CAME THROUGH A STREAM: Sunshine's virtual controller, whose
 // device is named "Sunshine (libvirtualhid) X-Box Series Controller" (read on
 // the A9, 2026-10-07). SDL names it "Xbox Series X Controller", like a real
 // one, so the device's own name is read.
 bool isRemote(SDL_Gamepad* gp) {
-    const char* p = SDL_GetGamepadPath(gp);
-    if (!p) return false;
-    const std::string path = p;
-    std::string name;
-    if (path.rfind("/dev/input/", 0) == 0)
-        name = firstLine("/sys/class/input/" + path.substr(11) + "/device/name");
-    else if (path.rfind("/dev/hidraw", 0) == 0)
-        name = firstLine("/sys/class/hidraw/" + path.substr(5) + "/device/uevent", "HID_NAME=");
+    const std::string name = deviceName(gp);
     return name.find("Sunshine") != std::string::npos ||
            name.find("libvirtualhid") != std::string::npos;
 }
@@ -233,7 +266,12 @@ void loadMappings() {
 }
 
 void added(SDL_JoystickID id) {
-    if (gOpen.count(id)) return;
+    if (gOpen.count(id) || id == gFriend.load()) return;
+    if (const char* path = SDL_GetGamepadPathForID(id); path && isConsoleStandIn(deviceNameAt(path))) {
+        std::fprintf(stderr, "[players] pad %u is the console's own stand-in, \"%s\" at %s: not seated\n",
+                     static_cast<unsigned>(id), deviceNameAt(path).c_str(), path);
+        return;
+    }
     SDL_Gamepad* gp = SDL_OpenGamepad(id);
     if (!gp) {
         std::fprintf(stderr, "[players] could not open pad %u: %s\n",
@@ -251,6 +289,20 @@ void added(SDL_JoystickID id) {
     std::fprintf(stderr, "[players] pad %u is %s%s%s%s\n", static_cast<unsigned>(id),
                  nameOf(gp).c_str(), addressOf(gp).empty() ? "" : " over Bluetooth ",
                  addressOf(gp).c_str(), remote ? ", through a stream" : "");
+    if (const fightstick::Stick* s = fightstick::match(SDL_GetGamepadVendor(gp),
+                                                       SDL_GetGamepadProduct(gp), deviceName(gp))) {
+        gStick[id] = s;
+        std::fprintf(stderr, "[players] pad %u is a fight stick on the table: %s\n",
+                     static_cast<unsigned>(id), s->name);
+    }
+    const ::guitar::Identity who = ::guitar::identify(SDL_GetGamepadVendor(gp), SDL_GetGamepadProduct(gp),
+                                                      deviceName(gp), SDL_GetGamepadPath(gp));
+    if (const ::guitar::Layout* g = ::guitar::match(who)) {
+        gGuitar[id] = g;
+        std::fprintf(stderr, "[players] pad %u is a guitar (\"%s\", USB \"%s\", subtype %d): %s\n",
+                     static_cast<unsigned>(id), who.device.c_str(), who.usbProduct.c_str(), who.subtype,
+                     g->name);
+    }
     changed("connected", id);
 }
 
@@ -266,10 +318,13 @@ void removed(SDL_JoystickID id) {
         gIsRemote.erase(id);
     }
     gDir.erase(id);
+    gStick.erase(id);
+    gGuitar.erase(id);
     changed("disconnected", id);
 }
 
 void setInGame(bool on) {
+    if (!on) gHoldTwo = false;
     if (gSeats.inGame() == on) return;
     gSeats.setInGame(on);
     gRemote.setInGame(on);
@@ -290,7 +345,30 @@ void setStreaming(bool on) {
 
 bool streaming() { return gStreaming; }
 
+void seatFriend(SDL_JoystickID id) {
+    gFriend = id;
+    if (!gOpen.count(id))
+        if (SDL_Gamepad* gp = SDL_OpenGamepad(id)) gOpen[id] = gp;
+    gSeats.setFriend(id);
+    gHoldTwo = false;
+    changed("a friend joined as player 2,", id);
+}
+
+void unseatFriend() {
+    const SDL_JoystickID id = gFriend.exchange(0);
+    if (!id) return;
+    gSeats.setFriend(0);
+    auto it = gOpen.find(id);
+    if (it != gOpen.end()) {
+        SDL_CloseGamepad(it->second);
+        gOpen.erase(it);
+    }
+    gHoldTwo = gSeats.inGame();
+    changed("the friend left,", id);
+}
+
 bool setAside(SDL_JoystickID id) {
+    if (id == gFriend.load()) return true;
     std::lock_guard<std::mutex> lk(gIsRemoteLock);
     auto it = gIsRemote.find(id);
     return it != gIsRemote.end() && it->second != gStreaming;
@@ -303,9 +381,22 @@ SDL_Gamepad* gamepad(int player) {
     return it == gOpen.end() ? nullptr : it->second;
 }
 
+const fightstick::Stick* stick(SDL_JoystickID id) {
+    auto it = gStick.find(id);
+    return it == gStick.end() ? nullptr : it->second;
+}
+
+const ::guitar::Layout* guitar(SDL_JoystickID id) {
+    auto it = gGuitar.find(id);
+    return it == gGuitar.end() ? nullptr : it->second;
+}
+
 int playerOf(SDL_JoystickID id) { return active().playerOf(id); }
 
-int count() { return static_cast<int>(active().seats().size()); }
+int count() {
+    const int n = active().count();
+    return gHoldTwo ? std::max(n, 2) : n;
+}
 
 std::vector<Pad> connected() {
     std::vector<Pad> out;
@@ -316,7 +407,9 @@ std::vector<Pad> connected() {
         Pad p;
         p.player = static_cast<int>(i);
         p.id = id;
-        p.name = nameOf(it->second);
+        // A GUITAR IS NAMED "Guitar": what it gives is a pad's name
+        // ("Xbox 360 Controller", "Ipega PG 9069") or a model's, by link.
+        p.name = gGuitar.count(id) ? "Guitar" : nameOf(it->second);
         p.address = addressOf(it->second);
         out.push_back(std::move(p));
     }
@@ -390,6 +483,26 @@ int test() {
         check(s.seats().empty(), "in a game, every pad off frees every seat");
         check(s.add(22, "b") == 0, "and the first pad back is player 1, whichever it was");
         check(s.add(23, "a") == 1, "and the other is player 2");
+    }
+    {
+        Seats s;
+        s.add(10, "a");
+        s.add(11, "b");
+        s.add(12, "c");
+        s.setFriend(99);
+        check(s.playerOf(99) == 1 && s.idOf(1) == 99, "a friend is player two");
+        check(s.playerOf(10) == 0 && s.idOf(0) == 10, "and player one stays whoever had it");
+        check(s.playerOf(11) == -1 && s.playerOf(12) == -1, "and a game hears no other controller of the TV's");
+        check(s.idOf(2) == 0 && s.count() == 2, "and there is no third seat, whatever the game allows");
+        check(s.add(11, "b") == 1 && s.seats().size() == 3, "a pad of the TV's keeps its own seat underneath");
+        s.setFriend(0);
+        check(s.playerOf(11) == 1 && s.playerOf(12) == 2 && s.count() == 3, "and the TV's numbers come back as they were");
+    }
+    {
+        Seats s;
+        s.setFriend(99);
+        check(s.count() == 2 && s.idOf(0) == 0, "with no pad on at the TV, the friend is still player two");
+        check(s.add(10, "a") == 0 && s.playerOf(10) == 0, "and the first pad on is player one");
     }
     {
         Seats s;

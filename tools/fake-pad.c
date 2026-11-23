@@ -10,8 +10,11 @@
 //   ./fake-pad script 40 press:l3+r3 3 press:south 5
 //
 // The second form is a script: a number waits that many seconds, and
-// `press:a+b` presses those buttons together and lets go. Names: south, east,
-// north, west, l, r, select, start, home, l3, r3, up, down, left, right.
+// `press:a+b` presses those buttons together and lets go. `down:a` holds
+// buttons until `up:a` lets them go, for presses that overlap, as a person's
+// two stick clicks do: `down:l3 0.033 down:r3 0.15 up:l3+r3`. `rx:N` and
+// `ry:N` set the right stick (-32768 to 32767, 0 is centred). Names: south,
+// east, north, west, l, r, select, start, home, l3, r3, up, down, left, right.
 //
 // Waits WAIT seconds, taps the button TAPS times, EVERY seconds apart, and
 // stays a controller for five more seconds before it goes. `east` (Xbox B) is
@@ -160,6 +163,19 @@ int main(int argc, char** argv) {
                 service(fd, 150);
                 press(fd, argv[i] + 6, 0);
                 printf("pressed %s\n", argv[i] + 6);
+                fflush(stdout);
+            } else if (strncmp(argv[i], "down:", 5) == 0) {
+                press(fd, argv[i] + 5, 1);
+                printf("down %s\n", argv[i] + 5);
+                fflush(stdout);
+            } else if (strncmp(argv[i], "rx:", 3) == 0 || strncmp(argv[i], "ry:", 3) == 0) {
+                emit(fd, EV_ABS, argv[i][1] == 'x' ? ABS_RX : ABS_RY, atoi(argv[i] + 3));
+                emit(fd, EV_SYN, SYN_REPORT, 0);
+                printf("%s\n", argv[i]);
+                fflush(stdout);
+            } else if (strncmp(argv[i], "up:", 3) == 0) {
+                press(fd, argv[i] + 3, 0);
+                printf("up %s\n", argv[i] + 3);
                 fflush(stdout);
             } else {
                 service(fd, (int)(atof(argv[i]) * 1000));

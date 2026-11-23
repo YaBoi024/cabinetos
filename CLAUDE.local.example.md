@@ -30,6 +30,12 @@ it would make `main` build an update with nothing in it.
 `<address:port>`. `tools/romm-readonly-relay.py` and
 `tools/offline-relay.py` read it from `CABINETOS_RELAY_UP`.
 
+## A RomM server for write tests
+
+`<address:port>`, if you have one: a RomM of your own for tests that write
+(CONTRIBUTING.md, "Running and testing"), in `CABINETOS_TEST_ROMM`. Its
+admin login, and the rule that writes are allowed there and only there.
+
 ## For the tools
 
 The tools in `tools/` take your machines from the environment
@@ -41,6 +47,7 @@ export CABINETOS_A9=cabinet@<console address>
 export CABINETOS_KEY=<path to your SSH key>        # if not ~/.ssh/cabinetos
 export CABINETOS_VM=cabinet@<build VM address>      # only for ui-loop.sh --via-vm
 export CABINETOS_RELAY_UP=http://<address:port>     # your RomM server
+export CABINETOS_TEST_ROMM=http://<address:port>    # your RomM for write tests
 ```
 
 The relays and the disc rig run on the console, so there the server goes

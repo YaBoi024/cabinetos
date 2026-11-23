@@ -12,8 +12,8 @@
 //
 // The practical one is the build. PCSX2 needs about thirty development
 // packages the frontend's own builder image does not have and should not grow;
-// its Containerfile is small on purpose, because it also builds twenty-one
-// cores. Keeping the emulator behind a `.so` means the frontend's Makefile does
+// its Containerfile is small on purpose, because it also builds every libretro
+// core. Keeping the emulator behind a `.so` means the frontend's Makefile does
 // not change at all.
 //
 // So this is deliberately a C API and deliberately dull: no C++ types cross it,
@@ -41,6 +41,10 @@ namespace
 	// The disc code for the next start, set by cps2_set_disc_code (#416).
 	// Set and read on the frontend's thread, just before cps2_start.
 	std::string s_disc_code;
+
+	// Which port holds a guitar for the next start, set by cps2_set_guitar.
+	// Set and read on the frontend's thread, just before cps2_start.
+	bool s_guitar[2] = {false, false};
 
 	// The frame most recently handed over, kept so that `cps2_take_frame` can
 	// lend a pointer that stays valid until the NEXT call. The frontend
@@ -94,6 +98,8 @@ int cps2_start(const char* disc, const char* bios_dir, const char* memcards_dir,
 	config.anisotropy = anisotropy;
 	config.fast_boot = fast_boot != 0;
 	config.widescreen = s_widescreen.load();
+	config.guitar[0] = s_guitar[0];
+	config.guitar[1] = s_guitar[1];
 	config.stop_after = 0;
 
 	s_error.clear();
@@ -206,6 +212,15 @@ void cps2_set_widescreen(int on)
 void cps2_set_disc_code(const char* code)
 {
 	s_disc_code = code ? code : "";
+}
+
+// A guitar in `port`, 0 or 1, for the next cps2_start, or a DualShock 2 with
+// `on` 0; a DualShock 2 until told (frontend/src/guitar.h). Optional for the
+// frontend: an older library lacks it and plays DualShock 2s.
+void cps2_set_guitar(unsigned port, int on)
+{
+	if (port < 2)
+		s_guitar[port] = on != 0;
 }
 
 // 1 when the running game's patch file has a "Widescreen 16:9" section, known

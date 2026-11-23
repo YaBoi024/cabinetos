@@ -2,8 +2,8 @@
 //
 // **WHY THIS FILE EXISTS AT ALL.** PCSX2 has two perfectly good audio backends
 // on Linux, cubeb and SDL, and either would make a PlayStation 2 game audible
-// in about one line. Neither may be used here. The console owns audio for all
-// twenty-one libretro cores — one device, one volume, one latency, and an
+// in about one line. Neither may be used here. The console owns audio for
+// every libretro core — one device, one volume, one latency, and an
 // in-game overlay that can duck it — and a second device open on the same
 // hardware is none of those things. It is also the exact shape of fault this
 // project already fixed for input: a second path onto hardware the frontend

@@ -141,7 +141,7 @@ void SearchScreen::draw(Ctx& c) {
         case State::Failed:
             // Names the server, not the library. The person typed a word and
             // the console could not go and look.
-            std::snprintf(line, sizeof line, "Could not reach your server");
+            std::snprintf(line, sizeof line, "Could not reach the server");
             break;
         case State::Results:
             // `total` is the server's count of what matched, which is larger
@@ -161,28 +161,18 @@ void SearchScreen::draw(Ctx& c) {
                 ui::TextStyle::Title3, ui::Color::white(1.0f), c.sc);
 
     // The focused game's name beside it, the way Home's shelf header and the
-    // grid's heading both do it.
+    // grid's heading both do it: results mix systems, so the system follows
+    // the name (#579), and RomM's tags when another copy of this game is
+    // among the results (#383). See drawFocusedLine.
     const int fi = focusedCard();
     if (focused_ && fi >= 0 && fi < static_cast<int>(c.cards->size())) {
         const float x = design::kContentInset +
                         c.text.measure(line, ui::TextStyle::Title3, c.sc) + 24.0f;
         const float roomW = ui::kCanvasWidth - design::kContentInset - x;
         const float y = top + c.text.ascent(ui::TextStyle::Title3, c.sc);
-        const design::Card& card = (*c.cards)[fi];
-        // RomM's tags after the name, dimmer, when another copy of this game
-        // is among the results (#383). The name is what gets shortened.
-        if (design::hasTwin(*c.cards, results_, fi)) {
-            const float tagW = c.text.measure(card.tagLabel, ui::TextStyle::Callout, c.sc);
-            const std::string name = c.text.truncate(card.title, ui::TextStyle::Callout, c.sc,
-                                                     std::max(0.0f, roomW - tagW - 24.0f));
-            c.text.draw(c.r, name, x, y, ui::TextStyle::Callout, ui::Color::white(0.60f), c.sc);
-            c.text.draw(c.r, card.tagLabel,
-                        x + c.text.measure(name, ui::TextStyle::Callout, c.sc) + 24.0f, y,
-                        ui::TextStyle::Callout, ui::Color::white(0.45f), c.sc);
-        } else {
-            c.text.draw(c.r, c.text.truncate(card.title, ui::TextStyle::Callout, c.sc, roomW),
-                        x, y, ui::TextStyle::Callout, ui::Color::white(0.60f), c.sc);
-        }
+        drawFocusedLine(c.r, c.text, c.sc, (*c.cards)[fi],
+                        /*tags=*/design::hasTwin(*c.cards, results_, fi),
+                        LineNames::System, c.on, x, y, roomW, 0.60f);
     }
 
     if (results_.empty()) return;

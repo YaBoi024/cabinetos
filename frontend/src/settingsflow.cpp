@@ -109,7 +109,7 @@ void App::buildSettings() {
                             n == 0 ? "None" : std::to_string(n) + " paired"});
         }
         // RUMBLE, on by default, for every pad and every system with
-        // motors: one switch, as Cabinet has it (rumble.h, #149). Above
+        // motors: one switch, as Cabinet had it (rumble.h, #149). Above
         // the shortcuts so their button row stays under its own switch.
         {
             Row r{K::Choice, SetRumble, "Rumble", "", ""};
@@ -133,9 +133,14 @@ void App::buildSettings() {
             for (const players::Pad& p : pads)
                 if (p.id == settingsLastPad) inHand = &p;
             SDL_Gamepad* gp = SDL_GetGamepadFromID(inHand->id);
-            rows.push_back({K::Action, SetShortcutButton, "Shortcut button", inHand->name,
-                            shortcutListen ? "Press a button\xE2\x80\xA6"
-                                           : shortcuts::label(gp)});
+            // "Shortcuts use: Home", read with the switch above it as one
+            // sentence (MMagTech, 2026-10-20): a fact for the player with a
+            // working Home, and the place to press a spare button for one
+            // whose Home the console cannot see.
+            rows.push_back({K::Action, SetShortcutButton, "Shortcuts use", inHand->name,
+                            !shortcutListen           ? shortcuts::label(gp)
+                            : !shortcutRefused.empty() ? shortcutRefused + "\xE2\x80\xA6"
+                                                       : "Press a spare button\xE2\x80\xA6"});
         }
         cats.push_back({"Controllers", std::move(rows)});
     }
@@ -185,13 +190,16 @@ void App::buildSettings() {
                 {K::Action, SetWifi, "Wi-Fi", "",
                  !radioOn ? "Off" : (onWifi.empty() ? "Not connected" : onWifi)});
     }
+    // TAILSCALE, after Wi-Fi: how the console is reached from away, for
+    // Remote Play and for a RomM server at its Tailscale address, on its own
+    // switch (docs/decisions/2026-11-15-tailscale-own-switch.md).
+    cats.back().rows.push_back(tailscaleRow(players::streaming()));
 
-    // REMOTE PLAY (#286): its own section, a highlight (MMagTech,
-    // 2026-10-07). Three rows: the switch ("Streaming": "Remote Play"
-    // twice, as section and row, read oddly), with the app to use and the
-    // name to pick in it; the paired devices, one row however many there
-    // are, opening a list; and Tailscale, for playing away from home.
-    // Sunshine's own name is never on screen.
+    // STREAMING: Remote Play (#286) and LinkUp (#654), one section, so LinkUp
+    // does not lengthen the side list. Remote Play has two rows: the switch,
+    // with the app to use and the name to pick in it; and the paired devices,
+    // one row however many there are, opening a list. Tailscale, for playing
+    // away from home, is in Network. Sunshine's own name is never on screen.
     {
         const bool on = rpState == "active";
         std::string value = on ? "On" : "Off";
@@ -203,23 +211,26 @@ void App::buildSettings() {
         else if (!rpFailed.empty()) detail = rpFailed;
         const size_t n = remoteplay::paired().size();
         rpSeen = remoteplay::generation();
-        // WHILE A DEVICE STREAMS, THE WHOLE SECTION IS GREYED: its
-        // controller drives the console, and one press on Streaming cut
-        // the stream it was playing on (MMagTech, from his phone,
-        // 2026-10-08); Remove could do the same to the device playing.
+        // WHILE A DEVICE STREAMS, THE WHOLE SECTION IS GREYED, and
+        // Tailscale's row in Network: its controller drives the console,
+        // and one press on its switch cut the stream it was playing on
+        // (MMagTech, from his phone, 2026-10-08); Remove, or Tailscale's
+        // Disconnect, could do the same to the device playing.
         // The console's own controllers are set aside during a stream, so
         // nobody at the TV loses anything.
         const bool streamingNow = players::streaming();
         // "In use": a grey switch still reading On looks like a fault
         // when the reason is on another device (MMagTech, 2026-10-08).
         if (streamingNow) detail = "In use";
-        cats.push_back({"Remote Play", {
-            {streamingNow ? K::Disabled : K::Toggle, SetRemotePlay, "Streaming", detail, value},
+        std::vector<Row> rows = {
+            {streamingNow ? K::Disabled : K::Toggle, SetRemotePlay,
+             "Remote Play", detail, value},
             {on && n > 0 && !streamingNow ? K::Action : K::Disabled, SetPairedDevices,
              "Paired devices", "",
              n == 0 ? "None" : std::to_string(n) + " paired"},
-            tailscaleRow(on, streamingNow),
-        }});
+        };
+        for (Row& r : linkupRows()) rows.push_back(std::move(r));
+        cats.push_back({"Streaming", std::move(rows), {}});
     }
 
     // PICTURE QUALITY IS THE OWNER'S WHEN A PIN IS SET (MMagTech,
@@ -420,7 +431,7 @@ void App::buildSettings() {
         else if (filesState.failed) detail = filesState.reason;
         store.push_back({K::Toggle, SetFiles, "File access", detail, value});
     }
-    cats.push_back({"Storage", std::move(store)});
+    cats.push_back({"Storage", store, {}});
 
     std::vector<Row> sys = {
         updateRow(),
@@ -436,6 +447,9 @@ void App::buildSettings() {
     // to bring the tile back. Somebody who never hid it never sees it.
     if (steam::available() && steam::hidden())
         sys.push_back({K::Action, SetSteamShow, "Steam", "", "Hidden"});
+    // GAME EVENTS (#716): one row, the address its switch; its host when
+    // on (gameeventsflow.cpp).
+    sys.push_back(gameEventsRow());
     // THE DIAGNOSTIC REPORT (#195): one row, the screen it opens says the
     // rest. No PIN: it changes nothing, and nothing private is in it.
     sys.push_back({K::Action, SetReport, "Diagnostic report", "", ""});
@@ -513,6 +527,7 @@ void App::closeDownloadsOffSettings() {
 }
 
 void App::applySetting(const screens::Result& res) {
+    if (pressLinkUpRow(res.value)) return;
     if (res.value == SetPads) {
         openPadsPanelAt(0);
         sound::play(sound::Cue::Activate);
@@ -526,6 +541,7 @@ void App::applySetting(const screens::Result& res) {
     } else if (res.value == SetShortcutButton) {
         // The pad that pressed A, which the row already names.
         const std::vector<players::Pad> pads = players::connected();
+        shortcutRefused.clear();
         shortcutListen = pads.empty() ? 0 : pads.front().id;
         for (const players::Pad& p : pads)
             if (p.id == settingsLastPad) shortcutListen = p.id;
@@ -570,6 +586,8 @@ void App::applySetting(const screens::Result& res) {
         pressUpdate();
     } else if (res.value == SetServer) {
         pressServer();
+    } else if (res.value == SetGameEvents) {
+        pressGameEvents();
     } else if (res.value == SetRemoveAccount) {
         pressRemoveAccount();
     } else if (res.value == SetPinSet) {

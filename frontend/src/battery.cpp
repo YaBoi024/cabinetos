@@ -58,6 +58,10 @@ void scan() {
     if (DIR* d = ::opendir(kSupplies)) {
         while (dirent* e = ::readdir(d)) {
             if (e->d_name[0] == '.') continue;
+            // NEVER THE KERNEL WII DRIVER'S (#548): a Remote's battery is the
+            // bridge's (wiiremote.h, W1-W4), and each read of this one asks
+            // the Remote for a status report, which a Wii game then gets too.
+            if (std::strncmp(e->d_name, "wiimote_battery", 15) == 0) continue;
             const std::string p = std::string(kSupplies) + "/" + e->d_name;
             if (firstLine(p + "/scope") != "Device") continue;
             const std::string dev = realDir(p + "/device");

@@ -14,8 +14,9 @@ polkit.addRule(function(action, subject) {
         subject.user != "cabinet" || !subject.local) {
         return polkit.Result.NOT_HANDLED;
     }
-    // Tailscale, for playing away from home, goes with it: on only while
-    // Streaming is on (tailscaled.service.d/50-cabinetos.conf).
+    // Tailscale, for playing away from home and for a RomM server at its
+    // Tailscale address: its own switch, in Settings, Network
+    // (tailscaled.service.d/50-cabinetos.conf).
     var unit = action.lookup("unit");
     if ((unit == "cabinetos-remoteplay.service" || unit == "tailscaled.service") &&
         (action.lookup("verb") == "start" || action.lookup("verb") == "stop")) {

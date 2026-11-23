@@ -8,32 +8,48 @@
 #include "fileio.h"
 #include "playtime.h"
 #include "romm.h"
+#include "savepush.h"
 #include "storage.h"
 #include "uploader.h"
 
 // EVERYTHING `who` STILL OWES RomM, sent now with their own login, before their
-// folder is deleted (#194). Synchronous: called off the frame thread. Stops at
-// the first failure, because a server that refused one or did not answer will
-// do the same for the rest, and each try can take curl's whole timeout.
-// States are not rotated to three here (the uploader's rotate): a person being
-// removed may keep a fourth on RomM, which their next save elsewhere tidies.
-// Returns how much is still owed afterwards: refused, unanswered, or a marker
-// from before 2026-09-26 that cannot be sent at all.
-static int sendEverythingOwed(const romm::Client& c, const storage::User& who,
+// folder is deleted (#194): each game's owed snapshot, which is its save and
+// its states (savepush.h), a save's or a state's marker from before save
+// channels made one first, then their screenshots. Synchronous: called off
+// the frame thread. Stops at the first failure, because a server that
+// refused one or did not answer will do the same for the rest, and each try
+// can take curl's whole timeout. Returns how much is still owed afterwards:
+// refused, unanswered, or a marker from before 2026-09-26 that cannot be
+// sent at all.
+static int sendEverythingOwed(romm::Client& c, const storage::User& who,
                               const std::atomic<bool>* stop) {
-    for (const cache::Owed& o : cache::owed(who)) {
+    savepush::adoptOldSaves(who);
+    savepush::adoptOldStates(who);
+    bool failed = false;
+    for (const cache::OwedPush& p : cache::owedPushes(who)) {
         if (stop && stop->load()) break;
+        std::string why;
+        const savepush::Sent sent = savepush::send(savepush::serverOf(c), who, p.romId, &why);
+        const bool ok = savepush::settled(sent);
+        std::fprintf(stderr, "[remove] game %d's snapshot %s for %s%s%s\n", p.romId,
+                     ok ? "sent" : "not sent", who.name.c_str(), ok ? "" : ": ",
+                     ok ? "" : why.c_str());
+        if (!ok) {
+            failed = true;
+            break;
+        }
+    }
+    for (const cache::Owed& o : cache::owed(who)) {
+        if (failed || (stop && stop->load())) break;
+        if (!o.isScreenshot) continue;
         const std::vector<uint8_t> data = cab::readBytes(o.localPath);
         if (data.empty()) {
             // Its file is gone, so nothing is left to send or to lose.
             cache::clearPending(who, o.romId, o.fileName);
             continue;
         }
-        const std::vector<uint8_t> shot =
-            o.shotPath.empty() ? std::vector<uint8_t>() : cab::readBytes(o.shotPath);
         std::string err;
-        const bool ok = uploadOne(c, o.romId, o.isState, o.isScreenshot, o.emulator,
-                                  o.fileName, data, o.shotName, shot, &err);
+        const bool ok = c.uploadScreenshot(o.romId, o.fileName, data, &err);
         std::fprintf(stderr, "[remove] %s %s for %s%s%s\n", o.fileName.c_str(),
                      ok ? "sent" : "not sent", who.name.c_str(), ok ? "" : ": ",
                      ok ? "" : err.c_str());
@@ -78,8 +94,7 @@ int sendOwedBeforeRemoving(const accounts::Account& who, const std::string& addr
 // downloads are released (a game nobody else downloaded drops to the cache:
 // still playable, cleared when room is needed), then their folder goes, then
 // the login LAST, so a power cut at any point leaves them listed and Remove
-// can simply be run again. Nothing on RomM is touched here; the callers
-// revoke the person's token after (accounts::revoke, #484).
+// can simply be run again. Nothing on RomM is touched.
 bool removePersonNow(const accounts::Account& who, std::string* err) {
     if (!accounts::canRemove(who.id, err)) return false;
     storage::User u;

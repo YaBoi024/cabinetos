@@ -63,6 +63,8 @@ Result run(const std::vector<std::string>& args, int timeoutSeconds,
 // Returns its pid, or -1 when it could not be started. It gets a session of
 // its own, so a signal meant for the console never reaches it, and what it
 // prints is appended to `logPath` rather than mixed into the console's journal.
+// It leaves no core file when it crashes, so a crash ends it at once
+// (docs/decisions/2026-11-22-no-core-file-for-emulators.md).
 // The caller reaps it with waitpid; nothing here waits.
 int spawn(const std::vector<std::string>& args, const std::string& logPath);
 
@@ -70,7 +72,8 @@ int spawn(const std::vector<std::string>& args, const std::string& logPath);
 // three processes deep (the sandbox, its init, then the program), and a signal
 // to either sandbox process is ignored: measured 2026-09-28, SIGTERM to
 // `flatpak ps`'s own child-pid left Eden running, and the same signal to Eden
-// closed it in 0.8 s.
+// closed it in 0.8 s. An empty `name` is `root`'s first child, whatever it
+// calls itself: bwrap's one child is the program it was given.
 int findDescendant(int root, const std::string& name);
 
 // Whitespace off both ends. Every one of these tools newline-terminates

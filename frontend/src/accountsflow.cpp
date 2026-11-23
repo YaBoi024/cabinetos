@@ -259,31 +259,10 @@ std::vector<accounts::Account> App::removableAccounts() {
 }
 
 void App::finishRemove(const accounts::Account& who) {
-    // Read before removePersonNow deletes the file it is in.
-    const accounts::Login login = accounts::login(who.id);
     std::string err;
     if (!removePersonNow(who, &err)) {
         std::fprintf(stderr, "[accounts] could not remove %d: %s\n", who.id, err.c_str());
         menuNotice.say("Couldn't remove " + who.name, Tone::Problem);
-    } else if (!removeJob->running.load()) {
-        // THEIR TOKEN ON RomM GOES TOO (#484, ROMM-10), on the remove job's
-        // thread, free since its sending half finished. Nobody waits for it;
-        // the destructor joins it, as it does the sending.
-        const std::string addr = rommAddress ? rommAddress : "";
-        if (removeJob->th.joinable()) removeJob->th.join();
-        removeJob->running = true;
-        removeJob->th = std::thread([job = removeJob.get(), login, addr, name = who.name]() {
-            if (!job->stop.load() && !login.token.empty()) {
-                romm::Client c;
-                std::string aerr;
-                if (!addr.empty() && c.setAddress(addr, &aerr))
-                    accounts::revoke(c, login, name);
-                else
-                    std::fprintf(stderr, "[accounts] %s's token not revoked on RomM: no server\n",
-                                 name.c_str());
-            }
-            job->running = false;
-        });
     }
     refreshAccountRows();
     buildSettings();

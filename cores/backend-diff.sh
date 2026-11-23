@@ -6,7 +6,7 @@
 # stops a launch screen offering someone a state that cannot load. Sharing it is
 # only safe where the two builds are provably the same emulator — same pinned
 # commit AND the same build arguments. Several cores turn a recompiler ON for
-# Linux x86-64 that Cabinet has OFF, so on those the arguments are not the same,
+# Linux x86-64 that Cabinet had OFF, so on those the arguments are not the same,
 # and the tag has to be either justified or given up.
 #
 # THE METHOD. Build the core twice, changing exactly one variable, and compare

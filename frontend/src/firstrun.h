@@ -17,6 +17,9 @@
 //
 //     keyboard -> network -> RomM server -> pair pad 1 -> unplug the keyboard
 //
+// with the time zone in front of it on a console that has none (`TimeZone`,
+// below): a portable install, which no installer set one on.
+//
 // MMagTech, 2026-09-19: *you cannot have kept games until a server has been
 // paired and you have kept one.* So first run ASSUMES A SERVER and is a linear
 // path to pairing one. There is no "set this up later" and no "use it without
@@ -112,7 +115,18 @@ bool markSignedOut(bool cleared, std::string* err);
 // --- The steps --------------------------------------------------------------
 
 enum class Step {
-    // A link, and it is the ONE HARD GATE in the whole flow. MMagTech,
+    // THE TIME ZONE, ASKED ONLY WHEN THE CONSOLE HAS NONE, as the first
+    // screen (MMagTech, 2026-11-03). That is a portable install: a disk image
+    // written to a USB drive, which no installer ran on. An install from the
+    // ISO has the zone its Time & Date screen set, and never sees this step;
+    // nor does a console that chose one and started again before finishing.
+    // Blocked until a zone is set: the zone is what makes Appearance's dark
+    // hours switch at the right local hour, and what the PC's clock is read
+    // in (timezone.h). Region, then city, on one step.
+    TimeZone,
+
+    // A link, and it is the ONE HARD GATE in the whole flow that nothing on
+    // the screen can open (the time zone's is a choice). MMagTech,
     // 2026-09-19: the entirety of this OS relies on a RomM server, so a console
     // that cannot reach a network cannot be set up and must not pretend
     // otherwise.
@@ -171,6 +185,9 @@ enum class Gate {
 // Everything the rules are judged against. Nothing here is fetched by
 // `Machine`; see the note at the top of this file.
 struct Facts {
+    // A time zone is set on this machine (/etc/localtime; timezone.h).
+    bool zoneChosen = false;
+
     // Any device NetworkManager calls connected. Deliberately not "the internet
     // is reachable" — RomM is on the LAN, and a console behind a dead uplink
     // can still be set up.
@@ -223,7 +240,8 @@ public:
 
     // Back, for a person who mistyped the address two screens ago. It stops at
     // the first step rather than falling off the front, and it never re-opens
-    // `Done`.
+    // `Done`. The first step is the network's, or the time zone's when this
+    // run asked it (`zoneAsked`): a console that had a zone never sees it.
     bool back();
 
     bool finished() const { return step_ == Step::Done; }
@@ -232,12 +250,17 @@ public:
     // without walking the others — the same reasoning as `--screen`, which
     // opens a screen by walking the route a person walks so a capture cannot
     // show a state the product cannot reach. Returns false for a name that is
-    // not a step.
+    // not a step. Opening at `timezone` is how a run asks the time zone:
+    // setup.cpp does it when the console has none.
     bool openAt(const std::string& stepName);
+
+    // This run began at the time zone, so Back from the network reaches it.
+    bool zoneAsked() const { return zoneAsked_; }
 
 private:
     Step step_ = Step::Network;
     Facts facts_;
+    bool zoneAsked_ = false;
 };
 
 // Goes and looks, which is the one thing `Machine` will not do.

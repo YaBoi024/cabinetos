@@ -1,0 +1,185 @@
+{
+  "name": "CabinetOS Game events, Telegram",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "games",
+        "options": {}
+      },
+      "id": "dfd68ae3-05cb-4b15-9e1f-7d03a056d2bf",
+      "name": "From the console",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "8d18a411-f45c-46a9-993e-556c4b9de5d3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// CabinetOS Game events: each person's games go to their own Telegram chat.\n// The bot's token from BotFather, then one line per person: the name exactly\n// as the console shows it, then that person's chat number. Anyone not listed\n// goes nowhere.\nconst TOKEN = \"PASTE-THE-BOT-TOKEN\";\nconst PEOPLE = {\n  \"First person\": \"PASTE-THEIR-CHAT-NUMBER\",\n  \"Second person\": \"PASTE-THEIR-CHAT-NUMBER\",\n};\n// The messages to send. Delete the ones you do not want: with only\n// \"game_started\" left, only game starts are posted.\nconst SEND = [\"game_started\", \"game_paused\", \"game_resumed\", \"game_ended\", \"achievement_unlocked\", \"set_completed\"];\n// Between these hours (the console's clock, 0 to 23) messages arrive without a\n// sound. The same hour twice keeps every message sounding.\nconst QUIET_FROM = 22, QUIET_UNTIL = 7;\n\nconst bot = `https://api.telegram.org/bot${TOKEN}`;\n// Whoever opens the bot and presses Start is sent their chat number with the\n// console's test message (press Done on its address), to put next to their\n// name above. A failure here never holds up a game's message.\nif ($input.first().json.body?.event === 'test') {\n  try {\n    const updates = await this.helpers.httpRequest({ url: `${bot}/getUpdates`, json: true });\n    let last = 0;\n    for (const u of updates.result ?? []) {\n      last = u.update_id;\n      if (u.message?.text?.startsWith('/start')) {\n        const chat = u.message.chat.id;\n        await this.helpers.httpRequest({ method: 'POST', url: `${bot}/sendMessage`, json: true,\n          body: { chat_id: chat, text: `Your chat number is ${chat}. In n8n, put it next to your name in Sort by person.` } });\n      }\n    }\n    if (last) await this.helpers.httpRequest({ url: `${bot}/getUpdates?offset=${last + 1}`, json: true });\n  } catch (error) {\n    // The next test message tries again.\n  }\n}\n\nconst COVER = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nfunction minutes(n) {\n  if (!n) return 'less than a minute';\n  return n === 1 ? '1 minute' : `${n} minutes`;\n}\nfunction quietHour(time) {\n  const hour = Number(String(time).slice(11, 13));\n  return QUIET_FROM > QUIET_UNTIL ? hour >= QUIET_FROM || hour < QUIET_UNTIL : hour >= QUIET_FROM && hour < QUIET_UNTIL;\n}\n\nconst out = [];\nfor (const item of $input.all()) {\n  const m = item.json.body ?? {};\n  const chat = PEOPLE[m.person];\n  if (!chat || !SEND.includes(m.event)) continue;\n  const linkup = m.linkup_game === 'hosting' || m.linkup_game === 'joined';\n  const over = linkup ? ' over LinkUp' : '';\n  const who = `<b>${esc(m.person)}</b>`, game = `<b>${esc(m.game)}</b>`;\n  const points = m.points === 1 ? '1 point' : `${m.points} points`;\n\n  // Started and every achievement: the cover, with the game and system under it.\n  let card = null;\n  if (m.event === 'game_started') {\n    card = m.linkup_game === 'joined' ? `🤝 ${who} joined a LinkUp game`\n         : linkup ? `🤝 ${who} started playing over LinkUp`\n         : `🎮 ${who} started playing`;\n  } else if (m.event === 'set_completed') {\n    card = `🌟 ${who} unlocked every achievement${over}`;\n  }\n  // The rest: one line each.\n  const line = {\n    game_paused: `⏸️ ${who} paused ${game}${over}`,\n    game_resumed: `▶️ ${who} is back in ${game}${over}`,\n    game_ended: `🛑 ${who} stopped playing ${game}${over} after ${minutes(m.minutes_played)}`,\n    achievement_unlocked: `🏆 ${who} unlocked <b>${esc(m.achievement)}</b> (${points}) in ${game}${over}`,\n  }[m.event];\n  if (!card && !line) continue;\n\n  const text = card ? [card, game, esc(m.system)].filter(Boolean).join('\\n') : line;\n  // Pause and resume, and anything in the quiet hours, arrive without a sound.\n  const quiet = m.event === 'game_paused' || m.event === 'game_resumed' || quietHour(m.time);\n  const post = { json: { cover: false, url: `${bot}/sendMessage`,\n                         payload: { chat_id: chat, text, parse_mode: 'HTML', disable_notification: quiet } } };\n  const type = COVER[m.cover_type];\n  if (card && m.cover && type) {\n    post.json.cover = true;\n    post.json.url = `${bot}/sendPhoto`;\n    post.json.payload = { chat_id: String(chat), caption: text, disable_notification: String(quiet) };\n    post.binary = { cover: { data: m.cover, mimeType: m.cover_type, fileName: `cover.${type}` } };\n  }\n  out.push(post);\n}\nreturn out;\n"
+      },
+      "id": "a6c816d5-88f5-4c5a-a7d6-b44a1230077a",
+      "name": "Sort by person",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fb2d1fab-7eb5-40f8-bd92-d9dc307314e0",
+              "leftValue": "={{ $json.cover }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "71560a1b-67ab-44a2-abf6-36a45ca72e06",
+      "name": "Has a cover?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "={{ $json.payload.chat_id }}"
+            },
+            {
+              "name": "caption",
+              "value": "={{ $json.payload.caption }}"
+            },
+            {
+              "name": "parse_mode",
+              "value": "HTML"
+            },
+            {
+              "name": "disable_notification",
+              "value": "={{ $json.payload.disable_notification }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "photo",
+              "inputDataFieldName": "cover"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "59ef90ac-4a7d-46c5-876e-327d2aa8f69f",
+      "name": "To Telegram, with the cover",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "082611f3-0b5b-4339-906d-5f73765b48f3",
+      "name": "To Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        720,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "From the console": {
+      "main": [
+        [
+          {
+            "node": "Sort by person",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort by person": {
+      "main": [
+        [
+          {
+            "node": "Has a cover?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has a cover?": {
+      "main": [
+        [
+          {
+            "node": "To Telegram, with the cover",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "To Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

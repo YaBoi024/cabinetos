@@ -75,6 +75,11 @@ std::string controls(const std::string& code);
 // a Wii Remote.
 unsigned padDevice(const std::string& code);
 
+// Whether GameTDB says the game requires MotionPlus (`M`; an optional one is
+// `m`). Such a game plays only on a Remote whose MotionPlus works here
+// (wiiremote::anyWithMotionPlus; MMagTech, 2026-10-22).
+bool needsMotionPlus(const std::string& code);
+
 // Dolphin's own ids (DolphinLibretro/Input.cpp at the pinned commit).
 constexpr unsigned kClassicController = (4u << 8) | 1u;   // RETRO_DEVICE_WIIMOTE_CC, 1025
 constexpr unsigned kGameCubePad = (6u << 8) | 1u;         // RETRO_DEVICE_GC_ON_WII, 1537

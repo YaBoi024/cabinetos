@@ -71,10 +71,13 @@ void App::openScreenForCapture() {
     } else if (initialScreen && SDL_strcmp(initialScreen, "settings") == 0) {
         // `--screen settings --tile N` opens on category N; `--focus-row 1`
         // puts focus in its rows. The network is waited for here, because a
-        // capture has no wall clock and would otherwise always say Checking.
-        goToDestination(3);
+        // capture has no wall clock and would otherwise always say Checking,
+        // and System update's status is read, so a walk's first press meets
+        // root's answer as a person's would (--update-dir; #346).
+        goToDestination(BarSettings);
         if (settingsNet.th.joinable()) settingsNet.th.join();
         if (settingsWifi.th.joinable()) settingsWifi.th.join();
+        pollUpdate();
         buildSettings();
         settingsScreen.focusCategory(initialTile, initialRow > 0);
     } else if (initialScreen && SDL_strcmp(initialScreen, "search") == 0) {
@@ -187,6 +190,39 @@ void App::walkNavScript() {
                     std::fprintf(stderr, "[nav] unknown key '%s'\n", word.c_str());
                 else
                     handleEvent(e);
+                word.clear();
+                if (!*p) break;
+                continue;
+            }
+            // A PAD BUTTON PRESSED AND LET GO, by SDL's name for it
+            // ("pad:y", "pad:dpup"), and TEXT a physical keyboard typed
+            // ("text:romm.local"), through the event handler too: the
+            // on-screen keyboard is driven only there, its Y and A are a
+            // pad's, and a direction pressed and never let go would go on
+            // repeating (#668).
+            if (!ok && word.rfind("pad:", 0) == 0) {
+                const SDL_GamepadButton b = SDL_GetGamepadButtonFromString(word.c_str() + 4);
+                if (b == SDL_GAMEPAD_BUTTON_INVALID) {
+                    std::fprintf(stderr, "[nav] unknown button '%s'\n", word.c_str());
+                } else {
+                    SDL_Event e{};
+                    e.type = SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+                    e.gbutton.button = static_cast<Uint8>(b);
+                    e.gbutton.down = true;
+                    handleEvent(e);
+                    e.type = SDL_EVENT_GAMEPAD_BUTTON_UP;
+                    e.gbutton.down = false;
+                    handleEvent(e);
+                }
+                word.clear();
+                if (!*p) break;
+                continue;
+            }
+            if (!ok && word.rfind("text:", 0) == 0) {
+                SDL_Event e{};
+                e.type = SDL_EVENT_TEXT_INPUT;
+                e.text.text = word.c_str() + 5;
+                handleEvent(e);
                 word.clear();
                 if (!*p) break;
                 continue;
@@ -345,8 +381,27 @@ void App::overlayHooks() {
     }
 }
 
-// --state-check, --load-state and --sync-test, after the disc rig.
+// --state-check, --load-state, --sync-test and --save-write-at, after the
+// disc rig.
 void App::stateHooks() {
+    // --save-write-at N: one byte of the core's save memory changed at its
+    // Nth frame, as a game writes its save, so the watch sees a save made
+    // mid-game (savepicture.h). A core with no battery is left alone: a run
+    // changes the files a core writes, or its save folder, itself.
+    if (saveWriteAt > 0 && playing && cab::Core::shared().framesRun() >= saveWriteAt) {
+        saveWriteAt = 0;
+        cab::Core& core = cab::Core::shared();
+        std::vector<uint8_t> ram;
+        if (core.readSaveRam(ram) && !ram.empty()) {
+            ram[ram.size() / 2] ^= 0x5A;
+            core.writeSaveRam(ram);
+            std::fprintf(stderr, "[save-write] the battery written at frame %llu, as a game "
+                                 "saves\n",
+                         static_cast<unsigned long long>(core.framesRun()));
+        } else {
+            std::fprintf(stderr, "[save-write] no battery in this core to write\n");
+        }
+    }
     if (stateCheckAfter > 0 && playing) {
         static std::vector<uint8_t> first;
         static uint64_t savedAt = 0;
@@ -391,12 +446,13 @@ void App::stateHooks() {
         if (++sinceStart == 150) {
             std::fprintf(stderr, "[sync-test] --- saving ---\n");
             const uint64_t t0 = SDL_GetTicksNS();
-            saveStateNow(session, uploader, menuNotice);
+            saveStateNow(session, menuNotice);
             // Forced: at a title screen with no input the battery has not
             // changed, and "nothing to send" is the correct behaviour but
-            // proves nothing about whether sending works.
+            // proves nothing about whether sending works. Gathered now, it
+            // goes up with the quit's snapshot (savepush.h).
             session.saveAtLaunch.clear();
-            syncSave(session, uploader);
+            syncSave(session);
             // The same forcing for the saves the core writes as files, and
             // it is the only way to see that half send anything: those are
             // captured after the unload rather than here, and a headless

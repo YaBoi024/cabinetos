@@ -4,7 +4,9 @@
 
 #include <SDL3/SDL.h>
 
+#include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <functional>
 #include <string>
 #include <thread>
@@ -25,6 +27,7 @@
 #include "romm.h"
 #include "accounts.h"
 #include "text.h"
+#include "timezone.h"
 #include "ui.h"
 
 namespace setup {
@@ -178,6 +181,13 @@ private:
     void pollPairing();
     void startBtScan();
     void pairSelected();
+    void chooseZone(const std::string& zone);
+    // THE CITY LISTS ARE LONG (the Americas have 144), so a letter typed on
+    // the keyboard goes to the first row it starts, and L1 and R1 a page.
+    void jumpToLetter(char c);
+    void movePage(int pages);
+    // The chosen zone's city ("New York"), from the list on the screen.
+    std::string zoneCity() const;
     void finish();
 
     const char* title() const;
@@ -243,6 +253,13 @@ private:
     Job<romm::Pairing> pairBeginJob_;
     Job<PairPoll> pairPollJob_;
 
+    // Time zone. Region, then city, on one step: -1 lists the regions.
+    std::vector<tz::Region> zones_;
+    int zoneRegion_ = -1;
+    std::string zone_;          // the zone set, "America/New_York"
+    std::string zoneSetting_;   // the one being set
+    Job<bool> zoneJob_;
+
     // Controller
     std::vector<bt::Device> devices_;
     int chosenDevice_ = -1;
@@ -272,6 +289,7 @@ private:
 
 const char* Flow::title() const {
     switch (machine_.step()) {
+        case firstrun::Step::TimeZone:   return "Time zone";
         case firstrun::Step::Network:    return "Connect to a network";
         case firstrun::Step::Server:     return "RomM server";
         case firstrun::Step::Pair:       return "Pair with RomM";
@@ -291,6 +309,11 @@ const char* Flow::title() const {
 std::string Flow::prose() const {
     const std::string why = machine_.because();
     switch (machine_.step()) {
+        case firstrun::Step::TimeZone:
+            if (zoneJob_.busy()) return "Setting the time zone…";
+            if (!why.empty()) return zoneRegion_ >= 0 ? "Choose a city in your time zone." : why;
+            return "Set to " + zoneCity() + ".";
+
         case firstrun::Step::Network:
             if (joinJob_.busy()) return "Joining…";
             return why;
@@ -345,7 +368,8 @@ void Flow::observe() {
     facts_ = firstrun::observeLocal(client_, SDL_HasGamepad() ? 1 : 0);
     // Carried over rather than re-derived. The link belongs to the watcher;
     // only something that has TRIED can say whether a server answered; and the
-    // token may have arrived in this very session.
+    // token, and under dryRun the zone, may have arrived in this very session.
+    facts_.zoneChosen = before.zoneChosen || facts_.zoneChosen;
     facts_.online = before.online;
     facts_.wiredOnline = before.wiredOnline;
     facts_.wifiPresent = before.wifiPresent;
@@ -374,6 +398,12 @@ void Flow::enterStep() {
     stepFade_.smooth = true;
 
     switch (machine_.step()) {
+        case firstrun::Step::TimeZone:
+            // Read once, at the step: two small files of the tz database.
+            if (zones_.empty()) zones_ = tz::regions();
+            if (zone_.empty()) zone_ = tz::current();
+            zoneRegion_ = -1;
+            break;
         case firstrun::Step::Network:
             // Draw whatever NetworkManager already knows immediately, then ask
             // the radio to look again. A screen that shows nothing for five
@@ -422,6 +452,35 @@ void Flow::rebuild() {
     const firstrun::Gate gate = machine_.gate();
 
     switch (machine_.step()) {
+        case firstrun::Step::TimeZone: {
+            // The regions, the chosen zone's city beside its own; or one
+            // region's cities, each with its country, the chosen one saying so.
+            if (zones_.empty()) {
+                Row r;
+                r.title = "No time zones on this console";
+                r.enabled = false;
+                rows_.push_back(std::move(r));
+            } else if (zoneRegion_ < 0) {
+                for (size_t i = 0; i < zones_.size(); ++i) {
+                    Row r;
+                    r.title = zones_[i].name;
+                    r.value = static_cast<int>(i);
+                    if (!zone_.empty() && tz::regionKey(zone_) == zones_[i].key) r.detail = zoneCity();
+                    rows_.push_back(std::move(r));
+                }
+            } else {
+                const tz::Region& region = zones_[static_cast<size_t>(zoneRegion_)];
+                for (size_t i = 0; i < region.cities.size(); ++i) {
+                    Row r;
+                    r.title = region.cities[i].name;
+                    r.detail = region.cities[i].zone == zone_ ? "chosen" : region.cities[i].country;
+                    r.value = static_cast<int>(i);
+                    rows_.push_back(std::move(r));
+                }
+            }
+            break;
+        }
+
         case firstrun::Step::Network: {
             // NO RADIO: there is no list to draw, so the panel shows the link
             // instead — or says there is not one.
@@ -590,6 +649,8 @@ void Flow::rebuild() {
     // `advance()` on one that is not, so a single button that tried to be both
     // would be asking the machine a question it deliberately will not answer.
     switch (machine_.step()) {
+        case firstrun::Step::TimeZone:
+            break;
         case firstrun::Step::Network:
             if (facts_.wifiPresent)
                 buttons_.push_back({Act::Rescan, "Scan again", !scanJob_.busy(), {}});
@@ -634,9 +695,13 @@ void Flow::rebuild() {
         buttons_.push_back({Act::Continue, "Continue", gate == firstrun::Gate::Ready, {}});
     }
 
-    if (machine_.step() != firstrun::Step::Network &&
-        machine_.step() != firstrun::Step::Done)
-        buttons_.push_back({Act::Back, "Back", true, {}});
+    // BACK WHERE THERE IS SOMEWHERE TO GO: from a region's cities to the
+    // regions, and from the network to the time zone only in a run that
+    // asked it; the first step has none.
+    const bool canBack = machine_.step() == firstrun::Step::TimeZone ? zoneRegion_ >= 0
+                         : machine_.step() == firstrun::Step::Network ? machine_.zoneAsked()
+                                                                       : machine_.step() != firstrun::Step::Done;
+    if (canBack) buttons_.push_back({Act::Back, "Back", true, {}});
 
     // Where focus lands after the panel's contents change under it. A list that
     // has just been replaced by a placeholder must move focus to the buttons,
@@ -723,12 +788,6 @@ void Flow::joinSelected(const std::string& passphrase) {
     noticeIsError_ = false;
     joinJob_.start([ssid, passphrase](bool& out, std::string& err) {
         out = net::join(ssid, passphrase, /*hidden=*/false, &err);
-        // A failed join with a typed password leaves a saved network holding
-        // the wrong one; remove it. The same as Settings' Wi-Fi.
-        if (!out && !passphrase.empty()) {
-            std::string ignored;
-            net::forget(ssid, &ignored);
-        }
         return out;
     });
 }
@@ -743,6 +802,9 @@ void Flow::openPassphrase(const std::string& why) {
     // open question 17); MMagTech reversed it once the brief reveal answered
     // the typo objection. keyboard.h.
     cfg.conceal = true;
+    // Only a secured network asks for one, so Done on an empty field bumps
+    // and starts no join (Keyboard::Config::required).
+    cfg.required = true;
     keyboard_.open(cfg);
     if (!why.empty()) keyboard_.sayInField(why, /*problem=*/true);
     typing_ = Typing::Passphrase;
@@ -853,6 +915,65 @@ void Flow::pairSelected() {
         out = bt::pair(dev.address, &err, 40, &btCancel_);
         return out;
     });
+}
+
+// The person chose a city. Under dryRun it is only remembered, as a capture
+// on a console that has a zone must not change it.
+void Flow::chooseZone(const std::string& zone) {
+    if (zoneJob_.busy()) return;
+    if (o_.dryRun) {
+        zone_ = zone;
+        facts_.zoneChosen = true;
+        machine_.update(facts_);
+        moved_ = false;   // satisfied: focus goes to Continue
+        rebuild();
+        return;
+    }
+    zoneSetting_ = zone;
+    notice_.clear();
+    zoneJob_.start([zone](bool& out, std::string& err) {
+        out = tz::choose(zone, &err);
+        return out;
+    });
+    rebuild();
+}
+
+std::string Flow::zoneCity() const {
+    for (const tz::Region& r : zones_)
+        for (const tz::City& c : r.cities)
+            if (c.zone == zone_) return c.name;
+    return zone_;
+}
+
+void Flow::jumpToLetter(char c) {
+    // Letters only: Space is a press, and its text arrives as well.
+    if (machine_.step() != firstrun::Step::TimeZone || rows_.empty() ||
+        !std::isalpha(static_cast<unsigned char>(c)))
+        return;
+    const int want = std::tolower(static_cast<unsigned char>(c));
+    for (size_t i = 0; i < rows_.size(); ++i) {
+        if (!rows_[i].enabled || rows_[i].title.empty()) continue;
+        if (std::tolower(static_cast<unsigned char>(rows_[i].title[0])) != want) continue;
+        moved_ = true;
+        onFooter_ = false;
+        row_ = static_cast<int>(i);
+        sound::play(sound::Cue::Move);
+        return;
+    }
+    sound::play(sound::Cue::Edge);
+}
+
+void Flow::movePage(int pages) {
+    if (machine_.step() != firstrun::Step::TimeZone || onFooter_ || !anyEnabledRow()) {
+        sound::play(sound::Cue::Edge);
+        return;
+    }
+    const int visible = static_cast<int>((kPanelH - 40.0f) / (kRowH + kRowGap));
+    const int last = static_cast<int>(rows_.size()) - 1;
+    const int to = std::max(0, std::min(last, row_ + pages * visible));
+    moved_ = true;
+    sound::play(to == row_ ? sound::Cue::Edge : sound::Cue::Move);
+    row_ = to;
 }
 
 void Flow::finish() {
@@ -1098,6 +1219,20 @@ void Flow::pumpJobs() {
         changed = true;
     }
 
+    if (bool set = false; zoneJob_.take(&set, &err, &ok)) {
+        if (ok) {
+            zone_ = zoneSetting_;
+            facts_.zoneChosen = true;
+            machine_.update(facts_);
+            tz::follow(zone_);
+            moved_ = false;   // satisfied: focus goes to Continue
+        } else {
+            notice_ = err;
+            noticeIsError_ = true;
+        }
+        changed = true;
+    }
+
     if (std::vector<bt::Device> found; btScanJob_.take(&found, &err, &ok)) {
         if (ok) {
             devices_ = std::move(found);
@@ -1298,6 +1433,18 @@ void Flow::moveAction(int dx) {
 }
 
 void Flow::goBack() {
+    // A region's cities go back to the regions, on the same step, with the
+    // region left focused.
+    if (machine_.step() == firstrun::Step::TimeZone && zoneRegion_ >= 0) {
+        if (zoneJob_.busy()) { sound::play(sound::Cue::Edge); return; }
+        sound::play(sound::Cue::Back);
+        row_ = zoneRegion_;
+        zoneRegion_ = -1;
+        moved_ = true;
+        onFooter_ = false;
+        rebuild();
+        return;
+    }
     if (machine_.back()) {
         sound::play(sound::Cue::Back);
         observe();
@@ -1320,6 +1467,7 @@ void Flow::activate() {
 
 bool Flow::rowRefused() const {
     switch (machine_.step()) {
+        case firstrun::Step::TimeZone:   return zoneJob_.busy();
         case firstrun::Step::Network:    return joinJob_.busy();
         case firstrun::Step::Controller: return btPairJob_.busy() || btScanJob_.busy();
         default:                         return false;
@@ -1355,7 +1503,7 @@ void Flow::activateStep() {
             case Act::Edit: {
                 // Settings' keyboard, with first run's own title and hint.
                 ui::Keyboard::Config cfg = serverKeyboardConfig(address_);
-                cfg.title = "Your RomM server";
+                cfg.title = "RomM server";
                 cfg.hint = "The address you open RomM at, without http://";
                 keyboard_.open(cfg);
                 typing_ = Typing::Address;
@@ -1374,6 +1522,20 @@ void Flow::activateStep() {
     if (!r.enabled || rowRefused()) return;
 
     switch (machine_.step()) {
+        case firstrun::Step::TimeZone:
+            if (zoneRegion_ < 0) {
+                // Into the region, at its chosen city or its first.
+                zoneRegion_ = r.value;
+                const tz::Region& region = zones_[static_cast<size_t>(r.value)];
+                row_ = 0;
+                for (size_t i = 0; i < region.cities.size(); ++i)
+                    if (region.cities[i].zone == zone_) row_ = static_cast<int>(i);
+                moved_ = true;
+                rebuild();
+            } else {
+                chooseZone(zones_[static_cast<size_t>(zoneRegion_)].cities[static_cast<size_t>(r.value)].zone);
+            }
+            break;
         case firstrun::Step::Network: {
             chosenNetwork_ = r.value;
             const net::Network& n = networks_[static_cast<size_t>(r.value)];
@@ -1433,9 +1595,11 @@ void Flow::draw() {
     // setup flow owes a person who does not know how long it is.
     {
         // One per step, Done excluded — it is the end, not a stop along the
-        // way.
-        constexpr int kSteps = 4;
-        const int at = static_cast<int>(machine_.step());
+        // way. The time zone's only in a run that asks it.
+        const int first = static_cast<int>(machine_.zoneAsked() ? firstrun::Step::TimeZone
+                                                                : firstrun::Step::Network);
+        const int kSteps = static_cast<int>(firstrun::Step::Done) - first;
+        const int at = static_cast<int>(machine_.step()) - first;
         for (int i = 0; i < kSteps; ++i) {
             Rect dot;
             dot.w = i == at ? 44.0f : 22.0f;
@@ -1635,6 +1799,8 @@ Outcome Flow::run() {
     observe();
     if (o_.startStep && !machine_.openAt(o_.startStep))
         std::fprintf(stderr, "[first-run] no step called '%s'\n", o_.startStep);
+    // THE TIME ZONE FIRST, ON A CONSOLE THAT HAS NONE (firstrun.h, TimeZone).
+    if (!o_.startStep && !facts_.zoneChosen) machine_.openAt("timezone");
     enterStep();
 
     std::fprintf(stderr, "[first-run] starting at %s\n", firstrun::name(machine_.step()));
@@ -1668,6 +1834,7 @@ Outcome Flow::run() {
 
                 case SDL_EVENT_TEXT_INPUT:
                     if (keyboard_.isOpen()) keyboard_.typeText(e.text.text);
+                    else if (e.text.text && e.text.text[0]) jumpToLetter(e.text.text[0]);
                     break;
 
                 // A MOUSE MOVES FOCUS AND CLICKS THE FOCUSED THING. See
@@ -1716,20 +1883,24 @@ Outcome Flow::run() {
                     // THE SYSTEM'S KEY REPEAT, as the console's own input
                     // drops it (input.cpp, #443): a held Return, Space or
                     // Escape acted again at every repeat, and a held
-                    // Backspace went back step after step (#485). Backspace
-                    // still repeats where it deletes, on the keyboard.
+                    // Backspace went back step after step (#485). On the
+                    // keyboard a held Backspace goes on deleting at the
+                    // keyboard's own pace, as X does (#668).
                     if (e.key.repeat &&
                         (e.key.key == SDLK_RETURN || e.key.key == SDLK_KP_ENTER ||
                          e.key.key == SDLK_SPACE || e.key.key == SDLK_ESCAPE ||
-                         (e.key.key == SDLK_BACKSPACE && !keyboard_.isOpen())))
+                         e.key.key == SDLK_BACKSPACE))
                         break;
                     if (keyboard_.isOpen()) {
+                        // The arrows hold the keyboard's own way, as the
+                        // d-pad does (#668): the system's repeat is no press.
+                        const bool again = e.key.repeat;
                         switch (e.key.key) {
-                            case SDLK_LEFT: keyboard_.moveFocus(-1, 0); break;
-                            case SDLK_RIGHT: keyboard_.moveFocus(+1, 0); break;
-                            case SDLK_UP: keyboard_.moveFocus(0, -1); break;
-                            case SDLK_DOWN: keyboard_.moveFocus(0, +1); break;
-                            case SDLK_BACKSPACE: keyboard_.backspace(); break;
+                            case SDLK_LEFT: if (!again) keyboard_.holdDirection(-1, 0); break;
+                            case SDLK_RIGHT: if (!again) keyboard_.holdDirection(+1, 0); break;
+                            case SDLK_UP: if (!again) keyboard_.holdDirection(0, -1); break;
+                            case SDLK_DOWN: if (!again) keyboard_.holdDirection(0, +1); break;
+                            case SDLK_BACKSPACE: keyboard_.holdBackspace(); break;
                             case SDLK_RETURN:
                             case SDLK_KP_ENTER: {
                                 const std::string value = keyboard_.value();
@@ -1753,6 +1924,8 @@ Outcome Flow::run() {
                         case SDLK_SPACE: activate(); break;
                         case SDLK_ESCAPE:
                         case SDLK_BACKSPACE: goBack(); break;
+                        case SDLK_PAGEUP: movePage(-1); break;
+                        case SDLK_PAGEDOWN: movePage(+1); break;
                         default: break;
                     }
                     break;
@@ -1760,10 +1933,10 @@ Outcome Flow::run() {
                 case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
                     if (keyboard_.isOpen()) {
                         switch (e.gbutton.button) {
-                            case SDL_GAMEPAD_BUTTON_DPAD_LEFT: keyboard_.moveFocus(-1, 0); break;
-                            case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: keyboard_.moveFocus(+1, 0); break;
-                            case SDL_GAMEPAD_BUTTON_DPAD_UP: keyboard_.moveFocus(0, -1); break;
-                            case SDL_GAMEPAD_BUTTON_DPAD_DOWN: keyboard_.moveFocus(0, +1); break;
+                            case SDL_GAMEPAD_BUTTON_DPAD_LEFT: keyboard_.holdDirection(-1, 0); break;
+                            case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: keyboard_.holdDirection(+1, 0); break;
+                            case SDL_GAMEPAD_BUTTON_DPAD_UP: keyboard_.holdDirection(0, -1); break;
+                            case SDL_GAMEPAD_BUTTON_DPAD_DOWN: keyboard_.holdDirection(0, +1); break;
                             case SDL_GAMEPAD_BUTTON_SOUTH: {
                                 // A on the "done" KEY ends the session, and
                                 // that used to be dropped on the floor. The
@@ -1773,8 +1946,8 @@ Outcome Flow::run() {
                                 typingFinished(keyboard_.pressKey(), value);
                                 break;
                             }
-                            case SDL_GAMEPAD_BUTTON_WEST: keyboard_.backspace(); break;
-                            case SDL_GAMEPAD_BUTTON_NORTH: keyboard_.toggleShift(); break;
+                            case SDL_GAMEPAD_BUTTON_WEST: keyboard_.holdBackspace(); break;
+                            case SDL_GAMEPAD_BUTTON_NORTH: keyboard_.cycleShift(); break;
                             case SDL_GAMEPAD_BUTTON_START: {
                                 const std::string value = keyboard_.value();
                                 typingFinished(keyboard_.commit(), value);
@@ -1794,6 +1967,31 @@ Outcome Flow::run() {
                         case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: moveAction(+1); break;
                         case SDL_GAMEPAD_BUTTON_SOUTH: activate(); break;
                         case SDL_GAMEPAD_BUTTON_EAST: goBack(); break;
+                        case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: movePage(-1); break;
+                        case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: movePage(+1); break;
+                        default: break;
+                    }
+                    break;
+
+                // The keyboard's held direction or delete lets go with its
+                // own key or button; letting go of another does not stop it.
+                case SDL_EVENT_KEY_UP:
+                    switch (e.key.key) {
+                        case SDLK_BACKSPACE: keyboard_.releaseBackspace(); break;
+                        case SDLK_LEFT: keyboard_.releaseDirection(-1, 0); break;
+                        case SDLK_RIGHT: keyboard_.releaseDirection(+1, 0); break;
+                        case SDLK_UP: keyboard_.releaseDirection(0, -1); break;
+                        case SDLK_DOWN: keyboard_.releaseDirection(0, +1); break;
+                        default: break;
+                    }
+                    break;
+                case SDL_EVENT_GAMEPAD_BUTTON_UP:
+                    switch (e.gbutton.button) {
+                        case SDL_GAMEPAD_BUTTON_WEST: keyboard_.releaseBackspace(); break;
+                        case SDL_GAMEPAD_BUTTON_DPAD_LEFT: keyboard_.releaseDirection(-1, 0); break;
+                        case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: keyboard_.releaseDirection(+1, 0); break;
+                        case SDL_GAMEPAD_BUTTON_DPAD_UP: keyboard_.releaseDirection(0, -1); break;
+                        case SDL_GAMEPAD_BUTTON_DPAD_DOWN: keyboard_.releaseDirection(0, +1); break;
                         default: break;
                     }
                     break;
@@ -1802,6 +2000,7 @@ Outcome Flow::run() {
             }
         }
 
+        keyboard_.repeatHeld(dt);
         pumpJobs();
         tick(dt);
 

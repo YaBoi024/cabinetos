@@ -37,6 +37,8 @@ public:
     // STAYS UP WHEN AN ANSWER IS CHOSEN, for a window that acts on a choice
     // in place (Add a controller pairs the pad it lists). Back still closes.
     // open() clears it.
+    // A panel whose words say to press A: B does nothing, so the words stay true.
+    void setOnlyA(bool on) { onlyA_ = on; }
     void setStaysOpen(bool on) { staysOpen_ = on; }
     bool staysOpen() const { return staysOpen_; }
     // ONE WIDTH FOR AS LONG AS IT IS OPEN, the content's width in canvas
@@ -45,6 +47,30 @@ public:
     // pairing failed, and MMagTech did not like it (2026-09-26). open()
     // clears it.
     void setFixedWidth(float w) { fixedW_ = w; }
+    // A LEVEL OF THE PAUSE MENU, IN ITS PANEL. `w` and `h` are the pause
+    // menu's panel, whose size it keeps for as long as it is open, rows
+    // beyond what fits scrolling inside it (MMagTech, 2026-10-25: going more
+    // than one menu deep, the pause menu's height and width must never
+    // change). It draws no scrim, no panel and no title of its own: the
+    // pause menu's panel stays where it is, and its answers are drawn as the
+    // menu's own rows ("Button 1: A"), so only the words change: the menu's
+    // rows go at once as these fade in, and when it closes these fade out,
+    // then the menu's fade back in. MMagTech at the TV, the same day: the
+    // panel flashed, gone for a moment and fading back in as the level's
+    // own; with it kept, he asked for a fade on the way out. The pause menu
+    // reads menuRows(). open() clears it.
+    void setOverPauseMenu(float w, float h) {
+        panelW_ = w;
+        panelH_ = h;
+        overMenu_ = true;
+    }
+    bool overPauseMenu() const { return overMenu_; }
+    // How much the pause menu's own rows show under a level of it, 0 to 1:
+    // none while it is up, fading back in after close().
+    float menuRows() const;
+    // The pause menu's own fade, which a level of it, and a question closed
+    // with it, is drawn under (the App sets it as it draws the menu).
+    void setMenuFade(float a) { menuFade_ = a; }
     // A LIST THAT FILLS WHILE IT IS OPEN GROWS SMOOTHLY. It opens one row
     // tall with `placeholder` said in it, and glides taller as rows arrive.
     // Add a controller first jumped from a small panel to a big one, which
@@ -88,10 +114,38 @@ public:
     bool busy() const { return busy_; }
     // The title alone, keeping everything else ("Paired successfully").
     void setTitle(std::string title) { title_ = std::move(title); }
+    // The title changing while the panel stays: the old words go, then the new ones come.
+    void changeTitle(std::string title);
     // The detail line alone, keeping the answers and focus.
     void setDetail(std::string detail) { detail_ = std::move(detail); }
-    void close() { open_ = false; }
+    // A level of the pause menu fades out, then the menu's rows fade back in.
+    void close();
+    // The pause menu is closing with a level of it or a question over it up:
+    // either fades with the menu's panel instead, and the menu's rows stay
+    // hidden (App::drawPauseMenu).
+    void closeWithMenu() {
+        open_ = false;
+        withMenu_ = true;
+    }
+    // Fades out where it is, taking no presses, for a panel about to replace it. A panel
+    // changing its words and size in place shows both sets of words at once. Only the
+    // box goes: the dim stays, or the whole screen pulses bright and dark behind the swap.
+    void fadeAway(float seconds) {
+        fading_ = true;
+        dimHeld_ = true;
+        appear_.smooth = true;
+        appear_.retarget(0.0f, seconds);
+    }
+    // The panel replacing one that faded away keeps the dim as it was. Call after open.
+    void holdDim() { dimHeld_ = true; }
+    // Nothing left of it, at once (the pause menu opening again).
+    void forget();
     bool isOpen() const { return open_; }
+    // Open, or a level of the pause menu still fading out.
+    bool visible() const { return open_ || (overMenu_ && appear_.value() > 0.001f); }
+    // A question over the pause menu, not a level of it, closed with the menu and still fading
+    // with it. It takes no presses, so it is not visible().
+    bool fadingWithMenu() const { return withMenu_ && !overMenu_ && menuFade_ > 0.001f; }
     const std::string& title() const { return title_; }
     // The answer, after Chosen.
     int chosen() const { return slot_; }
@@ -105,14 +159,26 @@ public:
 private:
     bool open_ = false;
     bool staysOpen_ = false;
+    bool onlyA_ = false;
+    bool fading_ = false;
+    bool dimHeld_ = false;
     bool busy_ = false;
     float spin_ = 0.0f;
     float fixedW_ = 0.0f;
+    float panelW_ = 0.0f, panelH_ = 0.0f;
+    bool overMenu_ = false;
+    bool withMenu_ = false;    // closed with the pause menu: fading with it
+    float menuFade_ = 1.0f;
+    int fit_ = 0;              // rows a level of the pause menu has room for, 0 otherwise
+    int fit() const;
+    float levelShown() const;  // how much of a level of the pause menu shows
+    void drawMenuRows(Ctx& c, float a);
     bool grows_ = false;
     std::string placeholder_;
     design::Animated listH_;
     bool listHSet_ = false;
-    std::string title_, detail_;
+    std::string title_, detail_, titleWas_;
+    float titleChange_ = 10.0f;
     std::vector<std::string> options_;
     std::vector<std::string> values_;
     std::vector<bool> disabled_;

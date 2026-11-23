@@ -37,19 +37,17 @@ CORE="${1:-}"
 # what is lost is only the ability to read it back out.
 VERIFY_REVISION=1
 
-# make is how eighteen of the twenty-two cores build. Four have no
-# Makefile.libretro at all — mGBA's upstream dropped it, Flycast and PPSSPP
-# never had one — and set BUILDSYS=cmake with CMAKEARGS and CMAKE_TARGET
-# instead.
+# make is how most cores build. A core with no Makefile.libretro (mGBA's
+# upstream dropped it; others never had one) sets BUILDSYS=cmake with
+# CMAKEARGS and CMAKE_TARGET in its case arm instead.
 BUILDSYS="make"
 
 # Files from the core's own source tree that have to be installed under the
 # frontend's system directory, in ASSET_DIR — the folder name the core itself
 # looks for, which is not necessarily the manifest's name for it.
 #
-# Empty for twenty of the twenty-two: their firmware is a console's, and it
-# comes from RomM with the game. PPSSPP and Dolphin are the exceptions and
-# their case arms say why.
+# Empty for most cores: their firmware is a console's, and it comes from
+# RomM with the game. A core that sets it says why in its case arm.
 ASSETS=()
 ASSET_DIR=""
 ASSET_SRC=""
@@ -57,7 +55,7 @@ ASSET_SRC=""
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC_ROOT="${CABINETOS_CORE_SRC:-$ROOT/.core-src}"
 OUT="${CABINETOS_CORE_OUT:-$ROOT/cores/build}"
-# Where a core's own system files go, for the one core that has any. This is
+# Where a core's own system files go, for the cores that have any. This is
 # not the frontend's system directory — that is a working directory holding
 # BIOS files RomM served and files the cores themselves write. This is the
 # staging area the deploy copies FROM, and in the image it becomes a path in
@@ -66,9 +64,15 @@ SYSTEM_OUT="${CABINETOS_SYSTEM_OUT:-$ROOT/cores/system}"
 
 # Per core: upstream, pinned commit, make directory, makefile, extra arguments.
 #
-# COMMIT values come from Cabinet's core-manifest.json `pinned_commit`, which is
-# the revision every platform must build from going forward. They are not to be
-# "updated" here; they move in Cabinet, and this follows.
+# A COMMIT moves only for one of the reasons in
+# docs/decisions/2026-10-23-when-an-emulator-pin-moves.md.
+#
+# EVERYTHING ABOUT ONE CORE GOES IN ITS ARM, or in a patch block of its own
+# below. CI caches each core under a hash of its own arm and blocks and of
+# every line outside all of them (ci/core-cache-key.sh), so a change inside
+# one arm rebuilds that core alone and a change to any other line, comments
+# included, rebuilds every core. That is why the lines outside the arms
+# carry no count or list of cores: adding a core must touch only its own.
 case "$CORE" in
 gambatte)
     REPO=https://github.com/libretro/gambatte-libretro.git
@@ -360,8 +364,7 @@ mupen64plus)
     MAKEDIR=.
     MAKEFILE=Makefile
     # Nintendo 64, and one of the three cores that renders through a GL context
-    # the frontend has to own. It builds here; it cannot run here yet, and
-    # catalog.cpp says so rather than offering an N64 game that would fail.
+    # the frontend has to own.
     #
     # FOUR levers, which is the most of any core in the set, and the reason
     # this one is not a one-line diff against Cabinet:
@@ -399,10 +402,8 @@ mupen64plus)
     # floating point, so it is not obviously harmless — and it cannot be judged
     # until an N64 game can actually be run here.
     #
-    # WHICH IS WHY THE TAG IS NOT SHARED YET. catalog.cpp returns no emulator
-    # tag for this core, so nothing uploads a state that Cabinet might offer
-    # back. Settle it when the frontend can host a hardware-rendered core and
-    # there is something to compare.
+    # ITS TAG IS SHARED ANYWAY, BY DECISION: savetable.cpp gives it
+    # mupen64plus-native, and says why this difference was accepted.
     #
     # THE RECOMPILER IS ON, 2026-09-27 (#147). It was left out on 2026-09-13
     # to match Cabinet's Apple TV build, where Apple forbids a JIT; that is a
@@ -430,12 +431,13 @@ flycast)
     # CMake, like mGBA, but for the opposite reason: Flycast never had a
     # Makefile.libretro.
     #
-    # THE TAG IS NOT SHARED AND CANNOT BE, TODAY. The manifest's own patch entry
-    # says Flycast is built from "tools/build-flycast.sh, and UNSCRIPTED edits in
-    # the working tree", so commit a172e000 plus that script does not reproduce
-    # what Cabinet ships. There is no revision for our build to match, whatever
-    # flags we pass. Until that diff is captured in Cabinet, catalog.cpp returns
-    # no emulator tag for this core. See docs/PROJECT.md, open question 13.
+    # ITS TAG IS GIVEN ANYWAY, BY DECISION. The manifest's own patch entry says
+    # Flycast is built from "tools/build-flycast.sh, and UNSCRIPTED edits in the
+    # working tree", so commit a172e000 plus that script does not reproduce what
+    # Cabinet ships. There is no revision for our build to match, whatever flags
+    # we pass. savetable.cpp gives it flycast-native all the same (MMagTech,
+    # 2026-09-23): a state that does not load elsewhere is refused there, and one
+    # that never leaves the console is lost with it.
     #
     # The recompiler lever is real and is NOT the blocker: Cabinet builds
     # -DTARGET_NO_REC on iOS and tvOS and turns the recompilers on for the Mac,
@@ -602,6 +604,48 @@ dolphin)
     ASSET_SRC=Data
     ASSETS=(Sys)
     ;;
+azahar)
+    REPO=https://github.com/azahar-emu/azahar.git
+    COMMIT=219d743a1e698101fe1ab8bef43e6563126c3c27
+    # Nintendo 3DS, the twenty-third core: Azahar's own libretro core, built
+    # from Azahar's repository with the emulator (src/citra_libretro). The
+    # old libretro/citra fork is a different core. The research and the
+    # conditions of the go are docs/PROJECT.md, open question 50.
+    #
+    # The commit is the 2126.2 release tag (2026-10-08, branch azahar-2126),
+    # which carries the backported fix for a crash on unload (#2572). The
+    # core reports the short commit as its version (GenerateBuildInfo.cmake,
+    # BUILD_FULLNAME) whenever the build cannot see a tag in the GitHub
+    # environment, which inside the container it never can.
+    #
+    # CMake, shaped like Dolphin's arm. ENABLE_LIBRETRO forces the Qt window,
+    # SDL, the web services, the scripting server, the GDB stub, OpenAL,
+    # cubeb, libusb and the multiplayer rooms off by itself (CMakeLists.txt,
+    # _LIBRETRO_INCOMPATIBLE_OPTIONS); restating them here would rot when that
+    # list changes. The target is citra_libretro; its file comes out as
+    # azahar_libretro.so, which is this arm's name, so nothing is renamed.
+    #
+    #   ENABLE_TESTS=OFF     the test executable, which nothing here runs.
+    #   ENABLE_BUILTIN_KEYBLOB=OFF
+    #                        Azahar compiles a blob of the 3DS's own keys into
+    #                        the binary unless told not to, and the project
+    #                        ships no keys (CONTRIBUTING.md, "The rules").
+    #                        Games do not need them: Azahar loads only
+    #                        decrypted games. What goes is multiplayer, amiibo
+    #                        and the eShop, none of which the console offers.
+    #   ENABLE_LTO=OFF       as Azahar's own Linux libretro release builds it
+    #                        (.github/workflows/libretro.yml), which is the
+    #                        build its players run.
+    BUILDSYS=cmake
+    CMAKE_TARGET=citra_libretro
+    CMAKEARGS=(
+        -DCMAKE_BUILD_TYPE=Release
+        -DENABLE_LIBRETRO=ON
+        -DENABLE_TESTS=OFF
+        -DENABLE_BUILTIN_KEYBLOB=OFF
+        -DENABLE_LTO=OFF
+    )
+    ;;
 *)
     echo "unknown core: $CORE" >&2
     exit 1
@@ -637,8 +681,8 @@ verify_core() {
                   else exec /tmp/core-info "/out/$1"; fi' _ "$SO" "$expect"
     echo "sha256      $(sha256sum "$OUT/$SO" | cut -d' ' -f1)"
     # Its options against cores/options/<core>.txt. A separate script so that
-    # editing the check does not change this file, which keys every core's
-    # cache in CI; read its header.
+    # editing the check does not change this function, which is in every
+    # core's cache key in CI; read its header.
     CABINETOS_CORE_OUT="$OUT" CABINETOS_BUILDER="$BUILDER" \
         "$ROOT/cores/check-options.sh" "$CORE"
 }
@@ -647,9 +691,10 @@ verify_core() {
 #
 # This is for the CI cache and nothing else. A core is determined entirely by
 # this script — the pinned commit, the patches and the build arguments are all
-# here — and by the toolchain in frontend/Containerfile, so CI keys a cache on
-# the hash of those two files and restores the .so instead of spending eight
-# minutes rebuilding something that cannot have changed.
+# here — and by the toolchain in frontend/Containerfile, so CI keys each core's
+# cache on the parts of this script that run for that core and on the
+# Containerfile (ci/core-cache-key.sh), and restores the .so instead of
+# spending eight minutes rebuilding something that cannot have changed.
 #
 # THE ASSERTION STILL RUNS ON A CACHE HIT, and that is the point of having this
 # mode rather than just skipping the job. What makes the whole workflow worth
@@ -721,6 +766,11 @@ echo "$CORE @ $COMMIT"
 # Every one of them asserts its own anchor. A patch that silently matches
 # nothing leaves a green build with the fix absent, which has happened twice on
 # this project and is the reason the assertion is not optional.
+#
+# Each core's patches are one block of this exact shape, so that
+# ci/core-cache-key.sh counts the block as that core's alone:
+# `if [ "$CORE" = <core> ]; then` and `fi`, both in the first column, with
+# everything between them indented, its comments too.
 if [ "$CORE" = melonds ]; then
     # melonDS's libretro build has no background flush thread — __LIBRETRO__
     # compiles it out — and instead debounce-flushes the .sav two seconds after
@@ -801,6 +851,154 @@ if [ "$CORE" = ppsspp ]; then
     echo "patched: the core names its own CPU engine at boot"
 fi
 
+if [ "$CORE" = azahar ]; then
+    # Each replacement in this patch is literal and must match exactly
+    # once, or the build stops: a patch that matches nothing is a green build
+    # without it, with every game in the first game's folders.
+    patch_once() {
+        FROM="$2" TO="$3" perl -0pi -e '
+            my $n = () = /\Q$ENV{FROM}\E/g;
+            die "matched $n times\n" unless $n == 1;
+            s/\Q$ENV{FROM}\E/$ENV{TO}/;
+        ' "$SRC/$1" || {
+            echo "azahar patch did not apply to $1; upstream shape changed" >&2
+            exit 1
+        }
+    }
+
+    # EACH GAME SETS ITS OWN FOLDERS. Azahar's bug, not ours, tracked on
+    # #534 (reported as azahar-emu/azahar#2694); drop this patch when
+    # an Azahar release fixes SetUserPath. Every start hands the core that
+    # game's and that person's save folder, and SetUserPath
+    # (src/common/file_util.cpp) fills its table of folders with emplace,
+    # which never replaces an entry already there. The core is never really
+    # unloaded (glibc keeps a library with GNU unique symbols loaded, and
+    # Azahar has thousands), so the table outlives the game: every 3DS game
+    # after the first since the frontend started, and every person after the
+    # first, read and wrote the first game's sdmc, nand, sysdata and shader
+    # folders, and their saves went up to RomM under the first game. The
+    # table is emptied only when the folder changes: the core calls
+    # SetUserPath again, with the same folder, whenever an option changes
+    # while a game runs (the pause menu's rows), and emptying it then would
+    # free paths the running game may be reading. Nothing fills the table
+    # before it in this build (UpdateUserPath is the Qt window's alone), so
+    # nothing is lost.
+    patch_once src/common/file_util.cpp 'void SetUserPath(const std::string& path) {
+    std::string& user_path = g_paths[UserPath::UserDir];' \
+        'void SetUserPath(const std::string& path) {
+    if (path != g_paths[UserPath::UserDir])
+        g_paths.clear(); // cabinetos: each game sets its own folders
+    std::string& user_path = g_paths[UserPath::UserDir];'
+    echo "patched: each game sets its own folders (SetUserPath drops the last game's)"
+fi
+
+if [ "$CORE" = mame2003_plus ]; then
+    # NOT A PATCH, A CHECK (#576). A fight stick's layout in a MAME 2003-Plus
+    # game (frontend/src/fightstick.cpp, kClassic) puts the game's buttons in
+    # order by the core's Classic table, copied from this file at the pin:
+    # which joypad id is which of the game's buttons, for the plain joypad the
+    # console plugs into every port. A pin where either reads otherwise stops
+    # here, so the copy is put right in the same change instead of a stick's
+    # buttons landing in the wrong places with no error.
+    MAME_C="$SRC/src/mame2003/mame2003.c"
+    grep -Eq '^#define PAD_CLASSIC +RETRO_DEVICE_JOYPAD$' "$MAME_C" || {
+        echo "mame2003_plus: PAD_CLASSIC is no longer the plain joypad; check fightstick.cpp's kClassic" >&2
+        exit 1
+    }
+    CLASSIC=$(sed -n '/^#define EMIT_RETROPAD_CLASSIC(/,/EMIT_COMMON_CODES/ s/.*OSD_JOYPAD_\([A-Z0-9]*\), *JOYCODE_##DISPLAY_IDX##_BUTTON\([0-9]*\)}.*/\1:\2/p' "$MAME_C" |
+        grep -Ev '^(L3|R3):' | tr '\n' ' ')
+    if [ "$CLASSIC" != "B:1 A:2 Y:3 X:4 L:5 R:6 L2:7 R2:8 " ]; then
+        echo "mame2003_plus: its Classic table reads '$CLASSIC', not B 1, A 2, Y 3, X 4, L 5, R 6, L2 7, R2 8; put fightstick.cpp's kClassic right" >&2
+        exit 1
+    fi
+    echo "checked: the Classic button table matches fightstick.cpp"
+
+    # AND A SECOND CHECK (#577). Holding Start opens MAME 2003-Plus's own
+    # menu: the console presses Tab for it, and keeps player 1's left stick
+    # click from it, since that click is the menu's other key
+    # (frontend/src/arcadesettings.h). That leans on three things here: the
+    # menu's keys, Tab or player 1's ninth button; the left stick click being
+    # the ninth button in all four layouts; and the keyboard being read beside
+    # the pad by default. A pin where any reads otherwise stops here, so the
+    # hold is put right in the same change instead of opening nothing.
+    INPTPORT_C="$SRC/src/inptport.c"
+    grep -Eq 'IPT_UI_CONFIGURE, +"Config Menu", +SEQ_DEF_3\(KEYCODE_TAB, +CODE_OR, JOYCODE_1_BUTTON9\)' "$INPTPORT_C" || {
+        echo "mame2003_plus: its menu no longer opens on Tab or player 1's ninth button; check arcadesettings.h" >&2
+        exit 1
+    }
+    L3_NINTH=$(grep -c 'OSD_JOYPAD_L3, *JOYCODE_##DISPLAY_IDX##_BUTTON9}' "$MAME_C")
+    if [ "$L3_NINTH" != 4 ]; then
+        echo "mame2003_plus: the left stick click is the ninth button in $L3_NINTH of its 4 layouts, not all; check arcadesettings.h" >&2
+        exit 1
+    fi
+    sed -n '/option_def_input_interface = {/,/^};/p' "$SRC/src/mame2003/core_options.c" |
+        grep -q '^ *"simultaneous"$' || {
+        echo "mame2003_plus: it no longer reads the keyboard beside the pad by default; check arcadesettings.h" >&2
+        exit 1
+    }
+    echo "checked: MAME's menu opens on Tab, and the left stick click is its other key"
+fi
+
+if [ "$CORE" = fbneo_libretro ]; then
+    # NOT A PATCH, A CHECK (#576). A fight stick leaves FBNeo's own
+    # combination buttons off (frontend/src/fightstick.cpp,
+    # fbneoCombination), and knows them only by their names: FBNeo makes
+    # each "P1 Buttons AB" and the like, takes the "P1 " off, and the
+    # console reads "Buttons ...". A pin where a combination button is named
+    # otherwise, the "P1 " stays on, or a game's own button is named
+    # "Buttons ..." stops here, so the stick's rule is put right in the same
+    # change instead of a combination button taking one of a game's places.
+    RETRO_INPUT="$SRC/src/burner/libretro/retro_input.cpp"
+    ALL=$(grep -c 'sprintf(pgi->Macro.szName,' "$RETRO_INPUT")
+    NAMED=$(grep -c 'sprintf(pgi->Macro.szName, "P%i Buttons ' "$RETRO_INPUT")
+    if [ "$ALL" -eq 0 ] || [ "$ALL" != "$NAMED" ]; then
+        echo "fbneo_libretro: $NAMED of its $ALL combination buttons are named \"P%i Buttons ...\"; check fightstick.cpp's fbneoCombination" >&2
+        exit 1
+    fi
+    grep -qF "if (strlen(szn) > 3 && szn[0] == 'P' && szn[2] == ' ')" "$RETRO_INPUT" || {
+        echo "fbneo_libretro: it no longer takes \"P1 \" off a button's name the way it did; check fightstick.cpp's fbneoCombination" >&2
+        exit 1
+    }
+    if grep -rqE '\{ *"(P[0-9] )?Buttons ' "$SRC/src/burn/drv"; then
+        echo "fbneo_libretro: a game's own button is named \"Buttons ...\"; check fightstick.cpp's fbneoCombination" >&2
+        exit 1
+    fi
+    echo "checked: FBNeo's combination buttons are the only \"Buttons ...\""
+fi
+
+if [ "$CORE" = flycast ]; then
+    # NOT A PATCH, A CHECK. Naomi and Atomiswave games lean on three things
+    # here: the board memory Flycast writes, `reicast/<the zip's own
+    # name>.nvmem` in the save folder (frontend/src/savetable.cpp, the one
+    # arcade file of Flycast's that reaches RomM); its RetroPad order for a
+    # board's buttons, B A Y X R L R2 L2 on Naomi and B A Y X R on Atomiswave,
+    # which it declares the game's buttons in (frontend/src/fightstick.cpp);
+    # and the board's Test and Service on L3 and R3, which the console keeps
+    # from the game and presses Test with when Start is held
+    # (frontend/src/arcadesettings.h). A pin where any reads otherwise stops
+    # here, so the console is put right in the same change.
+    FLY_LR="$SRC/shell/libretro/libretro.cpp"
+    if ! { grep -q 'snprintf(save_dir, sizeof(save_dir), "%s%creicast%c", dir, slash, slash);' "$FLY_LR" &&
+        grep -q 'arcadeFlashPath = std::string(save_dir) + g_base_name;' "$FLY_LR" &&
+        grep -q 'sys_nvmem->Save(getArcadeFlashPath());' "$SRC/core/hw/flashrom/nvmem.cpp" &&
+        grep -q 'suffix = ".nvmem";' "$SRC/core/hw/flashrom/nvmem.cpp"; }; then
+        echo "flycast: its arcade board memory is no longer reicast/<file>.nvmem in the save folder; check savetable.cpp" >&2
+        exit 1
+    fi
+    for MAP in nao_joymap aw_joymap; do
+        ORDER=$(sed -n "/static const uint32_t ${MAP}\[\] =/,/};/ s/.*JOYPAD_\([A-Z0-9]*\) *\*\/ *[A-Z]*_\([A-Z0-9]*\)_KEY.*/\1:\2/p" "$FLY_LR" | tr '\n' ' ')
+        case "$MAP:$ORDER" in
+        "nao_joymap:B:BTN0 Y:BTN2 SELECT:COIN START:START UP:UP DOWN:DOWN LEFT:LEFT RIGHT:RIGHT A:BTN1 X:BTN3 L:BTN5 R:BTN4 L2:BTN7 R2:BTN6 L3:TEST R3:SERVICE ") ;;
+        "aw_joymap:B:BTN0 Y:BTN2 SELECT:COIN START:START UP:UP DOWN:DOWN LEFT:LEFT RIGHT:RIGHT A:BTN1 X:BTN3 R:BTN4 L3:TEST R3:SERVICE ") ;;
+        *)
+            echo "flycast: its $MAP reads '$ORDER'; check fightstick.cpp and arcadesettings.h" >&2
+            exit 1
+            ;;
+        esac
+    done
+    echo "checked: Flycast's board memory, button order, Test and Service"
+fi
+
 # platform=unix is the core's own Linux case, and on every Makefile-based core
 # in the set it is also the default when uname says Linux. It is the
 # best-tested path these cores have; the ios-arm64 case Cabinet uses is the
@@ -842,7 +1040,7 @@ mkdir -p "$OUT"
 #
 # Upstream output names do not match manifest names and there is no rule to it:
 # beetle_ngp builds mednafen_ngp_libretro.so, beetle_pce_fast builds
-# mednafen_pce_fast_libretro.so. Hand-maintaining that list for twenty-two cores
+# mednafen_pce_fast_libretro.so. Hand-maintaining that list for every core
 # is a table that goes stale, and the frontend would need a second copy of it to
 # find anything.
 #
@@ -869,7 +1067,7 @@ UPSTREAM=$(basename "${BUILT[0]}")
 cp "${BUILT[0]}" "$OUT/$SO"
 echo "wrote $OUT/$SO ($(du -h "$OUT/$SO" | cut -f1))"
 
-# The core's own system files, for the one core that has any.
+# The core's own system files, for the cores that have any.
 #
 # Every entry is asserted to exist before anything is copied. A missing one
 # means upstream moved it, and the failure that would otherwise follow is the

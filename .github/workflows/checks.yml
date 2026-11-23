@@ -74,3 +74,113 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: ci/check-long-files.sh "${BASE}" "${HEAD}"
+
+  # THE TWO CHECKS OF THE DECISION FILES (CLAUDE.md, rules 2 and 7), added
+  # 2026-10-23. Each has a report-only week of its own, from the day it was
+  # added, so the date in `env:` above (the older checks') is not theirs.
+  docs-list:
+    name: Docs list
+    runs-on: ubuntu-24.04
+    env:
+      REPORT_ONLY_UNTIL: '2026-10-31'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: Every doc is in the list of the docs and their jobs
+        run: ci/check-docs-list.sh
+
+  decisions:
+    name: Decisions
+    runs-on: ubuntu-24.04
+    env:
+      REPORT_ONLY_UNTIL: '2026-10-31'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          fetch-depth: 0
+
+      - name: Decision files small and listed, PROJECT.md not growing
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: ci/check-decisions.sh "${BASE}" "${HEAD}"
+
+  linkup-no-network:
+    name: LinkUp holds no internet in the main program
+    runs-on: ubuntu-24.04
+    env:
+      REPORT_ONLY_UNTIL: '2026-11-14'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: The main program's LinkUp files reach the program by a local socket and nothing else
+        run: |
+          if ! ci/check-linkup-no-network.sh; then
+            if [[ ! "$(date -u +%F)" > "${REPORT_ONLY_UNTIL}" ]]; then
+              echo "::warning::LinkUp's files in the main program hold internet code. Report only until ${REPORT_ONLY_UNTIL} (UTC): passing. From the next day this fails."
+              exit 0
+            fi
+            exit 1
+          fi
+
+  licences:
+    name: Licences
+    runs-on: ubuntu-24.04
+    env:
+      REPORT_ONLY_UNTIL: '2026-11-08'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: Every licence text fetched at the revision the image ships
+        run: ci/check-licences.sh
+
+  rpcs3-snapshot:
+    name: RPCS3 snapshot
+    runs-on: ubuntu-24.04
+    env:
+      REPORT_ONLY_UNTIL: '2026-11-13'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: RPCS3's settings snapshot taken against the pinned build
+        run: ci/check-rpcs3-snapshot.sh
+
+  # THE COPIES IN frontend/third_party (rcheevos, and Sigil since #346's
+  # Switch step), added 2026-11-22: the one check here that fetches anything,
+  # each library's trees from GitHub, in a few seconds. Its report-only week
+  # is its own.
+  vendored-copies:
+    name: Vendored copies
+    runs-on: ubuntu-24.04
+    env:
+      REPORT_ONLY_UNTIL: '2026-11-29'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: Each library's own files, unchanged, at the commits its VERSION names
+        run: ci/check-vendored-copies.sh
+
+  # THE MECHANICAL HALF OF THE AUDIT OF 2026-11-03: only what a pull request
+  # touches, so the old tree never fails it. Its report-only week is its own.
+  code-and-docs-agree:
+    name: Code and docs agree
+    runs-on: ubuntu-24.04
+    env:
+      REPORT_ONLY_UNTIL: '2026-11-10'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+        with:
+          fetch-depth: 0
+
+      - name: Comments name what is there, headers' functions are defined, no private address
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: python3 -I ci/check-code-and-docs-agree.py "${BASE}" "${HEAD}"

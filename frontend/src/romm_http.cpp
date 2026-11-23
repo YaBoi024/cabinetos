@@ -3,12 +3,15 @@
 // each on its own CURL handle, with the console-wide flag that says whether
 // the server is away. One does not: setFavorite makes a person's first
 // Favorites collection on a handle of its own (romm_playdata.cpp). The client's other files (romm_pairing.cpp,
-// romm_library.cpp, romm_playdata.cpp, romm_codes.cpp) ask through these.
+// romm_library.cpp, romm_playdata.cpp, romm_snapshots.cpp, romm_codes.cpp)
+// ask through these.
 // Moved out of romm.cpp in the restructure (#398).
 
 #include "romm.h"
 
+#include "fileio.h"
 #include "romm_internal.h"
+#include "unsettled.h"
 
 #include <curl/curl.h>
 
@@ -188,12 +191,15 @@ Client::Where Client::where() const {
     return {base_, token_};
 }
 
-bool Client::get(const std::string& path, std::string* body, std::string* err) const {
-    return getAt(where(), path, body, err);
+bool Client::get(const std::string& path, std::string* body, std::string* err,
+                 long* status) const {
+    return getAt(where(), path, body, err, true, nullptr, status);
 }
 
 bool Client::getAt(const Where& at, const std::string& path, std::string* body,
-                   std::string* err, bool report, std::string* movedTo) const {
+                   std::string* err, bool report, std::string* movedTo,
+                   long* statusOut) const {
+    if (statusOut) *statusOut = 0;
     CURL* c = curl_easy_init();
     if (!c) { if (err) *err = "curl init failed"; return false; }
     const std::string url = at.base + path;
@@ -217,6 +223,7 @@ bool Client::getAt(const Where& at, const std::string& path, std::string* body,
     curl_easy_cleanup(c);
 
     if (rc != CURLE_OK) { if (err) *err = curl_easy_strerror(rc); return false; }
+    if (statusOut) *statusOut = status;
     if (status == 401 || status == 403) {
         if (err) *err = "not authorised: the token is missing, expired or lacks the scope";
         return false;
@@ -266,45 +273,33 @@ bool Client::sendJson(const char* method, const std::string& path, const std::st
     return true;
 }
 
-namespace {
-// One multipart/form-data body: the file part, and a state's picture as a
-// second part when there is one. Hand-built because the whole client is: no
-// HTTP library, and this is thirty lines. The picture part is Cabinet's to the
-// byte: `screenshotFile`, image/png (RommClient.swift, uploadState).
-std::string multipartBody(const std::string& boundary, const char* partName,
-                          const std::string& fileName, const std::vector<uint8_t>& data,
-                          const std::string& shotName, const std::vector<uint8_t>& shot) {
-    std::string b;
-    b.reserve(data.size() + shot.size() + fileName.size() + shotName.size() + 512);
-    b += "--" + boundary + "\r\n";
-    b += "Content-Disposition: form-data; name=\"";
-    b += partName;
-    b += "\"; filename=\"" + fileName + "\"\r\n";
-    b += "Content-Type: application/octet-stream\r\n\r\n";
-    b.append(reinterpret_cast<const char*>(data.data()), data.size());
-    b += "\r\n";
-    if (!shotName.empty() && !shot.empty()) {
-        b += "--" + boundary + "\r\n";
-        b += "Content-Disposition: form-data; name=\"screenshotFile\"; filename=\"" +
-             shotName + "\"\r\n";
-        b += "Content-Type: image/png\r\n\r\n";
-        b.append(reinterpret_cast<const char*>(shot.data()), shot.size());
-        b += "\r\n";
-    }
-    b += "--" + boundary + "--\r\n";
-    return b;
-}
-}  // namespace
-
-bool Client::postMultipart(const std::string& path, const char* partName,
-                           const std::string& fileName, const std::vector<uint8_t>& data,
-                           std::string* err, const std::string& shotName,
-                           const std::vector<uint8_t>& shot) const {
+bool Client::postMultipart(const std::string& path, const std::vector<Part>& parts,
+                           std::string* err, std::string* replyOut, long* statusOut) const {
+    if (statusOut) *statusOut = 0;
+    if (replyOut) replyOut->clear();
     CURL* c = curl_easy_init();
     if (!c) { if (err) *err = "curl init failed"; return false; }
 
+    // The body, its parts in the order given. Hand-built because the whole
+    // client is: no HTTP library, and this is twenty lines. A part with no
+    // file name is a plain field, as a push's manifest is (RomM reads it as
+    // text).
     const std::string boundary = "CabinetOSBoundary7f3a91c4";
-    const std::string body = multipartBody(boundary, partName, fileName, data, shotName, shot);
+    std::string body;
+    size_t size = 64;
+    for (const Part& p : parts) size += p.size + p.name.size() + p.fileName.size() + 160;
+    body.reserve(size);
+    for (const Part& p : parts) {
+        body += "--" + boundary + "\r\n";
+        body += "Content-Disposition: form-data; name=\"" + p.name + "\"";
+        if (!p.fileName.empty()) body += "; filename=\"" + p.fileName + "\"";
+        body += "\r\nContent-Type: ";
+        body += p.type;
+        body += "\r\n\r\n";
+        if (p.size) body.append(static_cast<const char*>(p.data), p.size);
+        body += "\r\n";
+    }
+    body += "--" + boundary + "--\r\n";
 
     curl_slist* hdrs = curl_slist_append(
         nullptr, ("Content-Type: multipart/form-data; boundary=" + boundary).c_str());
@@ -333,6 +328,8 @@ bool Client::postMultipart(const std::string& path, const char* partName,
     curl_easy_cleanup(c);
 
     if (rc != CURLE_OK) { if (err) *err = curl_easy_strerror(rc); return false; }
+    if (statusOut) *statusOut = status;
+    if (replyOut) *replyOut = reply;
     // ONLY A 2xx IS AN UPLOAD. This request does not follow redirects, so an
     // address that answers a POST with 301, 302, 307 or 308 (http behind an
     // https proxy, a path prefix, a sign-in page) received nothing; counting
@@ -419,7 +416,19 @@ bool Client::fetchToFile(const std::string& path, const std::string& destPath,
     noteTransport(c, rc);
     long status = 0;
     curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &status);
-    std::fclose(sink.f);
+    // LISTED BEFORE IT TAKES ITS NAME (#559, fileio.h). The size is what
+    // "already downloaded" checks, and on an exFAT or NTFS drive a renamed
+    // file can be at its size after a power cut with its bytes never written.
+    // There it is listed first (unsettled.h), so a power cut before the
+    // drive has it means it is downloaded again; with no list to put it in,
+    // it waits for the drive. On btrfs and ext4 a cut file comes back short,
+    // so neither is needed. A body that failed is thrown away, so only a
+    // whole one is written out.
+    const bool whole = !sink.aborted && rc == CURLE_OK && status < 300;
+    const bool written = whole && std::fflush(sink.f) == 0 &&
+                         (cab::keepsSizeWithBytes(partPath) || unsettled::note({destPath}) ||
+                          ::fsync(fileno(sink.f)) == 0);
+    const bool closed = std::fclose(sink.f) == 0;
     if (hdrs) curl_slist_free_all(hdrs);
     curl_easy_cleanup(c);
 
@@ -434,6 +443,11 @@ bool Client::fetchToFile(const std::string& path, const std::string& destPath,
             *err = rc != CURLE_OK ? curl_easy_strerror(rc)
                                   : "HTTP " + std::to_string(status);
         }
+        return false;
+    }
+    if (!written || !closed) {
+        std::remove(partPath.c_str());
+        if (err) *err = "cannot write " + partPath;
         return false;
     }
     if (std::rename(partPath.c_str(), destPath.c_str()) != 0) {
@@ -491,6 +505,88 @@ std::vector<uint8_t> Client::fetchBytes(const std::string& path) const {
         data.clear();
     }
     return data;
+}
+
+namespace {
+// The one header a save in an emulator's form carries, `X-Save-Path`.
+size_t savePathHeader(char* p, size_t sz, size_t n, void* user) {
+    const size_t len = sz * n;
+    static const char kName[] = "x-save-path:";
+    const size_t nameLen = sizeof kName - 1;
+    if (len > nameLen) {
+        bool match = true;
+        for (size_t i = 0; i < nameLen && match; ++i)
+            match = std::tolower(static_cast<unsigned char>(p[i])) == kName[i];
+        if (match) {
+            std::string v(p + nameLen, len - nameLen);
+            while (!v.empty() && std::isspace(static_cast<unsigned char>(v.front()))) v.erase(0, 1);
+            while (!v.empty() && std::isspace(static_cast<unsigned char>(v.back()))) v.pop_back();
+            std::string out;
+            for (size_t i = 0; i < v.size(); ++i) {
+                if (v[i] == '%' && i + 2 < v.size() && std::isxdigit(static_cast<unsigned char>(v[i + 1])) &&
+                    std::isxdigit(static_cast<unsigned char>(v[i + 2]))) {
+                    out.push_back(static_cast<char>(std::stoi(v.substr(i + 1, 2), nullptr, 16)));
+                    i += 2;
+                } else {
+                    out.push_back(v[i]);
+                }
+            }
+            *static_cast<std::string*>(user) = out;
+        }
+    }
+    return len;
+}
+
+// A string field of RomM's answer, by its name, for the log only.
+std::string answerField(const std::vector<uint8_t>& body, const std::string& field) {
+    const std::string text(body.begin(), body.end());
+    const std::string key = "\"" + field + "\":\"";
+    const size_t at = text.find(key);
+    if (at == std::string::npos) return std::string();
+    const size_t from = at + key.size();
+    const size_t to = text.find('"', from);
+    return to == std::string::npos ? std::string() : text.substr(from, to - from);
+}
+}  // namespace
+
+SaveAnswer Client::fetchSaveAs(int saveId, const std::string& query) const {
+    SaveAnswer a;
+    CURL* c = curl_easy_init();
+    if (!c) return a;
+    const Where at = where();
+    const std::string url = at.base + "/api/saves/" + std::to_string(saveId) + "/content" +
+                            (query.empty() ? std::string() : "?" + query);
+    curl_slist* hdrs = nullptr;
+    if (!at.token.empty())
+        hdrs = curl_slist_append(hdrs, ("Authorization: Bearer " + at.token).c_str());
+    curl_easy_setopt(c, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, byteSink);
+    curl_easy_setopt(c, CURLOPT_WRITEDATA, &a.bytes);
+    curl_easy_setopt(c, CURLOPT_HEADERFUNCTION, savePathHeader);
+    curl_easy_setopt(c, CURLOPT_HEADERDATA, &a.savePath);
+    curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, kConnectTimeoutSec);
+    curl_easy_setopt(c, CURLOPT_TIMEOUT, kTimeoutSec);
+    if (hdrs) curl_easy_setopt(c, CURLOPT_HTTPHEADER, hdrs);
+    const CURLcode rc = performOnServer(c, at.base, [&a] {
+        a.bytes.clear();
+        a.savePath.clear();
+    });
+    noteTransport(c, rc);
+    curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &a.status);
+    if (hdrs) curl_slist_free_all(hdrs);
+    curl_easy_cleanup(c);
+    if (rc != CURLE_OK) {
+        a.status = 0;
+        a.error = curl_easy_strerror(rc);
+        a.bytes.clear();
+    } else if (a.status != 200) {
+        a.error = answerField(a.bytes, "error");
+        if (a.error.empty()) a.error = answerField(a.bytes, "detail");
+        if (a.error.empty()) a.error = "HTTP " + std::to_string(a.status);
+        a.bytes.clear();
+        a.savePath.clear();
+    }
+    return a;
 }
 
 namespace {

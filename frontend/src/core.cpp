@@ -1,6 +1,7 @@
 #include "core.h"
 #include "core_state.h"
 #include "cpus.h"
+#include "netblock.h"
 #include "ps2.h"
 
 #include <dlfcn.h>
@@ -12,12 +13,14 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <mutex>
 #include <optional>
 
 #include "libretro.h"
 #include "rumble.h"
+#include "tilt.h"
 #include "vkhost.h"
 
 namespace cab {
@@ -33,7 +36,16 @@ EntryPoints g;
 constexpr unsigned kRealWiiRemote = (6u << 8) | RETRO_DEVICE_NONE;
 
 unsigned gPixelFormat = RETRO_PIXEL_FORMAT_0RGB1555;
-std::string gSystemDir, gSaveDir;
+// THE TWO FOLDERS A CORE IS TOLD, IN BUFFERS THAT NEVER MOVE. A core may keep
+// the pointer it was handed in retro_init and read it later: MAME 0.289 builds
+// every one of its folders from it at retro_load_game. These were strings,
+// set again at loadGame to the same folders, and the assignment freed the
+// buffer the core still pointed at: MAME read freed memory and wrote its
+// NVRAM and settings into a folder with a garbage name in the working folder
+// (measured on the A9, 2026-10-28). Copied into place, never reallocated, so
+// a kept pointer always reads the folder in use.
+char gSystemDir[4096] = "";
+char gSaveDir[4096] = "";
 
 // How the core wants its picture turned, in 90-degree counter-clockwise steps.
 //
@@ -151,12 +163,12 @@ bool environment(unsigned cmd, void* data) {
         }
 
         case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY:
-            *static_cast<const char**>(data) = gSystemDir.c_str();
+            *static_cast<const char**>(data) = gSystemDir;
             return true;
 
         case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY:
-            // Must outlive the session. See the header.
-            *static_cast<const char**>(data) = gSaveDir.c_str();
+            // Must outlive the session. See the header, and gSaveDir's note.
+            *static_cast<const char**>(data) = gSaveDir;
             return true;
 
         case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
@@ -227,11 +239,22 @@ std::string absoluteDir(const std::string& dir) {
     SDL_CreateDirectory(abs.c_str());
     return abs;
 }
+
+// `dir`, made absolute, copied into one of the two buffers above in place.
+void keepDir(char (&kept)[4096], const std::string& dir) {
+    const std::string abs = absoluteDir(dir);
+    if (abs.size() >= sizeof kept) {
+        std::fprintf(stderr, "[core] a folder too long for a core, not given: %s\n", abs.c_str());
+        kept[0] = '\0';
+        return;
+    }
+    std::memcpy(kept, abs.c_str(), abs.size() + 1);
+}
 }  // namespace corestate
 
 void Core::setDirectories(const std::string& systemDir, const std::string& saveDir) {
-    gSystemDir = absoluteDir(systemDir);
-    gSaveDir = absoluteDir(saveDir);
+    keepDir(gSystemDir, systemDir);
+    keepDir(gSaveDir, saveDir);
 }
 
 // PLAYSTATION 2 IS NOT A LIBRETRO CORE, AND THESE FEW BRANCHES ARE THE WHOLE
@@ -242,11 +265,11 @@ void Core::setDirectories(const std::string& systemDir, const std::string& saveD
 // it, which is the one thing every other emulator here has in common. What it
 // CAN do is take the finished picture, take the finished sound, hand over the
 // pad and stop it — and those are the same four things this class already does
-// for the other twenty-one.
+// for every libretro core.
 //
 // So the branch lives here, at the bottom, rather than as a second Core the
 // screens have to know about. Everything above this file — the launch screen,
-// the overlay, the save sync, the frame loop in main.cpp — is unchanged and
+// the overlay, the save sync, the frame loop in frame.cpp — is unchanged and
 // does not learn a new concept. See ps2.h.
 namespace corestate {
 bool gIsPs2 = false;
@@ -315,6 +338,8 @@ bool Core::load(const std::string& soPath) {
         error_ = why ? why : "dlopen failed and gave no reason";
         return false;
     }
+    // Before retro_init, so every thread the core starts carries the mark.
+    netblock::addEmulator(handle_, soPath);
 
     g.api_version = reinterpret_cast<unsigned (*)(void)>(symbol("retro_api_version"));
     g.get_system_info =
@@ -413,7 +438,9 @@ void Core::unload() {
         return;
     }
     if (g.deinit) g.deinit();
+    forgetKeyboard();
     dlclose(handle_);
+    netblock::dropUnloaded();
     handle_ = nullptr;
     g = {};
     // The name and version go with the core: a later game on another path
@@ -438,6 +465,11 @@ void Core::unload() {
 bool Core::loadGame(const std::string& romPath, const std::string& systemDir,
                     const std::string& saveDir) {
     rumble::reset();
+    tilt::reset();
+    // The last game's buttons go with it, whatever this one declares, and
+    // no key it pressed is still down.
+    clearInputDescriptors();
+    releaseKeys();
     if (!handle_) {
         error_ = "no core loaded";
         return false;
@@ -454,8 +486,8 @@ bool Core::loadGame(const std::string& romPath, const std::string& systemDir,
         placed.started = true;
         return true;
     }
-    gSystemDir = absoluteDir(systemDir);
-    gSaveDir = absoluteDir(saveDir);
+    keepDir(gSystemDir, systemDir);
+    keepDir(gSaveDir, saveDir);
 
     // Cleared HERE, not in load(), because rotation is a fact about the GAME
     // and not about the core. One arcade emulator serves upright and vertical
@@ -647,6 +679,7 @@ bool Core::loadGame(const std::string& romPath, const std::string& systemDir,
 
 void Core::unloadGame() {
     rumble::reset();
+    tilt::reset();
     // Home is back on every core, whatever happens below (cpus.h).
     struct BackOnAllCores { ~BackOnAllCores() { cpus::gameEnd(); } } allCores;
     if (gIsPs2) {

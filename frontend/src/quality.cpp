@@ -174,8 +174,8 @@ Level forGame(int romId) {
 
 bool hasLevels(const std::string& core) {
     if (core == "melonds") return cab::Core::canServeDesktopGL();
-    for (const char* c : {"pcsx2", "dolphin", "ppsspp", "mupen64plus", "flycast", "eden",
-                          "rpcs3", "xemu"})
+    for (const char* c : {"pcsx2", "dolphin", "ppsspp", "mupen64plus", "flycast", "azahar",
+                          "eden", "rpcs3", "xemu", "vita3k", "sm2emu", "supermodel"})
         if (core == c) return true;
     return false;
 }
@@ -261,6 +261,16 @@ std::map<std::string, std::string> coreOptions(const std::string& core,
             {"reicast_anisotropic_filtering", "16"},
         };
     }
+    // Nintendo 3DS (docs/PROJECT.md question 50), sized for the side by side
+    // layout coreoptions.cpp sets, which draws the top screen at 1067x640 on
+    // a 1080p TV and 2133x1280 on a 4K one: 1x, the 3DS's own 400x240, as
+    // PSP, N64 and DS are at Performance; 3x (1200x720), just above a 1080p
+    // TV's; 6x (2400x1440), just above a 4K TV's. Everything else at the
+    // core's own value, accurate shader multiplication included.
+    if (core == "azahar") {
+        static const char* const kFactor[] = {"1", "3", "6"};
+        return {{"citra_resolution_factor", pick(l, kFactor)}};
+    }
     // FIXED AT EVERY LEVEL (MMagTech, 2026-10-02): the processor-side
     // extras that cost nothing a modern PC notices.
     //
@@ -320,9 +330,23 @@ std::string rpcs3(Level l) {
     // measured (the game would not load past its menu that once). The game's
     // own video mode stays 720p; that one changes the game. Lines inside
     // RPCS3's `Video:` section, which standalone_rpcs3.cpp opens.
+    //
+    // FILTERING IS THE GAME'S OWN here, not the 16x every other system gets
+    // (quality.h): RPCS3's override replaces what a game asked for on every
+    // texture, the ones it reads as data too, and Unreal Engine 3 games then
+    // draw red noise over the whole picture in play while their menus stay
+    // right (Lollipop Chainsaw and Batman: Arkham City on the A9,
+    // 2026-11-06; RPCS3's pages for both say to leave it on Auto). Not
+    // written, so RPCS3's default, the game's choice, stands. BUFFERS UP TO
+    // 320 PIXELS ON THEIR LONGER SIDE STAY UNSCALED ("Minimum Scalable
+    // Dimension", RPCS3's resolution scale threshold, 16 as it ships): with
+    // the filter fixed, a scaled shadow buffer still left red in the
+    // shadows at 150%, and the pages give 256 and 320 for the two games.
+    // The 720p picture is far above it, so the level's scale is untouched.
+    // docs/decisions/2026-11-06-ps3-filtering-as-the-game-asked.md.
     static const char* const kScale[] = {"100", "150", "150"};
     return std::string("  Resolution Scale: ") + pick(l, kScale) +
-           "\n  Anisotropic Filter Override: 16\n";
+           "\n  Minimum Scalable Dimension: 320\n";
 }
 
 std::string xemu(Level l) {
@@ -346,6 +370,45 @@ std::vector<std::string> xenia(Level l) {
         "--draw_resolution_scale_y=" + s,
         "--anisotropic_override=5",
     };
+}
+
+std::string vita3k(Level l) {
+    // PlayStation Vita, 960x544: 1x, 2x (1920x1088, the 1080p step) and 4x
+    // (3840x2176, the 4K step), the candidates of docs/PROJECT.md question
+    // 49's plan, by this file's rule. Not yet measured on the A9: the hand
+    // test's frame times fix them, stepped down where the A9 cannot hold a
+    // game's full speed. Shaders built in the background (Vita3K's
+    // asynchronous pipeline compilation, on as it ships) above Performance
+    // and when first needed at it, as Dolphin's and Eden's are; kept only if
+    // the hand test's first runs show it helps. Anisotropic filtering 16x at
+    // every level. Lines of Vita3K's config.yml, which
+    // standalone_vita3k.cpp writes whole.
+    static const char* const kScale[] = {"1", "2", "4"};
+    static const char* const kAsync[] = {"false", "true", "true"};
+    return std::string("resolution-multiplier: ") + pick(l, kScale) +
+           "\nasync-pipeline-compilation: " + pick(l, kAsync) +
+           "\nanisotropic-filtering: 16\n";
+}
+
+int sm2emu(Level l) {
+    // SEGA MODEL 2, 496x384: 1x, 3x (1152 lines, the 1080p step) and 6x
+    // (2304 lines, the 4K step), the plan's levels (2026-10-28). Measured on
+    // the A9 at 6x, Vulkan: 99 frames in 100 drawn in under 5.2 ms, against
+    // the 17.4 ms a frame of its 57.52 Hz allows. sm2-emu's own range is 1 to
+    // 8. Nothing else in it moves with the level: its texture filtering, 2D
+    // upscaling and translucency stay at its faithful defaults.
+    static const int kScale[] = {1, 3, 6};
+    return pick(l, kScale);
+}
+
+int supermodelLines(Level l) {
+    // SEGA MODEL 3, 496x384, drawn at the size it is given: 720, 1080 and
+    // 2160 lines, at most the screen's, in its shape
+    // (standalone_supermodel.cpp). Measured on the A9 at 2160, 2026-10-29:
+    // all 17 games in the reference library ran at 60 frames a second, the
+    // median frame 16.7 ms.
+    static const int kLines[] = {720, 1080, 2160};
+    return pick(l, kLines);
 }
 
 void logApplied(const std::string& who, int romId, Level l) {

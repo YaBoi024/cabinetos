@@ -442,6 +442,7 @@ in vec2 vPoint;
 uniform vec2 uCanvas;
 uniform vec4 uPicture;   // the fitted game rect, in design points
 uniform float uPeak;
+uniform float uOpaque;   // 1: the dead space painted plain black, edge exact, for the glow over it (#692)
 out vec4 fragColor;
 
 void main() {
@@ -466,6 +467,15 @@ void main() {
         t = room > 0.0 ? (p.y - bottom) / room : 1.0;
     } else {
         discard;  // inside the picture; never cover a game pixel
+    }
+    if (uOpaque > 0.5) {
+        // Black as the backdrop and every panel draw it, with their dither, so the glow over it comes
+        // out as on the host's own screen.
+        vec2 q = floor(gl_FragCoord.xy);
+        float n1 = fract(sin(dot(q, vec2(12.9898, 78.233))) * 43758.5453);
+        float n2 = fract(sin(dot(q, vec2(39.3468, 11.1353))) * 24634.6345);
+        fragColor = vec4(vec3((n1 + n2 - 1.0) / 255.0), 1.0);
+        return;
     }
 
     float ramp = 1.0 - pow(clamp(t, 0.0, 1.0), 1.7);

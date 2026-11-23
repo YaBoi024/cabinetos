@@ -1,4 +1,4 @@
-xenia-edge: LICENSE from github.com/has207/xenia-edge at a7c39fa7d9c54d83022e431da62c1c65bf3e6196
+xenia-edge: LICENSE from github.com/has207/xenia-edge at 4ad875acb557910b42d39749787bc55a4b75d6e7
 
 Copyright (c) 2015, Ben Vanik.
 All rights reserved.

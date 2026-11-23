@@ -2,8 +2,11 @@
 
 Every session: `docs/lessons/README.md` (ten rules), then the lessons file
 named on the item. New here? `CONTRIBUTING.md`, then `docs/ARCHITECTURE.md`.
-The specification is `docs/PROJECT.md`; its index, at the top, gives
-every section and every numbered question with where it ended. Name every issue and pull request by
+`docs/decisions/` is what is decided and why, one small file each, with an
+index; `docs/PROJECT.md` is the older record, frozen on 2026-10-23: look up
+the question in hand (its index, at the top, gives every section and
+numbered question with where it ended), never read it through. Name every
+issue and pull request by
 its title as well as its number, every time. Replies to reporters are in
 MMagTech's voice ("I"), ask them to test, and never claim a fix nobody
 reproduced. RomM's documentation together with RomM's behaviour is the
@@ -11,95 +14,123 @@ source of truth for anything on RomM's data.
 
 ## Where things stand
 
-**2026-10-19, night.** `latest` and `testing` are **2026.10.19.3** (revision
-2b115cb, digest sha256:ccc09686df0f...), PR #519, "Batch 2026-10-19: Wii
-Remotes, Play on a slow server, archive folders, stranded Xbox saves,
-Steam's exit, What's new", merged on his go after his TV check and
-promoted. Seven sessions built it on separate files while he was at work;
-it closed #480, #481, #482, #488 and #329, and #511 is proven (the OS
-layer's digest held). The morning's review of the 37 open issues, one at
-a time with him: eight closed, every other decision written on its issue;
-**24 open**. His server has been on **RomM 5.4.0** since 2026-10-19. The A9
-is on the testing channel; its PIN is off. The machines' addresses are in
-his local notes, which CLAUDE.md loads; the tools read them from the
-environment (`CABINETOS_A9`, `CABINETOS_KEY`, `CABINETOS_VM`,
-`CABINETOS_RELAY_UP`; the Mac's shell profile does not set them, so export
-them per command).
+**2026-11-22.** The newest release is 2026.11.13.2. The last image with a
+change a player can see is 2026.11.23: #734, "A crash as an emulator closes
+sends the console straight back to Home". Images after it carry no such
+change (2026.11.23.2 is #738, "Fix four source comments that no longer
+matched the code"), so read the newest image from the registry, not from
+here. Four merges reached `main` on 2026-11-22, each promoting its tested
+image: #722, "Save channels: the
+console's saves move to RomM's channels (#346, steps 2 to 12)" (2026.11.22.2,
+which closed #346 and carried #723, "LinkUp's interop check: the wrong
+invite is never the right one"); #727, "Guitars play PS2 and PS3 games as
+guitars" (2026.11.22.3); #736, "Saves: another app's GBA and Mega Drive
+saves load when they fit the emulator's" (2026.11.22.4); and #734
+(2026.11.23). #735, "Rules: test what varies in a system, one PR per testing
+image, RomM updates", landed with them, docs only. Save channels need RomM
+5.5 or newer; a console on an older RomM holds it back (#721). What players
+should know is kept in the pinned Discussion #731, "Save channels: known
+gaps", updated as RomM and Sigil land. docs/wiki/changelog.md lists every
+image with a change a player can see. Open: #590, "A Wii Remote turned
+on after a Wii game starts is ignored by the game", waits in Later; fix it
+only in the console's own code, never by patching Dolphin (MMagTech,
+2026-10-25). What the A9 runs now is not written here: read it from the
+console before a test. The machines' addresses are in his local notes. His
+standing rule: every check and every comment is written out in full each
+time it is asked for, never referred to.
 
-**His rules from 2026-10-19:** an unattended run never waits on a prompt
-(every session's brief says to skip what needs approval and carry on, and
-the parent sets a timed fallback to combine whatever landed); decisions
-are put to him one at a time, mechanics first, never with options he did
-not ask for; an opt-in, disclosed upload to a site under his control is
-his exception to "the console connects only to RomM and GitHub" (#215).
-No issue is opened unless he asks; findings go in the pull request or
-PROJECT.md.
+**His rules from 2026-10-19 and 2026-10-20:** anything mechanical (a
+measurement, a build, research) runs in an Opus session, never in the Fable
+parent; an unattended run never waits on a prompt; decisions one at a time,
+mechanics first, in a player's words, never with options he did not ask
+for; a feature with hidden state is shown on the TV; no issue is opened
+unless he asks. Every loop launch past a minute records time played on his
+RomM: keep test launches under a minute, or have his go.
 
 ## Next
 
-1. **The next unattended batch, the one that may touch `system_files/`**
-   (#511 is proven, so the OS layer may change again): #305's 25 s stall,
-   which is gamescope's own exit waiting on logind (the findings and the
-   fix are on the issue: in `cabinetos-session`, give gamescope 2 s once
-   its app is gone, then stop it and carry on; try it with
-   `ui-loop.sh --session-script` first); #492's last item (STALE-187, the
-   flatpak script's unset overrides); #484's small leftovers (its first
-   comment; ROMM-10 needs writes to RomM, so it waits for his call);
-   #253's measurements and the `--rt` trial; the pause menu lingering
-   over Home after Exit to Home from a built-in core (play.cpp,
-   finishExit: snap the overlay fade as finishStandalone does; three
-   lines; MMagTech noticed it 2026-10-19); the Wii bridge's `make test` as
-   a step in `build-frontend.yml` (one line, and drop "CI does not run it
-   yet" from CONTRIBUTING.md); the three things the Steam session found
-   in passing (on #305's PR #519). Run it like #519: separate sessions,
-   every brief skipping anything that needs approval, a timed fallback so
-   the combining step runs regardless, one checklist for him. With the
-   next real core change: #490's comments in the core and PCSX2 build
-   files.
-2. **The automatic checks report only until 2026-10-25**, then fail a pull
-   request: read their first week's reports and fix what they find
-   (CONTRIBUTING.md, "What CI checks").
-3. **Words from him that close issues with no work:** #198 (the research
-   says no for now), #339 (the audit is done), #222 and #203 (close as
-   "reopen when it happens"), #487 (the BASE_UPDATE_TOKEN secret, and
-   whether the fork design stays as documented). **Fifteen minutes at the
-   TV, at a time he names:** #473 (one press of the power button during a
-   PS3 or Switch game), #132 (the Bluetooth wake test from Sleep).
-4. **Review the docs for Cabinet Go**: Cabinet is now the pocket version
-   for handhelds, unfinished; the docs that call it "the Apple TV app"
-   (CONTRIBUTING.md, docs/CABINET.md, PROJECT.md's banner, README.md, the
-   site) need reviewing.
-5. **The monthly health check** starts after item 2.
+1. **#528, "Revoke the console's RomM token on re-pair, Remove account and
+   Sign out (#545; waiting on RomM)".** RomM's self-revoke,
+   rommapp/romm#5419, is in 5.5.0-beta.1, the RomM consoles now need.
+   Check #528 against it before anything else is built on it.
+2. **After save channels, small, each on his word:**
+   - When RomM moves its Sigil pin: vendor Sigil again at RomM's pin,
+     update `savetable.cpp`'s "rows waiting in Sigil" comment, and rerun
+     the Switch check, what changed only.
+   - When a RomM release carries rommapp/romm#5719 and the console needs
+     that release: ask him whether aa2dcea0's rule stays (a state RomM
+     refuses no longer holds the save back).
+   - #353, "Three kinds of save never reach RomM": the Saturn cartridge
+     and the cartridge clocks shipped with save channels (step 11); only
+     the arcade high scores remain. The issue's title and a comment saying
+     so, on his word.
+   - The diagnostic report's privacy filter turns every "LinkUp" into
+     `<linkup server name>` when a person's LinkUp server is named
+     "LinkUp" (since #654). It errs safe; only the report reads worse.
+   - The clean-up review: what future testing keeps of the save channels
+     kits, sessions and branches; the audited list is in his research
+     notes. Nothing is deleted before his yes.
+3. **LinkUp: two server tidy-ups, no issue.** The internet test, step 6 of
+   #654, passed twice: his console and his friend's, two servers linking up
+   and playing a game (his word, 2026-11-10). Left: `.dockerignore` lets
+   `docs/` into the server's build stage, and the relay's block list lacks
+   3fff::/20.
+4. **Kirby's first save, inside Mario Kart 7's.** Before the folder fix,
+   Kirby: Planet Robobot saved into Mario Kart 7's folder. Read on RomM on
+   2026-10-25: Mario Kart 7's save (uploaded 2026-10-22) still carries
+   Kirby's save data and its extra data, four files. He wants them gone
+   (2026-10-20). Each Mario Kart 7 start unpacks RomM's copy over the
+   folder, so deleting them on the A9 alone does not last: Mario Kart 7's
+   save on RomM has to be replaced. Restate exactly what goes and wait for
+   his yes before anything is deleted.
+5. **Words from him, one at a time, no work:** which of the 36 faults the
+   PROJECT.md scan found with no issue (2026-10-22) become issues, none
+   filed until he says. That list is in the
+   notes of the session that made it ("Faults recorded in PROJECT.md with no
+   GitHub issue"). Ten were checked in the code and still hold; five wait on
+   an emulator or library.
 
 ## Waiting, not for the next session unless MMagTech raises them
 
-- **His decisions:** #313 (Select on a stream; the Home-always fix is laid
-  out on the issue), #198 (the Vita research says no for now, and no gyro;
-  PROJECT.md question 49), #339 (the multi-disc audit: 15 of the 30 swap
-  discs mid-story; the table is on the issue and in question 34), #215,
-  #181 and #224 (each with its design on the issue), #487's
-  BASE_UPDATE_TOKEN secret and fork design.
-- **Needs the TV or a device:** #473 (a press while an emulator of its own
-  has the screen), #411 (Moonlight), #381 (the HDMI cable out), #290 (the
-  C1, before a release), #228 (the measurement in PROJECT.md section 46
-  when the sound dies again), #132 (the Bluetooth wake test).
-- **Waiting on others:** #297 and #390 (Sunshine), #346, #353 and #362
-  (RomM's save channels; revisit mid-January 2027), #222 (a Flycast
-  refusal seen in play), #203 (libretro/dolphin#508, no reply since
-  2026-10-01; the console's half waits for it).
+- **Needs the TV or a device:** #575, "Sinden light guns: plug in and
+  play gun games (waiting on the guns)".
+- **Waiting on others:** #297 (Sunshine), the arcade high scores of #353,
+  "Three kinds of save never reach RomM: Saturn cartridge, arcade high
+  scores, cartridge clocks", and #362, "Discuss later: sharing a save with
+  another person on the server" (revisit mid-January 2027), #181, "Updates and DLC
+  as separate files in RomM (Switch, PS3, Xbox 360)" (kept open on
+  2026-11-11 to wait for RomM 5.5), #534 (the Azahar patch,
+  azahar-emu/azahar#2694),
+  eden-emulator/Issue-Reports#739 (a Switch controller connected mid-game),
+  Eden's close crash and hang, fixed in its development code on 2026-09-11
+  (`c95ad020fb`, Eden's pull request 4395) and in no release yet: move the Flathub pin
+  when flathub/dev.eden_emu.eden builds a release after v0.2.1 (lessons,
+  emulators, "Switch (Eden)"),
+  #203 closed until libretro/dolphin#508 moves.
+- **Filed, not scheduled:** #675, "Arcade: a Naomi or Atomiswave game with
+  a plain joystick moves only on the d-pad", the fix agreed in principle on
+  2026-10-28 and written on the issue. #730, "Home: a game played on
+  another device is not on Recent until this console restarts", in Later.
+- **With the next real core change:** the comments #490, "Code comments
+  that say what the code no longer does, and machine details left in
+  comments", left in the core and PCSX2 build files and `core*.cpp`, kept
+  so players do not download those layers again for comments alone. Still
+  stale on 2026-10-25; the list is the issue's checklist.
+- **The Vectrex stall:** no fix. Only if it comes back: his evening journal
+  of 2026-10-19 read for what ran just before each stall (PROJECT.md, the
+  Vectrex record under "The 4K misses measured again").
+- **PROJECT.md moved out all at once:** priced at about 4 million Sonnet
+  tokens, about 12% of a week, and left for a later call of his. Until
+  then an old decision moves out when a session relies on it.
 - **An idea of his, 2026-10-19, not scheduled:** a channel-change animation
-  when a game starts and when it exits, on the console's own layers only
-  (the console does not own PS2's or the standalone emulators' picture, so
-  a collapse of the game's picture would not be the same for every game),
+  when a game starts and when it exits, on the console's own layers only,
   silent, no setting; pause stays instant.
 - **The game page's launch messages, later** (MMagTech, 2026-10-19, at the
   TV): "Disc can't be read" sits as a loose grey line under Download, as do
-  all ten or so reasons Play or Download fails ("Couldn't start this game",
-  "Not enough space", "No PS2 BIOS on your server", the keys and licence
-  ones). He wants their placement (the Play row's right end, in amber, was
-  offered; or the bottom pill) and their wording reviewed together, with a
-  way to cycle through each on the TV first, like `--notice-gallery`: he
-  has never seen half of them. Not an issue.
+  all ten or so reasons Play or Download fails. He wants their placement
+  (the Play row's right end, in amber, was offered; or the bottom pill) and
+  their wording reviewed together, with a way to cycle through each on the
+  TV first, like `--notice-gallery`. Not an issue.
 
 **After a console is installed fresh** it has no key: About, press Version
 seven times, Developer access, PIN; then from the Mac, with the password on

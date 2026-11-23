@@ -1,0 +1,113 @@
+# Build Sega Model 2 (sm2-emu) for Linux x86-64, on a machine nobody owns.
+#
+# WHY A WORKFLOW OF ITS OWN, as Wii U has: sm2-emu is a whole emulator run as a
+# program of its own (frontend/src/standalone_sm2emu.cpp), not a libretro
+# core, with its own builder container (glslc, no libcurl).
+#
+# WHY FROM SOURCE: docs/decisions/2026-10-28-model-2-and-model-3.md. The pin
+# and the reasons are in cores/build-sm2emu.sh.
+#
+# What it asserts: the source is at the pinned commit, Vulkan is built and
+# libcurl is not, every flag and settings key the console uses is in the
+# source, and every library the program still asks the system for is in
+# Fedora 44, the image's base. With it, its catalogue (cores/arcade-sets.sh),
+# which the arcade match reads beside the cores. What it cannot: that a game
+# runs. That is judged on the A9.
+
+name: Build Model 2
+
+# CALLED BY build.yml, like build-cemu.yml, and on pull requests aimed at
+# anything but main for the same reason that file gives.
+on:
+  workflow_call:
+  pull_request:
+    branches-ignore:
+      - main
+    paths:
+      - 'cores/build-sm2emu.sh'
+      - 'cores/sm2emu-builder/**'
+      - 'cores/arcade-sets.sh'
+      - '.github/workflows/build-sm2emu.yml'
+  workflow_dispatch:
+
+# No `concurrency:`, for the reason build-core.yml sets out.
+
+jobs:
+  build:
+    name: sm2-emu
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      # NOTHING CHANGES UNLESS ONE OF THESE DOES: build-sm2emu.sh holds the
+      # pinned commit (and through it every submodule's) and the options, the
+      # Containerfile is the toolchain.
+      - name: Restore the build, if this exact one has been built before
+        id: sm2cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: cores/build/sm2emu
+          key: sm2emu-${{ hashFiles('cores/build-sm2emu.sh', 'cores/sm2emu-builder/Containerfile') }}
+
+      - name: Build it
+        if: steps.sm2cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          cores/build-sm2emu.sh 2>&1 | tee /tmp/sm2emu.log
+
+      # A CACHE HIT STILL HAS TO PROVE WHAT IT RESTORED, as Wii U's does.
+      - name: Check what it has
+        run: |
+          set -euo pipefail
+          out=cores/build/sm2emu
+          fail=0
+          for f in bin/sm2-emu share/sm2-emu/games.xml share/sm2-emu/lang VERSION; do
+            if [ -e "$out/$f" ]; then echo "ok: $f"; else echo "MISSING: $f" >&2; fail=1; fi
+          done
+          pinned=$(sed -n 's/^COMMIT=//p' cores/build-sm2emu.sh)
+          built=$(cat "$out/VERSION" 2>/dev/null || true)
+          if [ "$pinned" != "$built" ]; then
+            echo "the build is of $built, the pin is $pinned" >&2
+            fail=1
+          fi
+          exit $fail
+
+      # THE SAME SHAPE AS EVERY OTHER PAYLOAD ARTIFACT, so build.yml's
+      # download merges it with no special case: one top folder, sm2emu/, with
+      # its catalogue made from the same pin (install-sm2emu.sh puts it beside
+      # the cores, where the arcade match reads it).
+      - name: Stage it
+        run: |
+          set -euo pipefail
+          mkdir -p artifact
+          cp -R cores/build/sm2emu artifact/sm2emu
+          cores/arcade-sets.sh sm2emu artifact/sm2emu
+          find artifact -maxdepth 3 | sort
+
+      - name: Upload it
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          # The `-linux-x86_64` suffix is what build.yml's download matches.
+          name: sm2emu-linux-x86_64
+          path: artifact/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Sega Model 2 (sm2-emu), Linux x86-64"
+            echo
+            if [[ -f /tmp/sm2emu.log ]]; then
+              echo '```'
+              tail -30 /tmp/sm2emu.log
+              echo '```'
+            else
+              echo "Restored from cache; see the check step above."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

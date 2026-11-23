@@ -167,64 +167,16 @@ const Account* find(const std::vector<Account>& list, int id) {
     return nullptr;
 }
 
-namespace {
-// The token's file: the token, and RomM's number for it when known.
-bool writeLogin(int id, const std::string& token, int tokenId, std::string* err) {
-    makeDirs0700(homeDir() + "/.config/cabinetos/accounts");
-    std::string body = "{\"access_token\":\"" + token + "\"";
-    if (tokenId > 0) body += ",\"token_id\":" + std::to_string(tokenId);
-    if (!cab::writeBytes(tokenPath(id), body + "}\n", 0600)) {
-        if (err) *err = "could not write the token for account " + std::to_string(id);
-        return false;
-    }
-    return true;
-}
-}  // namespace
-
-Login login(int id) {
-    Login l;
-    json_object* o = json_tokener_parse(readFile(tokenPath(id)).c_str());
-    if (!o) return l;
-    l.token = jstr(o, "access_token");
-    json_object* v = nullptr;
-    if (json_object_object_get_ex(o, "token_id", &v)) l.tokenId = json_object_get_int(v);
-    json_object_put(o);
-    return l;
-}
-
-namespace {
-// Token `tokenId` revoked with whatever token `client` holds, and said.
-void revokeNumber(const romm::Client& client, int tokenId, const std::string& who) {
-    if (tokenId <= 0) {
-        std::fprintf(stderr, "[accounts] %s's token was made before the console kept its "
-                             "number; it stays on RomM until removed there\n", who.c_str());
-        return;
-    }
-    std::string err;
-    if (client.revokeToken(tokenId, &err))
-        std::fprintf(stderr, "[accounts] %s's token %d revoked on RomM\n", who.c_str(), tokenId);
-    else
-        std::fprintf(stderr, "[accounts] %s's token %d not revoked on RomM: %s\n", who.c_str(),
-                     tokenId, err.c_str());
-}
-}  // namespace
-
-void revoke(romm::Client& client, const Login& l, const std::string& who) {
-    if (l.token.empty()) return;
-    client.setToken(l.token);
-    revokeNumber(client, l.tokenId, who);
-}
-
-bool add(const Account& a, const std::string& token, std::string* err, int tokenId) {
+bool add(const Account& a, const std::string& token, std::string* err) {
     if (!a.valid()) {
         if (err) *err = "an account needs the id RomM gave it";
         return false;
     }
     if (token.empty()) {
-        // Refused rather than written, because the list is what `needsSetup`
-        // and the switcher both read: an entry with no credential behind it is
-        // a row that cannot be chosen and a console that may think it is
-        // configured when it is not.
+        // Refused rather than written, because the list is what firstrun's
+        // `alreadyConfigured` and `havePairedAccount` and the switcher read:
+        // an entry with no credential behind it is a row that cannot be chosen
+        // and a console that may think it is configured when it is not.
         if (err) *err = "refusing to add an account with no token";
         return false;
     }
@@ -238,11 +190,19 @@ bool add(const Account& a, const std::string& token, std::string* err, int token
         // error, and it is worse than the duplicate add.
         existing.name = a.name;
         existing.avatar = a.avatar;
-        if (!writeLogin(a.id, token, tokenId, err)) return false;
+        makeDirs0700(homeDir() + "/.config/cabinetos/accounts");
+        if (!cab::writeBytes(tokenPath(a.id), "{\"access_token\":\"" + token + "\"}\n", 0600)) {
+            if (err) *err = "could not write the token for account " + std::to_string(a.id);
+            return false;
+        }
         return save(b, err);
     }
 
-    if (!writeLogin(a.id, token, tokenId, err)) return false;
+    makeDirs0700(homeDir() + "/.config/cabinetos/accounts");
+    if (!cab::writeBytes(tokenPath(a.id), "{\"access_token\":\"" + token + "\"}\n", 0600)) {
+        if (err) *err = "could not write the token for account " + std::to_string(a.id);
+        return false;
+    }
     b.list.push_back(a);
     // The first account to arrive on a console with none becomes the active
     // one, because there is nobody for it to take over from. Every later one
@@ -363,25 +323,13 @@ bool recordPairing(romm::Client& client, Paired* out, std::string* err) {
     // there is no way to tell the two cases apart.
     const std::vector<Account> before = all();
     const bool already = find(before, me.id) != nullptr;
-    const Login old = already ? login(me.id) : Login{};
-
-    // ITS NUMBER ON RomM, kept so it can be revoked (#484, ROMM-10). The
-    // newest token on this console's RomM device is the one just made.
-    int tokenId = 0;
-    if (!client.newestDeviceToken(&tokenId, &e))
-        std::fprintf(stderr, "[accounts] the new token's number on RomM is not known: %s\n",
-                     e.c_str());
 
     Account a;
     a.id = me.id;
     a.name = me.username;
     a.avatar = me.avatarPath;
-    if (!add(a, client.token(), err, tokenId)) return false;
+    if (!add(a, client.token(), err)) return false;
     if (out) { out->id = me.id; out->name = me.username; out->isNew = !already; }
-    // The token this one replaces, revoked with this one, which has the
-    // scope for it even when the old one, paired before, does not.
-    if (already && !old.token.empty() && old.token != client.token() && old.tokenId != tokenId)
-        revokeNumber(client, old.tokenId, me.username);
     return true;
 }
 

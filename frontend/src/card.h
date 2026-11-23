@@ -40,7 +40,12 @@ struct Card {
     // What it runs on, for the one line under a shelf heading that names the
     // focused game. Titles collide across platforms — "Altered Beast" is a Game
     // & Watch entry AND a Genesis one — so the name alone is not an answer.
+    // "Arcade" for every arcade folder's game (catalog::systemName).
     std::string platform;
+    // The game's RomM folder (catalog::folderName), which the Arcade tile's
+    // line names in place of the system: that tile holds every arcade folder
+    // and its heading already says Arcade (#611).
+    std::string folder;
     // ON THE MACHINE AND PROMISED TO STAY. Not "is it cached" — the cache is
     // invisible by decision, and pressing Play fetches a game and says nothing
     // about it. This is the deliberate act: somebody chose to keep this game,
@@ -52,9 +57,18 @@ struct Card {
     bool kept = false;
     // WHY THIS GAME CANNOT BE PLAYED HERE, when its platform can: a Wii game
     // that needs a Wii Remote nobody has paired. Empty for every playable
-    // game. A grid shows such a card greyed, and its name says why; it opens
-    // onto the game's screen, which says it again and offers no Play.
+    // game. Such a card shows greyed, and the line that names it says why
+    // (screens::drawFocusedLine); it opens onto the game's screen, which says
+    // it again and offers no Play.
     std::string unavailable;
+    // A WII GAME: the one kind a Wii Remote starts (App::refuseStartWithoutController).
+    // Every other game's line says "Needs a controller" while only Remotes
+    // are on (screens::drawFocusedLine).
+    bool wii = false;
+    // A WII GAME THAT NEEDS A REMOTE: it takes neither a Classic Controller
+    // nor a GameCube pad (wii::padDevice). Its line says "Needs a Wii Remote"
+    // while no Remote is on.
+    bool needsRemote = false;
     // RomM's platform id, and RomM's tags joined for the heading
     // (romm_types.h, `tagLabel`); empty for a game RomM read no tags for.
     int platformId = 0;

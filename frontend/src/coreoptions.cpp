@@ -61,7 +61,7 @@ std::map<std::string, std::string> optionOverrides(const std::string& core, bool
         //
         // ppsspp_internal_resolution deliberately does NOT appear here. Its
         // declared default is "480x272", the PSP's own screen, which is what
-        // RetroArch would answer and what Cabinet ships on a television. It is
+        // RetroArch would answer and what Cabinet shipped on a television. It is
         // also the option that used to be this core's defaults trap: the
         // internal default is 0, "Auto (native)", which sizes the render to a
         // display a libretro frontend never reports, so every frame comes out
@@ -119,7 +119,7 @@ std::map<std::string, std::string> optionOverrides(const std::string& core, bool
     // (#89 audit). The declared default "shared" puts one card in slot 2 for
     // every game, in the system directory, which the save sync never reads:
     // a game that saved there would keep that save on this console and never
-    // reach RomM or an Apple TV. Card 1 is already "libretro", per game,
+    // reach RomM or another device. Card 1 is already "libretro", per game,
     // which is the one that syncs. No card 2 had ever been written on the
     // A9 when this changed.
     if (coreName == "pcsx_rearmed") {
@@ -129,13 +129,13 @@ std::map<std::string, std::string> optionOverrides(const std::string& core, bool
     // Virtual Boy: THE RIGHT STICK IS THE SECOND D-PAD (#89 audit). The
     // console has two d-pads and games use both (Red Alarm, Teleroboxer); a
     // modern pad has one, so without this half the controls are nowhere.
-    // Cabinet forces it for the same reason. Input only.
+    // Cabinet forced it for the same reason. Input only.
     if (coreName == "beetle_vb") {
         return {{"vb_right_analog_to_digital", "enabled"}};
     }
 
     // DS: THE SOFTWARE RENDERER ON ITS OWN THREAD (#89 audit), as Cabinet
-    // has it. It changes how the drawing work is split, not what a save or
+    // had it. It changes how the drawing work is split, not what a save or
     // state holds, and it is the headroom a weaker machine needs. melonDS
     // turns it off by itself under its OpenGL renderer (picture quality's,
     // #219).
@@ -155,6 +155,30 @@ std::map<std::string, std::string> optionOverrides(const std::string& core, bool
             {"melonds_touch_mode", "Joystick"},
         };
     }
+
+    // Nintendo 3DS, in Azahar (docs/PROJECT.md question 50): the two screens
+    // SIDE BY SIDE for every game, not the core's stacked default. On a 16:9
+    // TV both screens draw about 19% larger that way (a 4K TV: the top screen
+    // 2133x1280 against 1800x1080 stacked), and the touch screen stays large
+    // enough to aim the pointer at; Large Screen draws it at a quarter of the
+    // top screen's scale. Decided 2026-10-20. The controls are the core's own,
+    // with no override: the right stick is the touch pointer and the New 3DS
+    // C-stick at once, R3 touches (#374's rule, as on the DS). L3, the
+    // core's swap, shows one screen alone instead and never reaches it
+    // (screenview.h), which draws this layout as "both". quality.cpp's levels
+    // are sized for this layout.
+    if (coreName == "azahar") return {{"citra_layout_option", "side_by_side"}};
+
+    // Dreamcast: ONE MEMORY CARD PER GAME, in the game's save folder
+    // (MMagTech, 2026-11-17; #346, step 8). The declared default keeps one
+    // card every game shares in the system directory, which the console
+    // copied in and out for each session. Per game is the row Sigil gives a
+    // card that holds one game, so RomM hands another app's save back as one
+    // file. Only the first card (A1) is per game; another controller's card
+    // stays shared on the console and does not travel, as Sigil says for this
+    // setting. savetable.cpp (saveFiles, saveForm) reads the card under the
+    // names this gives it. Arcade boards in Flycast have no card.
+    if (coreName == "flycast") return {{"reicast_per_content_vmus", "VMU A1"}};
 
     // Beetle Saturn, and this one also decides where the save is. "libretro"
     // hands the Saturn's backup RAM to the frontend through SAVE_RAM, which
@@ -239,6 +263,34 @@ std::map<std::string, std::string> optionOverrides(const std::string& core, bool
     // judged on the TV with Ms. Pac-Man (MMagTech, 2026-10-02), whose ghosts
     // cycle over more frames than a plain two-frame average smooths; Heavy
     // (85%) left trails behind everything. Looks, not saves or states.
+    // MAME 2003-PLUS STARTS EVERY GAME WITHOUT ITS COPYRIGHT NOTICE. The
+    // declared default draws MAME's disclaimer over the first eight seconds
+    // of each game (ui_copyright_and_warnings in src/usrintrf.c at our pin);
+    // MMagTech asked for it off, 2026-10-25, at the TV, testing #577. Its
+    // warnings about a game's known faults stay at their default: the core
+    // sends those as a message to the frontend (RETRO_ENVIRONMENT_SET_MESSAGE),
+    // which this console does not show.
+    if (coreName == "mame2003_plus") return {{"mame2003-plus_skip_disclaimer", "enabled"}};
+    // MAME 0.289: FOUR OPTIONS, THE REST AT THEIR DEFAULTS (the arcade plan of
+    // 2026-10-28). It reads the ini the console writes, which starts the
+    // high-score plugin (mamehome.h); software lists stay off, so a zip is
+    // always an arcade set, never a cartridge for a home system; and no mouse,
+    // which the console never hands a core. Its start-up and warning screens
+    // are always skipped in libretro's builds.
+    if (coreName == "mame_libretro")
+        return {
+            {"mame_read_config", "enabled"},
+            {"mame_softlists_enable", "disabled"},
+            {"mame_softlists_auto_media", "disabled"},
+            {"mame_mouse_enable", "disabled"},
+        };
+    // A NEO GEO GAME IS THE ARCADE BOARD, MVS, with the English BIOS, which
+    // is uncensored (docs/decisions/2026-10-28-arcade-emulator-from-the-zip.md):
+    // it comes from an arcade folder. The declared default, "DIPSWITCH",
+    // leaves it to a BIOS DIP switch. FinalBurn Neo declares this option only
+    // with a Neo Geo game loaded; a set carries its own BIOS (measured on the
+    // A9, 2026-10-28).
+    if (coreName == "fbneo_libretro") return {{"fbneo-neogeo-mode", "MVS_EUR"}};
     if (coreName == "mgba") return {{"mgba_interframe_blending", "mix_smart"}};
     if (coreName == "stella2014") return {{"stella2014_mix_frames", "ghost_75"}};
 

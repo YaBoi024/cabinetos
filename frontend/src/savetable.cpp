@@ -30,18 +30,18 @@ const char* emulatorTag(const char* core) {
         // save-state portability result was proved with this core.
         {"gambatte", "gambatte-native"},
         // Pinned at a7985a9c. CabinetOS builds HAVE_CDROM=0, which is what
-        // Cabinet's Apple builds get by default, and the object-file
+        // Cabinet's Apple builds got by default, and the object-file
         // comparison showed the flag changes nothing under core/.
         {"genesis_plus_gx", "gpgx-native"},
         // Pinned at ba61a4fd. CabinetOS builds DYNAREC=lightrec where Cabinet
-        // runs the interpreter on iOS/tvOS and ari64 on the Mac — and sharing
-        // the tag across that difference is what Cabinet ALREADY does between
+        // ran the interpreter on iOS/tvOS and ari64 on the Mac, and sharing
+        // the tag across that difference is what Cabinet ALREADY did between
         // its own two. Justified rather than assumed: the state format
         // tolerates either backend, and the dynarec section is block addresses
         // rather than machine state. docs/PROJECT.md, open question 13.
         {"pcsx_rearmed", "pcsx-rearmed-native"},
-        // Pinned at 66b5d263. CabinetOS builds JIT_ARCH=x64 where Cabinet runs
-        // the interpreter on iOS/tvOS and aarch64 on the Mac — and this one was
+        // Pinned at 66b5d263. CabinetOS builds JIT_ARCH=x64 where Cabinet ran
+        // the interpreter on iOS/tvOS and aarch64 on the Mac, and this one was
         // MEASURED, not argued: both builds run Tetris DS to an identical video
         // and audio digest over 600 frames, write states of identical size, and
         // every cross-load lands on the same digest as the matching control.
@@ -49,7 +49,7 @@ const char* emulatorTag(const char* core) {
         // DoSavestate are guarded `if (!file->Saving)`.
         {"melonds", "melonds-native"},
         // Pinned at 733c711a, and built with use_sh2drc=0, which is exactly
-        // what Cabinet's Apple builds get. Same commit, same argument, so the
+        // what Cabinet's Apple builds got. Same commit, same argument, so the
         // tag needs no argument at all. The states were checked anyway and came
         // out byte-identical to the recompiler build's.
         {"picodrive", "picodrive-native"},
@@ -59,15 +59,15 @@ const char* emulatorTag(const char* core) {
         //
         // One caveat, and it is Cabinet's rather than ours: libmgba_mac.a
         // reports its revision as `e31759b24-dirty`, so Cabinet's Mac build
-        // carries a modification no script applies — the same class of problem
-        // as Flycast's unscripted edits. The iOS and tvOS archives are clean at
-        // this commit, and tvOS is the platform states travel to and from most.
+        // carried a modification no script applies: the same class of problem
+        // as Flycast's unscripted edits. The iOS and tvOS archives were clean at
+        // this commit, and tvOS was the platform states travelled to and from most.
         {"mgba", "mgba-native"},
         // Pinned at c989c255, and the only core in the set where there is no
         // configuration difference left to justify. The commit is identical on
-        // every platform Cabinet ships it to (the manifest's own
+        // every platform Cabinet shipped it to (the manifest's own
         // diverges_across_platforms is false), both of the patches Cabinet's
-        // builder applies travel and are asserted, the two CMake levers that
+        // builder applied travel and are asserted, the two CMake levers that
         // the unix build would otherwise decide differently are matched
         // (USING_GLES2, MOBILE_DEVICE). The CPU engine is an OPTION in this
         // core rather than a build flag, and differs on purpose since #147:
@@ -97,12 +97,12 @@ const char* emulatorTag(const char* core) {
         {"stella2014", "stella2014-native"},  // 4a7da825
         {"vecx", "vecx-native"},            // 8f671cc9, HAS_GPU=0 both sides
         // N64, THE ONE WITH A DIFFERENCE, said plainly. Same commit, f275caf4,
-        // on every platform Cabinet ships. But Cabinet's build flags do not
+        // on every platform Cabinet shipped. But Cabinet's build flags do not
         // link on Linux (see docs/PROJECT.md, *mupen64plus: it builds*), so
         // this build is -O3 -ffast-math with the unix branch's RSP/RDP
-        // choices where Cabinet's is -Ofast with its own. A state holds the
+        // choices where Cabinet's was -Ofast with its own. A state holds the
         // machine's memory and registers, which neither changes; if a state
-        // from here ever refuses to load on an Apple TV, this line is why.
+        // from here refused to load on Cabinet's Apple TV, this line was why.
         //
         // Its SAVE is safer than its state: mupen64plus packs EEPROM, four
         // controller paks, SRAM and flash into one 296960-byte struct at this
@@ -119,7 +119,7 @@ const char* emulatorTag(const char* core) {
 
         // AND THE LAST THREE, BY DECISION, 2026-09-23. MMagTech: every core
         // that is supposed to have states uploads them under the tag Cabinet
-        // recognises, "regardless of if it will actually load". A state that
+        // recognised, "regardless of if it will actually load". A state that
         // does not load on the other device is refused there and costs
         // nothing else; a state that never leaves the console is lost with
         // it. So the tag says which emulator made it, and loading is the
@@ -127,19 +127,36 @@ const char* emulatorTag(const char* core) {
         //
         // What is known about each, so a refusal is not a surprise:
         //   beetle_saturn  An Apple TV state (Daytona USA, 2026-08-07) was
-        //                  REFUSED here. Cabinet's Apple TV Saturn build is not
+        //                  REFUSED here. Cabinet's Apple TV Saturn build was not
         //                  at the commit its manifest pins, and was replaced
         //                  on 2026-08-20, after that state was made. Which of
         //                  the two refused it is not known.
         //   mame2003_plus  Pinned at Cabinet's Mac commit, 21256d24; its Apple
-        //                  TV build is at 93159c0c. Never tested: there are no
+        //                  TV build was at 93159c0c. Never tested: there are no
         //                  MAME states on the reference server.
-        //   flycast        Cabinet's build carries unscripted working-tree
+        //   flycast        Cabinet's build carried unscripted working-tree
         //                  edits, so there is no revision to match. Never
         //                  tested either.
         {"beetle_saturn", "saturn-native"},        // ed549bda
         {"mame2003_plus", "mame2003plus-native"},  // 21256d24
         {"flycast", "flycast-native"},             // a172e000
+
+        // NINTENDO 3DS, IN AZAHAR, BY DECISION, 2026-10-20 (MMagTech: the 3DS
+        // gets states like every other handheld). No Cabinet app plays 3DS,
+        // so the tag is the emulator's own name, as the separate emulators'
+        // save tags are; its saves keep the same tag through saveTag. A state
+        // loads only in the Azahar commit that made it (its core/savestate.cpp
+        // refuses any other revision), so an emulator update can strand older
+        // 3DS states: accepted, docs/PROJECT.md question 50. A refused one is
+        // the console's plain "Couldn't load that state". No rewind
+        // (rewindAllowed).
+        {"azahar", "azahar"},                      // 219d743a, 2126.2
+        // MAME 0.289, libretro's own build (docs/decisions/
+        // 2026-10-28-prebuilt-mame-core.md). No Cabinet app plays it, so the
+        // tag is the emulator's name, as Azahar's is. A state loads only in
+        // the MAME that made it; a pin move is taken to break them
+        // (docs/decisions/2026-10-28-emulator-updates-and-saves.md).
+        {"mame_libretro", "mame"},                 // 5f5a0774, 0.289
         //
         // PS2 and GameCube have no states at all (snapshotsAllowed), by open
         // question 25, so they need no tag here.
@@ -152,9 +169,30 @@ const char* emulatorTag(const char* core) {
 bool snapshotsAllowed(const char* core) {
     if (!core) return true;
     // True to the machines: memory-card consoles, and everything after them.
+    // Not the 3DS, a handheld, by MMagTech's decision of 2026-10-20, though
+    // its states may not survive an emulator update (emulatorTag). And every
+    // emulator run as a program of its own, sm2-emu's Model 2 and
+    // Supermodel's Model 3 among them, whose pause menu is Resume, Screenshot
+    // and Exit to Home (MMagTech, 2026-10-29).
     static const char* const kNoSnapshots[] = {"pcsx2", "dolphin", "eden", "rpcs3", "xemu",
-                                               "xenia", "cemu"};
+                                               "xenia", "cemu", "vita3k", "sm2emu",
+                                               "supermodel"};
     for (const char* c : kNoSnapshots)
+        if (std::strcmp(c, core) == 0) return false;
+    return true;
+}
+
+bool rewindAllowed(const char* core) {
+    if (!snapshotsAllowed(core)) return false;
+    if (!core) return true;
+    // NO REWIND WHERE A STATE TAKES LONGER THAN A FRAME: rewind takes one
+    // every half second of play (pace.cpp), and each one holds the frame
+    // thread. Azahar's takes 270 to 850 ms on the A9 (measured 2026-10-20,
+    // docs/PROJECT.md question 50), which would play a 3DS game at 37% to 65%
+    // of its speed; RetroArch's core info marks it "basic", with no rewind
+    // either. A list, because asking a core its cost means making a state.
+    static const char* const kNoRewind[] = {"azahar"};
+    for (const char* c : kNoRewind)
         if (std::strcmp(c, core) == 0) return false;
     return true;
 }
@@ -179,25 +217,27 @@ const char* saveTag(const char* core) {
         // PlayStation 2's memory card and GameCube's, and these two tags were
         // READ OFF THE ROWS ALREADY ON THE SERVER rather than derived from the
         // pattern above — they are plainly `pcsx2` and `dolphin`, with no
-        // `-native` suffix, because Cabinet for Mac tags them that way and its
-        // comment says why: "PCSX2 rather than Cabinet, because the format is
+        // `-native` suffix, because Cabinet for Mac tagged them that way and its
+        // comment said why: "PCSX2 rather than Cabinet, because the format is
         // PCSX2's and another PCSX2 could read it."
         //
         // Matching them is the whole point. A card written here has to land in
-        // the row a Mac already reads, and RomM matches a row by filename with
+        // the row Cabinet's Mac app wrote, and RomM matches a row by filename with
         // the tag NOT included — so the tag is what stops two emulators'
         // uploads being confused for one another, and the name is what decides
         // which row is overwritten.
         //
         // NOTE these are not state tags and must never become them. Neither
         // system has states on this console (open question 25), and a state
-        // from either would not load in the Mac's build anyway.
+        // from either would not have loaded in the Mac's build anyway.
         {"pcsx2", "pcsx2"},
         {"dolphin", "dolphin"},
         // Switch, in Eden. No Cabinet app plays Switch, so there is no row to
         // match and the name is this console's to choose: the emulator's own,
-        // as the two above are. The save is a zip of the game's save folder,
-        // travelling the way PSP's does (open question 32, decision D).
+        // as the two above are. The save is a zip of the game's save folder
+        // and the device's, Sigil's unit for Eden (dirsave.h,
+        // ZipShape::Switch), travelling the way PSP's does (open question 32,
+        // decision D).
         {"eden", "eden"},
         // PlayStation 3, in RPCS3, the same way and for the same reason: no
         // Cabinet app plays it. A zip of the game's save folders.
@@ -215,11 +255,115 @@ const char* saveTag(const char* core) {
         // game, `<title>/user/` and `<title>/meta/` in Cemu's own layout, which
         // drops into any Cemu's mlc01. No Cabinet app plays Wii U either.
         {"cemu", "cemu"},
+        // PlayStation Vita, in Vita3K: a zip of the person's
+        // `ux0/user/00/savedata/` for the game, one folder per save directory
+        // the game names (usually its title ID), which drops into any
+        // Vita3K's. A real Vita's saves are sealed to that Vita and do not
+        // load. No Cabinet app plays the Vita either (docs/PROJECT.md, open
+        // question 49).
+        {"vita3k", "vita3k"},
+        // Sega Model 2, in sm2-emu: a zip of the person's `nvram/` for the
+        // game, the board's `<set>.nv` and `<set>.eeprom` as sm2-emu names
+        // them, which drop into any sm2-emu's saves folder. No Cabinet app
+        // plays Model 2 either (docs/decisions/2026-10-28-model-2-and-model-3.md).
+        {"sm2emu", "sm2emu"},
+        // Sega Model 3, in Supermodel: a zip of the person's `nvram/` for the
+        // game, the board's `<set>.nv` as Supermodel names it, which drops
+        // into any Supermodel's NVRAM folder. No Cabinet app plays Model 3.
+        {"supermodel", "supermodel"},
+        //
+        // Nintendo 3DS has states, so its save tag comes from emulatorTag
+        // above: a zip of the emulated SD card's `Nintendo 3DS` folder
+        // (directorySaveRoot), in Azahar's own layout.
     };
     const std::string name = manifestName(core);
     for (const auto& t : kSaveTags)
         if (name == t.core) return t.tag;
     return nullptr;
+}
+
+SaveForm saveForm(const char* core, const std::string& slug) {
+    SaveForm f;
+    if (!core || !saveTag(core)) return f;
+    const std::string name = manifestName(core);
+    // Sigil's spelling where it differs from this console's name for the
+    // core (the Layouts table of Sigil's platforms page, at the commit RomM
+    // 5.5.0-alpha.2 builds in). Xbox and Xbox 360 have no row there yet;
+    // `xemu` and `xenia_edge` are the ids of the rows waiting in Sigil
+    // (argosy-sigil#25 to #27).
+    struct { const char* core; const char* sigil; } kNames[] = {
+        {"beetle_saturn", "mednafen_saturn"}, {"beetle_ngp", "mednafen_ngp"},
+        {"beetle_pce_fast", "mednafen_pce_fast"}, {"beetle_vb", "mednafen_vb"},
+        {"fbneo_libretro", "fbneo"}, {"mupen64plus", "mupen64plus_next"},
+        {"mame_libretro", "mame"}, {"xenia", "xenia_edge"},
+    };
+    f.sigil = name;
+    for (const auto& n : kNames)
+        if (name == n.core) f.sigil = n.sigil;
+
+    // Where the save lives, as Sigil reads the core's options: what the
+    // console sets (coreoptions.cpp, core_ps2.cpp) or what its folders
+    // already are. Sega CD's cartridge is named as one every game shares
+    // (`4Mbit_cart.brm`, the core's default), but it sits in this game's own
+    // folder, so it is asked for per game and comes back as
+    // `<game>_4Mbit_cart.brm` in one answer, which the console reads as its
+    // cartridge by the name's end (saveFiles).
+    if (name == "flycast" && slug == "dc") f.options = {{"reicast_per_content_vmus", "VMU A1"}};
+    if (name == "genesis_plus_gx" && slug == "segacd")
+        f.options = {{"genesis_plus_gx_system_bram", "per game"},
+                     {"genesis_plus_gx_cart_bram", "per game"}};
+    if (name == "pcsx2") f.options = {{"pcsx2_shared_memory_cards", "disabled"}};
+
+    // The one profile each of these emulators keeps on this console. Eden's
+    // is the folder of the profile standalone_eden.cpp makes (kProfileId,
+    // "CabinetOS player", its bytes backwards in hex, as Eden names it); its
+    // saves are converted on this console, where Sigil restores into this
+    // profile (switchsave.h).
+    if (name == "eden") f.profile = "726579616C7020534F74656E69626143";
+    if (name == "cemu") f.profile = "80000001";
+    if (name == "vita3k") f.profile = "00";
+    if (name == "rpcs3") f.profile = "00000001";
+
+    // A folder save's place in Sigil's answer (its restore targets) against
+    // this console's root for the same folder.
+    if (name == "ppsspp") f.answerRoot = "PSP/SAVEDATA/";
+    if (name == "azahar") f.answerRoot = "sdmc/Nintendo 3DS/";
+    if (name == "dolphin" && slug == "ngc") f.answerRoot = "User/GC/*/Card A/";
+    if (name == "dolphin" && slug == "wii") f.answerRoot = "User/Wii/title/";
+    if (name == "cemu") f.answerRoot = "mlc01/usr/save/*/";
+    if (name == "vita3k") f.answerRoot = "ux0/user/*/savedata/";
+    if (name == "rpcs3") f.answerRoot = "dev_hdd0/home/*/savedata/";
+
+    // Sigil names how these emulators' files differ, and RomM hands them over
+    // as stored (MMagTech, 2026-11-17). Genesis Plus GX only for the
+    // cartridge systems: RomM converts Sega CD.
+    f.sameCoreOnly = name == "melonds" || name == "mgba" || name == "picodrive" ||
+                     (name == "genesis_plus_gx" && slug != "segacd");
+    // The clock beside the battery, and the battery beside the files (#346,
+    // step 11).
+    f.clock = name == "gambatte";
+    f.batteryFirst = name == "beetle_saturn" && slug == "saturn";
+    return f;
+}
+
+SaveCheck batteryCheck(const std::string& slug) {
+    SaveCheck c;
+    // pcsx_rearmed's battery is memory card 1, a raw card: 128 KB, `MC` first
+    // (Sigil's psx page, a raw card).
+    if (slug == "psx") {
+        c.sizes = {131072};
+        c.mark = "MC";
+    }
+    // Beetle Saturn's battery is the internal backup memory, as the libretro
+    // save method has it (coreoptions.cpp): 32 KB, formatted with its name.
+    if (slug == "saturn") {
+        c.sizes = {32768};
+        c.mark = "BackUpRam Format";
+    }
+    // mupen64plus-next's battery is every kind of N64 save in one struct, the
+    // same 296960 bytes for every game at our pin (savetable.cpp, emulatorTag).
+    if (slug == "n64") c.sizes = {296960};
+    return c;
 }
 
 const char* gameCubeRegion(const std::string& titleId) {
@@ -241,6 +385,7 @@ const char* directorySaveRoot(const char* core, const std::string& platformSlug,
                               const std::string& titleId) {
     if (!core) return nullptr;
     if (manifestName(core) == "ppsspp") return "PSP/SAVEDATA";
+    if (manifestName(core) == "azahar") return "Azahar/sdmc/Nintendo 3DS";
     if (manifestName(core) == "dolphin" && platformSlug == "wii")
         return wii::isMiiChannel(titleId) ? "User/Wii" : "User/Wii/title";
     if (manifestName(core) == "dolphin" && platformSlug == "ngc") {
@@ -332,7 +477,7 @@ FirmwareAliases firmwareAliases(const std::string& slug, const std::string& fsSl
 }
 
 std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core,
-                                const std::string& stem) {
+                                const std::string& fileName, bool arcade) {
     // Straight out of the audit's per-platform table, and each row was read
     // off the core that writes it rather than guessed. docs/PROJECT.md, *The
     // save audit*, has the evidence for every line.
@@ -340,88 +485,30 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
     // Nothing here is keyed on the core, because a core is not a platform:
     // genesis_plus_gx appears once, for Sega CD, and the same core running a
     // Master System cartridge has a real battery this console already syncs.
+    // Arcade is the exception, below.
+    const size_t dot = fileName.find_last_of('.');
+    const std::string stem = dot == std::string::npos ? fileName : fileName.substr(0, dot);
 
-    // Dreamcast. The one row that is not under the save directory: Flycast
-    // never answers RETRO_MEMORY_SAVE_RAM — confirmed against its own
-    // retro_get_memory_data, which only ever answers RETRO_MEMORY_SYSTEM_RAM —
-    // and writes the card into the system directory instead, beside the BIOS.
-    //
-    // `per_content_vmus` defaults to 0, so the file is the bare
-    // `vmu_save_A1.bin`; the capture scans for the suffix anyway, because with
-    // that option on the core prefixes the disc's own game id and a capture
-    // that insisted on the exact name would silently find nothing.
-    if (slug == "dc") {
-        SaveFile vmu;
-        vmu.path = "dc/vmu_save_A1.bin";
-        vmu.captureSuffix = "vmu_save_A1.bin";
-        vmu.untouched = Untouched::VmuDirectory;
-        vmu.inSystemDir = true;
-        return {vmu};
-    }
-
-    // Sega CD, and it is TWO regions rather than one. Games prefer the
-    // external RAM cartridge when it is present, so a console that treated
-    // "the .brm" as one thing would have one of them overwrite the other —
-    // which is why the scan excludes `cart.brm` and the cartridge gets its own
-    // row. `4Mbit_cart.brm` is fixed by the core's own defaults for cart_bram
-    // and cart_size; per-game separation already comes from the save directory.
-    if (slug == "segacd") {
-        SaveFile internal;
-        internal.path = stem + ".brm";
-        internal.captureSuffix = ".brm";
-        internal.captureExclude = "cart.brm";
-        internal.untouched = Untouched::SegaCDBackup;
-        SaveFile cart;
-        cart.path = "4Mbit_cart.brm";
-        cart.captureSuffix = "cart.brm";
-        cart.region = "cart";
-        cart.untouched = Untouched::SegaCDBackup;
-        return {internal, cart};
-    }
-
-    if (slug == "neo-geo-pocket-color") {
-        SaveFile f;
-        f.path = stem + ".flash";
-        f.captureSuffix = ".flash";
-        return {f};
-    }
-
-    // melonDS writes `<content basename>.sav` through its own SRAM manager,
-    // debounce-flushed during play and flushed again at unload.
-    if (slug == "nds") {
-        SaveFile f;
-        f.path = stem + ".sav";
-        f.captureSuffix = ".sav";
-        return {f};
-    }
-
-    // Opera writes to a fixed nested path rather than a flat suffix-named
-    // file, so this one is exact in both directions.
-    if (slug == "3do") {
-        SaveFile f;
-        f.path = "opera/shared/nvram.0.srm";
-        f.untouched = Untouched::ThreeDONvram;
-        return {f};
-    }
-
-    // Arcade. The two emulators disagree about both the folder and the
+    // Arcade. The emulators disagree about both the folder and the
     // extension and their contents are not interchangeable, which is exactly
     // why this keeps them apart instead of treating "the arcade save" as one
     // thing. The stem is the set name — `lethalen`, `smashtv` — because that
     // is what the core was handed; see the note in launch_routes.cpp about why an
     // arcade entry keeps the server's own file name.
     //
-    // BY THE CORE THE GAME RUNS IN, not by the folder (#310): a generic
-    // arcade folder holds games for both, so its name says nothing about
-    // which file a game writes. A folder named for one emulator runs every
-    // game in it, so for those this is the same answer the folder gave.
-    if (slug == "arcade") {
+    // BY THE EMULATOR THE GAME'S ZIP PICKED (arcadematch.h), not by its
+    // folder, which says nothing about which file a game writes. First, so a
+    // Naomi zip in Dreamcast's folder is a board's save, not a VMU.
+    if (arcade) {
         SaveFile f;
         f.untouched = Untouched::Uniform;
+        // Every arcade board's memory is written as the game closes: MAME
+        // 2003-Plus in mame_done, FinalBurn Neo in retro_unload_game,
+        // Flycast in Emulator::stop (and whenever a state is made).
+        f.writtenAtClose = true;
         if (core == "mame2003_plus") {
-            f.coreRowName = "mame2003Plus";
             // ONE DIRECTORY DEEPER THAN THE REFERENCE IMPLEMENTATION SAYS, and
-            // this was measured rather than carried across. Cabinet writes
+            // this was measured rather than carried across. Cabinet wrote
             // `nvram/<stem>.nv` straight under the save directory; MAME
             // 2003-Plus as this console builds and drives it puts its whole
             // working tree under a `mame2003-plus/` folder first, so the file
@@ -439,28 +526,153 @@ std::vector<SaveFile> saveFiles(const std::string& slug, const std::string& core
             return {f};
         }
         if (core == "fbneo_libretro") {
-            f.coreRowName = "fbneo";
             f.path = "fbneo/" + stem + ".fs";
+            return {f};
+        }
+        // MAME 0.289 WRITES SEVERAL FILES A GAME, all in this person's save
+        // folder for it: `mame/nvram/<set>/`, `mame/cfg/<set>.cfg`, a hard
+        // disk game's `mame/diff/<set>.dif`, and the high scores
+        // (mamehome.h). None reaches RomM: they wait with the other arcade
+        // extras (#353) until Sigil collects and restores an arcade game's
+        // files, since how a channel will carry them is not known yet. They
+        // stay on the console, never in cache/.
+        if (core == "mame_libretro") return {};
+        // FLYCAST'S BOARD MEMORY, `reicast/<the zip's own name>.nvmem`, named
+        // after the whole file it was handed (hostfs::getArcadeFlashPath at
+        // our pin; cores/build-core.sh stops when it moves). The one file of
+        // a game's that reaches RomM, as FinalBurn Neo and 2003-Plus send one:
+        // a board's `.eeprom` and Atomiswave's `.nvmem2` stay on the console
+        // with the other arcade extras (#353), as MAME 0.289's do above.
+        if (core == "flycast") {
+            f.path = "reicast/" + fileName + ".nvmem";
             return {f};
         }
         return {};
     }
 
+    // Dreamcast. Flycast never answers RETRO_MEMORY_SAVE_RAM (its own
+    // retro_get_memory_data answers RETRO_MEMORY_SYSTEM_RAM only) and keeps
+    // the card as a file. ONE CARD PER GAME, IN THE GAME'S SAVE FOLDER
+    // (MMagTech, 2026-11-17; #346, step 8): `reicast_per_content_vmus` =
+    // `VMU A1` (coreoptions.cpp), the row Sigil gives a card that holds one
+    // game, so RomM hands another app's save back in one answer. Until then
+    // the card was the system directory's shared `dc/vmu_save_A1.bin`,
+    // copied in for each session. A card is 128 KB of 512-byte blocks whose
+    // root, block 255, starts with sixteen 0x55 bytes.
+    if (slug == "dc") {
+        SaveFile vmu;
+        vmu.path = stem + ".A1.bin";
+        vmu.captureSuffix = ".A1.bin";
+        vmu.untouched = Untouched::VmuDirectory;
+        vmu.coreNamesItself = true;
+        vmu.fromFormerCopy = true;
+        vmu.check = {{131072}, std::string(16, '\x55'), 255 * 512, false};
+        return {vmu};
+    }
+
+    // Sega CD, and it is TWO regions rather than one. Games prefer the
+    // external RAM cartridge when it is present, so a console that treated
+    // "the .brm" as one thing would have one of them overwrite the other —
+    // which is why the scan excludes `cart.brm` and the cartridge gets its own
+    // row. `4Mbit_cart.brm` is fixed by the core's own defaults for cart_bram
+    // and cart_size; per-game separation already comes from the save directory.
+    if (slug == "segacd") {
+        // Genesis Plus GX writes both in retro_unload_game (bram_save).
+        SaveFile internal;
+        internal.writtenAtClose = true;
+        internal.path = stem + ".brm";
+        internal.captureSuffix = ".brm";
+        internal.captureExclude = "cart.brm";
+        internal.untouched = Untouched::SegaCDBackup;
+        // Both end in the format's own block: `SEGA_CD_ROM` 32 bytes from
+        // the end, `RAM_CARTRIDGE___` the last 16. The internal memory is
+        // 8 KB; the cartridge the core's default 4 Mbit, 512 KB.
+        const std::string format = std::string("SEGA_CD_ROM\0\1\0\0\0RAM_CARTRIDGE___", 32);
+        internal.check = {{8192}, format, 32, true};
+        SaveFile cart;
+        cart.writtenAtClose = true;
+        cart.path = "4Mbit_cart.brm";
+        cart.captureSuffix = "cart.brm";
+        cart.region = "cart";
+        cart.untouched = Untouched::SegaCDBackup;
+        cart.check = {{524288}, format, 32, true};
+        return {internal, cart};
+    }
+
+    // SATURN'S BACKUP CARTRIDGE, beside its own memory, which is the battery
+    // Beetle Saturn exposes (#346, step 11; SaveForm::batteryFirst). Beetle
+    // Saturn writes `<what it was handed>.bcr` itself (MDFN_MakeFName,
+    // MDFNMKF_CART), a 512 KB cartridge, reads it once as the game is built,
+    // and writes it again about three seconds after the game writes to it
+    // and as the game closes (SS_SaveCartNV, libretro.c's flush at our pin):
+    // not only at the close, so the save's picture and a game that never
+    // ended both see it. Found by its end, as RomM's answer names it after
+    // RomM's file.
+    if (slug == "saturn") {
+        SaveFile cart;
+        cart.path = stem + ".bcr";
+        cart.captureSuffix = ".bcr";
+        cart.region = "cart";
+        cart.untouched = Untouched::SaturnCartridge;
+        cart.check = {{524288}, "BackUpRam Format", 0, false};
+        cart.unitName = "cart.ram";
+        return {cart};
+    }
+
+    if (slug == "neo-geo-pocket-color") {
+        // Beetle NGP writes it in rom_unload (flash_commit).
+        SaveFile f;
+        f.writtenAtClose = true;
+        f.path = stem + ".flash";
+        f.captureSuffix = ".flash";
+        // NeoPop's flash file starts with its id, 0x0053 (flash.cpp's
+        // FlashFileHeader); its length is the game's.
+        f.check = {{}, std::string("\x53\x00", 2), 0, false};
+        return {f};
+    }
+
+    // melonDS writes `<content basename>.sav` through its own SRAM manager, 2
+    // to 3 s after the game last wrote it, and again at unload through our
+    // patch (cores/build-core.sh, the melonds block).
+    if (slug == "nds") {
+        SaveFile f;
+        f.path = stem + ".sav";
+        f.captureSuffix = ".sav";
+        // A cartridge's memory is a power of two, 512 bytes to 32 MB.
+        // DeSmuME's file is 122 bytes longer (Sigil's nds page), which this
+        // refuses.
+        for (size_t n = 512; n <= (32u << 20); n *= 2) f.check.sizes.push_back(n);
+        return {f};
+    }
+
+    // Opera writes to a fixed nested path rather than a flat suffix-named
+    // file, so this one is exact in both directions.
+    if (slug == "3do") {
+        // Opera writes it in retro_unload_game (opera_lr_nvram_save).
+        SaveFile f;
+        f.writtenAtClose = true;
+        f.path = "opera/shared/nvram.0.srm";
+        f.untouched = Untouched::ThreeDONvram;
+        // 32 KB, starting with the volume label Opera formats it with.
+        f.check = {{32768}, std::string("\x01\x5a\x5a\x5a\x5a\x5a", 6), 0, false};
+        return {f};
+    }
+
     // PlayStation 2. The console's PCSX2 host is handed one card, `<stem>.ps2`
     // in the save directory (core_ps2.cpp, startPs2Game), which is already
     // per game. Never a shared `Mcd001.ps2`, the arrangement Cabinet for Mac
-    // rejects in as many words ("a shared card belongs to no rom in
-    // particular").
-    //
-    // NAMED THE MAC'S WAY on the server, because the whole point is that the
-    // card travels — see SaveFile::macRowName.
+    // rejected in as many words ("a shared card belongs to no rom in
+    // particular"). A card from before save channels is on RomM under the
+    // Mac's name for it, `cabinet-<rom id>.ps2`, which the region reads.
     if (slug == "ps2") {
         SaveFile f;
         f.path = stem + ".ps2";
         f.captureSuffix = ".ps2";
         f.region = "ps2";
         f.untouched = Untouched::Ps2Format;
-        f.macRowName = true;
+        // An 8 MB card with its error-correcting bytes, as PCSX2 and Sigil
+        // keep it, formatted with its name.
+        f.check = {{8650752}, "Sony PS2 Memory Card Format ", 0, false};
         return {f};
     }
 

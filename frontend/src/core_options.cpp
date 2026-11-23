@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cstdio>
+#include <map>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -65,6 +66,7 @@ struct Option {
 std::vector<Option> gDeclared;                              // declaration order
 std::unordered_map<std::string, size_t> gByKey;             // key -> gDeclared
 std::unordered_map<std::string, std::string> gOverrides;    // our deliberate choices
+std::map<std::string, std::string> gCommandLine;            // --core-option, on top of them
 // Keys a core asked for that it never declared. Not answerable, and worth
 // counting: it means either the core has a bug or we missed a table.
 std::vector<std::string> gUndeclaredAsks;
@@ -302,6 +304,11 @@ using namespace corestate;
 void Core::setOptionOverrides(const std::map<std::string, std::string>& overrides) {
     gOverrides.clear();
     for (const auto& [k, v] : overrides) gOverrides[k] = v;
+    for (const auto& [k, v] : gCommandLine) {
+        std::fprintf(stderr, "[core] option from the command line: %s = %s\n", k.c_str(),
+                     v.c_str());
+        gOverrides[k] = v;
+    }
     // Re-apply to anything already declared, so setting these after a load is
     // not silently a no-op. Before load() is still the correct time to call it,
     // because a core may read its options inside retro_init.
@@ -337,5 +344,9 @@ std::vector<std::string> Core::undeclaredOptionAsks() const {
 }
 
 void Core::setAnswerOptions(bool on) { gAnswerOptions = on; }
+
+void Core::setCommandLineOption(const std::string& key, const std::string& value) {
+    gCommandLine[key] = value;
+}
 
 }  // namespace cab

@@ -1,22 +1,29 @@
 // A game whose emulator is its own application (#169): started with the
 // console's virtual pads, its presses passed on, watched while it has the
 // television, paused under the same menu, and its saves sent when it
-// ends (#398, restructure batch f).
+// ends (#398, restructure batch f). And the pointer over a game that is
+// touched through the console, the Vita's (#198, pointerButton).
 
 #include "app.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 
+#include "arcadematch.h"
 #include "cache.h"
 #include "catalog.h"
+#include "controls.h"
 #include "dirsave.h"
+#include "fightstick.h"
 #include "overlaywin.h"
 #include "quality.h"
 #include "rumble.h"
+#include "savepush.h"
 #include "saves.h"
 #include "shortcuts.h"
 #include "storage.h"
+#include "vtouch.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
 
@@ -32,8 +39,13 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     // ONE VIRTUAL CONTROLLER PER PLAYER, and at least one: the emulator
     // is given these and never the real pads (vpad.h). Without them the
     // game would start and nothing would move it, so that refuses here.
+    // Beside them, for an emulator that reads one, a motion device for each
+    // player whose pad has the sensors (PS3, #683); or, for an emulator that
+    // reads a pad's own sensors, the stand-in DualSense in place of the plain
+    // controller (Switch, Wii U and Vita, #669). A guitar's seat is a guitar's
+    // for an emulator that takes one (PS3, guitar.h).
     const int pads = std::max(1, players::count());
-    if (!cab::vpad::open(pads)) {
+    if (!cab::vpad::open(pads, emu.motion, emu.dualsense, emu.onlyPlayerOneTilts, emu.guitars)) {
         refuseLaunch("Couldn't start this game");
         return;
     }
@@ -42,19 +54,35 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     // THE GAME'S PICTURE QUALITY (#63), its own choice or the console's.
     const quality::Level level = quality::forGame(launchJob.romId);
     quality::logApplied(launchJob.coreName, launchJob.romId, level);
-    if (!cab::standalone::prepare(emu, launchJob.entryPath, saveDir, user.name, pads, level,
-                                  &missingKeys, &err)) {
+    // A MODEL 2 OR MODEL 3 GAME'S BUTTONS AS THIS PERSON MOVED THEM
+    // (controls.h), read before the settings that put them there are
+    // written (controls::pressedWith). The rows come from the program's
+    // catalogue, since it declares nothing. Every program's start, so no
+    // earlier game's rows are left offered.
+    {
+        const std::string zip = launchJob.romPath.substr(launchJob.romPath.find_last_of('/') + 1);
+        const int buttons =
+            fightstick::isArcadeCore(emu.core) ? arcadematch::buttons(emu.core, zip) : 0;
+        controls::beginProgram(emu.core, launchJob.romId, launchJob.title,
+                               fightstick::programButtons(buttons));
+    }
+    if (!cab::standalone::prepare(emu, launchJob.entryPath, launchJob.romPath, saveDir,
+                                  user.name, launchJob.title, pads, level, &missingKeys, &err)) {
         cab::vpad::close();
         if (!err.empty()) std::fprintf(stderr, "[standalone] %s\n", err.c_str());
         refuseLaunch(missingKeys ? "No " + launchJob.systemName + " " + emu.needs +
-                                       " on your server"
+                                       " on the server"
                                  : std::string("Couldn't start this game"));
         return;
     }
     // THE SAVE COMES DOWN FIRST, as PSP's does: a zip of the game's save
     // folder, unpacked where the emulator will look. The folder inside is
-    // named by the game's title ID, so the console never has to know it.
+    // named by the game's title ID, so the console never has to know it. A
+    // Switch game's is Sigil's unit, put back under Eden's profile and the
+    // device's folders (dirsave.h, ZipShape::Switch).
     const std::string root = cab::standalone::saveRoot(emu, saveDir);
+    const std::string profile = cab::standalone::saveProfile(emu);
+    const cab::ZipShape shape = zipShapeOf(launchJob.coreName, launchJob.platformSlug, "");
     const char* tag = catalog::saveTag(launchJob.coreName.c_str());
     // A LAST GAME HERE THAT NEVER GOT ITS SAVES ZIPPED goes up first, so
     // the restore below keeps it (finishInterruptedSave); for an Xbox game
@@ -75,15 +103,32 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
         refuseLaunch("Couldn't start this game");
         return;
     }
+    // The save the start continues from (savepick.h), a save of this
+    // console's that it replaces kept aside first; the notes the start
+    // leaves are taken once the session is made, below.
+    StartNotes startNotes;
+    startNotes.asideDir = storage::replacedSaveDir(user, launchJob.platformFsSlug, launchJob.romId);
     if (!root.empty() && tag && launchJob.saves.asked)
-        restoreDirSave(launchJob.saves, tag, root, launchJob.title);
+        restoreDirSave(launchJob.saves, tag, root, launchJob.title, std::string(), &startNotes,
+                       shape, profile);
+    const SaveFetch startedFrom = std::move(launchJob.saves);
     launchJob.saves = SaveFetch{};
+    // Where its save came from (saves.h, noteStart), before the note below,
+    // which carries what a start after a power cut cannot work out again.
+    GameSession starting;
+    starting.romId = launchJob.romId;
+    starting.title = launchJob.title;
+    starting.core = launchJob.coreName;
+    starting.platformSlug = launchJob.platformSlug;
+    if (tag) starting.saveTag = tag;
+    bool bringsOldSave = false;
+    const bool elsewhere = noteStart(startedFrom, startNotes, user, &starting, &bringsOldSave);
+    if (bringsOldSave) uploader.pushSnapshot(starting.romId, user);
     // AND ONTO WHERE THE EMULATOR READS THEM, when that is not a folder
     // (Xbox: its hard drive). The note says whose they are, should the
     // console go down before the game ends.
     {
-        const std::string note = std::to_string(launchJob.romId) + "\n" + saveDir + "\n" +
-                                 launchJob.title + "\n" + (tag ? tag : "") + "\n";
+        const std::string note = playingNoteFor(starting, saveDir);
         if (!cab::standalone::beforeStart(emu, launchJob.entryPath, saveDir, user.name, note,
                                           &err)) {
             cab::vpad::close();
@@ -111,16 +156,19 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     // The frame loop says so while the menu is up; while the emulator has the
     // screen that loop skips it, so it is said here.
     players::setInGame(true);
-    session = GameSession{};
-    session.romId = launchJob.romId;
+    session = starting;
     session.core = launchJob.coreName;
     session.platformSlug = launchJob.platformSlug;
-    session.title = launchJob.title;
     session.fsStem = launchJob.fsStem;
     session.saveDir = saveDir;
     session.standaloneCore = emu.core;
     session.entryPath = launchJob.entryPath;
-    if (tag) session.saveTag = tag;
+    // The pill when its save came from another device, drawn over the game
+    // as any pill is.
+    if (elsewhere) menuNotice.say(kContinuingElsewhere, Tone::Info);
+    // The newest save on RomM was one this console could not use (#346,
+    // step 8; saves.cpp, fetchSaves).
+    else if (starting.couldNotUseNewest) menuNotice.say(kCouldNotUseNewest, Tone::Problem);
     // No save states: the pause menu is Resume, Screenshot and Exit to
     // Home (open question 25; Switch fails its rule).
     session.snapshots = catalog::snapshotsAllowed(launchJob.coreName.c_str());
@@ -128,14 +176,20 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     // game saved. See GameSession.
     if (!root.empty()) {
         session.dirSaveRoot = root;
+        session.dirSaveCore = launchJob.coreName;
+        session.dirSavePlatform = launchJob.platformSlug;
+        session.dirSaveProfile = profile;
         session.dirAtLaunch = cab::listTree(root);
         std::fprintf(stderr, "[save] %s holds %zu file(s) at launch\n", root.c_str(),
                      session.dirAtLaunch.size());
     }
+    // THE SAVE WATCHED FROM HERE, for its picture (savepicture.h).
+    savePicture.begin(session, user, savepicture::programGame(), SDL_GetTicks());
     standaloneRan = 0.0f;
     if (session.romId > 0) {
         playClock.begin(session.romId, playtime::wallMs());
         playCheckpointClock = 0.0f;
+        gameEventStarted();
     }
     // THIS WINDOW STEPS OUT OF THE WAY AND WAITS ON TOP. It becomes
     // gamescope's overlay (overlaywin.h), draws nothing, and leaves the
@@ -152,7 +206,10 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     curtain.from = curtain.to = 0.0f;
     curtain.elapsed = curtain.duration;
     standaloneClearFrames = 30;
+    standaloneDimDrawn = 0.0f;
     standalonePaused = false;
+    // No dots until somebody asks for them, and then in the middle.
+    pointer = Pointer{};
     // From here every press and release is the emulator's (takeStandaloneEvent),
     // so nothing still held may stay held for this loop.
     letGoOfHeld();
@@ -164,42 +221,53 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
 // the pill, because the person was playing, not choosing.
 void App::finishStandalone() {
     // AFTER THE EMULATOR HAS GONE, which is when everything it wrote is
-    // on the disk. Whatever changed is zipped and sent, crash or not: a
-    // game that saved and then fell over still saved.
+    // on the disk. Whatever changed is zipped and goes up as the game's
+    // snapshot (savepush.h), crash or not: a game that saved and then fell
+    // over still saved.
     if (const cab::standalone::Emulator* ran =
             cab::standalone::find(session.standaloneCore)) {
         std::string aerr;
         if (!cab::standalone::afterEnd(*ran, session.entryPath, session.saveDir, &aerr))
             std::fprintf(stderr, "[standalone] saves stay on the drive: %s\n", aerr.c_str());
     }
-    if (!session.dirSaveRoot.empty()) syncDirSave(session, uploader);
+    if (!session.dirSaveRoot.empty()) syncDirSave(session);
+    // The save's picture finished; a game that went by itself with its save
+    // changed since its picture keeps none (savepicture.h).
+    savePicture.finish(session, SDL_GetTicks());
+    savepush::leave(session, storage::currentUser(), uploader);
     session.dirSaveRoot.clear();
     // The zip is on the disk and owed to the server: nothing left for a
     // restart to finish.
     if (const cab::standalone::Emulator* ran = cab::standalone::find(session.standaloneCore))
         cab::standalone::finished(*ran, session.saveDir);
+    endPointer();
     cab::vpad::close();
     players::setInGame(false);
+    int64_t playedMs = 0;
     if (playClock.active()) {
-        playtime::close(storage::currentUser(), playClock.finish(playtime::wallMs()));
+        const playtime::Session played = playClock.finish(playtime::wallMs());
+        playedMs = played.playedMs;
+        playtime::close(storage::currentUser(), played);
         uploader.sendPlay();
         playedJustNow(session.romId);
     }
+    gameEventEnded(playedMs);
     curtain.from = curtain.to = 1.0f;
     curtain.elapsed = curtain.duration;
     curtain.retarget(0.0f, kCurtainUp);
-    // Nothing reached this loop while the emulator had the screen, so the
-    // idle timers think nobody has touched anything since the launch.
+    // Back on Home counts as somebody there. A game can end long after the
+    // last press, by crashing or by its own quit, and Home must not go dark
+    // the moment it is back.
     idleWatch.input(clockSeconds());
     switch (standaloneRun.ended()) {
         case cab::standalone::Run::End::CouldNotLoad:
             refuseLaunch("Couldn't start this game");
             break;
         case cab::standalone::Run::End::KeysTooOld:
-            refuseLaunch("Needs newer " + launchJob.systemName + " keys on your server");
+            refuseLaunch("Needs newer " + launchJob.systemName + " keys on the server");
             break;
         case cab::standalone::Run::End::NoLicence:
-            refuseLaunch("No license for this game on your server");
+            refuseLaunch("No license for this game on the server");
             break;
         case cab::standalone::Run::End::Crashed:
             menuNotice.say("The game closed unexpectedly", Tone::Problem);
@@ -222,6 +290,7 @@ void App::finishStandalone() {
     dropPressesFromClosing();
     letGoOfHeld();
     std::fprintf(stderr, "[standalone] back to Home\n");
+    linkupHostGameEnded();
     // A Power menu choice made over its pause menu (#473), now that it
     // has gone and its saves are queued.
     if (powerAfterExit) {
@@ -240,11 +309,21 @@ void App::openStandaloneMenu() {
     if (!standaloneRun.active() || standaloneRun.stopping() || standalonePaused) return;
     standaloneRun.freeze();
     cab::vpad::releaseAll();
+    // The pointer's fingers come off with everything else, and an L3 held
+    // back is neither a click nor a long press now.
+    cab::vtouch::liftAll();
+    for (bool& f : pointer.finger) f = false;
+    pointer.l3Player = pointer.clickPlayer = -1;
     rumble::update(false);
     cab::overlaywin::mark(window, /*takeInput=*/true);
     standalonePaused = true;
     for (auto& sh : standaloneShortcut) sh = {};
     for (auto& bs : backStart) bs = {};
+    // THE SCREEN-OFF TIMER STARTS AGAIN AT THE PAUSE (#604), however the
+    // menu opened. It counted from the last press the game heard, so a
+    // game left running past the screen-off time went dark the instant
+    // its menu opened: a pad going off, with nobody pressing anything.
+    idleWatch.input(clockSeconds());
     toggleOverlay();
     std::fprintf(stderr, "[standalone] paused\n");
 }
@@ -263,7 +342,8 @@ void App::openStandaloneMenu() {
 //
 // AND THE PAUSE MENU OPENS THE WAY IT DOES FOR EVERY SYSTEM: both
 // stick clicks, always, or a tap of the shortcut button with the
-// in-game shortcuts on. The shortcut button (Home, unless set) is
+// in-game shortcuts on, or of a fight stick's or a guitar's Home, switch or
+// not (play.cpp), or HOME held on a Wii Remote (watchStandalone). The shortcut button (Home, unless set) is
 // never passed to the emulator at all: its Home is its own menu
 // and a set of Home+button shortcuts, one of which leaves
 // fullscreen, and none of them belong on a console.
@@ -274,6 +354,13 @@ bool App::takeStandaloneEvent(const SDL_Event& e) {
             case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
             case SDL_EVENT_GAMEPAD_BUTTON_UP: {
                 playClock.touch();
+                // A PRESS IS SOMEBODY THERE (#604): it lifts the dim over the
+                // game (watchStandalone) and still goes on to the game, as a
+                // press does in every other game.
+                if (e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN) {
+                    idleWatch.input(clockSeconds());
+                    menuNotice.pressed();
+                }
                 const int p = players::playerOf(e.gbutton.which);
                 const auto b = static_cast<SDL_GamepadButton>(e.gbutton.button);
                 const bool down = e.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
@@ -289,7 +376,8 @@ bool App::takeStandaloneEvent(const SDL_Event& e) {
                 // A streaming device's Home always opens the menu, as
                 // in the built-in path (players::streaming()).
                 if (p >= 0 && p < cab::vpad::kMaxPlayers &&
-                    (shortcuts::enabled() || players::streaming())) {
+                    (shortcuts::enabled() || players::streaming() ||
+                     players::stick(e.gbutton.which) || players::guitar(e.gbutton.which))) {
                     auto& sh = standaloneShortcut[p];
                     if (sh.down && sh.pad != e.gbutton.which) sh = {};
                     // THE SHORTCUT BUTTON'S OWN PRESS IS NOT A
@@ -316,6 +404,8 @@ bool App::takeStandaloneEvent(const SDL_Event& e) {
                     if (shortcut) break;   // held: the game hears none of it
                 }
                 if (b == SDL_GAMEPAD_BUTTON_GUIDE) break;
+                // L3, held back for the pointer's long press (pointerButton).
+                if (pointerButton(p, b, down)) break;
                 // BACK AND START TOGETHER never reach an emulator that
                 // opens its own menu on them (xemu): the second one
                 // down is held back, press and release both.
@@ -338,11 +428,16 @@ bool App::takeStandaloneEvent(const SDL_Event& e) {
                 cab::vpad::button(p, b, down);
                 break;
             }
-            case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-                cab::vpad::axis(players::playerOf(e.gaxis.which),
-                                static_cast<SDL_GamepadAxis>(e.gaxis.axis),
-                                e.gaxis.value);
+            case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
+                if (std::abs(static_cast<int>(e.gaxis.value)) > idle::kAxisDeadzone)
+                    idleWatch.input(clockSeconds());
+                const int p = players::playerOf(e.gaxis.which);
+                const auto a = static_cast<SDL_GamepadAxis>(e.gaxis.axis);
+                // The dots' driver's sticks and triggers are the dots'.
+                if (pointerAxis(p, a, e.gaxis.value)) break;
+                cab::vpad::axis(p, a, e.gaxis.value);
                 break;
+            }
             case SDL_EVENT_GAMEPAD_ADDED:
                 players::added(e.gdevice.which);
                 break;
@@ -361,6 +456,7 @@ bool App::takeStandaloneEvent(const SDL_Event& e) {
             }
             case SDL_EVENT_KEY_DOWN:
                 playClock.touch();
+                idleWatch.input(clockSeconds());
                 break;
             default:
                 break;
@@ -373,11 +469,22 @@ bool App::takeStandaloneEvent(const SDL_Event& e) {
 // Every frame while an emulator of its own runs. True when this frame is
 // done: while the emulator has the screen the frame loop does nothing else.
 bool App::watchStandalone(float dt) {
+    // THE SAVE, looked at once a second for its picture (savepicture.h).
+    if (standaloneRun.active() && !standaloneRun.stopping())
+        savePicture.tick(session, SDL_GetTicks());
+    // HOME HELD ON A WII REMOTE opens the menu here as in every game
+    // (followRemotesInGame). While the emulator has the screen the frame
+    // loop stops before its own call, so it is asked here.
+    if (standaloneRun.active() && !standalonePaused) followRemotesInGame();
+
     // PAUSED OVER AN EMULATOR OF ITS OWN, the ordinary loop below runs and
     // draws the menu; here it only keeps watch. The emulator can still end
     // (Exit to Home asked it to, or it fell over), and when the menu has
     // closed and faded right out, the controllers go back and it thaws.
     if (standaloneRun.active() && standalonePaused) {
+        // CONTROLS, OPEN OVER IT, kept true to the controllers on, as over a
+        // game of ours (play.cpp's readGameInput, which does not run here).
+        followControls();
         // THE VIRTUAL CONTROLLERS ARE STILL ANSWERED, rumble held off. An
         // emulator asks its controller to stop rumbling as it shuts down,
         // and the kernel holds that request until this process answers or
@@ -402,12 +509,44 @@ bool App::watchStandalone(float dt) {
         }
     }
 
+    // LinkUp, which the frame's own call does not reach while the emulator has the screen.
+    if (standaloneRun.active() && !standalonePaused) tickLinkUpLive(dt);
+
     // WHILE AN EMULATOR OF ITS OWN HAS THE SCREEN, this loop watches it and
-    // does nothing else: no idle dimming over a game this process cannot
-    // see, nothing drawn, and a short sleep so a watcher does not take a
-    // core from the game. Play time counts as it does for any game.
+    // does little else: nothing drawn but the dots and the dim, and a short
+    // sleep so a watcher does not take a core from the game. Play time
+    // counts as it does for any game.
     if (standaloneRun.active() && !standalonePaused) {
-        if (standaloneClearFrames > 0) {
+        // THE DIM, AS OVER EVERY GAME IN PLAY (#604): after kGameDimAfter
+        // with no press (takeStandaloneEvent) the picture dims, and it never
+        // goes out. It was left out here once, as a game this process cannot
+        // see, and a game left running stayed at full brightness however
+        // long it was left.
+        idleFrame(dt, /*playingNow=*/true, kScreenOff[screenOffIndex].seconds);
+        // THE POINTER: its long press, its dots moving. The dots and the dim
+        // are drawn while either changes, and over either, the frames that
+        // clear this window draw them instead, so they stay over the game.
+        pointerTick(dt);
+        // AND A PILL, as over any game: LinkUp's invite, or its slow connection. Drawn while it
+        // lasts, and cleared off the game when it has gone.
+        menuNotice.tick(dt);
+        if (!menuNotice.text.empty()) {
+            pointer.dirty = std::max(pointer.dirty, 3);
+            standaloneNoticeUp = true;
+        } else if (standaloneNoticeUp) {
+            standaloneNoticeUp = false;
+            standaloneClearFrames = 30;
+        }
+        if (std::abs(dimLayer.value() - standaloneDimDrawn) > 0.001f)
+            pointer.dirty = std::max(pointer.dirty, 3);
+        if ((pointer.on || dimLayer.value() > 0.001f) && standaloneClearFrames > 0) {
+            pointer.dirty = std::max(pointer.dirty, standaloneClearFrames);
+            standaloneClearFrames = 0;
+        }
+        if (pointer.dirty > 0) {
+            --pointer.dirty;
+            drawOverGame();
+        } else if (standaloneClearFrames > 0) {
             --standaloneClearFrames;
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glDisable(GL_SCISSOR_TEST);
@@ -429,7 +568,7 @@ bool App::watchStandalone(float dt) {
         if (standaloneExitAfter > 0.0f && !standaloneRun.stopping() &&
             standaloneRan >= standaloneExitAfter) {
             std::fprintf(stderr, "[standalone] --standalone-exit: closing it\n");
-            standaloneRun.stop();
+            stopStandaloneGame();
         }
         // The game's rumble, to the pads in people's hands, and never
         // while it is frozen under the pause menu.
@@ -441,8 +580,9 @@ bool App::watchStandalone(float dt) {
         // (2026-10-07).
         remotePlayHandover();
         // Until the next press or a sixtieth of a second, whichever is
-        // first: presses pass straight on, and a watcher costs nothing.
-        SDL_WaitEventTimeout(nullptr, 16);
+        // first: presses pass straight on, and a watcher costs nothing. In LinkUp a friend's presses
+        // arrive on another socket, so it looks sooner, or they would wait here.
+        SDL_WaitEventTimeout(nullptr, linkupSessionOpen() ? 3 : 16);
         return true;
     }
     return false;
@@ -452,8 +592,234 @@ bool App::watchStandalone(float dt) {
 // a session of its own. Asked, then made, inside its grace period.
 void App::closeStandaloneAtExit() {
     if (standaloneRun.active()) {
-        standaloneRun.stop();
+        stopStandaloneGame();
         while (standaloneRun.poll()) SDL_Delay(50);
         finishStandalone();
     }
+}
+
+// EVERY CLOSE ASKED OF AN EMULATOR OF ITS OWN: Exit to Home, the Power menu,
+// the console shutting down. Its save's picture is asked of gamescope first,
+// while the game is still on its plane (savepicture.h).
+void App::stopStandaloneGame() {
+    if (standaloneRun.active() && !standaloneRun.stopping())
+        savePicture.leaving(session, SDL_GetTicks());
+    standaloneRun.stop();
+}
+
+// --- The pointer (#198) -------------------------------------------------------
+//
+// SONY'S PS TV POINTER, WITH TWO CHANGES (docs/PROJECT.md question 49,
+// decision 4, MMagTech 2026-10-20). The left stick moves a white dot and L2
+// touches with it; held, it is a finger kept down, so holding and moving
+// drags. Moving the right stick brings a second, red dot, which R2 touches
+// with. While the dots show, the sticks, L2 and R2 of whoever brought them
+// work the dots and every other button goes to the game. The changes: a long
+// press of L3 (half a second) shows and hides them, where the PS TV used a
+// click of L3 behind a switch in its own menu, so a click of L3 stays the
+// game's; and no rear pointer, since a touch screen reaches only the front.
+//
+// WHO DRIVES THEM: whichever player held L3. A dot starts in the middle of
+// the screen and stays where it was left, for the rest of the game. THE RED
+// DOT GOES WHEN THE DOTS ARE HIDDEN: each long press shows the white dot
+// alone, and the red one comes again only when the right stick moves or R2
+// is pulled, since most games want one finger (MMagTech, 2026-10-21, after
+// it kept coming back in WipEout 2048). The long press counts only while R3
+// stays up, so L3 and R3 together still open the pause menu and never show a
+// dot.
+
+namespace {
+// The long press, as the plan says: about half a second.
+constexpr uint64_t kPointerHoldMs = 500;
+// A click of L3 passed on is held this long: the game reads the button's
+// state about once a frame.
+constexpr uint64_t kClickMs = 60;
+// The sticks: nothing inside the dead zone, and past it the dot speeds up
+// with the square of the push, so a small push places it finely. Full push
+// crosses the screen's height in this many seconds' worth: 1.4 heights a
+// second.
+constexpr float kDeadZone = 0.15f;
+constexpr float kHeightsPerSecond = 1.4f;
+// L2 and R2 touch past half way and let go under a third, so a finger
+// resting on a trigger does not flicker.
+constexpr int16_t kTriggerDown = 16384, kTriggerUp = 10000;
+// The dots, in design points (ui.h's 1920 by 1080): 15 across a radius, a
+// little smaller while touching.
+constexpr float kDotRadius = 15.0f, kDotPressed = 12.0f;
+}  // namespace
+
+bool App::pointerButton(int p, SDL_GamepadButton b, bool down) {
+    const cab::standalone::Emulator* running = standaloneRun.emulator();
+    if (!running || !running->touchPointer || b != SDL_GAMEPAD_BUTTON_LEFT_STICK || p < 0 ||
+        p >= cab::vpad::kMaxPlayers)
+        return false;
+    if (down) {
+        pointer.l3Player = p;
+        pointer.l3SinceMs = SDL_GetTicks();
+    } else if (pointer.l3Player == p) {
+        // Let go before the long press: a click, and the game's.
+        pointer.l3Player = -1;
+        cab::vpad::button(p, b, true);
+        pointer.clickPlayer = p;
+        pointer.clickUpAtMs = SDL_GetTicks() + kClickMs;
+    }
+    // A release after a long press, or after L3 and R3 opened the menu, goes
+    // nowhere: the game never had the press.
+    return true;
+}
+
+bool App::pointerAxis(int p, SDL_GamepadAxis a, int16_t v) {
+    if (!pointer.on || p != pointer.player || a < 0 || a >= SDL_GAMEPAD_AXIS_COUNT) return false;
+    pointer.raw[a] = v;
+    const float f = std::max(-1.0f, v / 32767.0f);
+    switch (a) {
+        case SDL_GAMEPAD_AXIS_LEFTX: pointer.stick[0] = f; break;
+        case SDL_GAMEPAD_AXIS_LEFTY: pointer.stick[1] = f; break;
+        case SDL_GAMEPAD_AXIS_RIGHTX: pointer.stick[2] = f; break;
+        case SDL_GAMEPAD_AXIS_RIGHTY: pointer.stick[3] = f; break;
+        case SDL_GAMEPAD_AXIS_LEFT_TRIGGER:
+        case SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: {
+            const int which = a == SDL_GAMEPAD_AXIS_LEFT_TRIGGER ? 0 : 1;
+            const bool held = pointer.finger[which] ? v > kTriggerUp : v > kTriggerDown;
+            if (held == pointer.finger[which]) break;
+            pointer.finger[which] = held;
+            // R2 brings the red dot too, where it was left.
+            if (which == 1) pointer.second = true;
+            if (held) cab::vtouch::touch(which, pointer.x[which], pointer.y[which]);
+            else cab::vtouch::lift(which);
+            pointer.dirty = std::max(pointer.dirty, 3);
+            break;
+        }
+        default: break;
+    }
+    if (std::abs(pointer.stick[2]) > kDeadZone || std::abs(pointer.stick[3]) > kDeadZone)
+        pointer.second = true;
+    return true;
+}
+
+void App::pointerTick(float dt) {
+    const uint64_t now = SDL_GetTicks();
+    if (pointer.clickPlayer >= 0 && now >= pointer.clickUpAtMs) {
+        cab::vpad::button(pointer.clickPlayer, SDL_GAMEPAD_BUTTON_LEFT_STICK, false);
+        pointer.clickPlayer = -1;
+    }
+    // THE LONG PRESS: the dots come for this player, go if they were theirs,
+    // or pass to them from whoever had them.
+    if (pointer.l3Player >= 0 && !r3Down && now - pointer.l3SinceMs >= kPointerHoldMs) {
+        const int who = pointer.l3Player;
+        pointer.l3Player = -1;
+        showPointer(!(pointer.on && pointer.player == who), who);
+    }
+    if (!pointer.on) return;
+    // Each stick moves its dot at the same speed across as down: a height of
+    // the screen is a smaller fraction of its width.
+    const float aspect = ui::kCanvasWidth / ui::kCanvasHeight;
+    for (int d = 0; d < 2; ++d) {
+        if (d == 1 && !pointer.second) break;
+        bool moved = false;
+        for (int axis = 0; axis < 2; ++axis) {
+            const float s = pointer.stick[d * 2 + axis];
+            const float m = std::abs(s);
+            if (m <= kDeadZone) continue;
+            const float push = (m - kDeadZone) / (1.0f - kDeadZone);
+            float step = (s < 0 ? -1.0f : 1.0f) * push * push * kHeightsPerSecond * dt;
+            if (axis == 0) step /= aspect;
+            float& v = axis == 0 ? pointer.x[d] : pointer.y[d];
+            v = std::clamp(v + step, 0.0f, 1.0f);
+            moved = true;
+        }
+        if (!moved) continue;
+        if (pointer.finger[d]) cab::vtouch::touch(d, pointer.x[d], pointer.y[d]);
+        pointer.dirty = std::max(pointer.dirty, 3);
+    }
+}
+
+void App::showPointer(bool on, int p) {
+    if (on && !pointer.madeTouch) {
+        // THE TOUCH SCREEN, at the first long press of this game rather than
+        // at its start, so a game nobody points at never has one; gamescope
+        // has it registered well before the first touch, which takes at
+        // least a trigger's pull.
+        if (!cab::vtouch::open()) {
+            std::fprintf(stderr, "[pointer] no touch screen; no dots\n");
+            return;
+        }
+        cab::vtouch::passThrough(true);
+        pointer.madeTouch = true;
+    }
+    // Whoever had them gives the game back their sticks and triggers as
+    // they are now.
+    if (pointer.on) {
+        cab::vtouch::liftAll();
+        for (bool& f : pointer.finger) f = false;
+        for (int a = 0; a < SDL_GAMEPAD_AXIS_COUNT; ++a)
+            cab::vpad::axis(pointer.player, static_cast<SDL_GamepadAxis>(a), pointer.raw[a]);
+    }
+    if (on) {
+        // And the new driver's go still in the game, until the dots go.
+        for (int a = 0; a < SDL_GAMEPAD_AXIS_COUNT; ++a)
+            cab::vpad::axis(p, static_cast<SDL_GamepadAxis>(a), 0);
+        for (int16_t& r : pointer.raw) r = 0;
+        for (float& s : pointer.stick) s = 0.0f;
+        pointer.player = p;
+        pointer.dirty = 3;
+    } else {
+        // This window clears, which takes the dots off the game, and the red
+        // dot is forgotten until the right stick or R2 brings it again.
+        standaloneClearFrames = 30;
+        pointer.dirty = 0;
+        pointer.second = false;
+    }
+    pointer.on = on;
+    std::fprintf(stderr, "[pointer] dots %s for player %d\n", on ? "on" : "off", p + 1);
+}
+
+void App::endPointer() {
+    if (pointer.clickPlayer >= 0)
+        cab::vpad::button(pointer.clickPlayer, SDL_GAMEPAD_BUTTON_LEFT_STICK, false);
+    if (pointer.madeTouch) {
+        cab::vtouch::close();
+        cab::vtouch::passThrough(false);
+    }
+    pointer = Pointer{};
+}
+
+// THE DOTS AND THE DIM, ON THIS WINDOW OVER THE GAME, and nothing else: it
+// is gamescope's overlay while the emulator has the screen
+// (startStandalone), drawn transparent wherever nothing is. The dots are
+// white for the left stick's, red for the right's, as Sony's two pointers
+// are; each with a dark rim so it shows on any picture, and a little
+// smaller while it touches. The dim goes over them, as over everything,
+// deeper than elsewhere because gamescope mixes this window in linear light
+// (idle::overlayDepth), so the game under it dims as much as any other.
+// NEITHER MOVES WITH THE PIXEL SHIFT: this window cannot move the game's
+// picture, and a dim moved off it would leave a bright strip at one edge.
+void App::drawOverGame() {
+    int dw = 0, dh = 0;
+    SDL_GetWindowSizeInPixels(window, &dw, &dh);
+    renderer.setPixelShift(0, 0);
+    renderer.beginFrame(dw, dh);
+    renderer.presentScene();
+    // A LinkUp friend's bars and glow around the host's game, under the rest (#692).
+    if (linkupPictureBehind()) linkupPlay.drawPlace(renderer);
+    for (int d = 0; pointer.on && d < 2; ++d) {
+        if (d == 1 && !pointer.second) break;
+        const float r = pointer.finger[d] ? kDotPressed : kDotRadius;
+        ui::Rect dot;
+        dot.x = pointer.x[d] * ui::kCanvasWidth - r;
+        dot.y = pointer.y[d] * ui::kCanvasHeight - r;
+        dot.w = dot.h = 2.0f * r;
+        dot.radius = r;
+        dot.fill = d == 0 ? ui::Color::white(0.92f) : ui::Color::rgb(0xE8343A, 0.92f);
+        dot.border = 3.0f;
+        dot.borderColor = ui::Color::black(0.55f);
+        dot.shadowBlur = 8.0f;
+        dot.shadowColor = ui::Color::black(0.4f);
+        renderer.draw(dot);
+    }
+    drawNotice(renderer.scale());
+    drawDim(/*onOverlay=*/true);
+    standaloneDimDrawn = dimLayer.value();
+    renderer.setPixelShift(shiftShown.dx, shiftShown.dy);
+    SDL_GL_SwapWindow(window);
 }

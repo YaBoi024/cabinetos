@@ -509,6 +509,26 @@ bool choosePictureRoute(std::string* err) {
 
 using namespace state;
 
+std::string screenDeviceUuid() {
+    if (!SDL_GL_GetCurrentContext()) return "";
+    if (!SDL_GL_ExtensionSupported("GL_EXT_memory_object")) return "";
+    // The indexed query: DEVICE_UUID_EXT is one per device of the context,
+    // NUM_DEVICE_UUIDS_EXT of them, and a context here has one.
+    auto getBytes = reinterpret_cast<PFNGLGETUNSIGNEDBYTEI_VEXTPROC>(
+        SDL_GL_GetProcAddress("glGetUnsignedBytei_vEXT"));
+    if (!getBytes) return "";
+    GLint count = 0;
+    glGetIntegerv(GL_NUM_DEVICE_UUIDS_EXT, &count);
+    if (count < 1) {
+        while (glGetError() != GL_NO_ERROR) {}
+        return "";
+    }
+    GLubyte uuid[GL_UUID_SIZE_EXT] = {};
+    getBytes(GL_DEVICE_UUID_EXT, 0, uuid);
+    while (glGetError() != GL_NO_ERROR) {}
+    return gpu::uuidString(uuid);
+}
+
 bool present() {
     const auto started = std::chrono::steady_clock::now();
     struct Tally {

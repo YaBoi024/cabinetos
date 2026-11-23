@@ -1,7 +1,9 @@
 #include "fileio.h"
 
 #include <fcntl.h>
+#include <linux/magic.h>
 #include <sys/stat.h>
+#include <sys/vfs.h>
 #include <unistd.h>
 
 #include <cctype>
@@ -64,6 +66,15 @@ bool writeBytes(const std::string& path, const void* data, size_t size, mode_t m
         ::unlink(tmp.c_str());
         return false;
     }
+    // The new name, on the drive (fileio.h). The file is in place whatever
+    // this answers.
+    const size_t slash = path.rfind('/');
+    const std::string dir = slash == std::string::npos ? "." : slash == 0 ? "/" : path.substr(0, slash);
+    const int dfd = ::open(dir.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (dfd >= 0) {
+        ::fsync(dfd);
+        ::close(dfd);
+    }
     return true;
 }
 
@@ -75,9 +86,29 @@ bool writeBytes(const std::string& path, const std::string& text, mode_t mode) {
     return writeBytes(path, text.data(), text.size(), mode);
 }
 
+int64_t modifiedNs(const std::string& path) {
+    struct stat st;
+    if (::stat(path.c_str(), &st) != 0) return 0;
+    return static_cast<int64_t>(st.st_mtim.tv_sec) * 1000000000 + st.st_mtim.tv_nsec;
+}
+
 bool removeFile(const std::string& path) {
     if (::unlink(path.c_str()) == 0) return true;
     return errno == ENOENT;
+}
+
+bool syncDrive(const std::string& path) {
+    const int fd = ::open(path.c_str(), O_RDONLY | O_CLOEXEC);
+    if (fd < 0) return false;
+    const bool ok = ::syncfs(fd) == 0;
+    ::close(fd);
+    return ok;
+}
+
+bool keepsSizeWithBytes(const std::string& path) {
+    struct statfs s;
+    if (::statfs(path.c_str(), &s) != 0) return false;
+    return s.f_type == BTRFS_SUPER_MAGIC || s.f_type == EXT4_SUPER_MAGIC;
 }
 
 }  // namespace cab

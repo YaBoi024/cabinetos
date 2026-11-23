@@ -1,5 +1,5 @@
 // Wii U, through Cemu in the image: its settings, its mlc in this person's
-// folder for the game and each player's Pro Controller before every start
+// folder for the game and each player's controller before every start
 // (prepareCemu), and its command line (cemuArgs). Moved out of standalone.cpp
 // in the restructure (#398).
 
@@ -47,13 +47,27 @@ std::string xmlEscape(const std::string& v) {
     return out;
 }
 
-// Cemu's numbers for a Pro Controller's inputs (input/emulated/ProController.h,
-// ButtonId, from 1) and for an SDL gamepad's (input/api/Controller.h: SDL's
-// button numbers, then ZL 32, ZR 33, the d-pad 34 to 37, and the axes from 38:
-// left stick X+ Y+, right X+ Y+, triggers L R, then the same negative). By
+// Cemu's numbers for a GamePad's inputs (input/emulated/VPADController.h,
+// ButtonId, from 1) and a Pro Controller's (input/emulated/ProController.h),
+// each against an SDL gamepad's (input/api/Controller.h: SDL's button
+// numbers, then ZL 32, ZR 33, the d-pad 34 to 37, and the axes from 38: left
+// stick X+ Y+, right X+ Y+, triggers L R, then the same negative). By
 // position, as Switch is here: Nintendo's A is the pad's right face button.
-// The Pro Controller's HOME is left out: Guide is the console's pause menu.
-// The same table as Batocera's.
+// Left out: HOME on both, since Guide is the console's pause menu, and the
+// GamePad's microphone and its button that shows the GamePad's screen. The
+// same tables as Batocera's, less its microphone on L3.
+constexpr int kCemuGamePad[][2] = {
+    {1, SDL_GAMEPAD_BUTTON_EAST},          {2, SDL_GAMEPAD_BUTTON_SOUTH},
+    {3, SDL_GAMEPAD_BUTTON_NORTH},         {4, SDL_GAMEPAD_BUTTON_WEST},
+    {5, SDL_GAMEPAD_BUTTON_LEFT_SHOULDER}, {6, SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER},
+    {7, 42},                               {8, 43},
+    {9, SDL_GAMEPAD_BUTTON_START},         {10, SDL_GAMEPAD_BUTTON_BACK},
+    {11, SDL_GAMEPAD_BUTTON_DPAD_UP},      {12, SDL_GAMEPAD_BUTTON_DPAD_DOWN},
+    {13, SDL_GAMEPAD_BUTTON_DPAD_LEFT},    {14, SDL_GAMEPAD_BUTTON_DPAD_RIGHT},
+    {15, SDL_GAMEPAD_BUTTON_LEFT_STICK},   {16, SDL_GAMEPAD_BUTTON_RIGHT_STICK},
+    {17, 45}, {18, 39}, {19, 44}, {20, 38},   // left stick up, down, left, right
+    {21, 47}, {22, 41}, {23, 46}, {24, 40},   // right stick
+};
 constexpr int kCemuPro[][2] = {
     {1, SDL_GAMEPAD_BUTTON_EAST},          {2, SDL_GAMEPAD_BUTTON_SOUTH},
     {3, SDL_GAMEPAD_BUTTON_NORTH},         {4, SDL_GAMEPAD_BUTTON_WEST},
@@ -67,19 +81,38 @@ constexpr int kCemuPro[][2] = {
     {22, 47}, {23, 41}, {24, 46}, {25, 40},   // right stick
 };
 
+// PLAYER 1 IS THE GAMEPAD, every other player a Pro Controller (MMagTech,
+// 2026-10-22), as on a Wii U, where the GamePad is always there and always
+// player 1. With none set up, Cemu still tells a game a GamePad is there and
+// never presses it (Cafe/OS/libs/vpad/vpad.cpp, VPADRead), so a screen that
+// reads only the GamePad saw nothing at all: Shovel Knight's first one did.
+// Cemu's own guide, RetroArch's Cemu core, Batocera and RetroDECK all make
+// player 1 the GamePad. Cemu gives a GamePad the first GamePad channel and a
+// Pro Controller the first free Wii controller channel, whatever its slot, so
+// player 2 is the game's first Pro Controller, as on a Wii U.
 std::string cemuProfile(int player) {
+    const bool gamePad = player == 0;
     std::string x = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<emulated_controller>\n";
-    x += "  <type>Wii U Pro Controller</type>\n  <controller>\n";
+    x += std::string("  <type>") + (gamePad ? "Wii U GamePad" : "Wii U Pro Controller") +
+         "</type>\n  <controller>\n";
     x += "    <api>SDLController</api>\n";
     // `<n>_<GUID>`: the n-th pad with that GUID. Each player's virtual
-    // controller has a GUID of its own (vpad.h), so always the first.
+    // controller, plain or stand-in, has a GUID of its own (vpad.h), so
+    // always the first.
     x += "    <uuid>0_" + cab::vpad::sdlGuid(player) + "</uuid>\n";
     x += "    <display_name>CabinetOS player " + std::to_string(player + 1) + "</display_name>\n";
     x += "    <rumble>1</rumble>\n";
+    // THE PLAYER'S TILT (#669), when their controller is a stand-in DualSense
+    // carrying it, which for Cemu is player 1's alone (standalone.h): Cemu
+    // reads a pad's motion only when its profile says so
+    // (input/InputManager.cpp, "motion"; Controller.h, use_motion), and only
+    // for the GamePad (VPADController::update_motion), the one Wii U
+    // controller with a gyro.
+    if (cab::vpad::carriesMotion(player)) x += "    <motion>true</motion>\n";
     for (const char* a : {"axis", "rotation", "trigger"})
         x += std::string("    <") + a + "><deadzone>0.25</deadzone><range>1</range></" + a + ">\n";
     x += "    <mappings>\n";
-    for (const auto& m : kCemuPro)
+    for (const auto& m : gamePad ? kCemuGamePad : kCemuPro)
         x += "      <entry><mapping>" + std::to_string(m[0]) + "</mapping><button>" +
              std::to_string(m[1]) + "</button></entry>\n";
     x += "    </mappings>\n  </controller>\n</emulated_controller>\n";
@@ -147,8 +180,9 @@ bool prepareCemu(const Emulator& e, const std::string& saveDir, int players, std
         *err = "could not write Cemu's settings in " + config;
         return false;
     }
-    // EACH PLAYER A PRO CONTROLLER, on their own virtual controller, in the
-    // console's order; and no profile for a seat nobody is in.
+    // PLAYER 1 THE GAMEPAD AND THE OTHERS PRO CONTROLLERS (cemuProfile), each
+    // on their own virtual controller, in the console's order; and no
+    // profile for a seat nobody is in.
     for (int p = 0; p < 8; ++p) {
         const std::string file = config + "/controllerProfiles/controller" + std::to_string(p) + ".xml";
         if (p >= players) {
@@ -165,14 +199,24 @@ bool prepareCemu(const Emulator& e, const std::string& saveDir, int players, std
 void cemuArgs(std::vector<std::string>& full, const std::string& dir, const std::string& romPath) {
     // ITS LOG under its home (XDG_DATA_HOME/Cemu); its settings and
     // shader cache are there already, by the two Run::start sets. ONLY THE
-    // VIRTUAL CONTROLLERS, as for xemu and Edge, with SDL told what
-    // each one is: Cemu (SDL 3) asks for gamepads, and its profiles
-    // bind them by GUID (prepareCemu). GTK on gamescope's Xwayland.
+    // VIRTUAL CONTROLLERS of the kind open (vpad.h: the stand-in
+    // DualSenses, or the plain ones when those could not be made), with SDL
+    // told what each one is: Cemu (SDL 3) asks for gamepads, and its
+    // profiles bind them by GUID (prepareCemu). GTK on gamescope's Xwayland.
     std::string db;
     for (int p = 0; p < cab::vpad::kMaxPlayers; ++p) db += cab::vpad::sdlMapping(p) + "\n";
     full.insert(full.end() - 1, "XDG_DATA_HOME=" + dir);
     full.insert(full.end() - 1, "SDL_GAMECONTROLLERCONFIG=" + db);
-    full.insert(full.end() - 1, "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x1209/0xCAB0");
+    full.insert(full.end() - 1, "SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=" + cab::vpad::sdlIds());
+    // AND NOT THROUGH SONY'S HID PROTOCOL. Cemu turns SDL's PlayStation HID
+    // drivers back on in its code (input/api/SDL/SDLControllerProvider.cpp,
+    // SDL_HINT_JOYSTICK_HIDAPI_PS5), over the SDL_JOYSTICK_HIDAPI=0 every
+    // program gets (standalone.cpp), so its SDL took the stand-in DualSense
+    // through its hidraw node, under a GUID of the HID driver's that the
+    // profile does not name, and the game had no controller (measured on the
+    // A9 2026-11-11, Shovel Knight). A hint in the environment wins over one
+    // set in code, so the evdev path and the profile's GUID hold.
+    full.insert(full.end() - 1, "SDL_JOYSTICK_HIDAPI_PS5=0");
     full.insert(full.end() - 1, "GDK_BACKEND=x11");
     // `-g` starts the game with no game list and closes Cemu when it
     // ends; `-f` is fullscreen.

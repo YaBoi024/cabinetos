@@ -5,8 +5,8 @@ page lists what is in there, where it came from, the exact commit it was built
 from, and under what terms.
 
 Modelled on Cabinet's `docs/licenses.md`, which had already solved this. The
-commits below are **CabinetOS's**, not Cabinet's — eleven cores are pinned to a
-different revision than Cabinet's iOS build ships, and the pins here are the
+commits below are **CabinetOS's**, not Cabinet's: eleven cores are pinned to a
+different revision than Cabinet's iOS build shipped, and the pins here are the
 ones `cores/build-core.sh` asserts at build time.
 
 **CabinetOS ships no games and no BIOS files, with one exception: the Vectrex
@@ -17,11 +17,18 @@ use in 1992; the same non-commercial constraint as the six cores below covers
 it. Everything else comes from the person's own RomM server at runtime and is
 not redistributed here.
 
+**The Vectrex sheets are GCE's too.** Every retail cartridge shipped with
+a translucent printed sheet that sat in front of the screen; the console
+draws each game's sheet over its picture (#224) from community-drawn
+copies of them. The drawings are MIT; the designs are Smith Engineering's,
+allowed for non-commercial use with the games, as above. They are not
+public domain, and the permission is Jay Smith's to withdraw.
+
 ---
 
 ## The constraint this project is under, said plainly
 
-**Six of the twenty-two cores are free for non-commercial use only.** Not GPL —
+**Six of the twenty-three cores are free for non-commercial use only.** Not GPL —
 a different thing, and a stricter one. They cover Arcade, SNES, Genesis, Sega
 CD, Master System, Game Gear, 32X and 3DO, which is a large slice of the
 library.
@@ -45,19 +52,23 @@ obligation lands only on **distribution**: pass on the same freedoms, and make
 the corresponding source available.
 
 **The cores are `dlopen`ed rather than statically linked**, which is a narrower
-coupling than Cabinet's build has, but the conservative reading is the same one
-Cabinet states about itself: the distributed image is a combined work under
+coupling than Cabinet's build had, but the conservative reading is the same one
+Cabinet stated about itself: the distributed image is a combined work under
 those terms. The corresponding source for every GPL component is the upstream
 commit named below, unmodified except where `cores/build-core.sh` says
 otherwise, and that script is in this repository so anyone can reproduce the
 binaries exactly. Two cores have been shown to build byte-identically on two
 different machines.
 
-**Source patches are part of this.** `cores/build-core.sh` applies three
-in-flight patches — melonDS's unload flush, and PPSSPP's shader-cache save and
-CPU-engine log. They are visible in that script, they are applied at build time
-rather than vendored, and they are the modifications this project makes to GPL
-source.
+**Source patches are part of this.** Four build scripts apply in-flight
+patches: `cores/build-core.sh` (melonDS's unload flush, PPSSPP's shader-cache
+save and CPU-engine log, and Azahar's, which gives each game its own folders),
+`cores/build-pcsx2.sh` (PCSX2's sound handed to the console),
+`cores/build-sunshine.sh` (Sunshine's, in `cores/sunshine-patches/`) and
+`cores/build-supermodel.sh` (Supermodel's, which runs a machine linked to
+itself as the only cabinet). They are visible in those scripts, they are
+applied at build time rather than vendored, and they are the modifications
+this project makes to GPL source.
 
 ---
 
@@ -93,7 +104,9 @@ Agreement and are never part of this image.
 
 Each is built from upstream at the commit below by `cores/build-core.sh`, which
 checks out that exact revision and asserts it, then reads the revision back out
-of the finished `.so` and fails the build if it does not match.
+of the finished `.so` and fails the build if it does not match. MAME 0.289 is
+the one exception: libretro's own build of the commit below, checked by its
+SHA256 and by the revision it reports (`cores/fetch-mame.sh`).
 
 | Core | Systems | Licence | Upstream | Commit |
 |---|---|---|---|---|
@@ -104,6 +117,7 @@ of the finished `.so` and fails the build if it does not match.
 | PicoDrive | Sega 32X | **Non-commercial** | [libretro/picodrive](https://github.com/libretro/picodrive) | `733c711a477a` |
 | Opera | 3DO | **Modified LGPL, non-commercial** (FreeDO terms; the LGPL's version is not stated, and the terms are only in the source headers) | [libretro/opera-libretro](https://github.com/libretro/opera-libretro) | `a501a278d057` |
 | Flycast | Dreamcast, Naomi | GPL v2 | [flyinghead/flycast](https://github.com/flyinghead/flycast) | `a172e0001351` |
+| MAME 0.289 | Arcade | GPL v2 (`COPYING`; some files under less restrictive terms, as their headers say). Its plugins beside it: `boot.lua` BSD 3-clause, the high-score plugin CC0, its JSON library MIT | [libretro/mame](https://github.com/libretro/mame) | `5f5a07748ce5` (libretro's own build, not built here) |
 | PPSSPP | PSP | GPL v2 or later | [hrydgard/ppsspp](https://github.com/hrydgard/ppsspp) | `c989c2553e10` |
 | Dolphin | GameCube (and Wii, from the same core) | GPL v2 or later | [libretro/dolphin](https://github.com/libretro/dolphin) | `1a0f97270b70` |
 | mupen64plus-libretro-nx (bundles GLideN64) | Nintendo 64 | GPL v2 | [libretro/mupen64plus-libretro-nx](https://github.com/libretro/mupen64plus-libretro-nx) | `f275caf4b2bf` |
@@ -120,9 +134,10 @@ of the finished `.so` and fails the build if it does not match.
 | DraStic FreeBIOS | DS BIOS replacement inside melonDS | BSD 2-clause | bundled in the fork above | `66b5d2634cd0` |
 | vecx | Vectrex | GPL v3; **the Vectrex system ROM inside it**, Smith Engineering's non-commercial permission (above) | [libretro/libretro-vecx](https://github.com/libretro/libretro-vecx) | `8f671cc9d737` |
 | mGBA | Game Boy Advance | MPL 2.0 | [libretro/mgba](https://github.com/libretro/mgba) | `e31759b24e7a` |
+| Azahar | Nintendo 3DS | GPL v3: most of its files are GPL v2 or later, and some it is built from are GPL v3 or later (`src/core/core.cpp` among them), though the repository's licence file is the GPL v2's. **Modified**: each game sets its own folders (the patch is in `cores/build-core.sh`), and built without Azahar's compiled-in blob of the 3DS's keys | [azahar-emu/azahar](https://github.com/azahar-emu/azahar) | `219d743a1e69` (release 2126.2) |
 
 **Not carried from Cabinet:** `gw-libretro` (Game & Watch) and `vemulator`
-(Dreamcast VMU minigames) are iOS-only in Cabinet by decision and are not built
+(Dreamcast VMU minigames) were iOS-only in Cabinet by decision and are not built
 here. See `frontend/src/catalog.cpp`.
 
 ## Files shipped inside the image that are not cores
@@ -130,10 +145,12 @@ here. See `frontend/src/catalog.cpp`.
 | What | Where it comes from | Licence |
 |---|---|---|
 | **The screen looks** (#122), `/usr/share/cabinetos/shaders/` | RetroArch's GLSL shaders from [libretro/glsl-shaders](https://github.com/libretro/glsl-shaders) at `435612fe4f10`, unmodified, read at run time and never compiled into the frontend; `frontend/data/shaders/`, fetched by `tools/fetch-shaders.py` | Each file's own: **public domain** for crt-lottes (Timothy Lottes), lcd3x (Gigaherz) and sharp-bilinear-simple; **GPL** for crt-easymode and its halation version (EasyMode), crt-geom (cgwg, Themaister, DOLLS), zfast-crt and zfast-lcd (Greg Hogan), crt-aperture (EasyMode), crt-guest-dr-venom (guest.r), the Game Boy dot-matrix (Harlequin) and its colour version (LuigiRa, GPL v3 or later); crt-guest-dr-venom's colour tables (LUTs) are torridgristle's, with no licence stated. lcd-grid-v2 (cgwg) and some helper passes of halation and guest carry no header; cgwg distributes his shaders under the GPL (his note in crt-geom), and the helpers are parts of GPL works, so they are treated as GPL |
+| **The Vectrex screen sheets** (#224), `/usr/share/cabinetos/vectrex/` | the `Game Overlay` folder of [libretro/overlay-borders](https://github.com/libretro/overlay-borders) (`1080 GCE Vectrex`) at `385490fa8`, 38 PNG files, unmodified, fetched at build time by `tools/fetch-vectrex-overlays.py` (as the shaders are); which sheet belongs to which game is this project's own table, `frontend/data/vectrex-overlays.json`, after Cabinet's | **MIT** for the drawings, which are vector recreations by THK and Gigapig of the HyperSpin community, cut for RetroArch by thatman84 (credited in each file's `.cfg`, and the attribution libretro asked for in its issue #6). **The designs underneath are GCE's, 1982 to 1984, and belong to Smith Engineering**, under the same non-commercial permission as the system ROM (above); ten sheets carry the titles and marks of the games' licensors (Paramount, Namco, Atari, Konami, Cinematronics) as the printed sheets did |
 | **PPSSPP system files** — fonts, VFPU tables, `compat.ini`, the atlases | PPSSPP's own `assets/`, installed by `cores/build-core.sh` | GPL v2 or later, as PPSSPP (the PSP fonts carry no licence of their own; the Japanese and Latin ones were replaced in 2020 by a PPSSPP contributor's) |
 | **FFmpeg**, statically linked inside PPSSPP | the prebuilt `ffmpeg/linux/x86_64` in PPSSPP's own tree | LGPL v2.1 or later |
 | **Noto Sans** and Noto Sans CJK, the interface type | already in the Bazzite base; nothing is bundled | SIL Open Font License 1.1 |
 | **The Wii bridge**, `/usr/libexec/cabinetos-wii-bridge` | this repository's `wiibridge/`, a program of its own that the console app only starts; it carries Dolphin's extension encryption (`encryption.cpp`/`.h`) from `libretro/dolphin` at `1a0f97270b70`, credited in each file | GPL v2 or later, as Dolphin |
+| **LinkUp's program**, `/usr/libexec/cabinetos-linkup` | this repository's `linkup/`, MIT like the console app, a program of its own so a firewall can tell it from the console. It links GStreamer (LGPL), libnice (LGPL and MPL), libpipewire (MIT), OpenSSL (Apache-2.0), libcurl (curl) and json-c (MIT), each from Fedora, as the image's packages |
 | **PCSX2**, linked into `cabinetos-ps2.so` | upstream `PCSX2/pcsx2` at v2.8.2, built by `cores/build-pcsx2.sh` | GPL v3 or later |
 | **PCSX2's resources** — `GameIndex.yaml`, the Redump database, fonts, GS shaders | PCSX2's own `bin/resources` | GPL v3 or later, as PCSX2, except its fonts and flags: Roboto (Apache 2.0), Twemoji (Apache 2.0 code, CC BY 4.0 artwork, credited in its licence file), promptfont (OFL 1.1), the flag icons (MIT); `fa-solid-900.ttf` (Font Awesome) carries no licence file at that version |
 | **PCSX2's game patches**, `patches.zip` | built by `cores/build-pcsx2.sh` from `PCSX2/pcsx2_patches` at `9f82a4d2b8a2`, as PCSX2's own releases carry it | none stated: the repository has no licence file. Community-written patches, distributed by PCSX2 with every release |
@@ -141,12 +158,20 @@ here. See `frontend/src/catalog.cpp`.
 | **RPCS3**, in `/usr/lib/cabinetos/rpcs3` | the RPCS3 team's official Linux build `0.0.42-20076-1707d7fc` (release `build-1707d7fc…` of `RPCS3/rpcs3-binaries-linux`), unmodified, pinned by checksum in `build_files/install-rpcs3.sh`; source is `RPCS3/rpcs3` at commit `1707d7fc883ef48ff21bdcbb0141a3211ae09cb2` | GPL v2 |
 | **The libraries RPCS3's build carries** (Qt 6, FFmpeg, SDL 3, OpenCV, OpenAL and others, in its `usr/lib`) | bundled by the RPCS3 team in the same build, unchanged | each under its own licence, as RPCS3 ships them (Qt LGPL v3, FFmpeg LGPL v2.1 or later, SDL zlib) |
 | **xemu's blank Xbox hard drive**, `/usr/share/cabinetos/xemu/xbox_hdd.qcow2` | `xbox_hdd.qcow2` from `xemu-project/xemu-dashboard` release `v20260516-0955`, unmodified, pinned by checksum in `build_files/install-xemu-drive.sh`. It holds the open-source xemu-dashboard and nothing of Microsoft's | MIT, with the libraries the dashboard is built from (nxdk and others) under their own licences, as xemu-dashboard ships them |
+| **The libraries compiled into Azahar's core** (Boost, dynarmic, xbyak, fmt, Crypto++, LibreSSL, zstd, teakra, faad2, SoundTouch, glslang, SPIRV-Tools, sirit, Vulkan Memory Allocator, xxHash, inih and others), and its open-source stand-ins for the 3DS's system archives (the shared font and the bad-word list among them, generated by B3n30/citra_system_archives) | Azahar's own submodules and `externals/` at the core's pinned commit, linked statically by its own CMake, unchanged | each under its own licence, as Azahar's own builds carry them |
 | **Dolphin's `Sys` folder** — per-game settings, the Wii's `shared2` files, shaders, the cheat code handler | Dolphin's own `Data/Sys` at the core's pinned commit, installed by `cores/build-core.sh` | GPL v2 or later, as Dolphin, except the GameCube fonts (Droid Sans, Apache 2.0, `GC/font-licenses.txt`) |
 | **The Xbox EEPROM**, `/usr/share/cabinetos/xemu/eeprom.bin` | made once by this project's `tools/xbox-eeprom.py`, the way xemu makes one | MIT, as CabinetOS |
-| **Xenia Edge**, in `/usr/lib/cabinetos/xenia` | its developer's official Linux build, release `a7c39fa` of `has207/xenia-edge` (`xenia_edge_linux.AppImage`), unmodified, pinned by checksum in `build_files/install-xenia.sh`; source is `has207/xenia-edge` at commit `a7c39fa7d9c54d83022e431da62c1c65bf3e6196` | BSD 3-Clause |
+| **Xenia Edge**, in `/usr/lib/cabinetos/xenia` | its developer's official Linux build, release `4ad875a` of `has207/xenia-edge` (`xenia_edge_linux.AppImage`), unmodified, pinned by checksum in `build_files/install-xenia.sh`; source is `has207/xenia-edge` at commit `4ad875acb557910b42d39749787bc55a4b75d6e7` | BSD 3-Clause |
 | **The libraries Xenia Edge's build carries** (GTK 3, GLib, cairo, SDL 3, X11 libraries and others, in its `usr/lib`) | bundled by Edge's own AppImage build, unchanged | each under its own licence, as Edge ships them (GTK, GLib and cairo LGPL, SDL zlib, the X11 libraries MIT) |
+| **Vita3K**, in `/usr/lib/cabinetos/vita3k` | its developers' official Linux build, numbered build `4210` of `Vita3K/Vita3K-builds` (`Vita3K-x86_64.AppImage`), unpacked without its launcher and unmodified apart from one link naming its own Vulkan loader, pinned by checksum in `build_files/install-vita3k.sh`; source is `Vita3K/Vita3K` at commit `649d7d69b2da2eb55f17233376f861a3a32cf12a` | GPL v2 or later |
+| **The libraries Vita3K's build carries** (glibc, Qt 6, FFmpeg with x264 and Xvid, Mesa's Vulkan drivers, the X11 and Wayland libraries and others, in its `lib`; SDL 3 is linked into the program) | bundled by Vita3K's own AppImage build, unchanged | each under its own licence, as Vita3K ships them (glibc LGPL v2.1 or later, Qt LGPL v3, FFmpeg LGPL v2.1 or later, x264 and Xvid GPL v2 or later, Mesa MIT, SDL zlib, the X11 libraries MIT) |
 | **Cemu**, in `/usr/lib/cabinetos/cemu` | built from source by `cores/build-cemu.sh`, unmodified, `cemu-project/Cemu` at commit `4e3c824faa00f6b85782db019f20f29f063f3a2a`, with Cemu's own game profiles and resources from the same commit | MPL 2.0, except its shared fonts (Noto Sans CJK, OFL 1.1) |
 | **The libraries compiled into Cemu** (wxWidgets, Boost, fmt, SDL 3, OpenSSL, curl, glslang, pugixml, libzip, zstd and others) | built by Cemu's own vcpkg recipe at the versions its pinned commit names, linked statically, unchanged | each under its own licence (wxWidgets licence, Boost licence, fmt MIT, SDL zlib, OpenSSL Apache 2.0, curl MIT-style, glslang BSD-style, pugixml MIT, libzip BSD 3-Clause, zstd BSD) |
+| **sm2-emu**, in `/usr/lib/cabinetos/sm2emu` | built from source by `cores/build-sm2emu.sh`, unmodified, `dmanlfc/sm2-emu` at commit `4c290c558afaaa85956fa2364971c92cfde707cf` (v0.9.56), with its own game list and translations from the same commit; copyright 2025+ Daniel Martin (dmanlfc) and the sm2-emu contributors | GPL v3 or later, with additional terms under its section 7 (its `NOTICE`: keep its copyright notices and author attributions, do not misrepresent its origin, and a modified copy takes another name); the code it takes from MAME's Model 2 driver stays BSD 3-Clause |
+| **The libraries compiled into sm2-emu** (Musashi, ymfm, Dear ImGui, pugixml, miniz, the LZMA SDK, stb, VulkanMemoryAllocator, SheenBidi) | its own submodules and committed sources at its pinned commit, linked statically by its own CMake, unchanged | each under its own licence (Musashi MIT, ymfm BSD 3-Clause, Dear ImGui MIT, pugixml MIT, miniz MIT, the LZMA SDK and stb public domain, VulkanMemoryAllocator MIT, SheenBidi Apache 2.0) |
+| **Supermodel**, in `/usr/lib/cabinetos/supermodel` | built from source by `cores/build-supermodel.sh`, **modified**: a machine whose net board is linked to itself runs as the only cabinet (the patch is in that script), `trzy/Supermodel` at commit `14815455dc28fca2c8662fb1ed99d447ecf8f364` (v0.3a-20261025-git-1481545), with its own game list and crosshair pictures from the same commit; copyright 2003-2026 The Supermodel Team | GPL v3 or later |
+| **The libraries compiled into Supermodel** (GLEW, minizip, TinyXML-2, Dear ImGui, minimp3, and Musashi, its 68000 core) | its own `Src/Pkgs` and `Src/CPU/68K/Musashi` at its pinned commit, built by its own makefile, unchanged | each under its own licence (GLEW BSD 3-Clause and MIT, minizip zlib, TinyXML-2 zlib, Dear ImGui MIT, minimp3 CC0; Musashi under the GPL, by its author's permission, as its header says) |
+| **SDL2_net**, `/usr/lib/cabinetos/supermodel/lib/libSDL2_net-2.0.so.0` | Fedora 44's package, version 2.4.0, copied unchanged beside Supermodel, which the image's base lacks | zlib |
 | **Sunshine** (Remote Play), `/usr/bin/sunshine` and `/usr/share/sunshine` | built from source by `cores/build-sunshine.sh` with LizardByte's own Fedora 44 recipe, `LizardByte/Sunshine` at tag `v2026.914.233613`, **modified**: our patches in `cores/sunshine-patches/` (#304); `build_files/install-sunshine.sh` removes only the file capability the package sets and its own service and launchers | GPL v3 |
 | **The libraries compiled into Sunshine** (FFmpeg, and x264 for its CPU encoder, which the console does not use) | linked statically by LizardByte's build recipe, unchanged | each under its own licence (FFmpeg LGPL 2.1 or later / GPL, x264 GPL v2 or later) |
 | **Tailscale** (Remote Play away from home), `/usr/bin/tailscale` and `/usr/sbin/tailscaled` | already in the Bazzite base (1.102.4); nothing is bundled, only its service given CabinetOS's settings | BSD 3-Clause |
@@ -175,12 +200,32 @@ developer publishes it and only unpacked; nothing is patched. The profile file
 the console writes for it (`frontend/src/x360profile.cpp`) is encrypted the
 way Edge encrypts its own, with the key Edge publishes in its BSD-licensed
 source; no game, BIOS or firmware is involved, and Xbox 360 needs none.
+**PLAYSTATION VITA IS A WHOLE PROGRAM TOO**, Vita3K's own numbered build,
+shipped as its developers publish it and only unpacked, with a link added so
+the SDL inside it finds the Vulkan loader it carries; nothing is patched. No
+firmware ships: the Vita's system software and fonts come from the person's
+RomM, and Vita3K installs them on the console.
 **WII U IS A WHOLE PROGRAM TOO**, Cemu built here from its own source at a
 pinned commit by its own recipe, with nothing patched; MPL 2.0 asks that its
 source be available, and it is, at that commit. The console reads a `.wua`'s
 table of contents itself (`frontend/src/wiiu.cpp`) to find a game's product
 code; that is this project's own code, written from the format's description
 in Exzap/ZArchive (MIT No Attribution). No game, firmware or key is involved.
+**SEGA MODEL 2 IS A WHOLE PROGRAM TOO**, sm2-emu built here from its own
+source at a pinned commit by its own CMake, with nothing patched, so it keeps
+its name (its `NOTICE`, section 7(e)). GPL v3 asks that its source be
+available, and it is, at that commit. Its additional terms ask that its
+copyright notices and author attributions stay where users can reach them:
+its `NOTICE` ships in `/usr/share/licenses/`, and since the console never
+shows its own About screen, its copyright line is in Settings, About,
+Credits. No game or firmware ships: Model 2 boards need none beyond each
+game's zip.
+**SEGA MODEL 3 IS A WHOLE PROGRAM TOO**, Supermodel built here from its own
+source at a pinned commit by its own makefile, with nothing patched. GPL v3
+asks that its source be available, and it is, at that commit. SDL2_net, the
+one library it needs that the base lacks, is Fedora's own build, copied
+beside it unchanged; its source is libsdl-org/SDL_net at release 2.4.0. No
+game or firmware ships: Model 3 boards need none beyond each game's zip.
 **REMOTE PLAY IS A WHOLE PROGRAM TOO**, Sunshine, built by LizardByte's own
 Fedora recipe at the pinned tag, with our changes (#304). GPL v3 asks that its
 source be available, modified as shipped: it is LizardByte's tag plus the
@@ -216,6 +261,17 @@ the frontend for RetroAchievements (#74): the copy in
 `1433173220a7`), with its `LICENSE` beside it and the files left out listed in
 its `VERSION`. It is the library RetroArch, Dolphin and PCSX2 use.
 
+**Sigil** (github.com/rommapp/argosy-sigil, MPL 2.0) is compiled into the
+frontend for Switch saves (#346): the copy in `frontend/third_party/sigil/`,
+unmodified, at commit `85f88a85b7e8` (the one RomM builds in), with its
+`LICENSE` and `licenses/` beside it, and the parts of the two libraries it
+carries that its build compiles, each with its licence: libchdr (BSD
+3-clause) and, inside it, zlib (zlib licence), zstd (BSD 3-clause), the LZMA
+SDK (public domain) and dr_flac (public domain or MIT-0); and tiny-AES-c (The
+Unlicense). What was left out is listed in its `VERSION`. MPL 2.0 covers
+Sigil's own files, which are unchanged, and their source is in this
+repository at the commit the image is built from.
+
 **Signing in to RetroAchievements sends data to RetroAchievements**, and only
 then: it is opt-in, per person, in Settings. The username and password go to
 retroachievements.org once; afterwards the console sends the token it was
@@ -228,8 +284,8 @@ version and the emulator. Nothing is sent for anybody who has not signed in.
 licence) is carried as data, not linked: `gamecontrollerdb.txt` in
 `/usr/share/cabinetos/`, unmodified. Pinned in this repository
 (`frontend/data/`, installed with the frontend so an update ships one file) and
-refreshed by a weekly pull request (`.github/workflows/pad-db-update.yml`),
-which names the upstream commit; first pinned at `c6d6e7ecca57`
+updated when a player reports a pad, by a pull request
+(`.github/workflows/pad-db-update.yml`) that names the upstream commit; first pinned at `c6d6e7ecca57`
 (2026-09-24). It is the community's list of controllers SDL does not know by
 itself (issue #66).
 
@@ -247,6 +303,16 @@ the full `wiiutdb.xml`, its version in its first line. The Wii U file carries
 no statement of its own; GameTDB's FAQ describes all its databases as "for
 anyone to use in any game-related project". It decides which Wii U games play
 on an ordinary pad (open question 36).
+
+**RPCS3's per-game settings database** (api.rpcs3.net, kept by the RPCS3
+team) is carried as data: `/usr/lib/cabinetos/rpcs3/config_database.dat`, a
+snapshot of the file RPCS3's own window downloads for every copy of RPCS3,
+unmodified, pinned in this repository (`build_files/rpcs3-config-database.json`)
+and refreshed by `tools/fetch-rpcs3-config-database.py` only when RPCS3's
+pin moves; first taken from the server's file of 2026-10-31 (2,294 games). It is a list of serials and the settings RPCS3
+should use for each, served by the RPCS3 team to every copy of its program,
+and carries no licence statement of its own
+(docs/decisions/2026-11-06-rpcs3-settings-database-snapshot.md).
 
 ## Not bundled
 

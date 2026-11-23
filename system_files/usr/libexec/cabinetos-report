@@ -13,12 +13,18 @@
 # kind of fault is covered too (the Remote Play faults #294 and #296 would have
 # been missed by a list of facts with nothing of Sunshine in it):
 #   - a summary: versions, the machine, the features that are on
-#   - every setting
+#   - every setting, and the buttons moved in each arcade game's Controls
 #   - a section per part with its current state: the machine, graphics, the
-#     screen, drives and space, controllers and Bluetooth, sound, network and
-#     Tailscale, Remote Play, Steam, updates, the server, File access and
-#     Developer access, services
-#   - the games played in the two boots, and the emulators' own logs
+#     screen, drives and space, the firmware files (names and sizes only),
+#     controllers and Bluetooth, sound, network and Tailscale, Remote Play,
+#     Steam, updates and the emulators from Flathub, the server, File access
+#     and Developer access, services
+#   - each person's save records (#346): per game, the snapshot and channel
+#     this console holds, what it still owes RomM and how often sending it
+#     failed in the two boots, RomM's save channels as last seen, and the
+#     save a start kept aside, read from the disk alone
+#   - everything the console said during each game played in the two boots,
+#     and each emulator's own last log
 #   - the whole system log of this boot and the one before, so a crash that
 #     forced a restart is in it. Routine audit lines and SSH logins are left
 #     out (SELinux refusals and SSH failures are kept), and a boot longer than
@@ -26,14 +32,17 @@
 #
 # PRIVATE DETAILS ARE REPLACED BEFORE ANYTHING IS WRITTEN. Two layers:
 #   1. Every private value the console knows is collected first (the server's
-#      address, profile and account names, tokens, Wi-Fi and connection names,
-#      Tailscale names and addresses, Remote Play device names, the names of
-#      Bluetooth devices that are not controllers, serial numbers, a changed
-#      hostname, Steam account names) and replaced everywhere.
+#      address, profile and account names and the shortened forms emulators
+#      give them, tokens, Wi-Fi and connection names, the names people gave
+#      save channels, Tailscale names and addresses, Remote Play device
+#      names, the names of Bluetooth devices that are not controllers, serial
+#      numbers, a changed hostname, Steam account names, the File access
+#      password) and replaced everywhere.
 #   2. A safety net by pattern for what no list knows: email addresses,
 #      network addresses, MAC and Bluetooth addresses (the maker's half is
-#      kept, it says what the device is), serial numbers, Tailscale names,
-#      Steam IDs, tokens and passwords in key=value form.
+#      kept, it says what the device is), serial numbers, Tailscale names and
+#      sign-in links, Steam IDs, tokens and passwords in key=value form, and
+#      the text the on-screen keyboard logged before it stopped.
 # Each distinct value gets its own stable placeholder (<profile 1>, <wifi 2>,
 # <lan ip 3>), so the log still reads. Measured on the A9, 2026-10-10, before
 # this existed: Tailscale writes the account's email into the log in plain
@@ -88,6 +97,9 @@ CONTROLLER_NAME = re.compile(r"RVL-CNT|RVL-WBC|Controller|Gamepad|Joy-Con|8BitDo
 # Names that are the project's and public, never a person's.
 PUBLIC = ["ghcr.io/mmagtech/cabinetos", "github.com/MMagTech/cabinetos", "MMagTech/cabinetos",
           "CabinetOS"]
+# The save channels' names that are RomM's own and the console's, kept; any
+# other a person typed (collect_secrets).
+CHANNEL_NAMES = ("default", "softcore")
 ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 
 
@@ -236,6 +248,37 @@ class Secrets:
         if fold and len(value) >= 4:
             self.fold.add(value)
 
+    def alias(self, value, of):
+        """`value` replaced by the placeholder `of` has, when `of` is known."""
+        value = str(value or "").strip()
+        if len(value) < 2 or value in self.values or of not in self.values:
+            return
+        self.values[value] = self.values[of]
+        if of in self.fold and len(value) >= 4:
+            self.fold.add(value)
+
+
+def name_forms(name):
+    """The other forms a profile name takes where an emulator shows it: the
+    Xbox 360 gamertag (frontend/src/x360profile.cpp, gamertag), the name cut
+    to the PS3's 16 bytes (standalone_rpcs3.cpp) and to Eden's 32
+    (standalone_eden.cpp), and Vita3K's XML-escaped name
+    (standalone_vita3k.cpp)."""
+    tag = ""
+    for c in name:
+        if c.isascii() and c.isalnum():
+            tag += c
+        elif 0 < ord(c) < 0x7F and tag and tag[-1] != " ":
+            tag += " "
+        if len(tag) == 15:
+            break
+    raw = name.encode("utf-8")
+    forms = {tag.rstrip(" "), raw[:16].decode("utf-8", "ignore"), raw[:32].decode("utf-8", "ignore"),
+             name.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                 .replace('"', "&quot;").replace("'", "&apos;")}
+    forms.discard(name)
+    return sorted(f for f in forms if len(f.strip()) >= 2)
+
 
 def collect_secrets(root):
     s = Secrets()
@@ -251,15 +294,19 @@ def collect_secrets(root):
 
     # Profiles, in account order, so <profile 1> is the first account.
     accounts = read_json(os.path.join(root, "config", "accounts.json")) or {}
-    for a in accounts.get("accounts", []) or []:
-        s.add(a.get("name"), "profile", fold=True)
+    profiles = [a.get("name") for a in accounts.get("accounts", []) or []]
     user = read_json(os.path.join(root, "config", "user.json")) or {}
-    s.add(user.get("username"), "profile", fold=True)
+    profiles.append(user.get("username"))
     for d in glob.glob(os.path.join(root, "users", "*")):
-        name = os.path.basename(d)
-        m = re.match(r"\d+ - (.+)$", name)
+        m = re.match(r"\d+ - (.+)$", os.path.basename(d))
         if m:
-            s.add(m.group(1), "profile", fold=True)
+            profiles.append(m.group(1))
+    for p in profiles:
+        s.add(p, "profile", fold=True)
+    for p in profiles:
+        p = str(p or "").strip()
+        for form in name_forms(p):
+            s.alias(form, p)
 
     # Tokens and RetroAchievements names.
     adir = os.path.join(HOME, ".config", "cabinetos", "accounts")
@@ -335,6 +382,46 @@ def collect_secrets(root):
     web = read(os.path.join(root, "remoteplay", "web"))
     for tok in (web or "").split():
         s.add(tok, "secret", numbered=False)
+
+    # LinkUp: the address of the server it is paired with. A friend's name goes in no log (the
+    # program and the frontend name nobody), and the key stays out because no section reads its file.
+    linkup = read_json(os.path.join(root, "linkup", "server.json")) or {}
+    s.add(linkup.get("address"), "linkup server", numbered=False)
+    s.add(linkup.get("name"), "linkup server name", numbered=False)
+
+    # Game events (#716): the address of the owner's app, as typed, its host,
+    # and its path, which can be all that stands between that app and anybody
+    # else on the home network. settings.json is printed whole, and the
+    # frontend logs each setting it saves.
+    settings = read_json(os.path.join(root, "config", "settings.json")) or {}
+    events = str(settings.get("game_events_address") or "").strip()
+    if events:
+        bare = re.sub(r"^[a-z]+://", "", events).rstrip("/")
+        hostport, _, path = bare.partition("/")
+        s.add(events, "game events address", numbered=False)
+        s.add(bare, "game events address", numbered=False)
+        s.add(hostport, "game events app", numbered=False)
+        s.add(hostport.rsplit(":", 1)[0] if hostport.count(":") == 1 else hostport,
+              "game events app", numbered=False)
+        if path:
+            s.add("/" + path, "game events path", numbered=False)
+
+    # Save channels (#346): RomM names its own "default" and the console
+    # makes "softcore"; any other name was typed by a person, on RomM's
+    # website or in another app, and can say who, as a device's name can. The
+    # console keeps each person's channels of each game, and the frontend
+    # logs the one a start took.
+    for path in glob.glob(os.path.join(root, "users", "*", "server-saves", "*", "channels.json")):
+        channels = read_json(path)
+        for c in channels if isinstance(channels, list) else []:
+            label = c.get("label") if isinstance(c, dict) else None
+            if isinstance(label, str) and label not in CHANNEL_NAMES:
+                s.add(label, "channel")
+
+    # File access and Developer access: the console user's login password
+    # (system_files/usr/libexec/cabinetos-files). Nothing logs it, but sshd's
+    # failures are kept, and one typed as a user name would be in them.
+    s.add(first_line(read("/var/lib/cabinetos-files/password")), "secret", numbered=False)
 
     # Bluetooth: a controller's name is its model and stays; anything else
     # (a phone, headphones) is named by a person and does not.
@@ -480,6 +567,10 @@ class Scrubber:
         return self.placeholder(":".join(parts), "mac")[:-1] + " of " + maker + ">"
 
     def __call__(self, text):
+        # THE ON-SCREEN KEYBOARD ONCE LOGGED WHAT WAS TYPED, a Wi-Fi or
+        # RetroAchievements password among it (frontend/src/input.cpp now
+        # logs the length), and a boot from before the update still has it.
+        text = re.sub(r"(\[keyboard\] committed): [^\n]*", r"\1 (the typed text left out)", text)
         if self.known:
             text = self.known.sub(self._known, text)
         # Secrets in key=value form, and bearer tokens.
@@ -495,6 +586,9 @@ class Scrubber:
         # Email addresses.
         text = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}",
                       lambda m: self.placeholder(m.group(0).lower(), "email"), text)
+        # Tailscale's sign-in link (frontend/src/tailscaleflow.cpp logs it):
+        # still open, it puts this console in whoever's network opens it.
+        text = re.sub(r"https?://login\.tailscale\.com/a/[^\s'\"]+", "<tailscale sign-in link>", text)
         # Tailscale names.
         text = re.sub(r"\b[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.ts\.net\b",
                       lambda m: self.placeholder(m.group(0).lower(), "tailscale name"), text)
@@ -536,7 +630,11 @@ def kv(pairs):
 
 def journal_lines(boot):
     """One boot's log as (text, kept, dropped) lines, formatted and filtered."""
-    args = ["journalctl", "-b", str(boot), "-o", "json", "--no-pager",
+    # --all, OR EVERY LONG LINE COMES BACK EMPTY: journalctl's JSON writes a
+    # field over 4096 bytes as null unless asked for all of it, and the trace
+    # of a frontend crash is longer than that, so every one was blank (#659).
+    # It adds the long lines alone, and BOOT_CAP still holds.
+    args = ["journalctl", "-b", str(boot), "-o", "json", "--all", "--no-pager",
             "--output-fields=MESSAGE,SYSLOG_IDENTIFIER,_COMM,_TRANSPORT,PRIORITY,__REALTIME_TIMESTAMP"]
     # READ AS IT COMES, a line at a time: a boot that ran for weeks is
     # hundreds of MB of JSON, and holding all of it cost 400 MB on the A9
@@ -670,10 +768,46 @@ def section_summary(root, settings, frontend_lines):
 def section_settings(root):
     out = []
     for name in ("settings.json", "first-run.json", "drives.json", "picture-quality.json",
-                 "accounts.json", "server.json"):
+                 "ps2-widescreen.json", "accounts.json", "server.json"):
         body = read(os.path.join(root, "config", name))
         out.append("--- %s\n%s\n" % (name, (body or "(none)").strip()))
+    # THE BUTTONS MOVED in an arcade game's Controls (frontend/src/controls.cpp),
+    # per profile, per game and per kind of controller: why a game's buttons
+    # are not where they start.
+    for path in sorted(glob.glob(os.path.join(root, "users", "*", "controls", "*.json"))):
+        out.append("--- %s\n%s\n" % (os.path.relpath(path, root), (read(path) or "").strip()))
     return "\n".join(out)
+
+
+def section_firmware(root):
+    # THE FIRMWARE FILES, by name and size and never their contents, two
+    # levels down: a Vita needs two files, a PS3, a Switch and a Naomi board
+    # theirs, and one missing or of the wrong size is the fault more often
+    # than the emulator.
+    base = os.path.join(root, "bios")
+    rows = []
+
+    def walk(folder, rel, deeper):
+        try:
+            entries = sorted(os.scandir(folder), key=lambda e: e.name.lower())
+        except OSError:
+            return
+        for e in entries:
+            try:
+                if e.is_symlink():
+                    rows.append((rel + e.name, "a link"))
+                elif e.is_dir():
+                    if deeper:
+                        walk(e.path, rel + e.name + "/", False)
+                    else:
+                        rows.append((rel + e.name + "/", "a folder"))
+                else:
+                    rows.append((rel + e.name, size_text(e.stat().st_size)))
+            except OSError:
+                rows.append((rel + e.name, "?"))
+
+    walk(base, "", True)
+    return kv(rows) if rows else "(no firmware files)\n"
 
 
 def section_machine():
@@ -831,10 +965,46 @@ def keyboards():
     return out or "(none)\n"
 
 
+def sound_outputs():
+    # #547: a built-in speaker read "unknown" (nothing senses it), so it
+    # outranked the TV, and the report could only show that it had won, not
+    # why. Each card's outputs from PipeWire, the one in use marked. Since #655
+    # an output reading "unknown" is left out once a screen's sound has been
+    # seen (wireplumber/scripts/cabinetos-sound-output.lua); the system log
+    # below says when that started.
+    raw = run(["pw-dump"])
+    try:
+        objects = json.loads(raw)
+    except ValueError:
+        return raw
+    senses = {"yes": "connected", "no": "not connected", "unknown": "unknown, nothing senses it"}
+    out = ""
+    for o in objects:
+        info = o.get("info") or {}
+        props = info.get("props") or {}
+        if o.get("type") != "PipeWire:Interface:Device" or props.get("device.api") != "alsa":
+            continue
+        params = info.get("params") or {}
+        routes = [r for r in params.get("EnumRoute") or [] if r.get("direction") == "Output"]
+        if not routes:
+            continue
+        in_use = {r.get("name") for r in params.get("Route") or [] if r.get("direction") == "Output"}
+        out += (props.get("device.description") or props.get("device.name") or "?") + "\n"
+        for r in routes:
+            # a count, then key and value pairs
+            ri = r.get("info") or []
+            kind = next((ri[i + 1] for i in range(1, len(ri) - 1, 2) if ri[i] == "port.type"), "?")
+            out += "    %s (%s): %s%s\n" % (r.get("description") or r.get("name"), kind,
+                                          senses.get(r.get("available"), r.get("available")),
+                                          ", in use" if r.get("name") in in_use else "")
+    return out or "(no sound card outputs)\n"
+
+
 def section_sound(frontend_lines):
     # #341: a machine with no sound sent a report that could not say why.
     # The kernel's cards, what the sound server made of them (wpctl status,
-    # the outputs PipeWire has, and which one is the default), and the volume.
+    # the outputs PipeWire has, and which one is the default), what each
+    # card's connectors sense, and the volume.
     # The sound server's own log lines are in the system log below.
     sink = first_line(run(["wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@"])).replace("Volume: ", "") \
         or "(no sound output)"
@@ -850,6 +1020,7 @@ def section_sound(frontend_lines):
     status = run(["wpctl", "status"])
     block = re.search(r"^Audio\n.*?(?=^Video\n|\Z)", status, re.M | re.S)
     out += "\n--- What the sound server has (wpctl status)\n" + (block.group(0) if block else status)
+    out += "\n--- Each sound card's outputs, and what their connectors sense\n" + sound_outputs()
     lines = [l for l in frontend_lines if re.match(r"\[(sound|audio|volume)\]", l)]
     out += "\n--- What the frontend said about sound (last 30 lines)\n"
     out += "".join(l + "\n" for l in lines[-30:])
@@ -865,7 +1036,8 @@ def input_devices(frontend_lines):
             out += "\n".join(l for l in block.splitlines() if l[:2] in ("I:", "N:", "U:", "H:", "P:")) + "\n\n"
     out += "--- Keyboards\n" + keyboards()
     out += "\n--- What the frontend said about controllers and keys (last 60 lines)\n"
-    lines = [l for l in frontend_lines if re.match(r"\[(players|input|wiiremote|wii|wiibridge|shortcuts|vpad|volume)\]", l)]
+    lines = [l for l in frontend_lines if re.match(r"\[(players|input|wiiremote|wii|wiibridge|shortcuts|vpad|"
+                                                    r"volume|fightstick|bluetooth)\]", l)]
     out += "".join(l + "\n" for l in lines[-60:])
     return out
 
@@ -930,6 +1102,23 @@ def section_remoteplay(root, frontend_lines):
     return out
 
 
+def section_linkup(root, frontend_lines):
+    server = read_json(os.path.join(root, "linkup", "server.json")) or {}
+    out = kv([
+        ("Switch", "on" if os.path.exists(os.path.join(root, "linkup", "on")) else "off"),
+        ("Paired", "yes" if server.get("address") else "no"),
+        ("Program", first_line(run(["systemctl", "is-active", "cabinetos-linkup.service"]))),
+        ("Lock", first_line(run(["systemctl", "is-active", "cabinetos-linkup-lock.service"]))),
+        ("Firewall table", "closed" if "skgid 4654" in (run(["nft", "list", "table", "inet", "cabinetos-linkup"]) or "")
+         else "open, or not loaded"),
+    ])
+    out += "\n--- What the program said (no internet addresses, by design)\n"
+    out += run(["journalctl", "-u", "cabinetos-linkup.service", "-b", "-o", "cat", "-n", "200", "--no-pager"]) or "(nothing)\n"
+    out += "\n--- What the frontend said about LinkUp\n"
+    out += "".join(l + "\n" for l in frontend_lines if l.startswith("[linkup]"))
+    return out
+
+
 def section_steam(frontend_lines):
     out = kv([
         ("State", (read("/run/cabinetos-steam.state") or "no state file").strip().replace("\n", "; ")),
@@ -949,6 +1138,30 @@ def section_updates():
     out += "\n--- Signature policy for the image\n"
     policy = read("/etc/containers/policy.json") or ""
     out += policy if len(policy) < 4000 else policy[:4000] + "\n...\n"
+    # EDEN AND XEMU COME FROM FLATHUB, not the image: each at the commit
+    # /usr/share/cabinetos/flatpaks.list pins, which cabinetos-flatpak-setup
+    # puts in place, and a console that could not reach Flathub may not have.
+    # A ref listed on two branches (the graphics driver) is named with each.
+    out += "\n--- Emulators from Flathub, their runtimes and graphics driver\n"
+    rows = []
+    lines = [l.split() for l in (read("/usr/share/cabinetos/flatpaks.list") or "").splitlines()]
+    lines = [p for p in lines if len(p) == 4 and p[0] in ("app", "runtime")]
+    names = [p[1] for p in lines]
+    for parts in lines:
+        ref, branch, pinned = parts[1], parts[2], parts[3]
+        label = ref if names.count(ref) == 1 else "%s//%s" % (ref, branch)
+        info = run(["flatpak", "info", "--system", "%s//%s" % (ref, branch)], timeout=10)
+        version = re.search(r"^\s*Version:\s*(\S+)", info, re.M)
+        have = re.search(r"^\s*Commit:\s*([0-9a-f]+)", info, re.M)
+        version = version.group(1) if version else branch
+        if not have:
+            state = "not installed"
+        elif have.group(1) == pinned:
+            state = "%s, the pinned commit" % version
+        else:
+            state = "%s, NOT the pinned commit (%s, pinned %s)" % (version, have.group(1)[:12], pinned[:12])
+        rows.append((label, state))
+    out += kv(rows) if rows else "(none listed)\n"
     return out
 
 
@@ -992,6 +1205,330 @@ def section_server(root):
     return out
 
 
+# --- Saves: each person's save records (#346) --------------------------------
+#
+# WHAT THE CONSOLE KEEPS OF RomM's SAVE CHANNELS, per person and game, read
+# off the disk with nothing asked of RomM: the snapshot it holds
+# (server-saves/<rom>/held.json, frontend/src/savemirror.h), what it still
+# owes (pending/<rom>.push, and the markers from before channels,
+# frontend/src/pending.h), RomM's channels and saves as last seen
+# (channels.json, saves.json), the save a start kept aside
+# (saves/<platform>/<rom>/replaced/, storage.h) and an emulator's saves not
+# gathered yet (its note, standalone.h). Beside the log, it says what the
+# console believed when a fault happened, online or off.
+SAVES_GAMES_CAP = 30     # games per person, the newest; every one owing something besides
+PLAYING_NOTE = ".cabinetos-playing"
+# A game's snapshot that did not go, as the upload queue (frontend/src/
+# uploader.cpp) and a start (savepush.cpp, settleBeforeStart) say it, and one
+# that landed (savepush.cpp).
+SAVE_NOT_SENT = re.compile(r"\[save\] (?:resent, )?game (\d+)'s snapshot (?:not sent|refused by RomM|waits)")
+SAVE_NOT_BEFORE_START = re.compile(r"\[save\] game (\d+): its save waiting on this console could not go "
+                                   r"to RomM before the start \((.*)\); this console's stands$")
+SAVE_LANDED = re.compile(r"\[save\] game (\d+): (?:snapshot \d+ is (?:the current|kept beside the current) "
+                         r"of channel|its save waiting on this console went to RomM)")
+
+
+def wrap(text, width):
+    """Lines of at most `width`, broken after a comma."""
+    lines, line = [], ""
+    for part in text.split(", "):
+        if line and len(line) + 2 + len(part) > width:
+            lines.append(line + ",")
+            line = part
+        else:
+            line = part if not line else line + ", " + part
+    return lines + ([line] if line else [])
+
+
+def plural(n, word):
+    return "%d %s%s" % (n, word, "" if n == 1 else "s")
+
+
+def save_tries(timed):
+    """Per game, the tries to send its snapshot that failed since it last
+    landed: how many, and the last one's time and reason."""
+    tries = {}
+    for when, msg in timed:
+        m = SAVE_LANDED.match(msg)
+        if m:
+            tries.pop(int(m.group(1)), None)
+            continue
+        m = SAVE_NOT_SENT.match(msg)
+        if m:
+            why = msg.split(": ", 1)[1] if ": " in msg else "waits until RomM has save channels"
+        else:
+            m = SAVE_NOT_BEFORE_START.match(msg)
+            if not m:
+                continue
+            why = "at a start, " + m.group(2)
+        rid = int(m.group(1))
+        tries[rid] = (tries.get(rid, (0,))[0] + 1, when, why)
+    return tries
+
+
+def local_time(t):
+    """Seconds since 1970, or RomM's ISO time, in this console's time."""
+    if not t:
+        return "?"
+    try:
+        if isinstance(t, str) and not t.isdigit():
+            when = datetime.datetime.fromisoformat(t.replace("Z", "+00:00"))
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=datetime.timezone.utc)
+            return when.astimezone().strftime("%Y-%m-%d %H:%M")
+        return datetime.datetime.fromtimestamp(float(t)).strftime("%Y-%m-%d %H:%M")
+    except (ValueError, OverflowError, OSError, TypeError):
+        return str(t)
+
+
+def mtime(path):
+    try:
+        return os.path.getmtime(path)
+    except OSError:
+        return 0
+
+
+def read_marker(path):
+    """A marker in pending/ (frontend/src/pending.cpp): the byte count on the
+    first line, then "key value" lines, each of a push's states after its own
+    "state" line. None when it cannot be read."""
+    body = read(path)
+    if body is None:
+        return None
+    m = {"states": [], "oldrows": []}
+    for l in body.split("\n")[1:]:
+        k, _, v = l.partition(" ")
+        if k == "state":
+            m["states"].append({"core": v})
+        elif k in ("statemade", "statepath") and m["states"]:
+            m["states"][-1][k] = v
+        elif k == "oldrow":
+            m["oldrows"].append(v.split(" ")[0])
+        elif k:
+            m[k] = v
+    return m
+
+
+def game_name(root, rid, platform):
+    """The game's name and system from the console's record of it (storage.h,
+    gamesDir)."""
+    j = read_json(os.path.join(root, "games", "%d.json" % rid))
+    if isinstance(j, dict) and j.get("name"):
+        return "%s (%s)" % (j["name"], j.get("platform_display_name") or j.get("platform_name") or "?")
+    return "No record of its name" + (", in %s" % platform if platform else "")
+
+
+def label_of(channels, cid):
+    label = next((c.get("label", "") for c in channels if c.get("id") == cid), None)
+    return ('channel "%s"' % label if label is not None else "a channel not in the copy") + " (%s)" % cid[:8]
+
+
+def channel_line(c, held_id):
+    """One of RomM's channels as last seen."""
+    text = '"%s" (%s)%s, %s' % (c.get("label", ""), str(c.get("id", ""))[:8],
+                                ", hardcore" if c.get("is_hardcore") else "",
+                                plural(int(c.get("snapshot_count") or 0), "snapshot"))
+    cur = c.get("current")
+    if not isinstance(cur, dict):
+        return text + ", empty"
+    dev = cur.get("device") if isinstance(cur.get("device"), dict) else {}
+    bank = cur.get("states") if isinstance(cur.get("states"), dict) else {}
+    states = sum(len(slots) for slots in bank.values() if isinstance(slots, dict))
+    text += "; current %s, pushed %s by %s%s, %s, %s, %s" % (
+        cur.get("id"), local_time(cur.get("created_at")), dev.get("client") or "?",
+        " (this person's device)" if dev.get("is_own") else "", cur.get("emulator") or "?",
+        "a save" if cur.get("save") else "no save", plural(states, "state"))
+    if held_id and cur.get("id") == held_id:
+        text += "; this console holds it"
+    return text
+
+
+def person_games(udir):
+    """Every game one person has save records of, by RomM id: what each
+    record holds, and the newest time among them."""
+    games = {}
+
+    def game(rid, when):
+        g = games.setdefault(rid, {"when": 0, "owes": False, "platform": None})
+        g["when"] = max(g["when"], when)
+        return g
+
+    pdir = os.path.join(udir, "pending")
+    for path in glob.glob(os.path.join(pdir, "*.push")):
+        rid = re.match(r"(\d+)\.push$", os.path.basename(path))
+        if rid:
+            g = game(int(rid.group(1)), mtime(path))
+            g["owes"] = True
+            g["push"] = read_marker(path)
+            g["push_at"] = mtime(path)
+    for path in glob.glob(os.path.join(pdir, "*.pending")):
+        m = read_marker(path)
+        rid = re.match(r"(\d+)-", os.path.basename(path))
+        if rid and (m or {}).get("kind") != "screenshot":
+            g = game(int(rid.group(1)), mtime(path))
+            g["owes"] = True
+            g.setdefault("old", []).append(m or {"kind": "file whose marker could not be read"})
+    for d in glob.glob(os.path.join(udir, "server-saves", "*")):
+        if os.path.basename(d).isdigit():
+            g = game(int(os.path.basename(d)), max(mtime(os.path.join(d, f))
+                                                   for f in ("held.json", "channels.json", "saves.json")))
+            g["mirror"] = d
+            # ONLY RomM's COPY, NO CHANNEL: what the download for offline
+            # play keeps of every game on the drive (offline_sync.cpp), most
+            # of a big library, with no channel file at all when it was kept
+            # before save channels. Listed by id, not each in full.
+            cpath = os.path.join(d, "channels.json")
+            listed = read_json(cpath) if os.path.exists(cpath) else []
+            g["copy_only"] = listed == [] and not os.path.exists(os.path.join(d, "held.json"))
+    saves = os.path.join(udir, "saves")
+    for d in glob.glob(os.path.join(saves, "*", "*", "replaced")):
+        files = [f for f in glob.glob(os.path.join(d, "**"), recursive=True) if os.path.isfile(f)]
+        platform, rid = os.path.relpath(d, saves).split(os.sep)[:2]
+        if files and rid.isdigit():
+            aside = [(os.path.relpath(f, d), os.path.getsize(f), mtime(f)) for f in files]
+            g = game(int(rid), max(t for _, _, t in aside))
+            g["aside"], g["platform"] = aside, platform
+    for pattern in ("*/*/" + PLAYING_NOTE, "*/*/*/" + PLAYING_NOTE):
+        for note in glob.glob(os.path.join(saves, pattern)):
+            parts = os.path.relpath(note, saves).split(os.sep)
+            if parts[1].isdigit():
+                g = game(int(parts[1]), mtime(note))
+                g["owes"], g["platform"] = True, parts[0]
+                g.setdefault("notes", []).append("/".join(parts[2:-1]) or "the game's own folder")
+    return games
+
+
+def game_rows(g, tries_of_game):
+    """What one person's records say of one game, as (heading, text) rows."""
+    rows, channels, held = [], [], None
+    d = g.get("mirror")
+    if d:
+        hpath, cpath, spath = (os.path.join(d, f) for f in ("held.json", "channels.json", "saves.json"))
+        listed = read_json(cpath) if os.path.exists(cpath) else None
+        if isinstance(listed, list):
+            channels = [c for c in listed if isinstance(c, dict)]
+        held = read_json(hpath) if os.path.exists(hpath) else None
+        if isinstance(held, dict):
+            text = "snapshot %s in %s, taken %s, its save made %s" % (
+                held.get("snapshot_id"), label_of(channels, str(held.get("channel_id", ""))),
+                local_time(held.get("at")), local_time(held.get("made_at")))
+            if held.get("beside"):
+                text += ", kept beside the current as a branch"
+            rows.append(("holds", "%s; %s held so far" % (text, plural(len(held.get("save_hashes_had") or []),
+                                                                       "save"))))
+        else:
+            held = None
+            rows.append(("holds", "its note of the snapshot held could not be read" if os.path.exists(hpath)
+                         else "no snapshot"))
+        if isinstance(listed, list):
+            rows.append(("channels", "%d as last seen, the copy changed %s" % (len(channels),
+                                                                               local_time(mtime(cpath)))))
+            rows += [("", channel_line(c, held.get("snapshot_id") if held else None)) for c in channels]
+        elif os.path.exists(cpath):
+            rows.append(("channels", "the copy could not be read"))
+        if os.path.exists(spath):
+            rowlist = read_json(spath)
+            if isinstance(rowlist, list):
+                loose = sum(1 for r in rowlist if isinstance(r, dict) and not r.get("channel_id"))
+                rows.append(("RomM's saves", "%d as last seen, %d of them in no channel" % (len(rowlist), loose)
+                             if rowlist else "none as last seen"))
+            else:
+                rows.append(("RomM's saves", "the copy could not be read"))
+    if "push" in g:
+        p = g["push"]
+        if p is None:
+            rows.append(("owes", "a snapshot, marked %s; its marker could not be read" % local_time(g["push_at"])))
+        else:
+            what = []
+            if p["oldrows"]:
+                what.append("RomM's save from before channels (row %s), to go into a channel"
+                            % ", ".join(p["oldrows"]))
+            elif p.get("savepath"):
+                there = os.path.isfile(p["savepath"])
+                what.append("a save, %s (%s), made %s" % (p.get("savename", "?"),
+                                                          size_text(os.path.getsize(p["savepath"])) if there
+                                                          else "its file gone", local_time(p.get("made"))))
+            if p["states"]:
+                newest = max(int(s.get("statemade") or 0) for s in p["states"])
+                gone = sum(1 for s in p["states"] if not os.path.isfile(s.get("statepath", "")))
+                what.append("%s, the newest made %s%s" % (plural(len(p["states"]), "state"), local_time(newest / 1000),
+                                                          ", %d of their files gone" % gone if gone else ""))
+            into = label_of(channels, p["channel"]) if p.get("channel") else 'a new channel "%s"' % p.get("label", "")
+            into += (", building on snapshot %s" % p["expected"]) if p.get("expected") else ", which is empty"
+            if p.get("couldnotuse"):
+                into += "; the start could not use the newest save, so RomM keeps it as it comes"
+            made_by = p.get("emulator", "?")
+            if p.get("core", made_by) != made_by:
+                made_by += " (%s)" % p["core"]
+            rows.append(("owes", "%s; marked %s; %s; into %s" % (
+                " and ".join(what) or "nothing named", local_time(g["push_at"]), made_by, into)))
+    for o in g.get("old", []):
+        rows.append(("owes", "a %s from before channels, %s (%s)" % (o.get("kind", "?"), o.get("name", "?"),
+                                                                      o.get("emulator", "?"))))
+    for n in g.get("notes", []):
+        rows.append(("owes", "an emulator's saves not gathered yet, in %s: its last game did not finish" % n))
+    if g["owes"]:
+        rows.append(("tries", "%d failed in these two boots, the last %s: %s" % tries_of_game if tries_of_game
+                     else "none failed in these two boots"))
+    for rel, size, when in g.get("aside", []):
+        rows.append(("kept aside", "%s, %s, %s" % (rel, size_text(size), local_time(when))))
+    return rows
+
+
+def section_saves(root, timed):
+    people = []
+    for d in glob.glob(os.path.join(root, "users", "*")):
+        m = re.match(r"(\d+) - (.+)$", os.path.basename(d))
+        if m and int(m.group(1)) > 0 and os.path.isdir(d):
+            people.append((int(m.group(1)), m.group(2), d))
+    if not people:
+        return "(no one has a folder on this console)\n"
+    out = ("Read from this console's disk; RomM was not asked. Times are this console's; tries are\n"
+           "counted from the frontend's log of these two boots. In full: the newest %d games a\n"
+           "person has channel records of, and every game owing something. By id: the games with\n"
+           "only RomM's saves as last seen and no channel, each with how many saves RomM had.\n"
+           % SAVES_GAMES_CAP)
+    tries = save_tries(timed)
+    for uid, name, d in sorted(people):
+        if left() < 1:
+            return out + "\n" + SKIPPED
+        try:
+            games = person_games(d)
+        except (OSError, ValueError) as e:
+            out += "\n--- %s (RomM user %d): the records could not be read: %s\n" % (name, uid, e)
+            continue
+        owed = sorted(r for r in games if games[r]["owes"])
+        order = sorted(games, key=lambda r: games[r]["when"], reverse=True)
+        copies = [r for r in order if games[r].get("copy_only") and not (
+            games[r]["owes"] or games[r].get("aside") or games[r].get("notes"))]
+        full = [r for r in order if r not in copies]
+        shown = [r for i, r in enumerate(full) if i < SAVES_GAMES_CAP or games[r]["owes"]]
+        out += "\n--- %s (RomM user %d): %s\n" % (
+            name, uid, "no save records" if not games else "%s with records, owing %s" % (
+                plural(len(games), "game"),
+                "nothing" if not owed else "for %s (%s)" % (plural(len(owed), "game"), ", ".join(map(str, owed)))))
+        for rid in shown:
+            if left() < 1:
+                return out + "\n" + SKIPPED
+            g = games[rid]
+            try:
+                body = kv(game_rows(g, tries.get(rid)))
+            except (OSError, ValueError, TypeError, AttributeError) as e:
+                body = "its records could not be read: %s\n" % e
+            out += "\n%s, game %d\n%s" % (game_name(root, rid, g["platform"]), rid,
+                                          "".join("  " + l + "\n" for l in body.splitlines()))
+        if len(shown) < len(full):
+            out += "\n(%s with channel records left out, the oldest)\n" % plural(len(full) - len(shown), "more game")
+        if copies:
+            counts = []
+            for rid in copies:
+                rowlist = read_json(os.path.join(games[rid]["mirror"], "saves.json"))
+                counts.append("%d (%s)" % (rid, len(rowlist) if isinstance(rowlist, list) else "?"))
+            out += "\nOnly RomM's saves as last seen, no channel: %s\n" % plural(len(copies), "game")
+            out += "".join("  " + l + "\n" for l in wrap(", ".join(counts), 96))
+    return out
+
+
 def section_same_names(root, frontend_bin):
     # #383 (PROJECT.md question 48): every name two or more games share on one
     # system this console shows, with each copy's file name, RomM's regions,
@@ -1019,19 +1556,67 @@ def section_services():
     return out
 
 
+# A GAME, from the frontend's lines: it starts at "[launch] <name> (<system>)
+# via <emulator>" (frontend/src/launch.cpp) and is back on Home at one of
+# these (standalone_play.cpp; the pause menu's exit), with a few lines after.
+GAME_START = re.compile(r"^\[launch\] .+ via \S+$")
+GAME_HOME = re.compile(r"^\[(standalone\] back to Home|overlay\] exited to Home)")
+GAME_AFTER = 3
+GAME_HEAD, GAME_TAIL = 150, 100   # lines kept from a long game's start and end
+GAMES_CAP = 2000                  # lines in the section, the newest games
+
+
 def section_games(frontend_lines):
-    pat = re.compile(r"^\[(launch|quality|standalone|overlay|pace|offline|save|core|state|ra|playtime|"
-                     r"resume|rewind|firmware|downloads|ps2|wii|wiiu|xbox|sync|upload)\]|ended after")
-    lines = [l for l in frontend_lines if pat.search(l)]
-    return "".join(l + "\n" for l in lines[-400:]) or "(no game played in these two boots)\n"
+    # EVERY LINE FROM A GAME'S START TO ITS RETURN HOME, whatever its label.
+    # A list of labels missed what each new emulator brought (the arcade
+    # match, MAME, the 3DS, the network block); the full log below has them,
+    # but not when the middle of a long boot is cut.
+    games, cur, left = [], None, None
+    for l in frontend_lines:
+        if GAME_START.match(l):
+            if cur:
+                games.append(cur)
+            cur, left = [l], None
+            continue
+        if cur is None:
+            continue
+        cur.append(l)
+        if left is None:
+            if GAME_HOME.match(l):
+                left = GAME_AFTER
+        else:
+            left -= 1
+            if left == 0:
+                games.append(cur)
+                cur, left = None, None
+    if cur:
+        games.append(cur)
+    if not games:
+        return "(no game played in these two boots)\n"
+    blocks, total = [], 0
+    for g in reversed(games):
+        if len(g) > GAME_HEAD + GAME_TAIL:
+            g = g[:GAME_HEAD] + ["... %d lines from the middle of this game left out ..."
+                                 % (len(g) - GAME_HEAD - GAME_TAIL)] + g[-GAME_TAIL:]
+        if blocks and total + len(g) > GAMES_CAP:
+            break
+        blocks.append(g)
+        total += len(g)
+    note = "%d game(s) in these two boots" % len(games)
+    if len(blocks) < len(games):
+        note += "; the newest %d here, the rest in the system log" % len(blocks)
+    return note + ".\n\n" + "\n\n".join("\n".join(g) for g in reversed(blocks)) + "\n"
 
 
 def section_emulator_logs(root):
     files = glob.glob(os.path.join(root, "logs", "*.log"))
     files += glob.glob(os.path.join(root, "emulators", "**", "*.log"), recursive=True)
-    files += glob.glob(os.path.join(HOME, ".config", "rpcs3", "RPCS3.log"))
+    # logs/<emulator>.own.log is a link to the emulator's own log
+    # (frontend/src/standalone.cpp), which may also be under emulators/: each
+    # file once, named where it is.
+    files = {os.path.realpath(p) for p in files}
     out = []
-    for path in sorted(set(files), key=lambda p: os.path.getmtime(p) if os.path.exists(p) else 0,
+    for path in sorted(files, key=lambda p: os.path.getmtime(p) if os.path.exists(p) else 0,
                        reverse=True):
         try:
             mtime = os.path.getmtime(path)
@@ -1056,13 +1641,17 @@ def build(root, how, frontend_bin):
         lines, extra = journal_lines(b)
         boots.append((b, lines, extra))
     # What the frontend and the session said, both boots, oldest first: the
-    # parts' sections read their state lines from here.
-    frontend = []
+    # parts' sections read their state lines from here. The frontend's own,
+    # with its time to the second, for the Saves section's tries: the session
+    # runs it, so on a console they come under cabinetos-session's name.
+    frontend, timed = [], []
     for b, lines, _ in reversed(boots):
         for l in lines or []:
-            m = re.match(r"\S+ \S+ . (cabinetos-session|cabinetos-frontend[\w-]*|kernel|sunshine): (.*)$", l)
+            m = re.match(r"(\S+ \S+) . (cabinetos-session|cabinetos-frontend[\w-]*|kernel|sunshine): (.*)$", l)
             if m:
-                frontend.append(m.group(2))
+                frontend.append(m.group(3))
+                if m.group(2) not in ("kernel", "sunshine"):
+                    timed.append((m.group(1)[:19], m.group(3)))
 
     # Each part is made in turn, and one that starts out of time says so.
     sections = [
@@ -1072,13 +1661,16 @@ def build(root, how, frontend_bin):
         ("Graphics", lambda: section_graphics(frontend)),
         ("The screen", lambda: section_screen(frontend)),
         ("Drives and space", lambda: section_drives(root)),
+        ("Firmware files", lambda: section_firmware(root)),
         ("Controllers and Bluetooth", lambda: section_controllers(frontend)),
         ("Sound", lambda: section_sound(frontend)),
         ("Network and Tailscale", section_network),
         ("Remote Play", lambda: section_remoteplay(root, frontend)),
+        ("LinkUp", lambda: section_linkup(root, frontend)),
         ("Steam", lambda: section_steam(frontend)),
         ("Updates", section_updates),
         ("The server and profiles", lambda: section_server(root)),
+        ("Saves", lambda: section_saves(root, timed)),
         ("Same-name games", lambda: section_same_names(root, frontend_bin)),
         ("File access and Developer access", section_access),
         ("Services", section_services),

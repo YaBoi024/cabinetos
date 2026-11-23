@@ -2,9 +2,7 @@
 
 #include "codecache.h"
 #include "gametdb.h"
-
-#include <archive.h>
-#include <archive_entry.h>
+#include "romfile.h"
 
 #include <cctype>
 #include <cstdio>
@@ -58,24 +56,6 @@ std::string nameAt(const std::vector<uint8_t>& names, uint32_t off) {
 std::string lower(std::string s) {
     for (char& ch : s) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
     return s;
-}
-
-// One zstd frame, through libarchive's raw reader: the console already links
-// libarchive, built with zstd, for game archives.
-std::vector<uint8_t> unzstd(const std::vector<uint8_t>& in) {
-    std::vector<uint8_t> out;
-    archive* a = archive_read_new();
-    archive_read_support_filter_zstd(a);
-    archive_read_support_format_raw(a);
-    archive_entry* e = nullptr;
-    if (archive_read_open_memory(a, in.data(), in.size()) == ARCHIVE_OK &&
-        archive_read_next_header(a, &e) == ARCHIVE_OK) {
-        uint8_t buf[16384];
-        for (la_ssize_t n; (n = archive_read_data(a, buf, sizeof buf)) > 0;)
-            out.insert(out.end(), buf, buf + n);
-    }
-    archive_read_free(a);
-    return out;
 }
 
 }  // namespace
@@ -158,7 +138,7 @@ std::string codeFromWua(uint64_t size, const ReadFn& read) {
         if (pos + csize > dataLen) return {};
         std::vector<uint8_t> raw = read(dataOff + pos, csize);
         if (raw.size() != csize) return {};
-        if (csize != kBlock) raw = unzstd(raw);
+        if (csize != kBlock) raw = romfile::unzstd(raw);
         if (raw.size() != kBlock && blk != (off + len - 1) / kBlock) return {};
         plain.insert(plain.end(), raw.begin(), raw.end());
     }

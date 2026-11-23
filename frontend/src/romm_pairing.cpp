@@ -1,5 +1,7 @@
 // Reaching a RomM server and pairing with it: the address and its probe
-// (setAddress, looksLocal), the token read back from an account's file
+// (setAddress, looksLocal), what the heartbeat says (readHeartbeat: the
+// version, and whether the server has save channels), the token read back
+// from an account's file
 // (loadToken), the device flow and the scopes it asks for (beginPairing,
 // pollPairing), and who the token belongs to (fetchCurrentUser). Moved out of
 // romm.cpp in the restructure (#398).
@@ -10,7 +12,6 @@
 
 #include <json-c/json.h>
 
-#include <algorithm>
 #include <cstdio>
 #include <mutex>
 
@@ -38,23 +39,13 @@ namespace {
 // and logs.read. The line is that this can change YOUR data and never THE
 // library.
 //
-// me.write IS ASKED FOR ONE THING: revoking the console's own token on Sign
-// out, on Remove, and the old one on a re-pairing (#484, ROMM-10). RomM
-// 5.4.0's only revoke a token can call, DELETE /api/client-tokens/{id},
-// needs it. IT REACHES FURTHER THAN THAT, and the person approving sees it
-// in the list: RomM checks a new token's scopes against the PERSON's, not
-// the token's, so a token with me.write can make itself a token with
-// everything that person may do, approve a pairing and change their RomM
-// profile. Unticked on RomM's approval page, the console works as before
-// and revokes nothing (each refusal is logged).
-//
 // Two rounds of under-scoping got here. "Ask again when something needs it" is
 // right for genuinely occasional access and wrong for a requirement, and each
 // mistake costs a re-pairing that a person has to walk across a room for.
 const char* kScopes[] = {
     "me.read", "platforms.read", "roms.read", "assets.read",
     "roms.user.read", "collections.read", "firmware.read",
-    "assets.write", "roms.user.write", "collections.write", "me.write",
+    "assets.write", "roms.user.write", "collections.write",
 };
 
 }  // namespace
@@ -83,6 +74,28 @@ bool looksLocal(const std::string& host) {
     return false;
 }
 
+namespace {
+// heardServerVersion's and heardServerChannels', written together by every
+// probe that is answered with a version.
+std::mutex gHeardMu;
+std::string gHeard;
+bool gHeardChannels = false;
+}  // namespace
+
+bool readHeartbeat(const std::string& body, Heartbeat* out) {
+    *out = Heartbeat{};
+    json_object* root = json_tokener_parse(body.c_str());
+    if (!root) return false;
+    json_object* sys = nullptr;
+    out->hasSystem = json_object_object_get_ex(root, "SYSTEM", &sys);
+    if (out->hasSystem) out->version = jstr(sys, "VERSION");
+    json_object* sync = nullptr;
+    out->channels = json_object_object_get_ex(root, "SAVE_SYNC", &sync) &&
+                    json_object_get_type(sync) == json_type_object;
+    json_object_put(root);
+    return true;
+}
+
 // THE CANDIDATE IS ASKED WITHOUT BECOMING THE ADDRESS, and is made the
 // address only once it has answered, so a request on another thread never
 // goes to a candidate that is about to be put back (#398, batch i).
@@ -108,20 +121,33 @@ bool Client::probe(const std::string& candidate, bool report) {
         at.base = movedTo.substr(0, movedTo.size() - kHeartbeat.size());
     }
 
-    json_object* root = json_tokener_parse(body.c_str());
-    if (!root) return false;
-    json_object* sys = nullptr;
-    const bool hasSystem = json_object_object_get_ex(root, "SYSTEM", &sys);
-    const std::string version = hasSystem ? jstr(sys, "VERSION") : std::string();
-    json_object_put(root);
+    Heartbeat beat;
+    if (!readHeartbeat(body, &beat)) return false;
     std::lock_guard<std::mutex> lock(mu_);
     if (at.base != candidate && at.base != base_)
         std::fprintf(stderr, "[romm] the server sent the console to another address; "
                              "that one is used\n");
     base_ = at.base;
-    if (hasSystem) serverVersion_ = version;
+    if (beat.hasSystem) serverVersion_ = beat.version;
+    if (beat.hasSystem && !beat.version.empty()) {
+        std::lock_guard<std::mutex> heard(gHeardMu);
+        gHeard = beat.version;
+        gHeardChannels = beat.channels;
+    }
     return true;
 }
+
+std::string heardServerVersion() {
+    std::lock_guard<std::mutex> heard(gHeardMu);
+    return gHeard;
+}
+
+bool heardServerChannels() {
+    std::lock_guard<std::mutex> heard(gHeardMu);
+    return gHeardChannels;
+}
+
+bool serverTakesSaves() { return !serverAway() && heardServerChannels(); }
 
 bool Client::setAddress(const std::string& address, std::string* err) {
     std::string a = address;
@@ -174,18 +200,12 @@ bool Client::loadToken(const std::string& path) {
     return true;
 }
 
-void Client::setToken(const std::string& token) {
-    std::lock_guard<std::mutex> lock(mu_);
-    token_ = token;
-    deviceId_.clear();   // a device belongs to a token
-}
-
 bool Client::beginPairing(Pairing* out, std::string* err) {
     json_object* req = json_object_new_object();
     json_object_object_add(req, "client_device_identifier",
                            json_object_new_string("cabinetos"));
     json_object_object_add(req, "name", json_object_new_string("CabinetOS"));
-    json_object_object_add(req, "client", json_object_new_string("cabinetos"));
+    json_object_object_add(req, "client", json_object_new_string(kConsoleClient));
     json_object_object_add(req, "platform", json_object_new_string("linux"));
     json_object* scopes = json_object_new_array();
     for (const char* s : kScopes) json_object_array_add(scopes, json_object_new_string(s));
@@ -286,6 +306,7 @@ bool Client::fetchCurrentUser(User* out, std::string* err) {
     // preferences, and none of them are this console's business.
     out->id = static_cast<int>(jint(root, "id"));
     out->username = jstr(root, "username");
+    out->createdAt = jstr(root, "created_at");
     // The device this token is (5.3.1 and 5.4.0 both say), kept for the
     // play-session list so it need not be asked again (#401, deviceId).
     out->deviceId = jstr(root, "current_device_id");
@@ -302,46 +323,6 @@ bool Client::fetchCurrentUser(User* out, std::string* err) {
     json_object_put(root);
     if (out->id <= 0) {
         if (err) *err = "users/me carried no id";
-        return false;
-    }
-    return true;
-}
-
-bool Client::newestDeviceToken(int* out, std::string* err) const {
-    std::string device;
-    if (!deviceId(&device, err)) return false;
-    std::string body;
-    if (!get("/api/client-tokens", &body, err)) return false;
-    json_object* root = json_tokener_parse(body.c_str());
-    if (!root || json_object_get_type(root) != json_type_array) {
-        if (root) json_object_put(root);
-        if (err) *err = "client-tokens response was not a list";
-        return false;
-    }
-    int newest = 0;
-    const size_t n = json_object_array_length(root);
-    for (size_t i = 0; i < n; ++i) {
-        json_object* t = json_object_array_get_idx(root, i);
-        if (jstr(t, "device_id") != device) continue;
-        newest = std::max(newest, static_cast<int>(jint(t, "id")));
-    }
-    json_object_put(root);
-    if (newest <= 0) {
-        if (err) *err = "no token on this device";
-        return false;
-    }
-    *out = newest;
-    return true;
-}
-
-bool Client::revokeToken(int tokenId, std::string* err) const {
-    std::string body;
-    long status = 0;
-    if (!sendJson("DELETE", "/api/client-tokens/" + std::to_string(tokenId), "", &body,
-                  &status, err))
-        return false;
-    if (status < 200 || status >= 300) {
-        if (err) *err = "HTTP " + std::to_string(status);
         return false;
     }
     return true;

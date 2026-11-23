@@ -2,7 +2,6 @@
 
 #include <cstdio>
 #include <cstdlib>
-#include <vector>
 
 #include "accounts.h"
 #include "covercache.h"
@@ -75,27 +74,7 @@ bool signOut(std::string* err) {
     return firstrun::markSignedOut(/*cleared=*/false, err);
 }
 
-namespace {
-// EVERY ACCOUNT'S TOKEN ON RomM IS REVOKED FIRST (#484, ROMM-10), while the
-// files that hold them are still here. One try at the server: away, it
-// revokes nothing, and the files go anyway.
-void revokeTokens() {
-    const std::vector<accounts::Account> list = accounts::all();
-    if (list.empty()) return;
-    const std::string address = firstrun::serverAddress();
-    romm::Client c;
-    std::string err;
-    if (address.empty() || !c.setAddress(address, &err)) {
-        std::fprintf(stderr, "[sign out] no server to revoke %zu token(s) on: %s\n", list.size(),
-                     address.empty() ? "no address" : err.c_str());
-        return;
-    }
-    for (const accounts::Account& a : list) accounts::revoke(c, accounts::login(a.id), a.name);
-}
-}  // namespace
-
 void finishSignOut() {
-    revokeTokens();
     int64_t bytes = 0;
     auto remove = [&](const std::string& path) {
         if (!storage::exists(path)) return;

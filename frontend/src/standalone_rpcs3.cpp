@@ -7,6 +7,7 @@
 
 #include "standalone_internal.h"
 
+#include "guitar.h"
 #include "proc.h"
 #include "storage.h"
 #include "vpad.h"
@@ -47,6 +48,20 @@ namespace {
 // Where an install is built before it is moved into place.
 constexpr const char* kStaging = ".install";
 
+// THE RPCS3 TEAM'S OWN SETTINGS FOR EACH GAME, the snapshot the image carries
+// beside the program (build_files/install-rpcs3.sh puts it there). RPCS3
+// keeps a per-game settings database that only its own window downloads,
+// into GuiConfigs/config_database.dat, and lays the game's entry over
+// config.yml at every boot, `--no-gui` included (rpcs3qt/config_database.cpp;
+// Emu/System.cpp, "Applying database config"). The console starts RPCS3
+// without its window and fetches nothing from rpcs3.net, so until the
+// snapshot no PS3 game got its entry: Lollipop Chainsaw's is Write Color
+// Buffers (found 2026-11-06). prepareRpcs3 copies it in, so a game gets what
+// a plain RPCS3 install gives it. An entry the pinned build cannot read RPCS3
+// drops by itself, whole, when it reads the file; a game with no entry boots
+// as before. docs/decisions/2026-11-06-rpcs3-settings-database-snapshot.md.
+constexpr const char* kImageDatabase = "/usr/lib/cabinetos/rpcs3/config_database.dat";
+
 std::string rpcs3Config(const Emulator& e) { return home(e) + "/rpcs3"; }
 std::string rpcs3Flash(const Emulator& e) { return rpcs3Config(e) + "/dev_flash"; }
 std::string firmwareNote(const Emulator& e) { return rpcs3Flash(e) + "/.cabinetos-firmware"; }
@@ -78,15 +93,16 @@ std::string newestPup(const std::string& biosDir) {
 // IT EXITS 134 AFTER A SUCCESSFUL INSTALL: an abort in a static destructor,
 // after it has logged "Successfully installed" (lessons, the PS3 notes;
 // measured again 2026-09-28 on the pinned build). So the log line decides,
-// never the exit code. `prlimit --core=0` because every one of those aborts
-// would otherwise leave a core file of a process with gigabytes mapped.
+// never the exit code. `prlimit --core=0` (in noNetworkInstall) because every
+// one of those aborts would otherwise leave a core file of a process with
+// gigabytes mapped.
 std::string rpcs3Headless(const Emulator& e, const std::string& configHome,
                           const std::vector<std::string>& what, const std::atomic<bool>& cancel) {
-    std::vector<std::string> args = {
-        "prlimit", "--core=0", "--",
+    std::vector<std::string> args = noNetworkInstall();
+    args.insert(args.end(), {
         "env", "XDG_CONFIG_HOME=" + configHome, "XDG_CACHE_HOME=" + configHome,
         binaryOf(e), "--headless",
-    };
+    });
     args.insert(args.end(), what.begin(), what.end());
     // Half an hour: 20 GB went in at 161 MB/s on the VM's slow disk; a USB
     // hard drive could be a fifth of that.
@@ -107,7 +123,7 @@ bool installPs3Firmware(const Emulator& e, const std::atomic<bool>& cancel,
     if (pup.empty()) {
         // Nothing on the server, or no server: whatever is installed stands.
         if (!had.empty()) return true;
-        *message = "No PlayStation 3 firmware on your server";
+        *message = "No PlayStation 3 firmware on the server";
         return false;
     }
     struct stat st;
@@ -130,7 +146,7 @@ bool installPs3Firmware(const Emulator& e, const std::atomic<bool>& cancel,
         *message = "Couldn't install the PlayStation 3 firmware";
         return false;
     }
-    writeFile(note, stamp);
+    writeDoneNote(note, stamp);
     std::fprintf(stderr, "[standalone] PS3 firmware installed from %s\n", pup.c_str());
     return true;
 }
@@ -215,7 +231,7 @@ bool installPackages(const Emulator& e, const std::string& entryPath,
         return false;
     }
     // Only now: a PKG is deleted once the game it became is in place.
-    writeFile(entryPath + "/" + kInstalledNote, note);
+    writeInstalledNote(entryPath + "/" + kInstalledNote, note);
     for (const auto& pkg : pkgs) ::unlink((entryPath + "/" + pkg.second).c_str());
     return true;
 }
@@ -253,7 +269,24 @@ constexpr const char* kRpcs3Settings =
 // the codes by those older words. Its own default (Square "X") suits pads
 // whose drivers send by label rather than position. Players past `players`
 // are unplugged, or a game would see four pads.
-std::string rpcs3Controls(int players) {
+//
+// AND THEIR TILT (#683), from the motion device beside the controller
+// (vpad.h): RPCS3's "Buddy Device", found by name the same way
+// (Input/evdev_joystick_handler.cpp, add_motion_device). Its four sensors are
+// a DualShock 3's, the accelerometer's X, Y and Z, and G, the yaw rate, on RY,
+// which is RPCS3's own default for G; the device already speaks the
+// DualShock 3's units, so nothing is mirrored or shifted. Every PS3 game gets
+// them. A player whose pad has no sensor has no motion device, and "Null",
+// RPCS3's word for none, leaves that player's pad lying still as before.
+//
+// A PLAYER HOLDING A GUITAR (guitar.h) is told so: the pad's class, vendor
+// and product are a PS3 guitar's, which RPCS3 hands the game
+// (Emu/Io/pad_config.h, "Device Class Type", "Vendor ID", "Product ID"), the
+// Rock Band one, or the Guitar Hero one for the two games made before the
+// series shared instruments (guitar::rpcs3For); and Square and Triangle are
+// where that guitar has its yellow and blue frets. Its virtual controller already sends the guitar's shape (vpad.h).
+std::string rpcs3Controls(int players, const std::string& title) {
+    const guitar::Rpcs3Guitar kind = guitar::rpcs3For(title);
     std::string out;
     for (int p = 1; p <= 7; ++p) {
         out += "Player " + std::to_string(p) + " Input:\n";
@@ -263,7 +296,10 @@ std::string rpcs3Controls(int players) {
         }
         out += "  Handler: Evdev\n";
         out += "  Device: " + yamlQuote("CabinetOS player " + std::to_string(p)) + "\n";
+        const std::string motion = cab::vpad::motionName(p - 1);
+        out += "  Buddy Device: " + yamlQuote(motion.empty() ? std::string("Null") : motion) + "\n";
         out += "  Config:\n";
+        const bool holdsGuitar = cab::vpad::carriesGuitar(p - 1);
         const char* map[][2] = {
             {"Left Stick Left", "LX-"},   {"Left Stick Down", "LY+"},
             {"Left Stick Right", "LX+"},  {"Left Stick Up", "LY-"},
@@ -271,8 +307,10 @@ std::string rpcs3Controls(int players) {
             {"Right Stick Right", "RX+"}, {"Right Stick Up", "RY-"},
             {"Start", "Start"},           {"Select", "Select"},
             {"PS Button", "Mode"},
-            {"Square", "Y"},              {"Cross", "A"},
-            {"Circle", "B"},              {"Triangle", "X"},
+            {"Square", holdsGuitar ? kind.square : "Y"},
+            {"Cross", "A"},
+            {"Circle", "B"},
+            {"Triangle", holdsGuitar ? kind.triangle : "X"},
             {"Left", "Hat0 X-"},          {"Down", "Hat0 Y+"},
             {"Right", "Hat0 X+"},         {"Up", "Hat0 Y-"},
             {"R1", "TR"},                 {"R2", "RZ+"},
@@ -280,6 +318,14 @@ std::string rpcs3Controls(int players) {
             {"L2", "LZ+"},                {"L3", "Thumb L"},
         };
         for (const auto& m : map) out += std::string("    ") + m[0] + ": " + yamlQuote(m[1]) + "\n";
+        const char* sensors[][2] = {
+            {"Motion Sensor X", "X"}, {"Motion Sensor Y", "Y"},
+            {"Motion Sensor Z", "Z"}, {"Motion Sensor G", "RY"},
+        };
+        for (const auto& s : sensors)
+            out += std::string("    ") + s[0] + ":\n      Axis: " + yamlQuote(s[1]) +
+                   "\n      Mirrored: false\n      Shift: 0\n";
+        if (holdsGuitar) out += guitar::rpcs3Lines(kind);
     }
     return out;
 }
@@ -287,8 +333,8 @@ std::string rpcs3Controls(int players) {
 }  // namespace
 
 bool prepareRpcs3(const Emulator& e, const std::string& entryPath, const std::string& saveDir,
-                  const std::string& player, int players, quality::Level level, bool* missing,
-                  std::string* err) {
+                  const std::string& player, const std::string& title, int players,
+                  quality::Level level, bool* missing, std::string* err) {
     // The download installs it; without it RPCS3 opens its own "no firmware"
     // box over the game, so the console refuses first.
     if (readFile(firmwareNote(e)).empty()) {
@@ -342,10 +388,18 @@ bool prepareRpcs3(const Emulator& e, const std::string& entryPath, const std::st
     // (Emu/system_config.h); a "VSync: true" line is ignored. Full is FIFO;
     // Adaptive asks for mailbox first (VK/vkutils/swapchain.cpp).
     const std::string video = "Video:\n  VSync Mode: Full\n" + quality::rpcs3(level);
+    // The RPCS3 team's entry for this game comes from the image's snapshot
+    // (kImageDatabase), copied here only when it differs. A copy left by an
+    // image that carried one goes when this image does not, so RPCS3 never
+    // reads a snapshot older than the image.
+    const std::string database = config + "/GuiConfigs/config_database.dat";
+    const bool imageHasDatabase = isFile(kImageDatabase);
+    if (!imageHasDatabase) ::unlink(database.c_str());
     if (!writeFile(config + "/vfs.yml", vfs) || !writeFile(config + "/config.yml",
                    std::string(kRpcs3Settings) + video) ||
         !writeFile(gui, gui_text) ||
-        !writeFile(config + "/input_configs/global/Default.yml", rpcs3Controls(players))) {
+        !writeFile(config + "/input_configs/global/Default.yml", rpcs3Controls(players, title)) ||
+        (imageHasDatabase && !placeFile(kImageDatabase, database))) {
         *err = "could not write RPCS3's settings in " + config;
         return false;
     }

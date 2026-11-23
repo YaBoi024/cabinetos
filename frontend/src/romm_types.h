@@ -1,14 +1,16 @@
 // What the RomM client hands back: a platform, a collection, a game and its
 // files, firmware, a save or a state, the person, a pairing in flight, a
-// game's facts and a play session, and the two helpers that read a game
-// (tagLabel, gameFromJson). A header that needs only these includes this file
-// rather than the client (romm.h). Moved out of romm.h in the restructure
-// (#398).
+// game's facts, a play session, a save channel with its snapshots, and a
+// snapshot push with RomM's answer, and the three helpers that read a game
+// (tagLabel, gameFromJson, channelFilesOf). A header that needs only these
+// includes this file rather than the client (romm.h). Moved out of romm.h in
+// the restructure (#398).
 //
-// A PLATFORM IS NOT ITS SLUG. RomM can hold two platforms with the same name
-// AND the same slug — "Arcade" is FBNeo and MAME 2003-Plus in this library,
-// deliberately. Platform carries `id` as identity and `fsSlug` as the thing
-// that picks a core. Never key on `slug`.
+// A PLATFORM IS NOT ITS SLUG. RomM can hold several platforms with the same
+// name AND the same slug: "Arcade" is the FBNeo, MAME, Naomi and Atomiswave
+// folders in the reference library. Platform carries `id` as identity and
+// `fsSlug`, the folder's name, as what a person tells them apart by. Never
+// key on `slug` for identity.
 
 #pragma once
 
@@ -70,6 +72,30 @@ struct Collection {
     bool isFavorite = false;
 };
 
+// One file inside an archive, as RomM's `archive_members` lists it for a
+// loose zip or 7z: its name, CRC32 and size. An arcade game's emulator is
+// picked from these (arcadematch.h).
+struct ArchiveMember {
+    std::string name;
+    uint32_t crc = 0;
+    int64_t size = 0;
+};
+
+// THE FILES A GAME'S SAVE CHANNELS CAN BE ON (RomM 5.5, #346, step 12), as
+// the game's own entry gives them (channelFilesOf). A channel stays on the
+// file it was made on. RomM makes a NEW one on the file it names in
+// `channel_file_id` (`channelFile`), which it picks itself (RomFile::
+// channelFile), so a file added to a game's folder can move that: a `.cue`
+// beside a CHD is picked over it. So a game's channels are listed on every
+// one of its game files (`files`, RomM's category "game", which is where
+// RomM picks from), a push into a channel names that channel's own file
+// (Channel::romFileId), and `channelFile` is only for a channel the console
+// makes.
+struct ChannelFiles {
+    int channelFile = 0;      // 0: RomM names none, or a RomM before 5.5
+    std::vector<int> files;   // empty: not known
+};
+
 struct Game {
     int id = 0;
     int platformId = 0;
@@ -121,6 +147,9 @@ struct Game {
     // it is instead of reading the file itself, so a .chd disc needs no disc
     // reader here. Empty where RomM could not work one out.
     std::string raHash;
+    // RomM's `md5_hash` of the game's file (inside its archive when it is
+    // one): the Vectrex sheets' first key (vectrexsheets.h). Empty for none.
+    std::string md5;
     // THE GAME'S MANUAL (#364): RomM's `path_manual`, a PDF in its resources,
     // `roms/1/2/manual/2.pdf`, served under /assets/romm/resources/. Filled
     // by the scraper or uploaded on the game's page; empty for none. The
@@ -138,6 +167,22 @@ struct Game {
     std::string revision;
     std::vector<std::string> tags;
     std::string tagLabel;
+    // WHAT AN ARCADE GAME'S ARCHIVE HOLDS, kept in the game's record so its
+    // emulator can be picked with no server (arcadematch.h): RomM's
+    // `archive_members` for a loose zip or 7z, or what the console read off
+    // one inside a folder game. `membersFile` and `membersSize` are the
+    // archive they were read from, so a changed one is read again. Not in
+    // RomM's lists; filled by a launch (launch_routes.cpp), in the record only.
+    std::string membersFile;
+    int64_t membersSize = 0;
+    std::vector<ArchiveMember> members;
+    // THE FILES THIS GAME'S SAVE CHANNELS CAN BE ON (RomM 5.5, #346):
+    // RomM's `channel_file_id` and the ids of its game files, which only the
+    // game's own entry carries; none from RomM's lists, which send no files,
+    // and from a RomM before 5.5. Kept in the game's record once a launch or
+    // the game's page has learned them (rememberChannelFiles), so a start
+    // asks for the channels without asking for the game first.
+    ChannelFiles channelFiles;
 };
 
 // RomM's four fields as one line, in RomM's order on its folder structure
@@ -176,11 +221,23 @@ struct RomFile {
     // several discs fetches only its own files (disc.h).
     std::string category;
     bool topLevel = true;
+    // RomM's `archive_members`: what a loose zip or 7z holds. Empty for any
+    // other file, and for an archive inside a folder game, which RomM does
+    // not open.
+    std::vector<ArchiveMember> members;
+    // THE FILE A NEW SAVE CHANNEL OF THIS GAME IS MADE ON (RomM 5.5, #346):
+    // the one whose id the game's own entry gives as `channel_file_id`. RomM
+    // picks it (`sync_file`: the file an emulator loads first, a `.cue` ahead
+    // of its tracks, else the first game file by name), so a game on several
+    // discs or in a folder has one, and the console never works it out
+    // itself. A channel made before a file was added can be on another file
+    // of the game (ChannelFiles). False on every file from a RomM before 5.5.
+    bool channelFile = false;
 };
 
 // A save or a save state held by RomM.
 //
-// They are separate endpoints and separate ideas, and Cabinet keeps them apart
+// They are separate endpoints and separate ideas, and Cabinet kept them apart
 // on purpose. A SAVE is the game's own — a cartridge battery, a memory card —
 // and it outlives everything; it is uploaded with overwrite so a PS1 game keeps
 // one memory card rather than one per session. A STATE is a snapshot of the
@@ -192,12 +249,35 @@ struct Asset {
     std::string fileName;
     int64_t sizeBytes = 0;
     // Which core wrote it. The reason states can be offered or greyed out
-    // rather than failing in front of someone — see docs/CABINET.md.
+    // rather than failing in front of someone (docs/history/CABINET.md).
     std::string emulator;
+    // A STATE'S NAME IN ITS SNAPSHOT'S BANK (RomM 5.5, `core`): the core a
+    // push filed it under, which for a CabinetOS console is its state tag
+    // (savepush.h). Empty for a state from before channels, which has only
+    // `emulator`, and for a save.
+    std::string core;
     std::string updatedAt;
+    // When RomM first stored these bytes (`created_at`). For a save in a
+    // snapshot, when that save first reached RomM, however many snapshots
+    // carried it since; its `updated_at` moves with each of them.
+    std::string createdAt;
     // A state's picture on RomM (its `screenshot.download_path`), for the
     // launch screen. Empty for a save, or a state sent without one.
     std::string picturePath;
+    // A SAVE IN A SNAPSHOT IS LISTED AMONG A GAME'S SAVES TOO (RomM 5.5,
+    // #346), with the save channel it belongs to here (`channel_id`), whether
+    // it is that channel's current or an older snapshot's. Empty for a save
+    // from before channels, the kind the console uploads one file at a time,
+    // and on a RomM before 5.5.
+    std::string channelId;
+    // The slot an app that saves the old way (RomM's legacy save API) filed
+    // it under; empty for a save a snapshot brought and for one with none.
+    // RomM files such a save in the slot's channel and makes it that
+    // channel's current only when its app may load the current save
+    // (`hold_legacy_upload` in its handler/snapshots/bridge.py at
+    // 5.5.0-alpha.2); else it stays in the channel with no snapshot
+    // (savepick::otherRows).
+    std::string slot;
 };
 
 // Who the token belongs to.
@@ -226,6 +306,9 @@ struct User {
     // is only reachable through `/api/users/<id>/avatar`, which answers a
     // 1200x1200 PNG. So the endpoint is what gets stored.
     std::string avatarPath;
+    // RomM's `created_at`: with the id, what tells this person from user 1 on another server,
+    // since RomM has no id for a whole server (LinkUp's account, #654).
+    std::string createdAt;
 };
 
 // An in-flight pairing. Short-lived: RomM expires these in minutes.
@@ -254,9 +337,203 @@ struct PlaySession {
     int64_t durationMs = 0;
 };
 
+// SAVE CHANNELS AND SNAPSHOTS (RomM 5.5, #346), as RomM's code at
+// 5.5.0-alpha.2 has them: RomM's documentation does not cover them yet. A
+// CHANNEL is one run through a game, keyed to one of its files (the one
+// RomM named for new channels when it was made, ChannelFiles), pointing at
+// its current snapshot; most games have
+// one, RomM's "default". A SNAPSHOT is one saved moment in it: the game's
+// save and a bank of states, each named by its content hash
+// (romm::contentHash). RomM keeps older snapshots behind the current.
+
+// A save or a state inside a snapshot. Its bytes come down by `id`, from
+// `/api/saves/<id>/content` or `/api/states/<id>/content` (fetchAsset), as
+// any save's and state's do.
+struct SnapshotFile {
+    int id = 0;
+    std::string fileName;
+    int64_t sizeBytes = 0;
+    // Empty on a row RomM never hashed (one from before 5.5).
+    std::string contentHash;
+    // Its picture on RomM (`screenshot.download_path`); empty for none.
+    std::string picturePath;
+    // A save's only. `shape` is how it travels, Sigil's word: "SINGLE" (one
+    // file, as it is) or "MULTI" or "FOLDER" (a zip). `format` is "native"
+    // (the emulator's own files) or "neutral" (RomM's shared form). The
+    // emulator and the core are the ones the device that pushed it named.
+    std::string shape;
+    std::string format;
+    std::string emulator;
+    std::string core;
+};
+
+// WHAT RomM ANSWERED A REQUEST FOR A SAVE IN AN EMULATOR'S FORM
+// (Client::fetchSaveAs).
+struct SaveAnswer {
+    long status = 0;              // 0: no answer from the server
+    std::vector<uint8_t> bytes;   // with 200
+    // One file RomM converted: its path in the emulator's save folder
+    // (`X-Save-Path`, unescaped). Empty for a zip of several, and for a save
+    // handed over as stored.
+    std::string savePath;
+    // A refusal's code (`detail.error`, Sigil's: NOT_FOUND, UNSUPPORTED_FORMAT,
+    // NO_TARGET...) or RomM's words (`detail`), for the log.
+    std::string error;
+};
+
+// One slot of a snapshot's bank: the core RomM files it under, the slot's
+// name, and the state.
+struct SnapshotState {
+    std::string core;
+    std::string slot;
+    SnapshotFile file;
+};
+
+// What every CabinetOS console calls itself when it pairs (beginPairing), so
+// all of a person's consoles are one device on RomM, and what RomM gives back
+// as the `client` of that device.
+inline constexpr char kConsoleClient[] = "cabinetos";
+
+// A device RomM says holds a snapshot (`held_by`): the snapshot it last took
+// or pushed in that channel. Only this person's own devices are listed.
+struct SnapshotHolder {
+    std::string deviceId;
+    std::string client;   // kConsoleClient for every CabinetOS console
+    std::string syncedAt;
+};
+
+struct Snapshot {
+    int id = 0;
+    std::string digest;      // "sha256:<hex>", over the save's and states' hashes
+    std::string kind;        // "channel", "branch" or "archival"
+    int parentId = 0;        // 0 for none
+    std::string channelId;   // empty for an archival one
+    bool hardcore = false;
+    std::string createdAt;   // ISO 8601, UTC
+    // WHEN ITS SAVE FIRST REACHED RomM: the `created_at` of the save's own row
+    // among the game's saves (savepick::dateSaves fills it; empty until then).
+    // `createdAt` is when the snapshot was pushed, which for one that changed
+    // only its states is later than its save (#346, step 6).
+    std::string saveAt;
+    // The device that pushed it. RomM names it only when it is this
+    // person's own (`is_own`); another person's device is never named.
+    bool deviceOwn = false;
+    std::string deviceId;
+    std::string deviceClient;
+    // The emulator the device that pushed it named in its manifest, whose
+    // form its save is in. `save.emulator` is the name on the row RomM filed
+    // the save under: the first of the person's rows with those bytes, which
+    // can be another app's (savepick::ownForm).
+    std::string emulator;
+    std::vector<SnapshotHolder> heldBy;
+    bool hasSave = false;
+    SnapshotFile save;
+    std::vector<SnapshotState> states;
+};
+
+struct Channel {
+    std::string id;          // a UUID, RomM's or the device's that made it
+    std::string label;       // RomM's own is "default"
+    bool hardcore = false;   // its current was saved in hardcore
+    int romId = 0;
+    int romFileId = 0;       // the file it is keyed to, which a push into it names
+    int snapshotCount = 0;
+    std::string updatedAt;
+    // The current snapshot; `currentId` 0 while the channel is empty.
+    int currentId = 0;
+    Snapshot current;
+};
+
+// One file a push names: by its content hash, and by its bytes when RomM
+// may not hold them. A state and the save may carry their picture (PNG).
+struct PushFile {
+    std::string hash;               // romm::contentHash of the bytes
+    std::string fileName;           // the name RomM files it under
+    std::vector<uint8_t> bytes;     // sent when not empty
+    std::string pictureName;
+    std::vector<uint8_t> picture;
+};
+
+// One state a push puts in the bank, in `core`'s slots. A core the push
+// names replaces the parent's slots for that core, so every slot it keeps is
+// named; a core it does not name is carried from the parent as it is.
+struct PushState {
+    std::string core;
+    std::string slot;
+    PushFile file;
+};
+
+// ONE PUSH INTO A CHANNEL (`POST /api/snapshots`), as Client::pushSnapshot
+// sends it. It always says which current it builds on, so RomM never works
+// that out from what it last saw of the device.
+struct SnapshotPush {
+    // The channel's own file (Channel::romFileId); for a channel it makes,
+    // the file RomM names for new ones (ChannelFiles::channelFile).
+    int romFileId = 0;
+    std::string channelId;      // the channel; empty makes one named `label`
+    std::string label;          // a new channel's name
+    // The channel's current it builds on; 0 expects an empty channel. Not
+    // the channel's current when RomM answers: then RomM keeps the push as a
+    // branch (PushAnswer::Kind::MovedOn).
+    int expectedCurrentId = 0;
+    // The snapshot it was made from, when not the expected current (a
+    // session that started from an older one); 0 is the expected current.
+    int parentId = 0;
+    // The names it was made with: the emulator's tag and the core's own.
+    std::string emulator;
+    std::string core;
+    // The save; with `hasSave` false the parent's is carried. `shape` as
+    // SnapshotFile's: a zip is "MULTI" or "FOLDER", anything else "SINGLE".
+    bool hasSave = false;
+    PushFile save;
+    std::string saveShape = "SINGLE";
+    // With `hasSave`: the save is this person's row of that id on RomM, which
+    // RomM copies in itself (its `copy_of`), so `save` names no hash and
+    // carries no bytes; 0 for a save named by `save`. A save from before
+    // channels is brought in this way (#346, step 7), its row left as it is.
+    int saveCopyOf = 0;
+    std::vector<PushState> states;
+};
+
+// WHAT RomM ANSWERED A PUSH.
+struct PushAnswer {
+    enum class Kind {
+        Made,              // a new current (201)
+        Unchanged,         // the current already holds exactly this (200)
+        BytesMissing,      // RomM lacks bytes it was not sent (400, `missing`)
+        MovedOn,           // the current was not the one expected: kept as a branch (409)
+        HardcoreChannel,   // the channel's current is hardcore: nothing written (409)
+        Refused,           // any other answer: nothing written
+    };
+    Kind kind = Kind::Refused;
+    long status = 0;
+    // Made and Unchanged: the channel's current. MovedOn: the branch RomM
+    // kept, which this device now holds.
+    Snapshot snapshot;
+    // MovedOn: the current it missed (`hasCurrent` false when RomM names
+    // none), and whether the push was made from an older snapshot than the
+    // one it expected (RomM's `moved_from_older`) rather than from it
+    // (`moved`).
+    bool hasCurrent = false;
+    Snapshot current;
+    bool fromOlder = false;
+    // BytesMissing: the parts RomM needs, "save" or "state:<core>:<slot>".
+    std::vector<std::string> missing;
+    // Refused: what RomM said, cut short.
+    std::string detail;
+    // Refused with 422 because a part's bytes do not hash to the value the
+    // manifest names (RomM's `ContentMismatch`): that part, "save" or
+    // "state:<core>:<slot>". Empty for any other refusal.
+    std::string unhashed;
+};
+
 // A game read back from a record written in RomM's own field names (plus a
 // Wii U game's `product_code`, the console's own): a keep record, or the
 // console's note of a game it has on its drive. False when it is not one.
 bool gameFromJson(const std::string& json, Game* out);
+
+// The files a game's save channels can be on, from its own files as RomM
+// lists them: the one RomM names for a new channel, and every game file.
+ChannelFiles channelFilesOf(const std::vector<RomFile>& files);
 
 }  // namespace romm

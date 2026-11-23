@@ -29,7 +29,7 @@ void App::runFrameLoop() {
         ra::pump();
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            if (takeStandaloneEvent(e)) continue;
+            if (takeStandaloneEvent(e) || takeLinkUpEvent(e)) continue;
             handleEvent(e);
         }
 
@@ -42,12 +42,20 @@ void App::runFrameLoop() {
 
         pollPower();
         followDrives();
+        followStopAsk();
         waitForUploadsToPowerDown();
+        // GAME EVENTS (#716): the pause menu over a game, said on a change.
+        // Here, before the emulator's watch, which ends the frame early.
+        followGameEventsPause();
 
         // THE SCREENSHOT gamescope is writing, whenever there is one.
         pumpStandaloneShot();
         if (watchStandalone(dt)) {
             refuseCaptureOverAnotherWindow("the emulator's");
+            continue;
+        }
+        if (linkupWatchPicture(dt)) {
+            refuseCaptureOverAnotherWindow("LinkUp's");
             continue;
         }
 
@@ -58,7 +66,7 @@ void App::runFrameLoop() {
         // state picked on its page to arrive (#484, PLAY-16), which is when
         // the game itself stands still (pace.cpp).
         const bool gameOnScreen = playing && !overlayOpen && !stateHold && !stateHoldWaiting;
-        idleFrame(dt, gameOnScreen, kScreenOff[screenOffIndex].seconds);
+        idleFrame(dt, gameOnScreen || linkupHoldsScreen(), kScreenOff[screenOffIndex].seconds);
         // TIME PLAYED (#128): the same test the dim uses for "a game is on
         // screen". Written down once a minute, so a power cut loses at most
         // one.
@@ -83,6 +91,8 @@ void App::runFrameLoop() {
             cab::Core& core = cab::Core::shared();
             const bool rewinding = readGameInput(core);
             runGameFrame(core, dt, rewinding);
+            // The save looked at once a second, for its picture (savepicture.h).
+            savePicture.tick(session, SDL_GetTicks());
             // A CORE THAT MOVED ITS SOUND RATE MID-GAME (#220): the speaker
             // is set to it again, as at the launch (openSoundAndPace), or
             // the sound would play at the old rate's speed.
@@ -167,9 +177,9 @@ void App::runFrameLoop() {
         sayUpdatedTo();
         sayStartProblem();
         noticeGalleryHook(dt);
+        tickLinkUp(dt);
         retryOwedUploads(dt);
         followServer(dt);
-        sayStateUploaded();
         tickLaunchBusy(dt);
         tickPauseMenu(dt);
         {
@@ -183,12 +193,14 @@ void App::runFrameLoop() {
             pumpPadWindow();
             takeWifiJoin();
             takeServerCheck();
+            takeGameEventsCheck();
             tickSearch(dt, ctx);
 
             showDetailProgress();
 
             pumpSearch(dt);
             drainGridPages();
+            takeInviteReadAhead(/*wait=*/false);
 
             drainCovers();
 
@@ -218,7 +230,8 @@ void App::runFrameLoop() {
         const float sc = renderer.scale();
         // A game is on the screen: ours, or one this window is paused over
         // (standalone.h), where nothing of Home may be drawn under the menu.
-        const bool gameUp = playing || standalonePaused;
+        // Or a friend's game, whose picture is the LinkUp program's window, under this one.
+        const bool gameUp = playing || standalonePaused || linkupPictureBehind();
         drawGround(gameUp, dt);
 
         applyTabContentFade(gameUp);
@@ -271,8 +284,10 @@ void App::runFrameLoop() {
             screens::Ctx actx{renderer, text, images, sc, &cards};
             accountScreen.draw(actx);
         }
-        // The question panel, over the account switcher.
-        if (choiceScreen.isOpen() && (!playing || overlayOpen)) {
+        // The question panel, over the account switcher. A level of the pause
+        // menu also while it fades out, and with the menu as that closes.
+        if (choiceScreen.visible() &&
+            (!playing || overlayOpen || overlayFade.value() > 0.001f)) {
             screens::Ctx cctx{renderer, text, images, sc, &cards};
             choiceScreen.draw(cctx);
             renderer.setContentAlpha(1.0f);
@@ -293,6 +308,8 @@ void App::runFrameLoop() {
         drawCurtain(sc);
 
         drawKeyboardAndDissolve();
+
+        drawLinkUpGalleryCaption(sc);
 
         drawDim();
 

@@ -8,6 +8,7 @@
 #include <jpeglib.h>
 #include <png.h>
 
+#include <algorithm>
 #include <csetjmp>
 #include <cstring>
 #include <mutex>
@@ -123,6 +124,39 @@ bool encodePNG(const std::vector<uint8_t>& rgba, unsigned width, unsigned height
     }
     out.resize(size);
     return true;
+}
+
+void shrinkRGBA(std::vector<uint8_t>& rgba, unsigned& width, unsigned& height,
+                unsigned maxWidth) {
+    if (maxWidth == 0 || width <= maxWidth || height == 0 ||
+        rgba.size() < static_cast<size_t>(width) * height * 4)
+        return;
+    const unsigned tw = maxWidth;
+    const unsigned th = std::max(1u, static_cast<unsigned>(
+                                         (static_cast<uint64_t>(height) * tw + width / 2) / width));
+    std::vector<uint8_t> out(static_cast<size_t>(tw) * th * 4);
+    for (unsigned y = 0; y < th; ++y) {
+        const unsigned y0 = static_cast<unsigned>(static_cast<uint64_t>(y) * height / th);
+        const unsigned y1 = std::max(y0 + 1, static_cast<unsigned>(
+                                                 static_cast<uint64_t>(y + 1) * height / th));
+        for (unsigned x = 0; x < tw; ++x) {
+            const unsigned x0 = static_cast<unsigned>(static_cast<uint64_t>(x) * width / tw);
+            const unsigned x1 = std::max(x0 + 1, static_cast<unsigned>(
+                                                     static_cast<uint64_t>(x + 1) * width / tw));
+            uint32_t sum[4] = {0, 0, 0, 0};
+            for (unsigned sy = y0; sy < y1; ++sy) {
+                const uint8_t* row = rgba.data() + (static_cast<size_t>(sy) * width + x0) * 4;
+                for (unsigned sx = x0; sx < x1; ++sx, row += 4)
+                    for (int c = 0; c < 4; ++c) sum[c] += row[c];
+            }
+            const uint32_t n = (y1 - y0) * (x1 - x0);
+            uint8_t* dst = out.data() + (static_cast<size_t>(y) * tw + x) * 4;
+            for (int c = 0; c < 4; ++c) dst[c] = static_cast<uint8_t>(sum[c] / n);
+        }
+    }
+    rgba = std::move(out);
+    width = tw;
+    height = th;
 }
 
 // EVERY FORMAT RomM TAKES FOR A COVER (MMagTech, 2026-10-13: "any image format

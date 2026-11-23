@@ -42,6 +42,10 @@
 #     (hold:saves=20 holds a game's save rows and bytes), as a slow or hung
 #     server would, for what the console does meanwhile (#481, LAUNCH-17: a
 #     launch must not hold the picture on them).
+#   * status:<path>=<code> answers a GET of exactly that path (its query
+#     aside) with that HTTP status, as a failing or refusing server would:
+#     status:/api/roms/identifiers=503, status:/api/roms/705=500 (#625: only
+#     RomM's own 404 for a game's entry removes the console's copy).
 import json, os, sys, time, urllib.parse, urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -66,6 +70,7 @@ NAMES = {}        # name:<romId>=<name>
 TAGS = {}         # tags:<romId>=<regions>;<languages>;<revision>;<tags>
 HOLD = {}         # hold:<what>=<seconds>: "/api/<what>" -> seconds
 NOSIZE = set()    # nosize:<romId>
+STATUS = {}       # status:<path>=<code>: "/api/..." -> HTTP status
 # (owner id, owner name, collection id, name, smart, favourite, platform id)
 MOCK = [
     (9101, "Alex", 9001, "Saturday co-op", False, False, 8),
@@ -115,6 +120,10 @@ for a in sys.argv[2:]:
     if a.startswith("hold:"):
         what, secs = a[5:].split("=", 1)
         HOLD["/api/" + what] = float(secs)
+        continue
+    if a.startswith("status:"):
+        path, code = a[7:].rsplit("=", 1)
+        STATUS[path] = int(code)
         continue
     if a.startswith("hide:"):
         FILES[int(a[5:])] = None
@@ -281,6 +290,14 @@ class H(BaseHTTPRequestHandler):
             if self.path.startswith(prefix):
                 sys.stderr.write(f"hold: {self.command} {self.path} held {secs:g} s\n"); sys.stderr.flush()
                 time.sleep(secs)
+        code = STATUS.get(urllib.parse.urlsplit(self.path).path)
+        if code:
+            body = json.dumps({"detail": f"answered {code} by the relay"}).encode()
+            sys.stderr.write(f"status: {self.command} {self.path} answered {code}\n"); sys.stderr.flush()
+            self.send_response(code); self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body))); self.end_headers()
+            if not head: self.wfile.write(body)
+            return
         small = _re.search(r"/roms/\d+/(\d+)/cover/small\.", self.path)
         if small and NOSMALL and int(small.group(1)) % 3 == 0:
             sys.stderr.write(f"nosmall: game {small.group(1)} small cover answered 404\n")

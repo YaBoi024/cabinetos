@@ -1,6 +1,6 @@
 # Remote Play
 
-![Remote Play in Settings](../media/settings-remoteplay.webp)
+![Streaming in Settings, with Remote Play on](../media/settings-remoteplay.webp)
 
 Play the console from a phone, tablet or computer with
 [Moonlight](https://moonlight-stream.org). The whole console streams: Home, the
@@ -8,11 +8,12 @@ Library, every game. The device's controller (or its touch controls) becomes
 player one while it is connected.
 
 Remote Play is off to start with, and nothing listens on the network until you
-turn it on.
+turn it on. It needs a screen to stream, so it starts once the TV is on: with
+the TV off, a device cannot find the console.
 
 ## Turn it on
 
-Settings, **Remote Play**, **Streaming** (the PIN, if one is set). The row then
+Settings, **Streaming**, **Remote Play** (the PIN, if one is set). The row then
 reads *Moonlight app · CabinetOS*: CabinetOS is the name Moonlight shows.
 
 ## Pair a device
@@ -30,9 +31,11 @@ not open while a game is being played on the TV.
 ## While a device is streaming
 
 - The device takes over the players, and a game being played on the TV pauses.
+- For 3 seconds after a device connects, its buttons do nothing in the menus.
 - **Hold Select** on the device's controller for the console's
   [pause menu](pause-menu.md), in every game.
-- The Remote Play section in Settings is greyed, marked *In use*.
+- The Streaming section in Settings is greyed, marked *In use*, and so is the
+  Tailscale row in Network.
 - Wii games that need a Wii Remote cannot be played from a device.
 - The quality (resolution, frame rate, codec) is set in Moonlight, not on the
   console.
@@ -43,12 +46,12 @@ not open while a game is being played on the TV.
 anywhere without opening your router.
 
 1. Install Tailscale on the device and sign in.
-2. Settings, Remote Play, **Tailscale** (Streaming must be on). Scan the QR code
-   with the device: *Use the Tailscale account your phone is signed in to.*
+2. Sign the console in to Tailscale: Settings, Network, **Tailscale**
+   ([how](network.md#tailscale)).
 3. The row shows the console's Tailscale address. Add that address in Moonlight.
 
-Only Remote Play's ports are open over Tailscale. The sign-in lasts until the
-date shown under the row; **Sign in again** appears near the end.
+Only Remote Play's ports are open over Tailscale. Turning Remote Play off
+leaves Tailscale on; turn it off in Network.
 
 ## Streaming Steam
 

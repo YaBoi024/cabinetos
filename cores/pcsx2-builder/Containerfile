@@ -1,7 +1,7 @@
 # The build environment for upstream PCSX2 on Linux x86-64.
 #
 # SEPARATE FROM frontend/Containerfile ON PURPOSE. That one is the frontend and
-# the twenty-one libretro cores, and it is small because a libretro core vendors
+# the libretro cores, and it is small because a libretro core vendors
 # almost everything it needs. PCSX2 is a whole emulator with a whole emulator's
 # dependency list, and putting these thirty-odd packages into the frontend's
 # image would slow every core build on the project to serve one thing.

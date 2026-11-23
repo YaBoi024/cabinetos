@@ -26,7 +26,7 @@ set -euo pipefail
 LIMIT=1500
 FOLDERS=(frontend wiibridge build_files ci cores system_files tools)
 VENDORED=(
-    'frontend/third_party/'   # rcheevos, RetroAchievements' own library
+    'frontend/third_party/'   # rcheevos, RetroAchievements' own library; Sigil, RomM's save library
     'frontend/src/libretro.h' # the libretro API, from libretro-common
 )
 

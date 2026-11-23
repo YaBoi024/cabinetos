@@ -27,6 +27,7 @@ struct Voice {
 };
 Voice gVoices[5];
 Voice gChime;
+Voice gInvite;
 
 // A cue is two sine partials under one exponential envelope, and that is the
 // whole synthesiser.
@@ -105,6 +106,36 @@ void buildChime(Voice& v) {
         v.pcm[i] = static_cast<int16_t>(SDL_clamp(mix[i] * 0.55f, -1.0f, 1.0f) * 32767.0f);
 }
 
+// THE LINKUP INVITE: somebody reaching you, so it says more than a click and less than
+// the achievement's bell. Two notes rising a major third, in the menu clicks' wooden
+// voice (a partial at 2.75 times the pitch, quiet), so it belongs with them.
+void buildInvite(Voice& v) {
+    const float seconds = 0.65f;
+    const int n = static_cast<int>(seconds * kRate);
+    std::vector<float> mix(static_cast<size_t>(n), 0.0f);
+    auto strike = [&](float hz, float at, float gain) {
+        const int start = static_cast<int>(at * kRate);
+        const int attack = static_cast<int>(0.004f * kRate);
+        double p1 = 0.0, p2 = 0.0;
+        for (int i = start; i < n; ++i) {
+            const int k = i - start;
+            const float t = static_cast<float>(k) / static_cast<float>(n - start);
+            float env = std::exp(-5.5f * t);
+            if (k < attack) env *= static_cast<float>(k) / static_cast<float>(attack);
+            p1 += 2.0 * M_PI * hz / kRate;
+            p2 += 2.0 * M_PI * hz * 2.75 / kRate;
+            mix[static_cast<size_t>(i)] +=
+                gain * env * (static_cast<float>(std::sin(p1)) +
+                              0.22f * static_cast<float>(std::sin(p2)) * std::exp(-9.0f * t));
+        }
+    };
+    strike(523.25f, 0.0f, 0.60f);    // C5
+    strike(659.25f, 0.17f, 0.60f);   // E5
+    v.pcm.resize(mix.size());
+    for (size_t i = 0; i < mix.size(); ++i)
+        v.pcm[i] = static_cast<int16_t>(SDL_clamp(mix[i] * 0.55f, -1.0f, 1.0f) * 32767.0f);
+}
+
 }  // namespace
 
 bool init() {
@@ -156,6 +187,7 @@ bool init() {
     // 2026-10-14, and read as "too weird switching": it stays in the family.
     build(gVoices[4], 482.0f, 1324.0f, 0.185f, 0.020f, 0.0f);
     buildChime(gChime);
+    buildInvite(gInvite);
 
     gReady = true;
     std::fprintf(stderr, "[sound] interface audio at %d Hz\n", kRate);
@@ -207,6 +239,14 @@ void playChime() {
     std::vector<int16_t> out(gChime.pcm.size());
     for (size_t i = 0; i < out.size(); ++i)
         out[i] = static_cast<int16_t>(static_cast<float>(gChime.pcm[i]) * volume);
+    SDL_PutAudioStreamData(gStream, out.data(), static_cast<int>(out.size() * sizeof(int16_t)));
+}
+
+void playInvite() {
+    if (!gReady || !gEnabled || gVolume <= 0.0f || gInvite.pcm.empty()) return;
+    std::vector<int16_t> out(gInvite.pcm.size());
+    for (size_t i = 0; i < out.size(); ++i)
+        out[i] = static_cast<int16_t>(static_cast<float>(gInvite.pcm[i]) * gVolume);
     SDL_PutAudioStreamData(gStream, out.data(), static_cast<int>(out.size() * sizeof(int16_t)));
 }
 

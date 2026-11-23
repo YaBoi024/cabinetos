@@ -9,6 +9,7 @@
 #include <cstring>
 #include <map>
 
+#include "arcadematch.h"
 #include "prefs.h"
 
 namespace screenfx {
@@ -68,15 +69,22 @@ const std::vector<Look> kGameBoyColor = {
 const std::vector<Look> kNone;
 
 // Up to and including Dreamcast, the systems this console draws itself
-// (MMagTech, 2026-10-04). Not PS2 or newer, which are played upscaled.
+// (MMagTech, 2026-10-04), and every arcade folder (systemOf, below). Not PS2
+// or newer, which are played upscaled.
 const char* const kConsoleSlugs[] = {
     "nes", "snes", "genesis", "sms", "segacd", "sega32", "tg16", "turbografx-cd",
-    "atari2600", "atari7800", "arcade", "psx", "saturn",
+    "atari2600", "atari7800", "psx", "saturn",
 };
 const char* const kUpscaledSlugs[] = {"n64", "dc", "3do"};
 const char* const kHandheldSlugs[] = {"gba", "gamegear", "neo-geo-pocket-color"};
 
-std::string prefKey(const std::string& slug) { return "look." + slug; }
+// EVERY ARCADE FOLDER IS ONE SYSTEM HERE, whatever RomM labels it (CPS2,
+// Naomi, MAME; arcadematch::isArcadeSlug): one list, and one stored choice.
+std::string systemOf(const std::string& slug) {
+    return arcadematch::isArcadeSlug(slug) ? "arcade" : slug;
+}
+
+std::string prefKey(const std::string& slug) { return "look." + systemOf(slug); }
 
 // presetFor is asked every frame, and prefs reads the file each time.
 std::map<std::string, std::string>& presetCache() {
@@ -91,6 +99,7 @@ const std::vector<Look>& looksFor(const std::string& slug) {
     if (slug == "gbc") return kGameBoyColor;
     for (const char* s : kHandheldSlugs)
         if (slug == s) return kHandheld;
+    if (arcadematch::isArcadeSlug(slug)) return kConsole;
     for (const char* s : kConsoleSlugs)
         if (slug == s) return kConsole;
     for (const char* s : kUpscaledSlugs)
@@ -126,12 +135,13 @@ void choose(const std::string& slug, int index) {
     const auto& looks = looksFor(slug);
     if (index < 0 || index >= static_cast<int>(looks.size())) return;
     prefs::set(prefKey(slug), looks[index].id);
-    presetCache()[slug] = looks[index].preset ? shaderDir() + "/" + looks[index].preset : "";
+    presetCache()[systemOf(slug)] =
+        looks[index].preset ? shaderDir() + "/" + looks[index].preset : "";
 }
 
 std::string presetFor(const std::string& slug) {
     auto& cache = presetCache();
-    auto it = cache.find(slug);
+    auto it = cache.find(systemOf(slug));
     if (it != cache.end()) return it->second;
     const auto& looks = looksFor(slug);
     std::string out;
@@ -139,7 +149,7 @@ std::string presetFor(const std::string& slug) {
         const Look& l = looks[chosen(slug)];
         if (l.preset) out = shaderDir() + "/" + l.preset;
     }
-    cache[slug] = out;
+    cache[systemOf(slug)] = out;
     return out;
 }
 

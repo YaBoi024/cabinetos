@@ -1,6 +1,7 @@
 # Buttons and shortcuts
 
-The essentials are on the console too: Settings, About, **How to**.
+The essentials are on the console too: Settings, About, **How to**. To print,
+the [one-page controls guide (PDF)](controls.pdf).
 
 Buttons are named by position, Xbox style: **A** is the bottom face button
 (Cross on PlayStation, B on Nintendo), **B** the right one, **X** the left one,
@@ -13,12 +14,14 @@ Buttons are named by position, Xbox style: **A** is the bottom face button
 | D-pad | Move. Hold to repeat. |
 | **A** | Select |
 | **B** | Back |
-| **L1** / **R1** | Previous / next of Home, Library, Search, Settings |
+| **L1** / **R1** | Previous / next of Home, Library, Search, [LinkUp](linkup.md) where it is on, Settings |
 | **L2** / **R2** | In a system's games: previous / next letter; hold to keep going. In Collections: previous / next person |
 | **Start** | The Power menu (Sleep, Restart, Power off, Switch to Steam) |
 | Up from the top row | The top bar |
 
-When the screen has dimmed or turned off, the first press only wakes it.
+When the screen has dimmed or turned off, the first press only wakes it. After
+it was off, after Sleep, and after a Remote Play device connects, buttons do
+nothing in the menus for 3 seconds.
 
 ## Screen by screen
 
@@ -46,7 +49,7 @@ back to the keyboard, **B** goes to Home.
 it, Left or **B** comes back. On a row with a value, Left and Right change it
 and **A** steps through it.
 
-**PIN pad.** **A** presses a key, **X** deletes a digit, **B** cancels.
+**PIN pad.** **A** presses a key, **X** deletes a digit (hold it to keep deleting), **B** cancels.
 
 ## In a game
 
@@ -54,26 +57,39 @@ and **A** steps through it.
 |---|---|
 | **L3 + R3** (both sticks pressed) | The [pause menu](pause-menu.md), in every game |
 | Power button | The Power menu, with **Resume** first |
-| Hold **HOME** (Wii Remote, Wii games) | The pause menu |
+| Hold **HOME** (Wii Remote) | The pause menu, in every game |
 | Hold **Select** (Remote Play device) | The pause menu |
+| Tap **Home** ([8BitDo Arcade Stick](controllers.md#fight-sticks)) | The pause menu, in every game |
 
 The Home (Guide) button is never passed to a game.
 
-## On two systems
+## On some systems
 
 | System | Button | Does |
 |---|---|---|
-| Nintendo DS | Right stick, **R3** | The right stick moves a pointer on the touch screen; **R3** (press the stick) touches |
+| Arcade | Hold **Start** for a second | The game's own settings (not in Model 2 and Model 3 games), see [Arcade](arcade.md) |
+| Nintendo DS | Right stick, **R3**, **L3**, **R2** | The right stick moves a pointer on the touch screen; **R3** (press the stick) touches; click **L3** for the top screen alone, again for the bottom screen alone, and again for both; hold **R2** to close the lid, for the few games that ask for it |
+| Nintendo 3DS | Right stick, **R3**, **L3** | The right stick moves a pointer on the touch screen, and is the C-stick too; **R3** touches; click **L3** for the top screen alone, again for the bottom screen alone, and again for both |
 | PlayStation (PS1) | **L1 + R1 + Select** | The DualShock's ANALOG button, for the few games that need it pressed |
+| PlayStation Vita | Hold **L3**, the sticks, **L2**, **R2** | Hold L3 for half a second to show two dots on the touch screen, and again to hide them. With them showing, the left stick moves the white dot and **L2** touches with it (hold to drag); the right stick brings a red dot that **R2** touches with. A quick click of L3 is still the game's |
 
 PS1 games get a DualShock: sticks and rumble work in the games made
 for it, and games made for the original pad play as they always did.
 
+Vita games play as on a PlayStation TV: the face buttons by position (the
+bottom one is Cross), **L1** and **R1** the Vita's L and R, and each
+controller its own player. **L2**, **R2**, **L3** and **R3** reach only games
+made for the PS TV. While the dots show, the sticks, L2 and R2 work them and
+every other button still goes to the game.
+
 ## In-game shortcuts
 
-Off to start with: Settings, Controllers, **In-game shortcuts**. The shortcut
-button is **Home** (Guide). To use another, press **Shortcut button** in the same
-list and then the button you want; it is remembered for that kind of pad.
+Off to start with: Settings, Controllers, **In-game shortcuts**. Shortcuts use
+**Home** (Guide), and a controller with a Home button needs nothing set. If
+your controller's Home does nothing, press **Shortcuts use** in the same list
+and then a spare button; it is remembered for that kind of pad, and Home
+keeps working beside it. Select, Start and the sticks cannot be chosen: games
+use them, and L3+R3 is the pause menu.
 
 | Shortcut | Does |
 |---|---|
@@ -85,22 +101,30 @@ list and then the button you want; it is remembered for that kind of pad.
 | Hold it + **X** (left face button) | Screenshot, also with the pause menu open |
 
 State, rewind, fast forward and screenshot shortcuts work in the built-in
-emulators. In Switch, PS3, Xbox, Xbox 360 and Wii U games only the tap works;
-use the pause menu for the rest.
+emulators (3DS: no rewind). In Switch, PS3, Xbox, Xbox 360, Wii U, PS Vita,
+Model 2 and Model 3 games, only the tap works; use the pause menu for the rest.
 
 ## The on-screen keyboard
 
 | Button | Does |
 |---|---|
 | **A** | Type the key |
-| **X** | Delete |
-| **Y** | Shift (one letter) |
+| **X** | Delete the character before the cursor; hold to keep deleting |
+| **Y** | Shift: press once for one capital, twice to keep capitals on, again to turn them off |
 | **Start** | Done |
 | **B** | Cancel |
 
-Left and Right wrap around the rows. **show** reveals a password. Some fields
-add keys of their own, such as `.local` and `:8080` for a server address. A USB
-keyboard types into the same field.
+Left and Right wrap around the rows, and a held direction keeps moving. The
+Shift key shows **abc**, **Abc** for one capital, or **ABC** underlined while
+capitals stay on.
+
+To fix a typo, press Up from the numbers to move into the field. Left and Right
+move the cursor; what you type and **X** go in at the cursor. Down or **A** goes
+back to the keys. In Search, Up from the field goes to the results.
+
+**show** reveals a password. Some fields add keys of their own, such as
+`.local` and `:8080` for a server address. A USB keyboard types into the same
+field.
 
 ## A USB keyboard
 

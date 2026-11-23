@@ -1,0 +1,9 @@
+# The disk a tester writes to a USB drive: bootc-image-builder's settings for
+# build-disk.yml's `portable` type, which ci/make-portable-image.sh then makes
+# small.
+#
+# Nothing is set, on purpose, and the builder needs a file. No size: it takes
+# twice the image's, and the file is cut down afterwards. No account: the image
+# makes `cabinet`, locked, at the first start (sysusers.d/cabinetos.conf), so
+# this drive carries no password anybody could know. disk.toml is the test VM's,
+# with a known one.

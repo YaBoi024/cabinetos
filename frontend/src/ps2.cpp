@@ -3,6 +3,7 @@
 
 #include "ps2.h"
 
+#include "netblock.h"
 #include "rumble.h"
 #include "storage.h"
 
@@ -53,7 +54,12 @@ struct Api {
     // Optional: the BIOS by the game's region (#416). A library without it
     // takes the first BIOS it finds, as it always did.
     void     (*setDiscCode)(const char*) = nullptr;
+    // Optional: a guitar in a port (guitar.h). A library without it plays
+    // DualShock 2s in both.
+    void     (*setGuitar)(unsigned, int) = nullptr;
 } gApi;
+
+bool gGuitar[2] = {false, false};
 
 bool gWindowed = false;
 bool gPaused = false;
@@ -74,7 +80,12 @@ bool resolve(T& fn, const char* name) {
 } // namespace
 
 bool ps2::load(const std::string& soPath) {
-    if (gHandle) return true;
+    // Loaded once and kept (ps2::unload), but every game is a new one to the
+    // network block's log.
+    if (gHandle) {
+        netblock::addEmulator(gHandle, soPath);
+        return true;
+    }
 
     // RTLD_LOCAL for the same reason every libretro core gets it: PCSX2 brings
     // its own copies of fmt, imgui, zlib and a dozen more, and letting those
@@ -86,6 +97,8 @@ bool ps2::load(const std::string& soPath) {
         gError = "could not open " + soPath + ": " + (why ? why : "no reason given");
         return false;
     }
+    // Before cps2_start, so every thread PCSX2 starts carries the mark.
+    netblock::addEmulator(gHandle, soPath);
 
     const bool ok =
         resolve(gApi.start, "cps2_start") &&
@@ -115,9 +128,12 @@ bool ps2::load(const std::string& soPath) {
         dlsym(gHandle, "cps2_has_widescreen_patch"));
     gApi.setDiscCode =
         reinterpret_cast<decltype(gApi.setDiscCode)>(dlsym(gHandle, "cps2_set_disc_code"));
+    gApi.setGuitar =
+        reinterpret_cast<decltype(gApi.setGuitar)>(dlsym(gHandle, "cps2_set_guitar"));
 
     if (!ok) {
         dlclose(gHandle);
+        netblock::dropUnloaded();
         gHandle = nullptr;
         return false;
     }
@@ -169,6 +185,18 @@ std::string ps2::stoppedWhy() {
     const char* why = gApi.error();
     return why ? why : "";
 }
+
+bool ps2::setGuitar(int port, bool on) {
+    if (port < 0 || port > 1) return false;
+    if (on && !gApi.setGuitar)
+        std::fprintf(stderr, "[ps2] this library has no guitar: port %d plays a DualShock 2\n", port + 1);
+    gGuitar[port] = on && gApi.setGuitar;
+    if (gApi.setGuitar) gApi.setGuitar(static_cast<unsigned>(port), gGuitar[port] ? 1 : 0);
+    if (gGuitar[port]) std::fprintf(stderr, "[ps2] port %d holds a guitar\n", port + 1);
+    return gGuitar[port];
+}
+
+bool ps2::guitar(int port) { return port >= 0 && port < 2 && gGuitar[port]; }
 
 bool ps2::hasWidescreenPatch() {
     return gHandle && gApi.hasWidescreenPatch && gApi.hasWidescreenPatch() != 0;

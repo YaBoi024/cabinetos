@@ -3,7 +3,7 @@
 <h1 align="center">CabinetOS</h1>
 
 <p align="center"><b>Your whole game library, on the TV, as a console.</b><br>
-33 systems, from the Atari 2600 to the Switch, played from your own
+35 systems, from the Atari 2600 to the Switch, played from your own
 <a href="https://github.com/rommapp/romm">RomM</a> server, up to four players at once.</p>
 
 <p align="center">
@@ -18,11 +18,18 @@
 CabinetOS turns a small PC into a games console. It starts straight into its
 own menus, and from there a controller does everything. Games, covers, BIOS and
 saves all live on your RomM server, so the console is only ever a screen away
-from your whole library.
+from your whole library. And with LinkUp, a friend's console across town is
+the second seat on your couch.
 
 - **Pick up where you left off.** Saves and save states go to RomM by
   themselves, and every game page shows your last three states with a picture.
-- **Every system tuned.** An emulator chosen and set up for each of 33 systems,
+- **Play with a friend from their house.** [LinkUp](docs/wiki/linkup.md) streams
+  your game to a friend's CabinetOS console, where they play as player two, and
+  only you need the game. It runs through a small server you or a friend host,
+  [cabinet-linkup](https://github.com/MMagTech/cabinet-linkup), and it is off
+  until you turn it on. A friend with no console can join from a Mac or a
+  Windows PC with [2P Start](https://github.com/MMagTech/cabinet-linkup-guest).
+- **Every system tuned.** An emulator chosen and set up for each of 35 systems,
   rendering up to 4K, with one pause menu in every game.
 - **Make it look right.** CRT and LCD looks per system, and sixteen colours for
   the menus, bright ones included.
@@ -43,6 +50,7 @@ from your whole library.
 |---|---|---|
 | ![The Library](docs/media/library.webp) | ![A game's page with three save states](docs/media/game.webp) | ![The pause menu](docs/media/pause-menu.webp) |
 | ![Zero Gunner 2 on Dreamcast](docs/media/play-dreamcast.webp) | ![Deathsmiles in the arcade, CRT look](docs/media/play-arcade.webp) | ![Six of the sixteen colours](docs/media/colours-grid.webp) |
+| ![LinkUp: your friends, one with an invite](docs/media/linkup-friends.webp) | ![Steam's Big Picture, one press from Home](docs/media/steam-bigpicture.webp) | ![Hammerin' Hero on PSP](docs/media/play-psp.webp) |
 
 Every picture here was captured from a running console. The
 [showcase page](https://cabinetos.mmagtech.com/) has the videos.
@@ -72,8 +80,8 @@ These days it's my kids on that couch. Same feeling.
 ## What you need
 
 - **A small PC** with AMD Radeon graphics. CabinetOS is built and tested on the
-  **GEEKOM A9 Max**, the only machine it has been tested on so far.
-- **A RomM server**, 5.1 or newer, with your games, BIOS and firmware.
+  **GEEKOM A9 Max**.
+- **A RomM server**, 5.5 or newer, with your games, BIOS and firmware.
 - **A controller**, Bluetooth or USB, and a USB keyboard for the first run.
 - **A TV.**
 
@@ -90,8 +98,12 @@ playing: [install](docs/wiki/install.md), [first run](docs/wiki/first-run.md),
 [your RomM server](docs/wiki/romm.md), then everything else.
 
 **[Download the installer](https://download.mmagtech.com/cabinetos.iso)**:
-one file, `cabinetos.iso`, always the newest release
+one file, `cabinetos.iso`, made again from the newest version at least
+once a month
 ([what's new](https://cabinetos.mmagtech.com/wiki/changelog.html)).
+
+**Try it without installing:** [run it from a USB drive](docs/wiki/portable.md).
+Your PC's own drives stay as they are.
 
 ## Thanks
 
@@ -124,7 +136,7 @@ CabinetOS ships no games, no BIOS and no keys. All of them come from your own
 RomM server.
 
 CabinetOS's look comes from [Cabinet](https://github.com/MMagTech/cabinet),
-the Apple TV app. The `Containerfile`, `Justfile`, `disk_config/` and `.github/workflows/` are derived
+the retired Apple TV app it began as. The `Containerfile`, `Justfile`, `disk_config/` and `.github/workflows/` are derived
 from the [Universal Blue image template](https://github.com/ublue-os/image-template)
 (Apache-2.0).
 
@@ -138,7 +150,10 @@ from the [Universal Blue image template](https://github.com/ublue-os/image-templ
   how its parts fit.
 - [`docs/WORKING.md`](docs/WORKING.md): how the maintainer works: the loop,
   the testing branch, merges.
-- [`docs/PROJECT.md`](docs/PROJECT.md): the specification.
+- [`docs/decisions/`](docs/decisions/README.md): what the project decided and
+  why, one small file each.
+- [`docs/PROJECT.md`](docs/PROJECT.md): the older record of decisions, frozen
+  on 2026-10-23.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md): the order of work.
 - [`docs/lessons/`](docs/lessons/README.md): what cost hours before.
 

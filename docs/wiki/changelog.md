@@ -4,9 +4,739 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## 2026.10.19.3 {#v2026-10-19-3}
+## 2026.11.23 {#v2026-11-23}
 
-*19 October 2026*
+- **Fixed:** leaving a Switch game, most often a busy one such as Mario
+  Kart 8 Deluxe or Xenoblade Chronicles X, could keep its last picture on
+  the TV for 10 seconds, and up to two minutes more on a slower drive,
+  before Home came back. Eden, the Switch emulator, sometimes crashes as it
+  closes; the console now goes straight back to Home when it does. Your
+  save was never affected. Now and then Eden still stalls instead, and
+  that 10-second wait stays until Eden's next release fixes it.
+
+## 2026.11.22.4 {#v2026-11-22-4}
+
+- **Fixed:** a Game Boy Advance save from RomM's web player, another app or
+  RomM's website was not used unless the game keeps a 128 KB save, and the
+  game started from the console's own save with *Couldn't use the newest
+  save*. Most Mega Drive, Master System and Game Gear saves from other apps
+  met the same. A save from the same emulator now carries on.
+  ([Saves from other apps](saves.md#saves-from-other-apps))
+- **Fixed:** leaving a Game Boy Advance game before it loaded its save sent
+  the same save to RomM again, as a new save in the game's history.
+
+## 2026.11.22.3 {#v2026-11-22-3}
+
+- **New:** Guitar Hero and Rock Band guitars play PlayStation 2 and
+  PlayStation 3 games as guitars: frets, strum, whammy, star power and tilt,
+  over Bluetooth, a cable or the guitar's receiver. Turn the guitar on, then
+  start the game; tilt the neck or press View for star power, and tap Home
+  for the pause menu. PlayStation 3 games see a Rock Band guitar, except
+  Guitar Hero III and Aerosmith, which see a Guitar Hero guitar. Controllers
+  lists it as Guitar. A CRKD Les Paul goes on the PC slider position and mode
+  dial 8. ([Guitars](controllers.md#guitars),
+  [#727](https://github.com/MMagTech/cabinetos/pull/727))
+
+## 2026.11.22.2 {#v2026-11-22-2}
+
+- **New:** your saves follow you between devices and apps. A game now starts
+  from your newest save on your RomM server, wherever you made it: this
+  console, another CabinetOS console, RomM's web player or an app such as
+  Argosy, and says *Continuing from another device* when it came from
+  somewhere else. A save the console's emulator can't use stays on RomM, and
+  the game starts from the console's own with *Couldn't use the newest save*.
+  Your saves from the console carry on in those apps the same way. Your saves
+  already on RomM come along by themselves, the first time you start each
+  game. This needs RomM 5.5 or newer: System update waits until your server
+  has it. ([Saves](saves.md),
+  [#346](https://github.com/MMagTech/cabinetos/issues/346))
+- **Fixed:** a Switch game's save that every profile on the console shares,
+  such as Animal Crossing's island, never reached your RomM server, so
+  another console, or this one after a reinstall, started without it. It now
+  goes up and comes back with the rest of the game's save.
+  ([Saves](saves.md))
+- **Fixed:** a console that had been offline, or away on a trip, put its
+  older save over newer progress made on another device. Now the save made
+  later wins, and the other stays on RomM, where **Restore as current** on
+  RomM's website brings it back.
+  ([The same game on two devices](saves.md#the-same-game-on-two-devices),
+  [#261](https://github.com/MMagTech/cabinetos/issues/261))
+- **Changed:** a save state goes to RomM with the game's save when you leave
+  the game, and Save state says *State saved*. A game offers your three
+  newest states from any of your CabinetOS consoles, and the console no
+  longer deletes older states on RomM: RomM keeps them in the game's save
+  history. ([Save states](saves.md#save-states))
+- **Fixed:** after a crash or a power cut in a DS, Dreamcast, PS2, PSP, 3DS,
+  GameCube or Wii game, the next start put RomM's older save over the one the
+  game had just made. It is kept and sent now.
+- **Improved:** on RomM's website, a save from the console shows a picture of
+  the game from the moment it saved.
+- **New:** a Game Boy game with a clock, such as Pokémon Gold or Silver,
+  keeps its clock with its save, on this console, your other consoles and
+  other apps. A Saturn game saved to its backup cartridge takes the cartridge
+  with it. ([Saves](saves.md),
+  [#353](https://github.com/MMagTech/cabinetos/issues/353))
+- **Improved:** the diagnostic report says, for each game you played, which
+  save the console is on and what it still has to send to your server, so a
+  problem with a save can be found from the report.
+  ([Reporting a problem](troubleshooting.md#reporting-a-problem))
+
+## 2026.11.18 {#v2026-11-18}
+
+- **New:** an update that needs a newer RomM than your server runs says so
+  in Settings, **System**, **System update**, and Download waits until the
+  server is updated. Until then the console keeps playing as it is.
+  ([Updates](updates.md#update-the-console))
+
+## 2026.11.16 {#v2026-11-16}
+
+- **New:** Game events. The console can tell an app in your home, such as
+  n8n or Home Assistant, when a game starts, pauses, ends, or unlocks an
+  achievement, so the app can dim the lights or post to your Discord. Set it
+  in Settings, **System**, **Game events**. It is off until you type an
+  address, and it only ever sends to that address while it is on your own
+  network. [Game events](game-events.md) has every message and ready-made n8n
+  workflows to start from: Discord, Telegram, and Philips Hue lights that take
+  their colours from the game's cover.
+  ([#716](https://github.com/MMagTech/cabinetos/issues/716))
+
+## 2026.11.15 {#v2026-11-15}
+
+- **New:** reach your RomM server away from home through Tailscale. Sign the
+  console in to Tailscale in Settings, **Network**, then change the RomM
+  server's address to RomM's Tailscale address. Your games and saves stay.
+  ([How](network.md#reaching-romm-away-from-home))
+- **Changed:** Tailscale moved from Streaming to Settings, **Network**, with
+  its own switch: turning Remote Play off no longer turns Tailscale off. If
+  you had Tailscale on while Remote Play was off, it stays off after this
+  update, as it showed; your sign-in is kept, so **Connect** brings it back.
+  **Disconnect** now asks for the PIN when one is set.
+  ([Tailscale](network.md#tailscale))
+
+## 2026.11.14.3 {#v2026-11-14-3}
+
+- **Improved:** three more controllers are in the console's controller list:
+  a PDP Xbox One controller, the Razer Wolverine V2 Xbox and the Unico MVS
+  Mini Pad. ([Which controllers work](controllers.md#which-controllers-work))
+
+## 2026.11.14.2 {#v2026-11-14-2}
+
+- **Fixed:** if the power went off in the few minutes after a game finished
+  downloading, unpacking or installing, that game could fail to start every
+  time until you removed its download, most often on a USB drive formatted
+  on another computer. The console now notices at the game's next start and
+  downloads, unpacks or installs it again. Games start as quickly as
+  before.
+  ([#559](https://github.com/MMagTech/cabinetos/issues/559))
+
+## 2026.11.13.3 {#v2026-11-13-3}
+
+- **Fixed:** in LinkUp, when your friend's console went away during a game
+  without ending the session (a power cut, a crash, its network gone), your
+  console said *Reconnecting to Alex* without end, and every 15 seconds said
+  *Alex is back* for a moment. It now waits a minute, then says *Alex left*,
+  and your game carries on. ([LinkUp](linkup.md#while-you-play))
+- **Fixed:** in LinkUp, when you joined a friend's game and the connection
+  dropped and came back, your console showed the game's picture standing
+  still instead of *Waiting for Alex*, until Alex pressed **A** to resume. It
+  now says *Waiting for Alex* until the game is back.
+  ([LinkUp](linkup.md#while-you-play))
+
+## 2026.11.13.2 {#v2026-11-13-2}
+
+- **New:** in LinkUp, **Status** follows you onto every console you sign in
+  on as the same account: choose Offline on one and the others turn Offline
+  too, and choosing Online on any brings them all back. If you chose Offline
+  before this update, choose it once more. This needs the newest version of
+  the LinkUp server; with an older one, Status stays each console's own. ([#690](https://github.com/MMagTech/cabinetos/issues/690),
+  [LinkUp](linkup.md#play))
+- **New:** a console taken off its LinkUp server, after the owner changed your
+  code or removed you, comes back with the code alone: press **A** on
+  *Removed from the LinkUp server*, or Settings, **Streaming**, **Server**,
+  **Enter a code**, and type it. Until now that took leaving the server and
+  adding it again. ([LinkUp](linkup.md#if-it-wont-connect))
+- **Fixed:** in LinkUp, *Removed from the LinkUp server* faded out and back
+  in every 25 seconds while it waited for a code. It now stays still until
+  the code is typed, and the console stays on the server afterwards.
+  ([LinkUp](linkup.md#if-it-wont-connect))
+
+## 2026.11.12.3 {#v2026-11-12-3}
+
+- **Fixed:** in LinkUp, when the game was paused for both of you and either
+  of you pressed **A** to resume, the console hosting the game showed its own
+  pause menu (Resume, Save State, Load State) for a moment before the game
+  came back. The LinkUp message now fades straight back to the game.
+  ([LinkUp](linkup.md#while-you-play))
+
+## 2026.11.12 {#v2026-11-12}
+
+- **Fixed:** in LinkUp, if someone woke the TV during *Still playing?* without
+  pressing **A**, or the game was left paused under a menu, the session never
+  ended by itself. It now ends 25 minutes after the last press, whatever is on
+  the screen. ([LinkUp](linkup.md#while-you-play))
+
+## 2026.11.11.3 {#v2026-11-11-3}
+
+- **New:** in LinkUp, your friend's controller tilts and turns in Switch and
+  PlayStation 3 games made for it, as it would on their own console: steering,
+  aiming or balancing where a game asks. Both consoles need this update. In
+  Wii U and PS Vita games only player 1's controller tilts, and that is yours.
+  ([#669](https://github.com/MMagTech/cabinetos/issues/669),
+  [Motion](controllers.md#motion))
+- **Fixed:** in LinkUp, a game never paused by itself when neither of you
+  pressed anything, and the session never ended. It now pauses after 10
+  minutes with no press and ends 15 minutes later, as it was meant to.
+  ([LinkUp](linkup.md#while-you-play))
+
+## 2026.11.11.2 {#v2026-11-11-2}
+
+- **New:** tilting and turning the controller in Switch, Wii U and PS Vita
+  games made for it, with a controller that has motion sensors (PS4, PS5 and
+  Switch controllers). Tilt or turn it where a game asks you to move the
+  controller, such as aiming, steering or looking around. In Switch games
+  each player's own controller moves their part of the game; in Wii U games
+  player 1's controller is the GamePad; in PS Vita games player 1's
+  controller is the Vita. A controller without motion sensors plays them as
+  before.
+  ([#669](https://github.com/MMagTech/cabinetos/issues/669),
+  [Motion](controllers.md#motion))
+
+## 2026.11.11 {#v2026-11-11}
+
+- **Fixed:** in LinkUp, the soft glow in the bars beside the game reached
+  your friend's TV in blocky steps. Their console now draws the glow itself,
+  as smooth as on yours.
+  ([#692](https://github.com/MMagTech/cabinetos/issues/692))
+
+## 2026.11.10.3 {#v2026-11-10-3}
+
+- **New:** tilting and turning the controller in PlayStation 3 games made for
+  it, with a controller that has motion sensors (PS4, PS5 and Switch
+  controllers). Every player's own controller moves their part of the game:
+  tilt or turn it where a game asks you to move the controller, such as
+  steering, balancing or aiming. A controller without motion sensors plays
+  them as before.
+  ([#683](https://github.com/MMagTech/cabinetos/issues/683),
+  [Motion](controllers.md#motion))
+
+## 2026.11.10.2 {#v2026-11-10-2}
+
+- **Changed:** Switch and original Xbox games run on exactly the same
+  graphics driver and libraries on every console, the ones they are tested
+  with. If your console had a different build of the driver, each of these
+  games builds its shaders again the first time you play it after this
+  update, so its first minutes may stutter.
+
+## 2026.11.10 {#v2026-11-10}
+
+- **New:** tilting and turning in the Game Boy Advance and 3DS games made for
+  it, with a controller that has motion sensors (PS4, PS5 and Switch
+  controllers). Player 1's controller is the one these games read: tilt or
+  turn it as the game asks. Game Boy Advance cartridges with a tilt or gyro
+  sensor turn with it, and 3DS games use it wherever a 3DS was moved, such as
+  aiming. A controller without motion sensors plays them as before.
+  ([#670](https://github.com/MMagTech/cabinetos/issues/670),
+  [Motion](controllers.md#motion))
+
+## 2026.11.09.5 {#v2026-11-09-5}
+
+- **Fixed:** in Settings, **Wi-Fi**, a network the console had saved twice
+  could not be forgotten: **Forget** said "Couldn't forget" and kept it, and
+  **Change password** joined with the new password but left the old copies
+  saved. Both now remove every saved copy of the network.
+  ([#642](https://github.com/MMagTech/cabinetos/issues/642))
+
+## 2026.11.09.4 {#v2026-11-09-4}
+
+- **Improved:** the on-screen keyboard is quicker for long entries such as a
+  server address, a code or a Wi-Fi password. Holding a direction now keeps
+  moving, slowly at first and then faster, as everywhere else on the console,
+  and holding **X** keeps deleting, on the PIN pad too.
+  **Y** (or the Shift key) pressed once capitalises the next letter; pressed
+  twice it keeps capitals on, shown underlined, until you press it again. And
+  a typo no longer means deleting back to it: press Up from the numbers to
+  move into the field, Left and Right to move the cursor, then type or press
+  **X** there, and Down to go back to the keys. In Search, Up from the field
+  goes on to the results, and holding Left or Right there keeps moving
+  along the covers, which it did only after **Start**.
+  ([#668](https://github.com/MMagTech/cabinetos/issues/668),
+  [the on-screen keyboard](navigation.md#the-on-screen-keyboard))
+
+## 2026.11.09.3 {#v2026-11-09-3}
+
+- **New:** LinkUp, a game with a friend on their console, from their house. It needs a small server that
+  you or a friend runs, at home or on a rented machine; whoever runs it follows the guide in
+  [the server's repository](https://github.com/MMagTech/cabinet-linkup), then sends you an address and a
+  code. With those in hand: Settings, **Streaming**, turn LinkUp on, press **Server** and type them in.
+  LinkUp joins the top bar. Press an Online friend, then a game, and they get an invite; the game starts
+  for both of you when they join, and they play as player two. Only you need the game. It is off until
+  you turn it on, and off means nothing runs. [How it works](linkup.md).
+  ([#654](https://github.com/MMagTech/cabinetos/issues/654))
+
+- **Fixed:** on Wi-Fi, a game streamed from the console, to a friend with
+  LinkUp or to a phone with Remote Play, could stutter for several seconds
+  every five minutes in most homes, while the console looked for other Wi-Fi
+  networks. It now looks only when its signal gets weak, and keeps its Wi-Fi
+  awake while connected, so a friend's sound arrives on time.
+  ([#666](https://github.com/MMagTech/cabinetos/pull/666))
+
+## 2026.11.07.2 {#v2026-11-07-2}
+
+- **Fixed:** PlayStation 3 games made with Unreal Engine 3 drew red speckle
+  over the whole picture as soon as play started, while their menus and
+  cutscenes looked right, and some kept red in the shadows at the Balanced
+  and Quality picture levels. They draw right now, at every level.
+  ([#664](https://github.com/MMagTech/cabinetos/pull/664))
+
+- **Improved:** PlayStation 3 games now start with the settings the RPCS3
+  team keeps for each game, the same ones RPCS3 uses on a computer, so a
+  game that needs a particular setting to draw or run right gets it without
+  anyone choosing it. A game the team has no entry for plays as before.
+  ([#665](https://github.com/MMagTech/cabinetos/pull/665))
+
+## 2026.11.07 {#v2026-11-07}
+
+- **New:** a download you no longer want can be stopped. Until now it ran to
+  the end, and no other game would download until it did. On the game's page,
+  press the bar that is filling, then **Stop**; **Continue** or **B** leaves
+  it running. What had arrived is cleared, and Play or Download starts it
+  again from the beginning.
+  ([#663](https://github.com/MMagTech/cabinetos/pull/663))
+
+## 2026.11.06 {#v2026-11-06}
+
+- **Fixed:** on a PC with two graphics chips, such as a gaming laptop or a
+  desktop with a card in it and the monitor on the motherboard's port, the
+  games that draw with the graphics chip (GameCube, Wii, Nintendo 64,
+  Dreamcast, PSP and the rest) drew on the chip the screen was not on, which
+  could take the whole console down. They now draw on the chip the screen is
+  plugged into. A PC with one graphics chip, which is every machine CabinetOS
+  is tested on, is unchanged.
+  ([#659](https://github.com/MMagTech/cabinetos/issues/659))
+
+## 2026.11.05.2 {#v2026-11-05-2}
+
+- **Fixed:** on some PCs there was no sound at all, no menu sounds and no game
+  sound, on a TV that plays sound perfectly well, because the sound went to a
+  jack on the PC with nothing plugged into it. The sound now plays on the TV
+  the picture is on. When the TV is off or asleep there is no sound, never a
+  speaker in the PC. A PC whose screen has no sound of its own plays from its
+  own speaker or jack.
+  ([#655](https://github.com/MMagTech/cabinetos/issues/655))
+
+## 2026.11.03.6 {#v2026-11-03-6}
+
+- **Fixed:** while a PlayStation 3 or Vita game was installing, its emulator
+  could reach the internet, which no emulator is meant to. It now has no
+  network during an install, as when a game plays. Games install and play as
+  before.
+  ([#650](https://github.com/MMagTech/cabinetos/pull/650))
+
+## 2026.11.02.4 {#v2026-11-02-4}
+
+- **New:** Model 2 and Model 3 arcade games with buttons, such as the
+  fighting games, now have **Controls** in their pause menu, as other
+  arcade games do. Highlight one of the game's buttons, press **A**, then
+  press the button you want it on; if another of the game's buttons was
+  there, the two swap. In these games a change works from the game's next
+  start: choose Exit to Home and start it again. Driving and gun games have
+  no buttons to move, so no Controls. See
+  [Controls](pause-menu.md#controls).
+  ([#617](https://github.com/MMagTech/cabinetos/issues/617))
+
+## 2026.11.02.3 {#v2026-11-02-3}
+
+- **Fixed:** pressing Start on an empty Wi-Fi password tried to join with
+  no password, waited about 12 seconds, said *Wrong password* again and
+  saved the network a second time. Now nothing happens but a bump, and the
+  keyboard stays as it was. Messages in a field, such as *Wrong password*,
+  are now grey, so they no longer look like something you typed, and a
+  server address with no RomM at it now says *Can't connect*.
+  ([#640](https://github.com/MMagTech/cabinetos/pull/640))
+
+## 2026.11.02.2 {#v2026-11-02-2}
+
+- **Fixed:** a game you deleted in RomM, or one that got a new entry when
+  RomM scanned its folder again, stayed on the console's drive. Now the
+  console removes it at the next start with your server there, a played
+  game and a downloaded one alike, so the room comes back, and its pictures
+  are no longer downloaded again at every start. Its saves, states and
+  screenshots on the console go with it: RomM deletes its own copies of
+  them along with the game, so they could never be sent anywhere. A game
+  that somebody else signed in on the console can still see in RomM stays.
+  ([#625](https://github.com/MMagTech/cabinetos/issues/625))
+- **Fixed:** for the few seconds the console took to join a Wi-Fi network
+  with a password you typed, any other program running on it, such as a
+  game, could read that password. It now goes straight to the console's
+  network service, which no other program can read. Joining works as
+  before. ([#637](https://github.com/MMagTech/cabinetos/pull/637))
+
+## 2026.11.01.5 {#v2026-11-01-5}
+
+- **Changed:** the system CabinetOS is built on moves to Bazzite
+  44.20261026, with Linux 7.2.11. The new kernel has fixes for Radeon
+  graphics, Wi-Fi, Bluetooth, controllers and sound, and the firmware and
+  the parts that draw the picture, play the sound, update the console and
+  run Remote Play away from home are newer versions.
+  ([#627](https://github.com/MMagTech/cabinetos/pull/627))
+
+## 2026.11.01.4 {#v2026-11-01-4}
+
+- **Fixed:** a Model 3 game set up as the second of two linked cabinets
+  waited forever for the other at its network check (*Mode: Slave, checking
+  network*) and never started. It now plays on its own.
+  ([#635](https://github.com/MMagTech/cabinetos/pull/635))
+
+## 2026.11.01.3 {#v2026-11-01-3}
+
+- **Fixed:** characters in Xbox 360 games made with Unreal Engine 3 no
+  longer show black patches. Xbox 360's emulator, Xenia Edge, is
+  updated for it; as with any emulator update, an Xbox 360 save made before
+  this update may not load. ([#632](https://github.com/MMagTech/cabinetos/pull/632))
+
+## 2026.11.01.2 {#v2026-11-01-2}
+
+- **Fixed:** an arcade game made for MAME could stop on FinalBurn Neo's
+  *romset is missing files* screen. PGM games did. The console now checks
+  for every file an emulator needs, its BIOS and shared chips included,
+  before choosing it, so such a game plays in the next emulator its zip
+  fits, usually MAME. No game that played before moves to another emulator,
+  and your zips stay as they are. ([#631](https://github.com/MMagTech/cabinetos/pull/631))
+
+## 2026.11.01 {#v2026-11-01}
+
+- **Fixed:** a password typed on the console's on-screen keyboard, such as
+  a Wi-Fi or RetroAchievements password, was written into the console's log
+  when you finished typing with Start or Enter, and a diagnostic report made
+  soon after carried it. The keyboard no longer writes what you type, and a
+  report made after this update leaves out any such line from before it. It
+  also hides the File access password and Tailscale's sign-in link now. If
+  you shared a report before this update, change any password you had typed
+  on the console shortly before making it.
+- **Changed:** the diagnostic report says more about the newer systems: the
+  Switch, Wii U and PS3 emulators' own logs, everything the console noted
+  during each game you played, which firmware files are on the console (by
+  name and size only), which Switch and Xbox emulator versions are
+  installed, and the buttons you moved in an arcade game's **Controls**. A
+  profile name an emulator shortens, such as an Xbox 360 gamertag, is now
+  hidden like the name itself.
+
+## 2026.10.30.2 {#v2026-10-30-2}
+
+- **New:** every arcade folder in RomM is now one Library tile, **Arcade**,
+  in title order, with greyed games last. As you move through it, the line
+  beside the heading names each game's folder, such as
+  *Metal Slug · NeoGeoMVS*. Everywhere else (Search, collections, Home and a
+  game's page) an arcade game's system is *Arcade*. Your folders in RomM stay
+  as they are; for one board on its own, make a RomM collection. See
+  [Arcade](arcade.md). ([#615](https://github.com/MMagTech/cabinetos/pull/615))
+- **Changed:** the console says *the server*, not *your server*, since it may
+  be someone else's: *No Sega Saturn BIOS on the server*, *Waiting for the
+  server*. A missing arcade BIOS names its folder: *No Naomi BIOS on the
+  server*.
+
+## 2026.10.30 {#v2026-10-30}
+
+- **New:** Sega Model 3 games now play, in Supermodel. Games whose cabinets
+  had force feedback rumble, as Model 2's driving games do. Keep them as
+  zip. A game set up as a linked second cabinet does not play yet: it stops
+  at its network check. See
+  [Arcade](arcade.md) for how to set out arcade folders.
+  ([#616](https://github.com/MMagTech/cabinetos/pull/616))
+
+## 2026.10.29.7 {#v2026-10-29-7}
+
+- **New:** Sega Model 2 games now play, in sm2-emu. See [Arcade](arcade.md)
+  for how to set out arcade folders. Model 2 games that played in MAME 0.289
+  until now move to sm2-emu: their high scores and settings from MAME do
+  not carry over, and their save states can no longer be loaded, since
+  sm2-emu has none.
+  ([#613](https://github.com/MMagTech/cabinetos/pull/613))
+- **Fixed:** in a Switch, PS3, Xbox, Xbox 360, Wii U, PS Vita or Model 2
+  game, a button pressed just as the pause menu faded away after Resume
+  could start the game a second time behind the one being played, and what
+  was played in the first was never saved. Presses now go to the game.
+
+## 2026.10.29.6 {#v2026-10-29-6}
+
+- **Changed:** arcade folders keep working after RomM's next update, which
+  gives MAME, FinalBurn Neo, Naomi and Atomiswave folders labels of their
+  own. A Gaelco folder now gets a tile. CPS and Neo Geo games now start on
+  the CRT look like the other arcade games, and all arcade folders share one
+  Look choice.
+  ([#610](https://github.com/MMagTech/cabinetos/pull/610))
+
+## 2026.10.29.5 {#v2026-10-29-5}
+
+- **Fixed:** pausing a Switch, PS3, Xbox, Xbox 360, Wii U or PS Vita game
+  played for longer than **Turn off screen after** turned the screen off at
+  once. The time now counts from the pause, as in every other game.
+  ([#604](https://github.com/MMagTech/cabinetos/issues/604))
+- **Fixed:** a Switch, PS3, Xbox, Xbox 360, Wii U or PS Vita game left
+  running with nobody pressing anything stayed at full brightness. It now
+  dims after 20 minutes, as every other game does, and any press brings it
+  back.
+
+## 2026.10.29.4 {#v2026-10-29-4}
+
+- **Changed:** with In-game shortcuts off, as a console starts, games no
+  longer keep a rewind history in the background that nothing could use.
+  It took memory and a little of the game's time twice a second. With
+  shortcuts on, rewind works as before.
+  ([#609](https://github.com/MMagTech/cabinetos/pull/609))
+
+## 2026.10.29.3 {#v2026-10-29-3}
+
+- **New:** MAME 0.289 joins, for arcade games nothing else here plays: CPS3,
+  ST-V and many more. High scores are kept. A CPS3 CD set installs once,
+  about 22 minutes; the No CD sets start at once.
+
+## 2026.10.29 {#v2026-10-29}
+
+- **New:** Sega Naomi, Naomi 2 and Atomiswave games now play, and CPS1, CPS2
+  and Neo Geo folders get tiles of their own. Each arcade game now picks its
+  emulator from the files in its zip: see [Systems](systems.md) on the
+  wiki for how to set out arcade folders.
+
+## 2026.10.27.3 {#v2026-10-27-3}
+
+- **New:** in a DS or 3DS game, click **L3** (press the left stick in) for
+  the top screen alone, as big as the TV allows, again for the bottom screen
+  alone, and again for both. With the bottom screen alone, the right stick
+  and R3 touch it as before. Every game starts with both screens.
+- **Changed:** on the DS, closing the lid is now holding **R2**, for the few
+  games that ask for it. L3 used to close it, which put the game to sleep
+  with a white screen. R2 no longer swaps the screens, and on the 3DS
+  holding L3 no longer swaps them either: L3 shows one screen instead.
+- **Fixed:** connecting to the console with Moonlight could start the game
+  Home had focused, with nobody pressing anything, and a press just after
+  the screen came back on could start a game before the TV showed the
+  picture. After the screen was off, after Sleep, and after a device
+  connects to stream, buttons now do nothing in the menus for 3 seconds. The
+  first press on a dimmed screen still only wakes it.
+  ([#411](https://github.com/MMagTech/cabinetos/issues/411))
+
+## 2026.10.27 {#v2026-10-27}
+
+- **Fixed:** leaving a Wii game could freeze the picture for up to a minute
+  while the emulator waited on Nintendo's old servers. No emulator reaches
+  the internet any more, so leaving is immediate, and no game contacts a
+  server of its own. A 3DS game now sees its Wi-Fi as on, and its online
+  modes still do not connect.
+  ([#557](https://github.com/MMagTech/cabinetos/issues/557))
+
+## 2026.10.26.3 {#v2026-10-26-3}
+
+- **Fixed:** after the screen had gone to sleep or the TV had been off, the
+  console could come back with no sound at all, in menus and in games, until
+  it was restarted. Its sound now comes back with the TV.
+  ([#228](https://github.com/MMagTech/cabinetos/issues/228))
+
+## 2026.10.26.2 {#v2026-10-26-2}
+
+- **New:** a game says which controller it needs when that one is off. While
+  only Wii Remotes are on, every game that isn't a Wii game says *Needs a
+  controller* after its name, on Home, in your games and in Search, and Play
+  on it with the Remote says the same (it used to say *This Remote only plays
+  Wii games*). While no Wii Remote is on, a Wii game that needs one says
+  *Needs a Wii Remote*, and Play on it says the same instead of starting a
+  game nothing can play. Turn on the controller it asks for and the note
+  goes.
+  ([#589](https://github.com/MMagTech/cabinetos/pull/589))
+- **Fixed:** a game greyed out on Home or in Search, such as a Wii game that
+  needs a Wii Remote while a Remote Play stream is on, now says why after its
+  name and system, as it already did in a system's games.
+  ([#588](https://github.com/MMagTech/cabinetos/pull/588))
+
+## 2026.10.25.5 {#v2026-10-25-5}
+
+- **Changed:** in a collection and in Search, the line beside the heading
+  names the focused game's system after its name, as Home does: "Altered
+  Beast · Sega Genesis". A system's own games still show the name alone,
+  since the heading names the system.
+  ([#579](https://github.com/MMagTech/cabinetos/issues/579))
+- **Fixed:** on Home, a long game name could push its system off the end of
+  the line. The name is shortened now, and the system always shows.
+  ([#579](https://github.com/MMagTech/cabinetos/issues/579))
+
+## 2026.10.25.4 {#v2026-10-25-4}
+
+- **New:** in an arcade game (FinalBurn Neo or MAME 2003-Plus), the pause
+  menu has **Controls**: the game's buttons by their own names, each with the
+  button that presses it. Highlight one, press **A**, then press the button
+  you want it on; if another of the game's buttons was there, the two swap.
+  Press the button it is already on to leave it, and **Reset to default**
+  puts them all back. It is kept for
+  that game, for you and for that kind of controller, and works as soon as
+  you go back to the game. See [Controls](pause-menu.md#controls).
+  ([#582](https://github.com/MMagTech/cabinetos/pull/582))
+
+## 2026.10.25.2 {#v2026-10-25-2}
+
+- **New:** hold **Start** for a second in an arcade game to open the game's
+  own settings: in a MAME 2003-Plus game, MAME's menu, whose **Dip Switches**
+  set the difficulty, the lives and the rest; in a FinalBurn Neo game, the
+  board's own test menu, where the board has one. Hold Start again to close
+  MAME's menu. See [Arcade](arcade.md).
+  ([#580](https://github.com/MMagTech/cabinetos/pull/580))
+- **Fixed:** leaving a MAME 2003-Plus game with both stick clicks could
+  open MAME's DIP switch menu. It no longer does.
+  ([#580](https://github.com/MMagTech/cabinetos/pull/580))
+- **Changed:** MAME 2003-Plus games start without MAME's copyright notice
+  over their first seconds.
+  ([#580](https://github.com/MMagTech/cabinetos/pull/580))
+
+## 2026.10.25 {#v2026-10-25}
+
+- **New:** the 8BitDo Arcade Stick plays arcade games with a fight-stick
+  layout. Pair it over Bluetooth in **X mode**: the game's buttons follow the
+  game's own order along the top row, then the bottom, so a Street
+  Fighter-style game has its punches on top and its kicks below; a four-button game, such as a Neo Geo
+  game, uses the bottom row, as does a game with one to three. Press two
+  buttons together for moves that need them, as on the cabinet. Tap **Home** on the stick
+  for the pause menu in any game. Wired, or on its 2.4G receiver, it is
+  treated as an ordinary pad, as before, and nothing changes for any other
+  controller. See
+  [Fight sticks](controllers.md#fight-sticks).
+  ([#576](https://github.com/MMagTech/cabinetos/pull/576))
+
+## 2026.10.24 {#v2026-10-24}
+
+- **Fixed:** with only a Wii Remote on, you could start a game it can't play
+  and be stuck in it until you turned the console off. A Wii Remote now
+  starts only Wii games: on any other game, Play says *This Remote only plays
+  Wii games*. And holding **HOME** on a Remote for a second opens the pause
+  menu in every game, not only Wii games. See
+  [Wii Remotes](controllers.md#wii-remotes).
+  ([#571](https://github.com/MMagTech/cabinetos/pull/571))
+
+## 2026.10.23.2 {#v2026-10-23-2}
+
+- **Fixed:** a game kept on your server as a *.zip* or *.7z* showed
+  *Unpacking…* at every start, not only the first: for a 3DS game, up to 37
+  seconds every time. Only the first start unpacks now. After this update,
+  each such game unpacks one last time at its next start, then goes
+  straight to the game. A nearly full drive also no longer removes other
+  downloads, or says *Not enough space*, to start a game already unpacked.
+  ([#530](https://github.com/MMagTech/cabinetos/issues/530))
+
+## 2026.10.23 {#v2026-10-23}
+
+- **Fixed:** in a Wii U game, a screen that reads only the GamePad ignored
+  every button, such as a first screen asking you to set the screen size.
+  Player 1's controller now counts as the Wii U GamePad, as on a real Wii U,
+  and players 2 and up are Pro Controllers as before. A game that shows a
+  map or items on the GamePad's own screen may now put them there, and the
+  console cannot show that screen yet.
+  ([#555](https://github.com/MMagTech/cabinetos/issues/555))
+
+## 2026.10.22.4 {#v2026-10-22-4}
+
+- **Changed:** Wii games that require MotionPlus are greyed with
+  *Needs MotionPlus* until a TechKen Wii Remote is paired: on Nintendo's own
+  Remotes, Linux turns MotionPlus off whenever a game turns it on. TechKen's
+  copies are the only officially supported Wii Remote. See
+  [Wii Remotes](controllers.md#wii-remotes).
+- **Fixed:** a Wii U game that needs the GamePad said *Needs a Wii Remote* on
+  its tile. It says *Needs a Wii U GamePad* now.
+
+## 2026.10.22.3 {#v2026-10-22-3}
+
+- **Fixed:** on a computer with a speaker built into its case, every sound
+  played from that speaker instead of the TV. The TV plays it now, and
+  headphones still take over while they are plugged in. While the TV is
+  asleep or off, the built-in speaker stays silent.
+  ([#547](https://github.com/MMagTech/cabinetos/issues/547))
+- **Changed, for players on a handheld PC or a laptop:** sorry, the built-in
+  speakers on a handheld PC or a laptop may no longer play. This came with a
+  fix for PCs on a TV that played their sound through a small speaker in the
+  case. CabinetOS is made to be a home console: a PC attached to a TV, so
+  handheld PCs and laptops are not supported.
+
+## 2026.10.22.2 {#v2026-10-22-2}
+
+- **Fixed:** a Wii Remote made by Nintendo, or a copy that reports itself as
+  one, showed as two controllers, a player and a Wii Remote (P2 and W1), and
+  every press counted twice. It is one Wii Remote now.
+  ([#548](https://github.com/MMagTech/cabinetos/issues/548))
+
+## 2026.10.21.4 {#v2026-10-21-4}
+
+- **New:** the PlayStation Vita, played as a PlayStation TV. A game is a zip
+  with its licence inside; the first Play installs it, and both of Sony's
+  firmware files (the system software and the font package) must be on your
+  server. Each controller is its own player. To touch the screen, hold L3
+  for half a second: two dots show. The left stick moves the white one and
+  L2 touches (hold to drag); the right stick brings a red one that R2
+  touches. Hold L3 again to hide them. Games that need the rear touch pad,
+  tilting or the camera may stop where they need them, as on a PS TV. Saves
+  sync with your server; no save states. Updates and DLC do not play yet.
+  See [Systems](systems.md#playstation-vita).
+  ([#198](https://github.com/MMagTech/cabinetos/issues/198))
+
+## 2026.10.21.2 {#v2026-10-21-2}
+
+- **New:** the Nintendo 3DS. Decrypted cartridge dumps play, the two
+  screens side by side on the TV; the right stick moves a pointer on the
+  touch screen, R3 taps, and holding L3 swaps the screens. Encrypted dumps
+  do not play, and say so on the game's page; `.cia` files do not show on
+  the console. Updates and DLC do not play yet. Games get no internet. Saves
+  sync with your server; save states and fast forward work, rewind does not,
+  and a 3DS state may not load after an update changes the emulator.
+- **Fixed:** pressing both sticks for the pause menu no longer sends a stray
+  stick click to the game.
+- **Fixed:** in the Library, moving up from the third or fourth system to
+  Systems and Collections showed no focus, and opening a system or
+  collection after moving up from the fourth closed the console's screen and
+  started it again. Focus lands on Collections now, and the grid opens.
+
+## 2026.10.20.4 {#v2026-10-20-4}
+
+- **New:** Vectrex games show the coloured sheet each cartridge came with,
+  over the screen as it sat on the real console: the colours, the artwork
+  and the controls printed around the play area. The pause menu has
+  **Overlays: On / Off** to show the bare screen instead; the choice holds
+  for every Vectrex game. See [Picture and colours](picture.md).
+  ([#224](https://github.com/MMagTech/cabinetos/issues/224))
+
+## 2026.10.20.3 {#v2026-10-20-3}
+
+- **Fixed:** streaming an arcade game to a phone, a tap of Select could open
+  the pause menu instead of putting a coin in. Select, Start and the stick
+  buttons can no longer be chosen for shortcuts (games use them, and L3+R3
+  is the pause menu), and Home opens the pause menu even when a spare
+  button was chosen for that kind of controller. The row now reads
+  "Shortcuts use: Home" (#313).
+- **Fixed:** on Search, the covers grow and shrink with the keyboard as it
+  slides in and out, instead of jumping to their new size at once. Done
+  slides the keyboard away rather than dropping it.
+
+## 2026.10.20 {#v2026-10-20}
+
+- **Fixed:** opening Steam, and some restarts, could sit on a blank screen
+  for about 25 seconds while the picture changed over. The change-over
+  now takes a few seconds at most, even when the compositor stalls.
+  ([#305](https://github.com/MMagTech/cabinetos/issues/305))
+- **Fixed:** after leaving a game through the pause menu, the menu and its
+  dimming lingered over Home for a moment. They go with the game now.
+- **Fixed:** a game this console cannot play, opened from Home's Resume,
+  now says why on its page in plain words, such as "No core for this
+  system". ([#484](https://github.com/MMagTech/cabinetos/issues/484))
+- **Fixed:** pressing Play from a save state on a second game while
+  another was still downloading lost the first game's pick. Each press now
+  keeps its own. ([#484](https://github.com/MMagTech/cabinetos/issues/484))
+- **Fixed:** on a keyboard, a held [ or ] kept walking along the top bar,
+  and a held F5 wrote a save state at every repeat. Keys now act once per
+  press. On Search, Start puts the keyboard away; the next Start opens the
+  Power menu. ([#484](https://github.com/MMagTech/cabinetos/issues/484))
+- **Fixed:** a game your server gives no size for could fail to download
+  onto a nearly full drive. Room is now made as the download reports its
+  length. ([#484](https://github.com/MMagTech/cabinetos/issues/484))
+- **Fixed:** a save or screenshot upload the server kept refusing could be
+  sent again without end and hold up the console on its way out. It is now
+  tried once, noted, and tried again at the next start.
+
+## 2026.10.19.3 {#v2026-10-19-3}
 
 - **New:** this page, on the console. Settings, **About**, **What's new**
   shows a QR code that opens What's new; scan it with your phone, B goes
@@ -37,8 +767,6 @@ one you install, so you only ever install the newest.
   ([#305](https://github.com/MMagTech/cabinetos/issues/305))
 
 ## 2026.10.19.2 {#v2026-10-19-2}
-
-*19 October 2026*
 
 - **New:** save states keep your RetroAchievements progress. Loading a state
   no longer starts every achievement's count over, here or on another
@@ -110,8 +838,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.18.7 {#v2026-10-18-7}
 
-*18 October 2026*
-
 - **Fixed:** ready for RomM 5.4. After your server moves to RomM 5.4, a
   game's page still shows how long you have played it.
   ([#401](https://github.com/MMagTech/cabinetos/issues/401))
@@ -138,8 +864,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.18.6 {#v2026-10-18-6}
 
-*18 October 2026*
-
 - **New:** PS1 games get a DualShock. The sticks work in the games made for
   them, and the controller rumbles. Games made for the original pad play as
   they always did. A game that needs the DualShock's ANALOG button pressed
@@ -155,8 +879,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.18.5 {#v2026-10-18-5}
 
-*18 October 2026*
-
 - **Fixed:** with more than one PS2 BIOS on your server, every game started
   on whichever BIOS the emulator found first. Each game now starts on a BIOS
   for its own region (USA, Europe or Japan), going by the disc code RomM
@@ -166,8 +888,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.18.4 {#v2026-10-18-4}
 
-*18 October 2026*
-
 - **Changed:** the system CabinetOS is built on moves to Bazzite
   44.20261012.1, with Linux 7.2.9. The new kernel has fixes for Radeon
   graphics, Bluetooth and sound, and the libraries that draw the screen,
@@ -176,8 +896,6 @@ one you install, so you only ever install the newest.
   ([#503](https://github.com/MMagTech/cabinetos/pull/503))
 
 ## 2026.10.18.3 {#v2026-10-18-3}
-
-*18 October 2026*
 
 - **Fixed:** a game kept on your RomM server as one file inside its own
   folder now starts. RomM makes such a folder when you upload a manual, a
@@ -189,8 +907,6 @@ one you install, so you only ever install the newest.
   [#416](https://github.com/MMagTech/cabinetos/issues/416))
 
 ## 2026.10.18.2 {#v2026-10-18-2}
-
-*18 October 2026*
 
 - **Fixed:** a console set up over Wi-Fi now gets its Xbox and Switch
   emulators without needing a restart.
@@ -246,8 +962,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.17.3 {#v2026-10-17-3}
 
-*17 October 2026*
-
 - **Changed:** nothing you should see. The console's code has been
   reorganised into smaller files named for what they do, so others can find
   their way around it and help. Every screen, game and setting works as
@@ -260,8 +974,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.14.5 {#v2026-10-14-5}
 
-*14 October 2026*
-
 - **Added:** when two games on one system have the same name, the heading
   now shows what tells them apart, such as the region, language or revision
   in brackets in their file names on your RomM server: "Metroid Prime
@@ -272,8 +984,6 @@ one you install, so you only ever install the newest.
   their file names, to help sort out a library where two games look the same.
 
 ## 2026.10.14.4 {#v2026-10-14-4}
-
-*14 October 2026*
 
 - **Changed:** the interface sounds are softer and lower, to suit the
   console's quiet look.
@@ -288,8 +998,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.14.3 {#v2026-10-14-3}
 
-*14 October 2026*
-
 - **Fixed:** on some machines the console made no sound at all, because it
   played into a headphone jack or USB sound device with nothing plugged in.
   The sound now always plays on your TV. USB sound devices no longer take it
@@ -302,8 +1010,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.14.2 {#v2026-10-14-2}
 
-*14 October 2026*
-
 - **Changed:** in a platform's game grid, the heading (the platform, how
   many games, and the name of the game you are on) now stays at the top
   while the covers scroll underneath, so you can always see which game is
@@ -311,8 +1017,6 @@ one you install, so you only ever install the newest.
   cut off under the heading.
 
 ## 2026.10.14 {#v2026-10-14}
-
-*14 October 2026*
 
 - **Fixed:** some games showed a blank tile on Home, the shelves and the
   grid, and some showed no cover even on their own page, although your RomM
@@ -323,8 +1027,6 @@ one you install, so you only ever install the newest.
   ([#376](https://github.com/MMagTech/cabinetos/issues/376))
 
 ## 2026.10.13.5 {#v2026-10-13-5}
-
-*13 October 2026*
 
 - **Fixed:** a console switched on while the TV was off, on another input or
   unplugged could come up at a lower size and stay blurry on a 4K TV until it
@@ -338,8 +1040,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.12.9 {#v2026-10-12-9}
 
-*12 October 2026*
-
 - **Fixed:** a game kept as a folder on your RomM server (for example a
   Switch game with `update` and `dlc` folders beside it, or a PS1 game as a
   `.cue` and its tracks) downloaded again every time you started it. It now
@@ -351,8 +1051,6 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.12.8 {#v2026-10-12-8}
 
-*12 October 2026*
-
 - **New:** a **Widescreen** row in the pause menu for PS2 games that play in
   16:9. Some of those games stretch their menus and on-screen display to fit;
   turn it **Off** to play that game in 4:3 as it was made. It is kept for that
@@ -362,8 +1060,6 @@ one you install, so you only ever install the newest.
   menu, the notice now says **Exit and relaunch to apply**.
 
 ## 2026.10.12.7 {#v2026-10-12-7}
-
-*12 October 2026*
 
 - **New:** read a game's manual on the TV. When your RomM server has a
   manual for a game, a small book shows on its cover. On the game's page,
@@ -375,23 +1071,17 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.12.5 {#v2026-10-12-5}
 
-*12 October 2026*
-
 - **Fixed:** the console made no sound at all, in menus or games, after
   updating to 2026.10.12.3 or 2026.10.12.4. Sound works again.
   ([#351](https://github.com/MMagTech/cabinetos/issues/351))
 
 ## 2026.10.12.4 {#v2026-10-12-4}
 
-*12 October 2026*
-
 - **New:** the diagnostic report (Settings, **System**) now includes your
   sound setup, so a "no sound" report can show where it goes wrong.
 - Known problem in this version: no sound. Fixed in 2026.10.12.5.
 
 ## 2026.10.12.3 {#v2026-10-12-3}
-
-*12 October 2026*
 
 - **New:** the volume keys on a keyboard (or a Steam Deck's volume buttons)
   change the console's volume, in menus and every game. The console starts
@@ -405,16 +1095,12 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.12 {#v2026-10-12}
 
-*12 October 2026*
-
 - **Fixed:** a GameCube save kept only on your RomM server (after a fresh
   install, or on a second console) loaded as an empty memory card. It loads
   now, and saves made from now on reach your server.
   ([#344](https://github.com/MMagTech/cabinetos/issues/344))
 
 ## 2026.10.11.4 {#v2026-10-11-4}
-
-*11 October 2026*
 
 - **New:** games on several discs play as one game, with one save that
   carries on from disc to disc. When the game asks for the next disc, open
@@ -427,16 +1113,12 @@ one you install, so you only ever install the newest.
 
 ## 2026.10.11.3 {#v2026-10-11-3}
 
-*11 October 2026*
-
 - **Fixed:** in a system's game list, the letter column showed only near the
   top of the list, and some letters were out of order. It now shows wherever
   you are, in your server's order, and holding **L2** or **R2** keeps jumping
   letter by letter.
 
 ## 2026.10.10.10 {#v2026-10-10-10}
-
-*11 October 2026*
 
 - **Fixed:** an Xbox controller connected for the first time after a restart
   could count as two players, so every press happened twice (the pause menu
@@ -445,8 +1127,6 @@ one you install, so you only ever install the newest.
   Bluetooth. They pair now.
 
 ## 2026.10.10 {#v2026-10-10}
-
-*10 October 2026*
 
 The first release. See its
 [release notes](https://github.com/MMagTech/cabinetos/releases/tag/2026.10.10).

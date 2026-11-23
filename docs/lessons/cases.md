@@ -43,8 +43,8 @@ uses this console's own row naming; see open question 12b for why that is
 deliberate.
 
 **SIX OF THE SEVEN CARDS ON THE SERVER WERE EMPTY** and were deleted at
-MMagTech's request on 2026-09-20. Cabinet for Mac uploads a card on first play
-regardless of content and has no freshness rule for either platform — the same
+MMagTech's request on 2026-09-20. Cabinet for Mac uploaded a card on first play
+regardless of content and had no freshness rule for either platform — the same
 fault `catalog.h` [now `savetable.h`] records for Dreamcast, worse ratio. **CabinetOS now refuses**;
 both rules are measured and in `filesave.cpp`.
 
@@ -153,7 +153,7 @@ the baseline taken at launch, so it is the console saying *this game wrote
 something*. On the server, `Crazy Taxi 2 (USA) (Cabinet).srm` now reads
 `updated 2026-09-20T02:48:19Z` against a `created 2026-08-16` — **the same row
 overwritten rather than a second one**, 131072 bytes, tagged `flycast-native`,
-which is the row an Apple TV already reads.
+which is the row Cabinet on the Apple TV read.
 
 **It could not have happened a day earlier**, and that is worth keeping: the
 Dreamcast's accelerator and brake are its analogue triggers, and this console
@@ -271,7 +271,7 @@ buys the same thing — the whole flow can be walked at any point in it, on a
 machine with nothing attached.
 
 **Which made the rules testable, and the test found a real deadlock on its first
-run.** `--first-run-rules` walks all 96 [144 today] reachable combinations of facts and
+run.** `--first-run-rules` walks all 96 [576 today] reachable combinations of facts and
 asserts the REFUSALS rather than the happy path. What it caught: the Wi-Fi
 step's skip was keyed on **Ethernet** being up rather than on being **online**,
 and those coincide only while this console knows about exactly two kinds of

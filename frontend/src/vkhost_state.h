@@ -33,6 +33,7 @@ struct Api {
     PFN_vkDestroyInstance destroyInstance = nullptr;
     PFN_vkEnumeratePhysicalDevices enumeratePhysicalDevices = nullptr;
     PFN_vkGetPhysicalDeviceProperties getPhysicalDeviceProperties = nullptr;
+    PFN_vkGetPhysicalDeviceProperties2 getPhysicalDeviceProperties2 = nullptr;
     PFN_vkGetPhysicalDeviceQueueFamilyProperties getQueueFamilyProperties = nullptr;
     PFN_vkGetPhysicalDeviceMemoryProperties getMemoryProperties = nullptr;
     PFN_vkCreateDevice createDevice = nullptr;

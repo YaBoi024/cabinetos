@@ -111,7 +111,8 @@ void App::drawGround(bool gameUp, float dt) {
             // It also puts this screen where first run already is, which
             // is the point — the two do the same job minutes apart.
             want.clear();
-        } else if (here() == Screen::Settings) {
+        } else if (here() == Screen::Settings || here() == Screen::LinkUp ||
+                   here() == Screen::LinkUpPlay || here() == Screen::LinkUpRunOwn) {
             // SETTINGS IS A TEXT SCREEN TOO, and gets the plain gradient
             // for the reason above: rows to read, not covers to browse.
             want.clear();

@@ -51,15 +51,6 @@ void App::startWifiJoin(const std::string& ssid, const std::string& pass,
         const bool ok = net::join(ssid, pass, false, &err);
         std::fprintf(stderr, "[wifi] join %s: %s\n", ssid.c_str(),
                      ok ? "joined" : err.c_str());
-        // A FAILED JOIN WITH A TYPED PASSWORD LEAVES A SAVED NETWORK
-        // BEHIND, holding the wrong password: NetworkManager keeps the
-        // profile `device wifi connect` made. It then showed as "Saved",
-        // and joining it tried the wrong password again. MMagTech on the
-        // TV, 2026-09-24. Removed, so a failed join leaves nothing.
-        if (!ok && !pass.empty()) {
-            std::string ignored;
-            net::forget(ssid, &ignored);
-        }
         std::lock_guard<std::mutex> lk(wifiJob.m);
         wifiJob.ok = ok;
         wifiJob.err = err;
@@ -126,6 +117,7 @@ void App::askWifiPassword(const std::string& ssid, bool forgetFirst, const std::
     cfg.title = ssid;
     cfg.placeholder = "Password";
     cfg.conceal = true;   // masked, last character shown; keyboard.h
+    cfg.required = true;  // only a secured network asks, so empty is never it
     // Opened over itself on a retry, in the same frame: no close, no cut.
     // WHY GOES IN THE FIELD ("Wrong password", shaken), not in a line
     // under the title that made the panel grow. Keyboard::sayInField.

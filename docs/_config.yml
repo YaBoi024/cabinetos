@@ -54,5 +54,6 @@ exclude:
   - SETTINGS-INVENTORY.md
   - SETTINGS.md
   - WORKING.md
+  - decisions/
   - history/
   - lessons/

@@ -63,8 +63,10 @@ public:
     void setFailed(const std::string& why);
 
     // Where the results have to stop, in canvas points: the top of the docked
-    // keyboard. The covers are sized to the room that leaves rather than to a
-    // constant, so the layout survives the keyboard changing height.
+    // keyboard, where it is this frame while it slides. The covers are sized
+    // to the room that leaves rather than to a constant, so the layout
+    // survives the keyboard changing height, and they grow and shrink with
+    // the slide.
     void setResultsBottom(float y) { resultsBottom_ = y; }
     // Whether the keyboard is up over this screen; the heading needs to know.
     void setKeysUp(bool up) { keysUp_ = up; }

@@ -12,16 +12,30 @@
 #include <optional>
 #include <string>
 
+#include "arcadematch.h"
+#include "arcadesettings.h"
+#include "controls.h"
 #include "core.h"
 #include "disc.h"
 #include "discs.h"
+#include "fightstick.h"
+#include "guitar.h"
 #include "files.h"
 #include "firstrun.h"
+#include "gonegames.h"
 #include "idle.h"
 #include "launch.h"
+#include "linkup_pad.h"
+#include "netblock.h"
 #include "samenames.h"
+#include "screenview.h"
+#include "savepicture.h"
+#include "savepush.h"
+#include "selftests.h"
 #include "storage.h"
+#include "tilt.h"
 #include "update.h"
+#include "vdualsense.h"
 #include "xboxhdd.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
@@ -49,6 +63,16 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             raSample = true;
         } else if (SDL_strcmp(argv[i], "--notice-gallery") == 0) {
             noticeGallery = true;
+        } else if (SDL_strcmp(argv[i], "--linkup-gallery") == 0) {
+            linkupGallery = true;
+        } else if (SDL_strcmp(argv[i], "--linkup-section") == 0 && i + 1 < argc) {
+            linkupGallery = true;
+            linkupGallerySection = SDL_atoi(argv[++i]) - 1;
+        } else if (SDL_strcmp(argv[i], "--linkup-scene") == 0 && i + 1 < argc) {
+            linkupGallery = true;
+            linkupGalleryStart = SDL_atoi(argv[++i]) - 1;
+        } else if (SDL_strcmp(argv[i], "--linkup-script") == 0 && i + 1 < argc) {
+            linkupScript = argv[++i];
         } else if (SDL_strcmp(argv[i], "--menu-rise") == 0 && i + 1 < argc) {
             overlayRise = static_cast<float>(SDL_atof(argv[++i]));
         } else if (SDL_strcmp(argv[i], "--menu-fade") == 0 && i + 1 < argc) {
@@ -208,10 +232,20 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             discTestMode = true;
         } else if (SDL_strcmp(argv[i], "--files-test") == 0) {
             filesTestMode = true;
+        } else if (SDL_strcmp(argv[i], "--vectrex-sheets-test") == 0) {
+            vectrexSheetsTestMode = true;
+        } else if (SDL_strcmp(argv[i], "--gpu-choice-test") == 0) {
+            gpuChoiceTestMode = true;
+        } else if (SDL_strcmp(argv[i], "--tailscale-switch-test") == 0) {
+            tailscaleSwitchTestMode = true;
+        } else if (SDL_strcmp(argv[i], "--update-romm-test") == 0) {
+            updateRommTestMode = true;
         } else if (SDL_strcmp(argv[i], "--load-state") == 0 && i + 1 < argc) {
             loadStateAfter = SDL_atoi(argv[++i]);
         } else if (SDL_strcmp(argv[i], "--sync-test") == 0) {
             syncTest = true;
+        } else if (SDL_strcmp(argv[i], "--save-write-at") == 0 && i + 1 < argc) {
+            saveWriteAt = static_cast<uint64_t>(SDL_atoi(argv[++i]));
         } else if (SDL_strcmp(argv[i], "--launch-after") == 0 && i + 1 < argc) {
             autoLaunchAfter = static_cast<float>(SDL_atof(argv[++i]));
         } else if (SDL_strcmp(argv[i], "--rom-probe") == 0 && i + 1 < argc) {
@@ -275,6 +309,44 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             accountsTestMode = true;
         } else if (SDL_strcmp(argv[i], "--players-test") == 0) {
             playersTestMode = true;
+        } else if (SDL_strcmp(argv[i], "--tilt-test") == 0) {
+            return tilt::test();
+        } else if (SDL_strcmp(argv[i], "--motion-device-test") == 0) {
+            return cab::vpad::motionTest();
+        } else if (SDL_strcmp(argv[i], "--dualsense-test") == 0) {
+            return cab::vdualsense::test();
+        } else if (SDL_strcmp(argv[i], "--fightstick-test") == 0) {
+            return fightstick::test();
+        } else if (SDL_strcmp(argv[i], "--guitar-test") == 0) {
+            return guitar::test();
+        } else if (SDL_strcmp(argv[i], "--arcade-settings-test") == 0) {
+            return arcadesettings::test();
+        } else if (SDL_strcmp(argv[i], "--arcade-match-test") == 0) {
+            return arcadematch::test();
+        } else if (SDL_strcmp(argv[i], "--arcade-changes") == 0 && i + 2 < argc) {
+            return arcadematch::changes(argv[i + 1], argv[i + 2]);
+        } else if (SDL_strcmp(argv[i], "--screen-view-test") == 0) {
+            return screenview::test();
+        } else if (SDL_strcmp(argv[i], "--controls-test") == 0) {
+            return controls::test();
+        } else if (SDL_strcmp(argv[i], "--netblock-test") == 0) {
+            return netblock::test();
+        } else if (SDL_strcmp(argv[i], "--idle-test") == 0) {
+            return idle::test();
+        } else if (SDL_strcmp(argv[i], "--keyboard-test") == 0) {
+            return ui::keyboardTest();
+        } else if (SDL_strcmp(argv[i], "--gone-games-test") == 0) {
+            return gone::test();
+        } else if (SDL_strcmp(argv[i], "--save-notes-test") == 0) {
+            return saveNotesTest();
+        } else if (SDL_strcmp(argv[i], "--save-pick-test") == 0) {
+            return savePickTest();
+        } else if (SDL_strcmp(argv[i], "--save-push-test") == 0) {
+            return savepush::test();
+        } else if (SDL_strcmp(argv[i], "--save-picture-test") == 0) {
+            return savepicture::test();
+        } else if (SDL_strcmp(argv[i], "--game-events-test") == 0) {
+            return gameevents::test();
         } else if (SDL_strcmp(argv[i], "--battery-test") == 0) {
             batteryTestMode = true;
         } else if (SDL_strcmp(argv[i], "--volume-test") == 0) {
@@ -300,8 +372,14 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
         } else if (SDL_strcmp(argv[i], "--first-run-check-server") == 0) {
             firstRunProbeMode = true;
             firstRunServerCheck = true;
+        } else if (SDL_strcmp(argv[i], "--linkup-test") == 0) {
+            return linkup::test();
+        } else if (SDL_strcmp(argv[i], "--linkup-pad-test") == 0) {
+            return linkuppad::test();
         } else if (SDL_strcmp(argv[i], "--same-names-test") == 0) {
             return samenames::test();
+        } else if (SDL_strcmp(argv[i], "--arcade-tile-test") == 0) {
+            return arcadeTileTest();
         } else if (SDL_strcmp(argv[i], "--same-names") == 0) {
             sameNamesMode = true;
         } else if (SDL_strcmp(argv[i], "--romm-probe") == 0) {
@@ -313,6 +391,11 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             // The client's thread rule under load, against a stand-in server
             // (romm_racetest.cpp). Exits.
             return romm::raceTest(argv[i + 1], SDL_atoi(argv[i + 2]));
+        } else if (SDL_strcmp(argv[i], "--romm-snapshots-test") == 0) {
+            return romm::snapshotsTest();
+        } else if (SDL_strcmp(argv[i], "--romm-channels") == 0 && i + 1 < argc) {
+            channelsProbeId = SDL_atoi(argv[++i]);
+            rommProbeMode = true;
         } else if (SDL_strcmp(argv[i], "--rom") == 0 && i + 1 < argc) {
             romPath = argv[++i];
         } else if (SDL_strcmp(argv[i], "--evict-test") == 0) {
@@ -346,7 +429,7 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             coreOptionsDetail = true;
         } else if (SDL_strcmp(argv[i], "--core-option") == 0 && i + 1 < argc) {
             //   --core-option dolphin_shader_compilation_mode=Synchronous
-            // Repeatable. See cliOptionOverrides.
+            // Repeatable. See Core::setCommandLineOption.
             const std::string kv = argv[++i];
             const size_t eq = kv.find('=');
             if (eq == std::string::npos || eq == 0) {
@@ -354,7 +437,7 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
                              kv.c_str());
                 return 1;
             }
-            cliOptionOverrides[kv.substr(0, eq)] = kv.substr(eq + 1);
+            cab::Core::setCommandLineOption(kv.substr(0, eq), kv.substr(eq + 1));
         } else if (SDL_strcmp(argv[i], "--storage") == 0) {
             storageReport = true;
         } else if (SDL_strcmp(argv[i], "--tab") == 0 && i + 1 < argc) {

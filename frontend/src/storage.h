@@ -24,11 +24,14 @@
 //   ├── wii-remote-miis/                     the Wii bridge's Miis
 //   ├── users/<id> - <name>/
 //   │   ├── saves/<platform>/<romId>/<core>/
+//   │   ├── saves/<platform>/<romId>/replaced/   the save a start last replaced, kept aside
 //   │   ├── states/<platform>/<romId>/<core>/
 //   │   ├── screenshots/<romId>/
 //   │   ├── keeps/                           which games this person kept
 //   │   ├── pending/                         what has not reached RomM yet
-//   │   └── server-saves/<romId>/            RomM's saves as last seen, for play offline
+//   │   ├── controls/<romId> - <name>.json   an arcade game's buttons moved (controls.h)
+//   │   └── server-saves/<romId>/            RomM's saves as last seen, for play offline,
+//   │                                        and the snapshot the console holds (savemirror.h)
 //   ├── config/
 //   ├── logs/
 //   └── reports/
@@ -160,9 +163,18 @@ std::string savesDir(const User& u, const std::string& platform, int romId,
                      const std::string& core);
 std::string statesDir(const User& u, const std::string& platform, int romId,
                       const std::string& core);
+// The save of this game that a start last replaced with a newer one from
+// RomM, kept aside first (#346; saves.cpp, keepAside): one copy per person
+// and game, beside the game's save folders, so it goes with the game. Never
+// sent to RomM; put back by hand.
+std::string replacedSaveDir(const User& u, const std::string& platform, int romId);
 std::string screenshotsDir(const User& u);
 std::string keepsDir(const User& u);
 std::string pendingDir(const User& u);
+// An arcade game's buttons as this person moved them, one file per game
+// (controls.h). Outside cache/, so eviction never touches it; never sent to
+// RomM.
+std::string controlsDir(const User& u);
 
 // Where a save goes when there is no game and no person — `--core <so> <rom>`,
 // the developer entry point that plays a file off the disk with no RomM behind

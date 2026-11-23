@@ -83,7 +83,7 @@ bool qmpCommand(int fd, const std::string& cmd) {
 }
 
 // What the image carries for xemu: `xbox_hdd.qcow2`, xemu's own blank drive
-// (xemu-project/xemu-dashboard, pinned by build_files/install-xemu-assets.sh),
+// (xemu-project/xemu-dashboard, pinned by build_files/install-xemu-drive.sh),
 // and `eeprom.bin`, the one EEPROM every CabinetOS console uses. For
 // development, `CABINETOS_XEMU_ASSETS` points somewhere else.
 std::string xemuAssets() {
@@ -247,7 +247,7 @@ bool trimRedump(const std::string& entryPath, const std::string& name,
     }
     std::string note = readFile(entryPath + "/" + kInstalledNote);
     note += std::to_string(static_cast<long long>(st.st_size)) + " " + name + "\n";
-    writeFile(entryPath + "/" + kInstalledNote, note);
+    writeInstalledNote(entryPath + "/" + kInstalledNote, note);
     std::fprintf(stderr, "[xbox] %s was a full disc dump; kept its game partition\n",
                  name.c_str());
     return true;
@@ -381,6 +381,8 @@ bool Run::startXemu(const Emulator& e, const std::string& romPath, const std::st
     storage::makeDirs(mesaCache + "/mesa_shader_cache");
     const std::vector<std::string> args = {
         "flatpak", "run",
+        // No network (#557), as for every emulator (Run::start).
+        "--unshare=network",
         "--cwd=" + dir,
         "--filesystem=" + dir,
         "--filesystem=" + gameDir,
@@ -397,7 +399,7 @@ bool Run::startXemu(const Emulator& e, const std::string& romPath, const std::st
         // (ui/xui/input-manager.cc), so a real pad's Guide, or Back and
         // Start together, opened it over the game (FlatOut, 2026-09-29).
         // The ID is vpad.cpp's; SDL's own hint, no patch.
-        "--env=SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=0x1209/0xCAB0",
+        "--env=SDL_GAMECONTROLLER_IGNORE_DEVICES_EXCEPT=" + cab::vpad::sdlIds(),
         "--env=LC_NUMERIC=C",
         std::string("--command=") + e.program,
         e.flatpak,

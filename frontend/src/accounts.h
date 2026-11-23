@@ -113,11 +113,7 @@ const Account* find(const std::vector<Account>& list, int id);
 // account is worse than none: see firstrun::completion() (firstrun.h), which
 // decides whether this console has been configured by asking whether an
 // account is active.
-//
-// `tokenId` is the number RomM gave the token (romm::Client::
-// newestDeviceToken), kept beside it so the console can revoke it later
-// (#484, ROMM-10); 0 when it is not known.
-bool add(const Account& a, const std::string& token, std::string* err, int tokenId = 0);
+bool add(const Account& a, const std::string& token, std::string* err);
 
 // Forgets an account and its token.
 //
@@ -183,22 +179,6 @@ struct Paired {
     bool isNew = false;
 };
 
-// WHAT AN ACCOUNT SIGNS IN WITH, read off its file: the token, and the
-// number RomM gave it, 0 for a pairing made before the console kept it
-// (#484). A credential, like the file: never printed, never logged.
-struct Login {
-    std::string token;
-    int tokenId = 0;
-};
-Login login(int id);
-
-// REVOKES A LOGIN'S TOKEN ON RomM (#484, ROMM-10): DELETE /api/client-tokens
-// with that token, which needs the me.write scope pairing asks for since.
-// `client` is already at the server; its token becomes the login's. Logged
-// either way, and never a reason to stop: Sign out and Remove go ahead, and
-// their files go, whatever RomM says. Blocks on the network.
-void revoke(romm::Client& client, const Login& l, const std::string& who);
-
 // Turns a client that has just been through pairing into an account.
 //
 // THIS IS THE ONE PLACE A PAIRING BECOMES AN ACCOUNT, and it asks the server
@@ -209,10 +189,6 @@ void revoke(romm::Client& client, const Login& l, const std::string& who);
 //
 // The first account on a console with none becomes active. A later one does
 // not, because adding somebody must not sign out whoever is playing.
-//
-// A RE-PAIRING REVOKES THE TOKEN IT REPLACES (#484, ROMM-10), with the new
-// one, by the number kept beside the old. Every pairing used to leave the
-// last token live on RomM.
 bool recordPairing(romm::Client& client, Paired* out, std::string* err);
 
 // THERE IS NO MIGRATION FROM THE SINGLE TOKEN THAT CAME BEFORE THIS, AND THAT

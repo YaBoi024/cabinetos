@@ -5,9 +5,9 @@
 // browser they are already signed in to. A television has no browser, so the
 // URL has to get to a phone, and the only way to move a URL to a phone across a
 // room is to put it on the screen in a shape a camera can read. Cabinet's tvOS
-// does exactly this in `PairingView`, and it is the reason the ENTIRE typing
+// app did exactly this in `PairingView`, and it is the reason the ENTIRE typing
 // burden of first run is one hostname — the password is never typed on the
-// television at all. See docs/CABINET.md and docs/PROJECT.md, open question 15b.
+// television at all. See docs/history/CABINET.md and PROJECT.md, question 15b.
 //
 // WHAT THIS FILE IS AND IS NOT. `encode()` turns a string into a square of
 // black and white modules. It has no idea what a pixel is, what colour anything
@@ -31,8 +31,8 @@
 // ERROR CORRECTION LEVEL M, and it is a real choice. L recovers 7% and M
 // recovers 15% for about one version of extra size. The thing being
 // photographed is a television, at an angle, by a hand-held phone, under a
-// lamp; that is the situation the higher level exists for. Cabinet's tvOS uses
-// CoreImage's default, which is also M.
+// lamp; that is the situation the higher level exists for. Cabinet's tvOS app
+// used CoreImage's default, which is also M.
 
 #pragma once
 

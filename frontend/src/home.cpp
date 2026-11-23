@@ -124,6 +124,7 @@ void App::activateHome() {
     //
     // Home promises one action from cold to playing, and this is it.
     if (haveResume() && focusRow == RowRecent && focusSlot == 0) {
+        if (refuseStartWithoutController(cards[heroIndex].id)) return;
         sound::play(sound::Cue::Activate);   // #389
         // Set only when the press counts (#484): refused because another
         // game is downloading, it cleared that game's Resume.
@@ -349,32 +350,13 @@ void App::drawHome(float dt, float sc) {
             // The platform after the name, which the hero's band used to
             // carry and nothing has carried since. A library with a Game
             // Boy and a Genesis "Altered Beast" in it needs this said.
-            const std::string platform =
-                fc.platform.empty() ? "" : "   \xC2\xB7   " + fc.platform;
-            // RomM's tags between the two, dimmer, when another copy of
-            // this game is on the same shelf (#383). Both survive; the
-            // name is what gets shortened.
-            if (design::hasTwin(cards, indices, static_cast<int>(at(slot)))) {
-                const float tagW = text.measure(fc.tagLabel, ui::TextStyle::Callout, sc);
-                const float platW = text.measure(platform, ui::TextStyle::Callout, sc);
-                const std::string name =
-                    text.truncate(fc.title, ui::TextStyle::Callout, sc,
-                                  std::max(0.0f, room - tagW - platW - 24.0f));
-                float lx = titleX;
-                text.draw(renderer, name, lx, headerBaseline, ui::TextStyle::Callout,
-                          ui::Color::white(0.60f), sc);
-                lx += text.measure(name, ui::TextStyle::Callout, sc) + 24.0f;
-                text.draw(renderer, fc.tagLabel, lx, headerBaseline, ui::TextStyle::Callout,
-                          ui::Color::white(0.45f), sc);
-                lx += tagW;
-                text.draw(renderer, platform, lx, headerBaseline, ui::TextStyle::Callout,
-                          ui::Color::white(0.60f), sc);
-            } else {
-                text.draw(renderer,
-                          text.truncate(fc.title + platform, ui::TextStyle::Callout, sc, room),
-                          titleX, headerBaseline, ui::TextStyle::Callout,
-                          ui::Color::white(0.60f), sc);
-            }
+            // RomM's tags between the two when another copy of this game is
+            // on the same shelf (#383). See screens::drawFocusedLine.
+            screens::drawFocusedLine(
+                renderer, text, sc, fc,
+                /*tags=*/design::hasTwin(cards, indices, static_cast<int>(at(slot))),
+                screens::LineNames::System, controllersOn(), titleX, headerBaseline,
+                room, 0.60f);
         }
 
         const float shelfTop =

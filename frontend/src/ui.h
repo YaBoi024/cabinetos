@@ -242,8 +242,10 @@ public:
     // In-software bias lighting for the dead space around a letterboxed game
     // picture. `peak` is the white opacity right at the picture's edge:
     // 0.025 subtle, 0.04 strong, both measured on a real panel with a slider
-    // after two sets guessed from a mockup were wrong.
-    void drawBiasGlow(float x, float y, float w, float h, float peak);
+    // after two sets guessed from a mockup were wrong. `opaque` first paints the
+    // dead space black, stopping exactly at the picture, for a window over
+    // somebody else's picture (a LinkUp friend's, #692).
+    void drawBiasGlow(float x, float y, float w, float h, float peak, bool opaque = false);
 
     void drawSafeAreaGuides();
 
@@ -313,7 +315,7 @@ private:
         GLint canvas, rect, radius, tint, tex, lod, alpha;
     } gloc_{};
     struct {
-        GLint canvas, picture, peak, shadow, rect;
+        GLint canvas, picture, peak, opaque, shadow, rect;
     } wloc_{};
 
     struct {

@@ -75,12 +75,15 @@ void signOut();
 // RetroAchievements' number for a platform, 0 for one it does not cover.
 uint32_t consoleFor(const std::string& platformSlug);
 
-// Whether a core lets a frontend read the game's memory at all. MAME
-// 2003-Plus returns nothing from retro_get_memory_data and sends no map, so a
-// game it runs can earn nothing here even when RetroAchievements has a set:
-// its page says "None" rather than a count that could never move. Measured on
-// the A9 with CABINETOS_RA_PROBE, 2026-10-06; every other core gives memory.
-bool coreReadable(const std::string& manifestCore);
+// Whether a game in this core can earn anything here. MAME 2003-Plus returns
+// nothing from retro_get_memory_data and sends no map, so a game it runs can
+// earn nothing even when RetroAchievements has a set: its page says "None"
+// rather than a count that could never move. Measured on the A9 with
+// CABINETOS_RA_PROBE, 2026-10-06; every other core gives memory. AND AN ARCADE
+// GAME (`arcade`, catalog::Coverage::arcade) earns only in FinalBurn Neo:
+// RetroAchievements' Arcade sets are written for its memory, so one Flycast
+// plays as a Naomi board has none to read.
+bool coreReadable(const std::string& manifestCore, bool arcade);
 
 // After the core has loaded the game. Does nothing unless somebody is signed
 // in, the platform is covered and RomM gave a hash. `ps2` reads PCSX2's

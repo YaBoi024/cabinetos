@@ -260,6 +260,61 @@ wayland_sockets() {
     printf '%s' "${out}" | sort
 }
 
+# A GAMESCOPE WHOSE APP HAS GONE GETS TWO SECONDS TO FOLLOW IT (#305).
+# gamescope runs its app under a child of its own, gamescopereaper, and ends
+# 0.07 to 0.22 s after it on a healthy exit (every one in the A9's journal,
+# 2026-10-04 to 10-18). Four of the 21 hand-overs to Steam there, and six
+# other exits, took 25.2 s instead: gamescope's last call to logind,
+# ReleaseDevice for the screen, waited out D-Bus's default timeout with the
+# frontend already gone ("[libseat] ... Could not close device: Connection
+# timed out"), and this script waited with it before Steam or the restart
+# could start. So once the reaper has gone, gamescope gets two seconds, then
+# TERM, then KILL a second later, and the session carries on as the app's
+# exit. logind releases the screen and the input devices of a controller
+# whose connection has closed, so the next gamescope takes them as usual.
+#
+# util-linux's waitpid watches the reaper, so nothing polls while the console
+# runs. No reaper (cage, or a gamescope that stops making one) or no way to
+# watch it is a plain wait, as before. Returns the compositor's exit status.
+wait_for_compositor() {
+    local label="$1" pid="$2" reaper="" watch="" finished="" status=0 tries
+    for (( tries = 0; tries < 50; tries++ )); do
+        reaper=$(pgrep -P "${pid}" -x gamescopereaper)
+        [[ -n "${reaper}" ]] && break
+        kill -0 "${pid}" 2>/dev/null || break
+        sleep 0.1
+    done
+    if [[ -z "${reaper}" ]]; then
+        wait "${pid}"
+        return
+    fi
+
+    waitpid --exited "${reaper%%$'\n'*}" 2>/dev/null &
+    watch=$!
+    wait -n -p finished "${pid}" "${watch}"
+    status=$?
+    if [[ "${finished}" == "${pid}" ]]; then
+        kill "${watch}" 2>/dev/null
+        wait "${watch}" 2>/dev/null
+        return "${status}"
+    fi
+    if (( status != 0 )); then
+        echo "cabinetos-session: cannot watch ${label}'s app (waitpid: ${status}); waiting on ${label} without a limit"
+        wait "${pid}"
+        return
+    fi
+
+    if ! waitpid --exited --timeout 2 "${pid}" 2>/dev/null; then
+        echo "cabinetos-session: ${label} has not ended 2 s after its app; stopping it (TERM)"
+        kill -TERM "${pid}" 2>/dev/null
+        if ! waitpid --exited --timeout 1 "${pid}" 2>/dev/null; then
+            echo "cabinetos-session: ${label} is still running 1 s after TERM; stopping it (KILL)"
+            kill -KILL "${pid}" 2>/dev/null
+        fi
+    fi
+    wait "${pid}"
+}
+
 # THE LADDER MUST TELL "THE COMPOSITOR FAILED" FROM "THE APP EXITED", and until
 # 2026-09-19 it could not.
 #
@@ -320,7 +375,7 @@ try_compositor() {
     if (( ready )); then
         echo "cabinetos-session: ${label} is up"
         rm -f "${ready_file}"
-        wait "${pid}"
+        wait_for_compositor "${label}" "${pid}"
         local status=$?
         # Said out loud, because this is the line that stops the next person
         # reading a demotion into an ordinary exit.

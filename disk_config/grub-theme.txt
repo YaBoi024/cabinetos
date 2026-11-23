@@ -1,0 +1,24 @@
+# The boot menu's look under UEFI (disk_config/grub.cfg). The picture,
+# grub-background.png from tools/make-installer-art.py, is the whole screen,
+# its one entry included, so it scales with any screen; GRUB draws nothing
+# over it. On the ISO as /boot/grub2/themes/cabinetos/theme.txt, beside
+# background.png.
+#
+# "crop" fills the screen without stretching: a 16:10 screen loses a little
+# at the sides.
+#
+# No countdown bar: GRUB draws one no smaller than 200 by 28 pixels, a block
+# under the entry. The entry starts by itself after the menu's timeout.
+#
+# Not a splash: when the entry starts, GRUB opens a black terminal box over
+# the middle of the picture, whatever the theme says, and Fedora's signed
+# GRUB has no background_image command to draw the picture without a theme.
+# grub.cfg's fbcon=nodefer has the kernel clear the screen instead.
+
+title-text: ""
+desktop-image: "background.png"
+desktop-image-scale-method: "crop"
+desktop-image-h-align: "center"
+desktop-image-v-align: "center"
+desktop-color: "#120c26"
+terminal-font: "Unifont Regular 16"

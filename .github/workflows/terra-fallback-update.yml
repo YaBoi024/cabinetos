@@ -5,14 +5,16 @@
 # terra, and falls back to build_files/terra-fallback/ when terra will not
 # answer properly (build_files/install-steam-session.sh). A spare that never
 # moves would one day install a session older than the one Bazzite runs, so
-# this checks weekly, like the controller list. It never merges anything.
+# this checks monthly, on the 1st with the base
+# (docs/decisions/2026-11-10-scheduled-checks-monthly.md). It never merges
+# anything.
 
 name: Check Steam session copy
 
 on:
   schedule:
-    # Monday 10:00 UTC, after the base and controller list checks.
-    - cron: '0 10 * * 1'
+    # The 1st at 10:00 UTC, after the base check.
+    - cron: '0 10 1 * *'
   workflow_dispatch:
 
 permissions:

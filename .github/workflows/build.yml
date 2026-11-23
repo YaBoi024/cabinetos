@@ -161,8 +161,9 @@ jobs:
               ast.parse(open(p, encoding="utf-8").read(), p)
           print(len(sys.argv) - 1, "files parse")'
 
-      # The installer's own scripts, %pre and %post in disk_config/iso.toml,
-      # run only when somebody installs. Cut out and checked like the rest.
+      # The installer's own script, the %pre in disk_config/iso.toml (and any
+      # %post), runs only when somebody installs. Cut out and checked like the
+      # rest.
       # SC2094: %pre reads and writes the same terminal on purpose.
       - name: Shellcheck the installer's scripts
         run: |
@@ -242,6 +243,24 @@ jobs:
     if: ${{ !cancelled() && !failure() && needs.promote.outputs.promoted != 'true' && github.event_name != 'pull_request' }}
     uses: ./.github/workflows/build-cemu.yml
 
+  # SEGA MODEL 2, sm2-emu built from source at a pin (build-sm2emu.yml), with
+  # its catalogue, and the same refusal: ci/stage-image-payload.sh will not
+  # build an image without it.
+  model2:
+    name: Model 2
+    needs: [lint, promote]
+    if: ${{ !cancelled() && !failure() && needs.promote.outputs.promoted != 'true' && github.event_name != 'pull_request' }}
+    uses: ./.github/workflows/build-sm2emu.yml
+
+  # SEGA MODEL 3, Supermodel built from source at a pin
+  # (build-supermodel.yml), with its catalogue, and the same refusal:
+  # ci/stage-image-payload.sh will not build an image without it.
+  model3:
+    name: Model 3
+    needs: [lint, promote]
+    if: ${{ !cancelled() && !failure() && needs.promote.outputs.promoted != 'true' && github.event_name != 'pull_request' }}
+    uses: ./.github/workflows/build-supermodel.yml
+
   # REMOTE PLAY, Sunshine built at its pin with our patch (build-sunshine.yml,
   # #304), with the same refusal: ci/stage-image-payload.sh will not build an
   # image without it.
@@ -251,9 +270,21 @@ jobs:
     if: ${{ !cancelled() && !failure() && needs.promote.outputs.promoted != 'true' && github.event_name != 'pull_request' }}
     uses: ./.github/workflows/build-sunshine.yml
 
+  # MAME 0.289, libretro's own build fetched and checked at its pins
+  # (build-mame.yml), with the same refusal: ci/stage-image-payload.sh will
+  # not build an image without it.
+  mame:
+    name: MAME
+    needs: [lint, promote]
+    if: ${{ !cancelled() && !failure() && needs.promote.outputs.promoted != 'true' && github.event_name != 'pull_request' }}
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/build-mame.yml
+
   build_push:
     name: Build and push image
-    needs: [lint, promote, frontend, cores, playstation2, wiiu, sunshine]
+    needs: [lint, promote, frontend, cores, playstation2, wiiu, model2, model3, sunshine, mame]
     if: ${{ !cancelled() && !failure() && needs.promote.outputs.promoted != 'true' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-24.04
 
@@ -272,14 +303,15 @@ jobs:
         with:
           remove-codeql: true
 
-      # The frontend and the Wii bridge, the cores, PlayStation 2, Wii U and
-      # Sunshine, from the jobs above. Merged into one directory, which works
-      # because each artifact was staged into the payload's own folders (bin/,
-      # cores/, system/, cemu/, sunshine/) and no two of them hold a file of
-      # the same name: bin/ comes from the frontend, cores/ has one .so per
-      # core plus the PS2 emulator and its libraries, system/ has PPSSPP's,
-      # Dolphin's and PCSX2's files under different directories, cemu/ and
-      # sunshine/ one emulator each.
+      # The frontend and the Wii bridge, the cores, PlayStation 2, MAME 0.289,
+      # Wii U, Model 2, Model 3 and Sunshine, from the jobs above. Merged into
+      # one directory, which works because each artifact was staged into the
+      # payload's own folders (bin/, cores/, system/, mame/, cemu/, sm2emu/,
+      # supermodel/, sunshine/) and no two of them hold a file of the same
+      # name: bin/ comes from the frontend, cores/ has one .so per core plus
+      # the PS2 emulator and its libraries, system/ has PPSSPP's, Dolphin's
+      # and PCSX2's files under different directories, mame/, cemu/, sm2emu/,
+      # supermodel/ and sunshine/ one emulator each.
       - name: Fetch the frontend and the cores
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7.0.0
         with:
@@ -319,6 +351,24 @@ jobs:
 
       - name: Pinned downloads, into the payload
         run: ci/fetch-pinned.sh fetch .downloads image_payload/downloads
+
+      # THE VECTREX GAMES' SCREEN SHEETS (#224): libretro/overlay-borders'
+      # Game Overlay folder at a pinned commit, each file checked by its
+      # sha256 (tools/fetch-vectrex-overlays.py, which holds both), kept in
+      # the Actions cache the same way. Not in the repository; the console
+      # never fetches them. build_files/install-frontend.sh installs them.
+      - name: Vectrex sheets, from the cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: .vectrex-sheets
+          key: vectrex-sheets-${{ hashFiles('tools/fetch-vectrex-overlays.py') }}
+          restore-keys: vectrex-sheets-
+
+      - name: Vectrex sheets, into the payload
+        run: |
+          python3 tools/fetch-vectrex-overlays.py .vectrex-sheets
+          mkdir -p image_payload/vectrex
+          cp .vectrex-sheets/*.png image_payload/vectrex/
 
       - name: Install just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3  # v4.0.0

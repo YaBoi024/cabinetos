@@ -6,8 +6,11 @@
 // "Nintendo RVL-CNT", the test Dolphin and Wii software use. Never the device
 // id: MMagTech's TechKen copies report Samsung's wireless keyboard id
 // (04E8:7021), so the kernel's Wii Remote driver and SDL both pass them by.
-// What the console gets is a raw HID node (/dev/hidrawN) and nothing else,
-// which is also what Dolphin reads, so the console drives the Remote itself.
+// A Remote with Nintendo's id gets the kernel's driver as well, whose own
+// controller devices udev keeps from everyone (72-cabinetos-wii-remote.rules,
+// #548). Either way, what the console gets is a raw HID node (/dev/hidrawN)
+// and nothing else, which is also what Dolphin reads, so the console drives
+// the Remote itself.
 //
 // PAIRING, measured on the A9 2026-10-02:
 //   1. A copy answers only the Wii's own search, the limited inquiry, which
@@ -29,6 +32,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -40,7 +44,7 @@ struct Paired {
     std::string address;
     std::string name;
     bool connected = false;
-    int light = 0;   // 1-4 while connected out of a game, else 0
+    int light = 0;   // 1-4 while connected out of a Wii game, else 0
 };
 // Every paired Wii Remote, as refresh() last read them, with whether each is
 // connected now. Cheap: for drawing Settings.
@@ -51,7 +55,13 @@ std::vector<Paired> known();
 // True while any Wii Remote is paired. Cheap: answered from what refresh()
 // last read. Remote games un-grey on it (PROJECT.md question 35).
 bool anyPaired();
-// Reads it again from bluetoothd. Slow; run at start and after pair/remove.
+// True while a Remote whose MotionPlus works here is paired: any but
+// Nintendo's own, by the id bluetoothd read off it. The kernel's driver takes
+// a Remote with Nintendo's id and turns its MotionPlus off whenever a game
+// turns it on, so a game that requires MotionPlus un-greys only on another
+// (MMagTech, 2026-10-22: the TechKens; PROJECT.md question 35). Cheap.
+bool anyWithMotionPlus();
+// Reads both again from bluetoothd. Slow; run at start and after pair/remove.
 void refresh();
 
 // --- The running Remotes ------------------------------------------------------
@@ -62,19 +72,31 @@ void refresh();
 // gamepad events from a pad id no real pad has). Idempotent.
 void start();
 
-// While a game runs Dolphin drives the Remotes: the console stops sending
+// While a Wii game runs Dolphin drives the Remotes: the console stops sending
 // them anything and reads only HOME, held, for its own menu. When the game
 // ends every Remote is set up again with its own light.
 void setGameRunning(bool running);
 
-// True once per hold: HOME held about a second on any Remote while a game
-// runs. A press of HOME is the game's own HOME menu, as on a Wii.
+// While any game runs, a Wii game or not, an emulator of its own included.
+// HOME held counts only then.
+void setInGame(bool inGame);
+
+// True once per hold: HOME held about a second on any Remote while any game
+// runs. In a Wii game a press of HOME is the game's own HOME menu, as on a
+// Wii. In any other game the Remote plays nothing, and the hold is its way to
+// the pause menu and out: a Remote that started a game with no pad on was
+// stuck in it (a Discord report, 2026-10-23).
 bool takeHomeHold();
 
-// EACH REMOTE THAT IS ON, out of a game, for the battery row on Home (#293):
-// its light (W1-W4), its battery byte (-1 until it has answered; the Wii's own
-// scale, battery::segmentsOfWii) and its own low flag. In a game Dolphin has
-// the Remotes and this is empty. Cheap.
+// True for a press made by a Wii Remote: its buttons reach the menus as
+// presses from a pad id no real pad has (start). A Remote starts only Wii
+// games (App::refuseStartWithoutController, launch.cpp).
+bool isRemote(uint32_t padId);
+
+// EACH REMOTE THAT IS ON, out of a Wii game, for the battery row on Home
+// (#293): its light (W1-W4), its battery byte (-1 until it has answered; the
+// Wii's own scale, battery::segmentsOfWii) and its own low flag. In a Wii game
+// Dolphin has the Remotes and this is empty. Cheap.
 struct Battery {
     int light = 0;
     std::string address;

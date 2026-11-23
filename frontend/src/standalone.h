@@ -1,12 +1,17 @@
 // Emulators that are whole applications, played as games.
 //
 // WHAT THIS IS FOR. Switch (Eden), PS3 (RPCS3), Xbox (xemu), Xbox 360 (Xenia
-// Edge) and Wii U (Cemu) are not libretro cores and cannot be loaded into this
-// process the way the other systems are (PS2 included). Eden and xemu come
-// from Flathub, pinned in flatpaks.list; RPCS3 is the RPCS3 team's own build,
-// in the image (build_files/install-rpcs3.sh), because its Flatpak shows a
-// warning box on every start; Xenia Edge is its developer's own build, in the
-// image too (build_files/install-xenia.sh), because it is not on Flathub.
+// Edge), Wii U (Cemu), PlayStation Vita (Vita3K), Sega Model 2 (sm2-emu) and
+// Sega Model 3 (Supermodel) are not libretro cores and cannot be loaded into
+// this process the way the other systems are (PS2 included). Eden and xemu come from Flathub, pinned in
+// flatpaks.list; RPCS3 is the RPCS3 team's own build, in the image
+// (build_files/install-rpcs3.sh), because its Flatpak shows a warning box on
+// every start; Xenia Edge and Vita3K are their developers' own builds, in the
+// image too (build_files/install-xenia.sh, install-vita3k.sh), because neither
+// is on Flathub; Cemu, sm2-emu and Supermodel are built here at a pin
+// (cores/build-cemu.sh, cores/build-sm2emu.sh, cores/build-supermodel.sh).
+// sm2-emu and Supermodel play the Model 2 and Model 3 games the arcade match
+// gives them (arcadematch.h), from any arcade folder.
 // Each one opens its own window and draws its own picture.
 // So the console starts the emulator as a separate program, hands it the
 // television, and takes the screen back when it ends. docs/PROJECT.md, open
@@ -21,9 +26,10 @@
 //
 // WHERE THE CODE IS. standalone.cpp is the mechanism and the table; each
 // emulator's own setup is in its file (standalone_eden.cpp,
-// standalone_rpcs3.cpp, standalone_xemu.cpp, standalone_xenia.cpp and
-// standalone_cemu.cpp), and what they share is standalone_internal.h. Since the
-// restructure (#398).
+// standalone_rpcs3.cpp, standalone_xemu.cpp, standalone_xenia.cpp,
+// standalone_cemu.cpp, standalone_vita3k.cpp, standalone_sm2emu.cpp and
+// standalone_supermodel.cpp), and what they share is standalone_internal.h.
+// Since the restructure (#398).
 //
 // WHERE ITS STATE LIVES. Each emulator gets `emulators/<core>/` under the
 // storage root and runs with that as its working directory. Eden treats a
@@ -56,7 +62,8 @@ struct Emulator {
     const char* flatpak;
     const char* binary;
     // The program itself, by process name, which is the process that takes
-    // signals: inside the sandbox for a Flatpak.
+    // signals: inside the sandbox for a Flatpak, where it is found by this
+    // name (a program in the image is bwrap's one child, Run::findProgram).
     const char* program;
     // Its own log, and the two phrases it writes there when a game will not
     // load. That case is an error box on the television that nobody can
@@ -98,18 +105,19 @@ struct Emulator {
     // format. The console never unpacks them.
     const char* extensions;
     // What it cannot start a game without, in the words the console refuses
-    // with: "No Switch keys on your server", "No PS3 firmware on your server".
+    // with: "No Switch keys on the server", "No PS3 firmware on the server".
     const char* needs;
-    // GAMES THAT HAVE TO BE INSTALLED BEFORE THEY RUN (a PS3 PKG). The game is
-    // always a folder, fetched file by file into it, and installGame runs
-    // before it is started. The folder is also where the emulator keeps what
+    // GAMES THAT HAVE TO BE INSTALLED BEFORE THEY RUN (a PS3 PKG, a Vita
+    // game's zip). The game is always a folder, fetched file by file into it,
+    // and installGame runs before it is started. The folder is also where the emulator keeps what
     // it builds for that game (`cacheInGame`), so removing the game removes
     // both, and the cache never has to be told about either.
     bool installs;
     bool cacheInGame;
     // ASKED TO CLOSE THROUGH ITS WINDOW, as a person closing it would, rather
     // than by SIGTERM: RPCS3 has no handler for SIGTERM and simply dies, where
-    // a close asks the game to stop first. Set for RPCS3, Xenia and Cemu.
+    // a close asks the game to stop first. Set for RPCS3, Xenia and Cemu; not
+    // for Vita3K, whose SDL takes SIGTERM as its quit.
     bool closesByWindow;
     // BACK AND START TOGETHER OPEN THE EMULATOR'S OWN MENU (xemu: for pads
     // with no Guide button), which nothing can turn off. So the console holds
@@ -130,6 +138,30 @@ struct Emulator {
     // of the console, or of that game, means the last game never got its
     // saves sent, and the whole folder goes then (beforeStart).
     bool notesPlaying;
+    // ITS GAMES ARE TOUCHED THROUGH THE CONSOLE'S POINTER: two dots on the
+    // sticks, shown and hidden by a long press of L3, touching through the
+    // virtual touch screen (vtouch.h; App::pointerButton). The Vita, played
+    // as a PS TV (docs/PROJECT.md question 49, decision 4).
+    bool touchPointer;
+    // IT READS EACH PLAYER'S TILT FROM A MOTION DEVICE beside their virtual
+    // controller (vpad.h), which the console makes for every player whose
+    // pad has the sensors: RPCS3's Buddy Device, for every PS3 game (#683).
+    bool motion;
+    // IT READS EACH PLAYER'S TILT FROM THE PAD'S OWN SENSORS, as SDL pairs
+    // them, so its virtual controller is the stand-in DualSense of
+    // vdualsense.h and not the plain one: Eden, Cemu and Vita3K (#669). The
+    // two switches are never both set.
+    bool dualsense;
+    // THE MACHINE HAS ONE GYRO, AND PLAYER 1 HOLDS IT: the Wii U's GamePad
+    // (Cemu), the Vita itself (Vita3K), as a Game Boy Advance's or a 3DS's
+    // tilt is player 1's controller's. With `dualsense`, only player 1's stand-in
+    // carries tilt and every other player's shows no sensors, so a second
+    // controller never moves the game: Vita3K reads every controller's
+    // motion into the one Vita. Never set without `dualsense`.
+    bool onlyPlayerOneTilts;
+    // IT IS TOLD A GUITAR'S SEAT HOLDS A GUITAR (guitar.h): that seat's virtual
+    // controller carries a guitar's shape and its controls say so. RPCS3.
+    bool guitars;
 };
 
 // The emulator for a catalog core name, or nullptr for an ordinary core.
@@ -153,7 +185,8 @@ std::string home(const Emulator& e);
 bool installedFile(const std::string& entryPath, const std::string& fileName,
                    int64_t sizeBytes);
 // What to start in a game's folder, or empty when there is nothing: the
-// installed game's EBOOT.BIN, or a disc image.
+// installed PS3 game's EBOOT.BIN, an installed Vita game's folder, or a disc
+// image.
 std::string bootPath(const std::string& entryPath);
 // Runs on the download worker, after the files are in `entryPath`: whatever
 // the console must install once (PS3 firmware, from `bios/`), then every
@@ -166,11 +199,15 @@ bool installGame(const Emulator& e, const std::string& entryPath,
 // Everything the emulator needs before a game starts: the folders, its keys
 // out of `bios/` under the names it opens, and the settings the console
 // decides for it (fullscreen, no prompts, docked). `entryPath` is the game's
-// own file or folder on the disk.
+// own file or folder on the disk, and `romPath` the file it will be started
+// on (sm2-emu's and Supermodel's settings name the game's buttons, which its
+// set says).
 //
 // `saveDir` is this person's folder for this game (storage::savesDir), and
 // the emulator writes the game's save inside it, so two people and two games
-// never share one. `player` is the name a game shows for the person playing.
+// never share one. `player` is the name a game shows for the person playing,
+// and `title` the game's name as the console shows it (RPCS3 picks a guitar's
+// kind by it, guitar.h).
 //
 // False with `*missingKeys` when what it cannot run without (`needs`) is not
 // on the console; false with an `*err` for anything else.
@@ -180,16 +217,31 @@ bool installGame(const Emulator& e, const std::string& entryPath,
 //
 // `level` is the picture quality this game runs at (quality.h), written into
 // the emulator's settings with everything else.
-bool prepare(const Emulator& e, const std::string& entryPath, const std::string& saveDir,
-             const std::string& player, int players, quality::Level level, bool* missingKeys,
-             std::string* err);
+bool prepare(const Emulator& e, const std::string& entryPath, const std::string& romPath,
+             const std::string& saveDir, const std::string& player, const std::string& title,
+             int players, quality::Level level, bool* missingKeys, std::string* err);
 
 // Where, inside `saveDir`, the game's own save folders are: the root of what
 // travels to RomM as a zip, whose top-level folders are one per game. For
-// Eden, `user/save/0000000000000000/<profile>`, each folder inside named by
-// the game's title ID, which is why no title ID is ever asked for. For RPCS3,
+// Eden, `user/save/0000000000000000`: the profile's folder (saveProfile) and
+// the all-zero one every profile on the device shares, each game's folder
+// inside named by its title ID, which is why no title ID is needed to send a
+// save; the zip is Sigil's unit for them (dirsave.h, ZipShape::Switch). For RPCS3,
 // `hdd0/home/00000001/savedata`, whose folders are named by the game too.
+// For sm2-emu, `nvram`, the board's NVRAM and EEPROM, `<set>.nv` and
+// `<set>.eeprom`; for Supermodel, `nvram`, the board's `<set>.nv`.
 std::string saveRoot(const Emulator& e, const std::string& saveDir);
+
+// The profile's folder under saveRoot, whose saves are the person's own, for
+// an emulator that keeps them per profile beside the device's: Eden's first
+// profile (standalone_eden.cpp). Empty for every other emulator, and for Eden
+// before it has a profile.
+std::string saveProfile(const Emulator& e);
+
+// The prod.keys Eden is given, the newest `prod*.keys` RomM serves in `bios/`,
+// which Sigil also reads a Switch game's title ID with (switchsave.h). Empty
+// when there is none.
+std::string switchKeys();
 
 // AROUND A GAME. `beforeStart` runs after this person's saves are unpacked
 // into saveRoot, `afterEnd` after the emulator has gone and before they are
@@ -205,7 +257,7 @@ std::string saveRoot(const Emulator& e, const std::string& saveDir);
 // the way the next paragraph's do, and the game starts. Only saves the drive
 // will not give up keep the game from starting.
 //
-// Xenia, Cemu, Eden and RPCS3 (`notesPlaying`): the note goes in the PERSON's folder for
+// Xenia, Cemu, Eden, RPCS3, Vita3K, sm2-emu and Supermodel (`notesPlaying`): the note goes in the PERSON's folder for
 // the game (`saveDir`), where the emulator writes the saves itself. A note
 // still there at the next start or the next launch of that game means the
 // last one never got its saves zipped, and the whole folder is sent then.
@@ -260,9 +312,10 @@ public:
 
 private:
     void kill9();
+    int findProgram() const;
 
     const Emulator* emu_ = nullptr;
-    int root_ = -1;          // what we started: the sandbox, or the program
+    int root_ = -1;          // what we started: its sandbox (flatpak run, or bwrap)
     int program_ = -1;       // the emulator itself, once it is found
     int64_t startMs_ = 0;
     int64_t stopAtMs_ = 0;

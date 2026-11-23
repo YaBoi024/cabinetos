@@ -1,6 +1,7 @@
 # Saves, states and sync
 
-Two kinds of saving, both kept on your RomM server for you.
+Two kinds of saving, both kept on your RomM server for you, in RomM's save
+channels (RomM 5.5 or newer).
 
 - **Saves** are the game's own: the memory card, the battery save, the save
   slot in the game's menu. Every system has them.
@@ -9,37 +10,79 @@ Two kinds of saving, both kept on your RomM server for you.
 
 ## Saves
 
-Nothing to do. When a game starts, the console fetches your newest save for it
-from RomM. When you leave the game, it sends the save back if it changed.
+Nothing to do. A game starts from your newest save on RomM, wherever you made
+it: on this console, another CabinetOS console, RomM's web player or another
+app. When you leave the game, its save goes up once, if it changed.
 
+- When the save came from anywhere but this console, the game starts with
+  *Continuing from another device*. Play on one console only and you never see
+  it.
 - Saves are written to the console first and sent in the background, so a slow
   or missing server never loses one. Anything not yet sent is sent again later:
   at start-up, every five minutes, and as soon as the server is back.
-- The game's page shows when it was last saved: *Saved today, 8:17 PM*.
+- **Which save wins:** a save on the console that has not reached the server
+  yet; otherwise the newest on the server, by when it was made, not when it
+  arrived. A blank memory card never replaces one with saves on it.
 - Every way out of a game sends the save: **Exit to Home**, the Power menu
   (Sleep, Restart, Power off), and a separate emulator closing, even if it
   crashed.
-- **Which copy wins:** a save on the console that has not reached the server
-  yet; otherwise the newest one on the server. A blank memory card never
-  replaces one with saves on it.
-- PS2 uses one memory card per game. GameCube keeps each save as its own
-  `.gci` file, as Dolphin does.
+- If the console crashes or the power goes out during a game, a save the game
+  had already made is kept and sent when the console next starts, on the
+  systems whose emulator writes the save while you play: DS, Dreamcast, PS2,
+  PSP, 3DS, GameCube, Wii, a Saturn game's backup cartridge, and the systems
+  run as separate programs (Switch, PS3, Wii U, Xbox, Xbox 360, Vita, Model 2,
+  Model 3). The other systems keep the save inside the emulator until you
+  leave, so what was saved in that session is lost.
+- The game's page shows when it was last saved: *Saved today, 8:17 PM*.
+- On RomM's website a save from the console shows a picture of the game from
+  the moment it saved. Sega CD, Neo Geo Pocket Color, 3DO, Xbox and arcade
+  games keep their save inside the emulator until you leave, so theirs show
+  RomM's own save icon instead.
+- A Game Boy game with a clock, such as Pokémon Gold and Silver, keeps its
+  clock with its save. A Saturn game saved to the backup cartridge takes the
+  cartridge with its save; a cartridge with nothing on it stays on the
+  console.
+- PS2 and Dreamcast use one memory card per game. GameCube keeps each save as
+  its own `.gci` file, as Dolphin does.
 - Your Miis are copied into every Wii game.
+
+## The same game on two devices
+
+If you play a game somewhere else while the console has it too, nothing is
+lost:
+
+- RomM keeps both saves. The one made later is the game's current save, and
+  the console starts from it next time. The other stays on RomM, in the game's
+  save history, or for 30 days as a side copy.
+- To go back to an older save, open the game's save channel on RomM's website
+  and choose **Restore as current**. The console starts from it next time.
+- Before another device's save replaces this console's own, the console keeps
+  its own aside: one copy per game, in the game's `replaced` folder (see
+  [File access](file-access.md)).
+- A game you play in hardcore mode in another app keeps its hardcore save as
+  it is. The console starts from it, and its own progress goes into a save
+  channel of its own on RomM, named *softcore*.
 
 ## Save states
 
 ![Continue from, on a game page](../media/game.webp)
 
 - **Save state** in the [pause menu](pause-menu.md) saves the moment, with a
-  picture of the game, to the console and to RomM.
+  picture of the game, on the console, and says *State saved*. It goes up to
+  RomM with the game's save when you leave the game.
 - **Load latest state** goes back to your newest one. The game waits on *Press
   (A) to continue* so you are ready.
 - A game's page shows your three newest states under **Continue from**, each
   with its picture and time. Press one to play from there.
 - **Resume**, the first game on Home, starts from the newest state too.
-- The console keeps **three states per game per person**. Saving a fourth
-  deletes the oldest, on the console and on RomM.
+- Your three newest are the newest from any CabinetOS console. Making a fourth
+  sets the oldest aside: RomM keeps it in the game's save history, and the
+  console deletes no state on RomM.
+- States made in other apps stay on RomM as they are and are not shown here: a
+  state loads only in the emulator that made it.
 - There is no autosave: leaving a game keeps its save, not a state.
+- A 3DS state may not load after an update changes the emulator; the console
+  says *Couldn't load that state*.
 
 With [In-game shortcuts](navigation.md#in-game-shortcuts) on, the shortcut
 button with **R1** saves a state and with **L1** loads the newest.
@@ -48,21 +91,105 @@ button with **R1** saves a state and with **L1** loads the newest.
 
 On systems with save states, with In-game shortcuts on: hold the shortcut
 button and **L2** to rewind up to about 15 seconds, or **R2** to play at about
-four times speed. Rewind is kept in memory only.
+four times speed. Rewind is kept in memory only. The 3DS has fast forward but
+no rewind.
 
 ## Offline
 
 Offline, the console uses the saves it last saw on the server, so a game
-starts from the same save it would online. New saves wait on the console and go
-up when the server is back.
+starts from the same save it would online. New saves and states wait on the
+console and go up when the server is back. If you also played the game on
+another device meanwhile, the save made later wins, and the other stays on
+RomM, as above.
 
-## Cabinet on Apple TV
+A RomM older than 5.5 has no save channels. On such a server the console plays
+and saves exactly as it does offline, and sends everything by itself within a
+minute of the server being updated.
 
-Saves use the same names and formats as
-[Cabinet](https://github.com/MMagTech/cabinet), so a save made in one carries on
-in the other, except GameCube: Cabinet for Mac keeps a whole memory card, and
-the console keeps Dolphin's single `.gci` files. Saves made in RomM's web player
-or other apps are not read.
+## Saves from before save channels
+
+A save the console or Cabinet left on your server before the console used
+RomM's save channels moves into a channel the first time you start that game,
+with the game's states. RomM copies it in, and the save it copied stays as it
+was, so a console that has not been updated yet goes on using it. Until a game
+is started, RomM's website shows its save the old way.
+
+Saves use the same names and formats as Cabinet, the retired Apple TV app, so
+a save it left on your server carries on here, except GameCube: Cabinet for Mac
+kept a whole memory card, and the console keeps Dolphin's single `.gci` files.
+
+## Saves from other apps
+
+A save made in RomM's web player or another app that keeps its saves on RomM,
+such as Argosy, carries on here when it is the newest. RomM turns it into the
+file the console's emulator reads, the console checks it, and the game starts
+with *Continuing from another device*. When it can't be used, the game starts
+from the console's own save and says *Couldn't use the newest save*; the other
+save stays on RomM. Your saves from the console carry on in those apps the
+same way. An app that does not use RomM's save channels can't see them, but
+its saves still carry on here.
+
+Saves and states cross between CabinetOS consoles. With other apps, RomM's web
+player and the apps that keep their saves on RomM such as Argosy and Ludo, it
+depends on the system, by what RomM's save library (Sigil) does for it:
+
+| System | With other apps |
+|---|---|
+| 3DO | Yes, the same file |
+| Arcade: FinalBurn Neo, MAME 2003-Plus, Naomi, Atomiswave, Model 2, Model 3 | No |
+| Atari 2600 | Yes, the same file |
+| Atari 7800 | Yes, the same file |
+| Dreamcast | Yes, RomM converts it |
+| Game Boy | Yes, RomM converts it |
+| Game Boy Color | Yes, RomM converts it |
+| Game Boy Advance | Same emulator only |
+| Game Gear | Same emulator only |
+| Genesis / Mega Drive | Same emulator only |
+| Master System | Same emulator only |
+| Sega 32X | Same emulator only |
+| Sega CD | Yes, RomM converts it |
+| Saturn | Yes, RomM converts it |
+| NES | Yes, the same file |
+| SNES | Yes, the same file |
+| Nintendo 64 | Yes, RomM converts it |
+| Nintendo DS | Same emulator only |
+| Nintendo 3DS | Yes, when RomM knows the title ID |
+| GameCube | Yes, RomM converts it |
+| Wii | Yes, RomM converts it |
+| Wii U | Yes, RomM converts it |
+| Switch | Yes, the console converts it |
+| Neo Geo Pocket Color | Yes, the same file |
+| PlayStation | Yes, RomM converts it |
+| PlayStation 2 | Yes, RomM converts it |
+| PSP | Yes, RomM converts it |
+| PlayStation Vita | Yes, RomM converts it |
+| PlayStation 3 | Yes, RomM converts it |
+| TurboGrafx-16 | Yes, the same file |
+| TurboGrafx-CD | Yes, the same file |
+| Vectrex | Yes, the same file |
+| Virtual Boy | Yes, the same file |
+| Xbox | Same emulator only |
+| Xbox 360 | Same emulator only |
+| Save states, on every system that has them | No |
+
+- **RomM converts it:** RomM turns the other app's save into the file the
+  console's emulator reads, and the console checks it before using it. A 3DS
+  save converts only when RomM knows the game's title ID.
+- **The console converts it (Switch):** RomM converts a Switch save only
+  when it knows the game's title ID, which it can't read from an encrypted
+  game, so the console reads it from the game with the keys on your server,
+  the ones Eden uses, and converts the save with the same library RomM uses.
+  Nothing about the game is written to RomM. A Switch save carries the part
+  every profile on the device shares too, such as Animal Crossing's island.
+- **The same file:** these saves travel as they are, and the console's check
+  decides whether its emulator reads one.
+- **Same emulator only, until RomM converts them:** these systems' emulators
+  keep different files.
+- **Arcade:** a board's memory carries nothing that says which emulator, or
+  which version of it, wrote it, so a save from another app is never used.
+  MAME keeps its saves on the console.
+- **Save states:** a state loads only in the emulator that made it, so states
+  made in other apps stay on RomM as they are.
 
 ## Each person's own
 

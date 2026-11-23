@@ -3,7 +3,7 @@
 //
 // THE SHAPE IS NOT CABINET'S, ON PURPOSE. MMagTech, 2026-09-24: Settings is
 // *"the one screen where we can diverge a bit from the others"*. Cabinet's tvOS
-// app opens each category as its own page, which costs an open and a back for
+// app opened each category as its own page, which costs an open and a back for
 // every look. Here walking down the list changes the right side at once, and a
 // television is wide enough to show both. docs/PROJECT.md, open question 31.
 //
@@ -81,6 +81,9 @@ public:
     // For a capture: open on a category, with focus in its rows if it has one
     // that can be focused.
     void focusCategory(int index, bool intoRows);
+    // For a capture: open on the section holding this setting, with focus on its
+    // row if asked and the row can take it.
+    void focusSetting(int id, bool intoRow);
 
     // Where a Choice row is now, after a SettingChoice came back for it. -1 if
     // there is no such row.

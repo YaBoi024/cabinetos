@@ -9,6 +9,7 @@
 
 #include <string>
 
+#include "guitar.h"
 #include "ps2.h"
 
 namespace cab {
@@ -20,13 +21,13 @@ using namespace corestate;
 // placement (cpus.h) and returns at once, as it did with this inline.
 bool Core::startPs2Game(const std::string& romPath, const std::string& systemDir,
                         const std::string& saveDir) {
-    // THE CARD IS NAMED FROM THE ROM, HERE, BY THE SAME RULE main.cpp USES
-    // FOR EVERY OTHER SAVE. `catalog::saveFiles` says a PlayStation 2 card
+    // THE CARD IS NAMED FROM THE ROM, HERE, BY THE RULE EVERY OTHER SAVE
+    // GOES BY. `catalog::saveFiles` (savetable.cpp) says a PlayStation 2 card
     // is `<stem>.ps2` in the save directory, where the stem is the rom's
     // filename without its extension — and `filesave.cpp` already restores
     // that file before launch, captures it after, refuses to upload an
     // unformatted one, and files it on the server under the name Cabinet's
-    // Mac uses.
+    // Mac used.
     //
     // Deriving it here rather than being told means the two cannot drift.
     // A card PCSX2 wrote under a name the save layer does not look for is
@@ -55,6 +56,10 @@ bool Core::startPs2Game(const std::string& romPath, const std::string& systemDir
     // BIOS image in ..." and no error.
     const std::string biosDir = systemDir;
     const std::string scratchDir = saveDir + "/pcsx2-scratch";
+
+    // A GUITAR'S PORT HOLDS A GUITAR for the whole game (guitar.h): the seats
+    // as the game starts.
+    for (int port = 0; port < 2; ++port) ps2::setGuitar(port, guitar::seated(port) != nullptr);
 
     if (!ps2::startGame(romPath, biosDir, saveDir, stem + ".ps2", scratchDir,
                         gPs2ResourcesDir, gPs2Upscale, gPs2Anisotropy, gPs2Widescreen,
@@ -85,7 +90,7 @@ void Core::setPs2(const std::string& resourcesDir, float upscale, int anisotropy
 }
 
 void Core::setPaused(bool paused) {
-    // Every libretro core stops because main.cpp stops calling runFor. Only
+    // Every libretro core stops because pace.cpp stops calling runFor. Only
     // PCSX2 has a thread that needs telling.
     if (gIsPs2) ps2::setPaused(paused);
 }

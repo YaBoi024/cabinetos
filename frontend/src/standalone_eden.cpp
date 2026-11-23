@@ -1,7 +1,8 @@
 // Switch, through Eden from Flathub: its keys and firmware out of `bios/`, its
 // profile, each player's controls and the settings the console lays over
-// Eden's own before every start (prepareEden), and where its saves are
-// (edenSaveRoot). What every emulator shares is standalone.cpp. Moved out of
+// Eden's own before every start (prepareEden), where its saves are
+// (edenSaveRoot, edenProfileFolder), and which keys file it is given
+// (switchKeys). What every emulator shares is standalone.cpp. Moved out of
 // standalone.cpp in the restructure (#398).
 
 #include "standalone_internal.h"
@@ -154,7 +155,7 @@ bool installFirmware(const std::string& homeDir, const std::string& zip) {
                      placed == 0 ? "no .nca files in it" : "could not unpack it");
         return false;
     }
-    writeFile(note, stamp);
+    writeDoneNote(note, stamp);
     std::fprintf(stderr, "[standalone] firmware installed from %s (%d files)\n", zip.c_str(),
                  placed);
     return true;
@@ -239,6 +240,14 @@ std::string edenProfile(const std::string& homeDir, const std::string& player) {
 // the button on the right of the diamond is A on every pad, as it is on a
 // Switch (sdl_driver.cpp, GetDefaultButtonBinding). Players past `players` are
 // unplugged, or a game would count four controllers and offer four seats.
+//
+// MOTION (#669): for a player whose controller is a stand-in DualSense
+// carrying their pad's tilt, both of Eden's motion slots are bound to the
+// controller itself, as Eden binds a real pad with sensors
+// (sdl_driver.cpp, BuildMotionParam: "motion:0" is its one sensor). Eden
+// pairs the sensors by SDL's uniq and reads them in SDL's units. For any
+// other player, a pad without sensors or a plain controller, both slots are
+// written empty, as before #669, so nothing older binds.
 std::vector<std::string> edenControls(int players) {
     const std::string guid = cab::vpad::edenGuid();
     std::vector<std::string> lines;   // "key=value" for [Controls]
@@ -260,6 +269,11 @@ std::vector<std::string> edenControls(int players) {
                ",axis_x:" + std::to_string(cab::vpad::axisIndex(x)) +
                ",axis_y:" + std::to_string(cab::vpad::axisIndex(y)) +
                ",offset_x:0,offset_y:0,invert_x:+,invert_y:+\"";
+    };
+    auto sensors = [&](int p) {
+        return cab::vpad::carriesMotion(p)
+                   ? "\"engine:sdl,motion:0,port:" + std::to_string(p) + ",guid:" + guid + "\""
+                   : std::string("\"\"");
     };
     for (int p = 0; p < 8; ++p) {
         const std::string k = "player_" + std::to_string(p) + "_";
@@ -290,6 +304,8 @@ std::vector<std::string> edenControls(int players) {
         lines.push_back(k + "button_screenshot=\"\"");
         lines.push_back(k + "lstick=" + stick(p, SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY));
         lines.push_back(k + "rstick=" + stick(p, SDL_GAMEPAD_AXIS_RIGHTX, SDL_GAMEPAD_AXIS_RIGHTY));
+        lines.push_back(k + "motionleft=" + sensors(p));
+        lines.push_back(k + "motionright=" + sensors(p));
     }
     return lines;
 }
@@ -306,7 +322,7 @@ bool prepareEden(const Emulator& e, const std::string& saveDir, const std::strin
     // opens its own "Install them now?" box over the game, so the console
     // refuses first and says why. title.keys is optional: most games carry
     // their own ticket.
-    const std::string prod = newestKeys(storage::biosDir(), "prod");
+    const std::string prod = switchKeys();
     if (prod.empty()) {
         *missingKeys = true;
         return false;
@@ -325,8 +341,11 @@ bool prepareEden(const Emulator& e, const std::string& saveDir, const std::strin
 
     // THE CONSOLE'S SETTINGS, laid over Eden's own file before every start.
     // Every one of these is something that would otherwise put a box or a
-    // choice on the television. Batocera's generator and the community Eden
-    // add-on write the same ones.
+    // choice on the television. Batocera's Switch generators (yuzu, suyu,
+    // Citron; Batocera dropped the Switch on 2026-07-13) and the community
+    // Eden add-on (foclabroc/New-batocera-switch) write some of the same,
+    // between them: fullscreen, firstStart, confirmStop, update checks and
+    // docked mode.
     const std::string ini = user + "/config/qt-config.ini";
     std::vector<IniSet> sets = {
         {"UI", "fullscreen", "true"},
@@ -340,6 +359,8 @@ bool prepareEden(const Emulator& e, const std::string& saveDir, const std::strin
         // "Wayland Detected!" at start.
         {"UI", "gui_hide_backend_warning", "true"},
         // A game asking for a controller layout opens Eden's own dialog.
+        // Ours alone: no Batocera generator ever set it, and the add-on's
+        // first-start template sets it false, so the dialog shows there.
         {"UI", "disableControllerApplet", "true"},
         // Docked, always: the television mode (decision B). 1 is Docked.
         {"System", "use_docked_mode", "1"},
@@ -354,9 +375,10 @@ bool prepareEden(const Emulator& e, const std::string& saveDir, const std::strin
         // NO INTERNET, as far as a game can tell. Nintendo's online services do
         // not answer an emulator, so nothing is lost. It did NOT save
         // Shredder's Revenge, whose Epic online layer quits on a call Eden
-        // only stubs (bsd EventFd); nor did cutting the sandbox off the
-        // network, which made it hang instead and was taken out
-        // (2026-09-28).
+        // only stubs (bsd EventFd). The sandbox has no network either (#557,
+        // Run::start); on 2026-09-28 that made Shredder's Revenge hang, and
+        // on 2026-10-26, with the Eden pinned then, it quit by itself at
+        // 28 s as it does with a network.
         {"Network", "airplane_mode", "true"},
         // VSYNC ON (#209, MMagTech 2026-10-04): 2 is Fifo, Eden's own
         // default. #209 first set 0 (Immediate) on the reasoning that
@@ -391,20 +413,33 @@ bool prepareEden(const Emulator& e, const std::string& saveDir, const std::strin
     return true;
 }
 
-// Where its saves are (saveRoot): under the first profile's folder in Eden's
-// profiles.dat (edenProfile), or empty when Eden has none.
-std::string edenSaveRoot(const Emulator& e, const std::string& saveDir) {
+// The folder of the first profile in Eden's profiles.dat (edenProfile), the
+// one its saves go under, or empty when Eden has none.
+std::string edenProfileFolder(const Emulator& e) {
     const std::string data = readFile(home(e) + kEdenProfiles);
     for (size_t at = 0x10; data.size() == kProfilesSize && at + kUserSize <= kProfilesSize;
          at += kUserSize) {
         bool zero = true;
         for (size_t i = 0; i < 16; ++i)
             if (data[at + i] != '\0') { zero = false; break; }
-        if (!zero)
-            return saveDir + "/user/save/0000000000000000/" +
-                   profileFolder(reinterpret_cast<const uint8_t*>(&data[at]));
+        if (!zero) return profileFolder(reinterpret_cast<const uint8_t*>(&data[at]));
     }
     return {};
 }
 
+// Where its saves are (saveRoot): the folder holding the profile's own,
+// `<profile>/<title ID>/`, and the device's, which every profile shares,
+// `00000000000000000000000000000000/<title ID>/` (Animal Crossing's island
+// is one), or empty when Eden has no profile.
+std::string edenSaveRoot(const Emulator& e, const std::string& saveDir) {
+    if (edenProfileFolder(e).empty()) return {};
+    return saveDir + "/user/save/0000000000000000";
+}
+
 }  // namespace cab::standalone::detail
+
+namespace cab::standalone {
+
+std::string switchKeys() { return detail::newestKeys(storage::biosDir(), "prod"); }
+
+}  // namespace cab::standalone
