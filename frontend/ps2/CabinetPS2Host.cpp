@@ -749,11 +749,23 @@ static bool RunOnCPUThread(const CabinetPS2::Config& config, std::string* error)
 	// the same trap under a different name, `pcsx2_analog_mode1`, which
 	// defaults to OFF and reads as dead sticks; it is already in
 	// catalog::optionOverrides for exactly this reason.
+	//
+	// A GUITAR'S PORT HOLDS PCSX2'S GUITAR instead (frontend/src/guitar.h),
+	// which has no analogue mode. PCSX2 makes a new pad whenever a port's
+	// type changes (LoadConfig in SIO/Pad/Pad.cpp), so a port goes back to a
+	// DualShock 2 at the next game without a guitar.
 	for (u32 port = 0; port < 2; port++)
 	{
-		s_settings.SetStringValue(fmt::format("Pad{}", port + 1).c_str(), "Type", "DualShock2");
-		s_settings.SetBoolValue(fmt::format("Pad{}", port + 1).c_str(), "AnalogLight", true);
-		s_settings.SetBoolValue(fmt::format("Pad{}", port + 1).c_str(), "AnalogAuto", true);
+		const std::string section = fmt::format("Pad{}", port + 1);
+		if (config.guitar[port])
+		{
+			s_settings.SetStringValue(section.c_str(), "Type",
+				Pad::GetControllerInfo(Pad::ControllerType::Guitar)->name);
+			continue;
+		}
+		s_settings.SetStringValue(section.c_str(), "Type", "DualShock2");
+		s_settings.SetBoolValue(section.c_str(), "AnalogLight", true);
+		s_settings.SetBoolValue(section.c_str(), "AnalogAuto", true);
 	}
 
 	s_settings.SetBoolValue("EmuCore", "EnableFastBoot", config.fast_boot);

@@ -18,6 +18,7 @@
 #include <string>
 
 #include "libretro.h"
+#include "guitar.h"
 #include "ps2.h"
 #include "rumble.h"
 #include "tilt.h"
@@ -396,8 +397,10 @@ void Core::setPad(int port, const PadState& pad) {
     if (port < 0 || port >= kMaxPorts) return;
     gPads[port] = pad;
     if (gIsPs2) {
-        ps2::setPad(port, pad.buttons, pad.leftX, pad.leftY, pad.rightX, pad.rightY,
-                    pad.leftTrigger, pad.rightTrigger);
+        // A guitar's port is handed the guitar's state (guitar.h).
+        const PadState s = ps2::guitar(port) ? guitar::ps2(port, pad) : pad;
+        ps2::setPad(port, s.buttons, s.leftX, s.leftY, s.rightX, s.rightY, s.leftTrigger,
+                    s.rightTrigger);
     }
 }
 

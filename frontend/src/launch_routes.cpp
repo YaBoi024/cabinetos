@@ -64,17 +64,47 @@ static bool cancelled(LaunchJob& job) {
     return true;
 }
 
+// A game's save as RomM holds it, fetched for a start (saves.h, fetchSaves).
+// The files the game's save channels can be on are the ones its record
+// remembers, so the channels are asked for without asking for the game
+// first; RomM is asked when the record has none or one no longer answers,
+// and the record then keeps what it said (library.h).
+static void fetchSavesOf(int romId, romm::Client& client, const storage::User& user,
+                         const char* tag, const OwnForm* own, const std::atomic<bool>* cancel,
+                         SaveFetch* out) {
+    const romm::ChannelFiles known = rememberedChannelFiles(romId);
+    fetchSaves(client, user, romId, known, tag, own, cancel, out);
+    rememberChannelFiles(romId, out->channelFiles);
+}
+
 // THE GAME'S SAVES COME DOWN HERE, ON THE WORKER (#481, LAUNCH-17), once the
-// game is on the disk: the rows RomM holds for it and the bytes of each row a
-// restore may pick (saves.h, fetchSaves), and for a Wii game the Mii
-// Channel's, found as its own launch would find it. The stages behind the
-// curtain (launch.cpp, pumpLaunch) restore from these and ask the server
-// nothing, so a slow or hanging server holds this job's busy clock, with the
-// screen alive, and never a black curtain. Each fetch asks only with a token
-// and a tag the core's saves travel under, as the restores did.
+// game is on the disk: what RomM holds of its save, in its save channels and
+// from before them, which of it the start continues from, and that save's
+// bytes (saves.h, fetchSaves); and for a Wii game the Mii Channel's, found as
+// its own launch would find it. The stages behind the curtain (launch.cpp,
+// pumpLaunch) restore from these and ask the server nothing, so a slow or
+// hanging server holds this job's busy clock, with the screen alive, and
+// never a black curtain. Each fetch asks only with a token and a tag the
+// core's saves travel under, as the restores did.
 static void fetchLaunchSaves(LaunchJob& job, romm::Client& client, const storage::User& user) {
     const char* tag = catalog::saveTag(job.coreName.c_str());
-    fetchSaves(client, user, job.romId, tag, &job.cancel, &job.saves);
+    // The form this core reads its save in, for another emulator's save
+    // asked of RomM (saves.h, OwnForm): the files it writes, named after the
+    // file it is handed, as restoreBeforeLoad finds them.
+    OwnForm own;
+    own.form = catalog::saveForm(job.coreName.c_str(), job.platformSlug);
+    own.tag = tag ? tag : "";
+    own.platform = job.platformSlug;
+    own.arcade = job.arcade;
+    own.folder = cab::standalone::find(job.coreName) != nullptr ||
+                 catalog::directorySaveRoot(job.coreName.c_str(), job.platformSlug,
+                                            job.titleId) != nullptr;
+    if (!own.folder)
+        own.files = catalog::saveFiles(job.platformSlug, job.coreName,
+                                       job.romPath.substr(job.romPath.find_last_of('/') + 1),
+                                       job.arcade);
+    if (own.form.sigil == "eden") own.switchDump = job.romPath;
+    fetchSavesOf(job.romId, client, user, tag, &own, &job.cancel, &job.saves);
     job.miiSaves = SaveFetch{};
     if (job.cancel.load() || job.platformSlug != "wii" || job.coreName != "dolphin" ||
         wii::isMiiChannel(job.titleId))
@@ -82,7 +112,7 @@ static void fetchLaunchSaves(LaunchJob& job, romm::Client& client, const storage
     int miiRom = 0;
     std::string miiTitle;
     if (!findMiiChannel(client, job.platformId, &miiRom, &miiTitle)) return;
-    fetchSaves(client, user, miiRom, tag, &job.cancel, &job.miiSaves);
+    fetchSavesOf(miiRom, client, user, tag, nullptr, &job.cancel, &job.miiSaves);
     job.miiSaves.title = miiTitle;
 }
 

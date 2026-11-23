@@ -2,6 +2,7 @@
 
 #include "battery.h"
 #include "fightstick.h"
+#include "guitar.h"
 
 #include <algorithm>
 #include <atomic>
@@ -112,6 +113,7 @@ std::mutex gIsRemoteLock;
 std::map<SDL_JoystickID, SDL_Gamepad*> gOpen;
 std::map<SDL_JoystickID, std::string> gDir;   // its HID device, for its battery
 std::map<SDL_JoystickID, const fightstick::Stick*> gStick;   // the open fight sticks
+std::map<SDL_JoystickID, const ::guitar::Layout*> gGuitar;   // the open guitars
 std::atomic<SDL_JoystickID> gFriend{0};   // LinkUp's, read by setAside on that thread too
 // FORK (iOS): the phone's on-screen buttons, made by the platform as a virtual gamepad called
 // "On-screen buttons". They take no seat: they are player one's extra hand (onScreen()).
@@ -372,6 +374,14 @@ void added(SDL_JoystickID id) {
     }
     std::fprintf(stderr, "[players] pad %u gyro: %s\n", static_cast<unsigned>(id),
                  SDL_GamepadHasSensor(gp, SDL_SENSOR_GYRO) ? "yes" : "no");
+    const ::guitar::Identity who = ::guitar::identify(SDL_GetGamepadVendor(gp), SDL_GetGamepadProduct(gp),
+                                                      deviceName(gp), SDL_GetGamepadPath(gp));
+    if (const ::guitar::Layout* g = ::guitar::match(who)) {
+        gGuitar[id] = g;
+        std::fprintf(stderr, "[players] pad %u is a guitar (\"%s\", USB \"%s\", subtype %d): %s\n",
+                     static_cast<unsigned>(id), who.device.c_str(), who.usbProduct.c_str(), who.subtype,
+                     g->name);
+    }
     changed("connected", id);
 }
 
@@ -389,6 +399,7 @@ void removed(SDL_JoystickID id) {
     }
     gDir.erase(id);
     gStick.erase(id);
+    gGuitar.erase(id);
     changed("disconnected", id);
 }
 
@@ -483,6 +494,11 @@ const fightstick::Stick* stick(SDL_JoystickID id) {
     return it == gStick.end() ? nullptr : it->second;
 }
 
+const ::guitar::Layout* guitar(SDL_JoystickID id) {
+    auto it = gGuitar.find(id);
+    return it == gGuitar.end() ? nullptr : it->second;
+}
+
 int playerOf(SDL_JoystickID id) { return active().playerOf(id); }
 
 int count() {
@@ -499,7 +515,9 @@ std::vector<Pad> connected() {
         Pad p;
         p.player = static_cast<int>(i);
         p.id = id;
-        p.name = nameOf(it->second);
+        // A GUITAR IS NAMED "Guitar": what it gives is a pad's name
+        // ("Xbox 360 Controller", "Ipega PG 9069") or a model's, by link.
+        p.name = gGuitar.count(id) ? "Guitar" : nameOf(it->second);
         p.address = addressOf(it->second);
         out.push_back(std::move(p));
     }

@@ -522,6 +522,9 @@ struct LaunchContext {
     std::vector<int> discOrder{};
     std::string romForCore{};
     std::vector<cab::FileSaveState> restored{};
+    // What the restores did with the save the start continues from, for the
+    // notes the start leaves (saves.h, noteStart).
+    StartNotes startNotes{};
 };
 
 // Picks up a finished job. Loading the game happens HERE, on the frame
@@ -537,25 +540,42 @@ struct LaunchContext {
 // folder save and the file saves are written BEFORE the core loads the game,
 // because a core reads them once while the machine is built; the battery
 // save AFTER it, because the core is handed the bytes; and in every one a
-// copy this console still owes the server wins over the server's. The
-// server's rows and bytes were fetched by the worker before the job was
-// Ready (launch_routes.cpp, fetchLaunchSaves; launchJob.saves), so no stage
-// here waits on the network.
+// copy this console still owes the server wins over the server's. WHICH SAVE
+// each writes is one rule, decided once by the worker with RomM's save
+// channels and its saves from before them in hand (savepick.h): the newest
+// this console can use, whichever device made it. The worker fetched it
+// before the job was Ready (launch_routes.cpp, fetchLaunchSaves;
+// launchJob.saves), so no stage here waits on the network. A save of this
+// console's that a restore replaces is kept aside first (saves.cpp,
+// keepAside), and once the last restore has run the start leaves its notes
+// (noteStart), sends the push that brings a save from before channels into
+// one when it took such a save (savepush.h), and says so when it continued
+// from another device's save.
 void App::pumpLaunch() {
     if (!takeFinishedJob()) return;
     if (!loadPickedCore()) return;
     LaunchContext c{.core = cab::Core::shared(), .user = storage::currentUser()};
+    c.startNotes.asideDir =
+        storage::replacedSaveDir(c.user, launchJob.platformFsSlug, launchJob.romId);
     prepareSaveDirAndDiscs(c);
     restoreBeforeLoad(c);
     if (!loadLaunchedGame(c)) return;
     setUpLoadedGame(c);
-    restoreBatterySave(c.core, session, c.saveDir, c.user, launchJob.saves);
+    restoreBatterySave(c.core, session, c.saveDir, launchJob.saves, &c.startNotes);
+    bool bringsOldSave = false;
+    const bool elsewhere =
+        noteStart(launchJob.saves, c.startNotes, c.user, &session, &bringsOldSave);
+    if (bringsOldSave) uploader.pushSnapshot(session.romId, c.user);
     // The fetched saves are written; a card can be megabytes, so not kept.
     launchJob.saves = SaveFetch{};
     launchJob.miiSaves = SaveFetch{};
     reportLoadedOptions(c.core);
     openSoundAndPace(c.core);
     startPlaying(c.core);
+    if (elsewhere) menuNotice.say(kContinuingElsewhere, Tone::Info);
+    // The newest save on RomM was one this console could not use, and the
+    // game started from its own (#346, step 8; saves.cpp, fetchSaves).
+    else if (session.couldNotUseNewest) menuNotice.say(kCouldNotUseNewest, Tone::Problem);
 }
 
 // Stages 1 to 3: a failed job is undone and a Ready one taken (a launch once
@@ -734,6 +754,10 @@ void App::prepareSaveDirAndDiscs(LaunchContext& c) {
     c.saveDir = storage::savesDir(
         c.user, launchJob.platformFsSlug, launchJob.romId, launchJob.coreName);
     storage::makeDirs(c.saveDir);
+    // A LAST GAME HERE THAT NEVER ENDED (a crash or a power cut): what its
+    // core wrote goes up first, and the restores below keep it
+    // (finishInterruptedPlay).
+    if (cab::standalone::hasPlayingNote(c.saveDir)) finishInterruptedPlay(c.saveDir, uploader);
 
     // A DIRECTORY save comes down BEFORE the game is loaded, unlike the
     // battery below, which the core can be handed afterwards. PPSSPP mounts
@@ -756,7 +780,9 @@ void App::prepareSaveDirAndDiscs(LaunchContext& c) {
     }
     if (c.dirSub && c.launchTag && launchJob.saves.asked)
         restoreDirSave(launchJob.saves, c.launchTag, c.saveDir + "/" + c.dirSub,
-                       launchJob.title, oldGameCubeCard);
+                       launchJob.title, oldGameCubeCard, &c.startNotes,
+                       zipShapeOf(launchJob.coreName, launchJob.platformSlug, launchJob.titleId),
+                       wiiKindOf(launchJob.titleId));
 
     // AND THE SAVES THE CORE WRITES AS A FILE, which is most of the ones
     // on a real server and none of the ones this console used to handle.
@@ -878,7 +904,7 @@ void App::restoreBeforeLoad(LaunchContext& c) {
                        : launchJob.romPath;
 
     c.restored = restoreFileSaves(saveSpecs, launchJob.fsStem, c.saveDir, c.launchTag,
-                                  launchJob.saves);
+                                  launchJob.saves, &c.startNotes);
 }
 
 // Stage 6: the load. False when the core refused the game, which is said
@@ -1005,6 +1031,11 @@ void App::setUpLoadedGame(LaunchContext& c) {
         std::fprintf(stderr, "[save] %s holds %zu file(s) at launch\n",
                      session.dirSaveRoot.c_str(), session.dirAtLaunch.size());
     }
+    // THE NOTE THAT THE GAME IS PLAYING, for a core whose save is files, so
+    // a crash or a power cut leaves nothing it wrote behind
+    // (finishInterruptedPlay); taken away at the leave (finishExit).
+    session.romFile = launchJob.romPath.substr(launchJob.romPath.find_last_of('/') + 1);
+    notePlaying(session);
 }
 
 // Options again, AFTER the game is loaded. Some cores declare nothing
@@ -1152,6 +1183,9 @@ void App::startPlaying(cab::Core& core) {
                  core.isPs2() ? "PCSX2" : core.coreName().c_str());
     playing = true;
     platform::gamePlaying(true, session.platformSlug.c_str());   // FORK (Android): its buttons and screen-on
+    // THE SAVE WATCHED FROM HERE, for its picture (savepicture.h): every
+    // restore has run and the session's baselines are taken.
+    savePicture.begin(session, storage::currentUser(), savepicture::coreGame(), SDL_GetTicks());
     // An arcade game's buttons as this person moved them (controls.h).
     controls::beginGame(session.arcadeCore(), session.romId, session.title);
     // RetroAchievements, when this person signed in (achievements.h):

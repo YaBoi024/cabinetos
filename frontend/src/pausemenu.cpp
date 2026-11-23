@@ -125,7 +125,7 @@ void App::overlayActivate() {
             overlayOpen = false;
             overlayFade.retarget(0.0f, overlayFadeSeconds);
             break;
-        case OvSaveState: saveStateNow(session, uploader, menuNotice); break;
+        case OvSaveState: saveStateNow(session, menuNotice); break;
         case OvLoadState: beginLoadLatestState(stateLoad, session, liveClient, menuNotice); break;
         // THE PAUSED MOMENT, the menu not in it: a screenshot reads the
         // game's frame, not the screen. MMagTech's idea, 2026-09-27: pause
@@ -148,7 +148,7 @@ void App::overlayActivate() {
             if (standaloneRun.active()) {
                 overlayOpen = false;
                 overlayFade.retarget(0.0f, overlayFadeSeconds);
-                standaloneRun.stop();
+                stopStandaloneGame();
             } else {
                 exitToHome();
             }

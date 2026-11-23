@@ -73,7 +73,7 @@ void App::powerLeave(power::Action act) {
     if (standalonePaused && standaloneRun.active()) {
         powerAfterExit = act;
         closeOverlay(false);
-        standaloneRun.stop();
+        stopStandaloneGame();
         return;
     }
     if (playing) finishExit();
@@ -198,7 +198,7 @@ void App::pollPower() {
             if (playing && cab::Core::shared().running()) finishExit();
             // An emulator of its own is asked to close as its own window
             // would, which is when it writes what it has not.
-            standaloneRun.stop();
+            stopStandaloneGame();
             releasePending = true;
             releaseWaitStart = SDL_GetTicksNS();
             break;

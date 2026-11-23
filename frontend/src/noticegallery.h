@@ -11,10 +11,7 @@
 // A copy of the strings at their call sites: add a message there, add it here.
 struct GalleryNotice { const char* text; Tone tone; };
 constexpr GalleryNotice kNoticeGallery[] = {
-    {"Saving\xE2\x80\xA6", Tone::Busy},
-    {"Saved to RomM", Tone::Done},
-    {"Saved. Will upload when RomM is back", Tone::Info},
-    {"Saved on this console. RomM refused it", Tone::Problem},
+    {"State saved", Tone::Done},
     {"Saved on this console only", Tone::Info},
     {"No save states for this system", Tone::Info},
     {"No screenshots for this system", Tone::Info},
@@ -30,6 +27,8 @@ constexpr GalleryNotice kNoticeGallery[] = {
     {"No saved state for this game", Tone::Info},
     {"Couldn't reach RomM", Tone::Problem},
     {"Couldn't load that state", Tone::Problem},
+    {"Continuing from another device", Tone::Info},
+    {"Couldn't use the newest save", Tone::Problem},
     {"That state is on Disc 3", Tone::Problem},
     {"Download removed", Tone::Done},
     {"Freeing space\xE2\x80\xA6", Tone::Busy},

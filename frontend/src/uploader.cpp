@@ -6,29 +6,18 @@
 #include "cache.h"
 #include "favorites.h"
 #include "fileio.h"
+#include "gonegames.h"
 #include "playtime.h"
-#include "savemirror.h"
+#include "savepush.h"
 
 // RomM ANSWERED AND REFUSED IT FOR GOOD: an HTTP 4xx (a permission unticked
 // at pairing, a role without write access, a file it will not take), read
 // off the client's error, "HTTP <status>: ..." (Client::postMultipart). Not
 // 408 or 429, which ask to be asked again. A server away or a 5xx is not a
 // refusal and is tried again as before.
-static bool refusedForGood(const std::string& err) {
+bool refusedForGood(const std::string& err) {
     if (err.size() < 8 || err.compare(0, 6, "HTTP 4") != 0) return false;
     return err.compare(5, 3, "408") != 0 && err.compare(5, 3, "429") != 0;
-}
-
-// ONE FILE TO RomM, as whoever `c` is signed in as: a save, a state (with its
-// picture) or a screenshot. The uploader sends the signed-in person's this way,
-// and removing a person (#194) sends theirs with their own login.
-bool uploadOne(const romm::Client& c, int romId, bool isState, bool isScreenshot,
-               const std::string& emulator, const std::string& fileName,
-               const std::vector<uint8_t>& data, const std::string& shotName,
-               const std::vector<uint8_t>& shot, std::string* err) {
-    return isScreenshot ? c.uploadScreenshot(romId, fileName, data, err)
-           : isState    ? c.uploadState(romId, emulator, fileName, data, err, shotName, shot)
-                        : c.uploadSave(romId, emulator, fileName, data, err);
 }
 
 // Every play session `who` owes, a hundred at a time, RomM's most. Whatever
@@ -79,13 +68,10 @@ void Uploader::push(Job job) {
     // the server something and does not know it is zero.
     cache::Owed o;
     o.romId = job.romId;
-    o.isState = job.isState;
     o.isScreenshot = job.isScreenshot;
     o.emulator = job.emulator;
     o.fileName = job.fileName;
     o.localPath = job.localPath;
-    o.shotName = job.shotName;
-    o.shotPath = job.shotPath;
     if (!job.who.valid()) job.who = storage::currentUser();
     cache::markPending(job.who, o, static_cast<int64_t>(job.data.size()));
     {
@@ -94,6 +80,19 @@ void Uploader::push(Job job) {
         refused_.erase(whoKey(job));
     }
     enqueue(std::move(job));
+}
+
+void Uploader::pushSnapshot(int romId, const storage::User& who) {
+    Job j;
+    j.isPush = true;
+    j.romId = romId;
+    j.fileName = cache::kOwedPushName;
+    j.who = who;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        refused_.erase(whoKey(j));
+    }
+    enqueue(std::move(j));
 }
 
 bool Uploader::refusedThisRun(const storage::User& who, int romId,
@@ -106,22 +105,38 @@ bool Uploader::refusedThisRun(const storage::User& who, int romId,
     return refused_.count(whoKey(j)) > 0;
 }
 
-void Uploader::resendOwed() { resendOwedFor(storage::currentUser()); }
+void Uploader::resendOwed() {
+    savepush::adoptOldSaves(storage::currentUser());
+    savepush::adoptOldStates(storage::currentUser());
+    resendOwedFor(storage::currentUser());
+}
 void Uploader::sendFavorites() { sendFavoritesFor(storage::currentUser()); }
 void Uploader::sendPlay() { sendPlayFor(storage::currentUser()); }
 
 void Uploader::resendOwedFor(const storage::User& who) {
     const std::vector<cache::Owed> list = cache::owed(who);
     for (const cache::Owed& o : list) {
+        // A save's or a state's marker from before save channels (uploader.h).
+        if (!o.isScreenshot) continue;
         Job j;
         j.romId = o.romId;
-        j.isState = o.isState;
-        j.isScreenshot = o.isScreenshot;
+        j.isScreenshot = true;
         j.emulator = o.emulator;
         j.fileName = o.fileName;
         j.localPath = o.localPath;
-        j.shotName = o.shotName;
-        j.shotPath = o.shotPath;
+        j.resend = true;
+        j.who = who;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (refused_.count(whoKey(j))) continue;
+        }
+        enqueue(std::move(j));
+    }
+    for (const cache::OwedPush& p : cache::owedPushes(who)) {
+        Job j;
+        j.isPush = true;
+        j.romId = p.romId;
+        j.fileName = cache::kOwedPushName;
         j.resend = true;
         j.who = who;
         {
@@ -150,50 +165,6 @@ void Uploader::sendPlayFor(const storage::User& who) {
     j.resend = true;
     j.who = who;
     enqueue(std::move(j));
-}
-
-void Uploader::rotate(const Job& job) {
-    std::vector<romm::Asset> all;
-    std::string err;
-    if (!client_->fetchStates(job.romId, &all, &err)) {
-        std::fprintf(stderr, "[state] could not list states to keep three: %s\n",
-                     err.c_str());
-        return;
-    }
-    std::vector<romm::Asset> mine;
-    for (const romm::Asset& a : all)
-        if (a.emulator == job.emulator) mine.push_back(a);
-    if (mine.size() <= kStatesKept) return;
-    std::sort(mine.begin(), mine.end(), [](const romm::Asset& a, const romm::Asset& b) {
-        return a.updatedAt != b.updatedAt ? a.updatedAt > b.updatedAt
-                                          : a.fileName > b.fileName;
-    });
-    bool keptNew = false;
-    for (size_t i = 0; i < kStatesKept; ++i)
-        if (mine[i].fileName == job.fileName) keptNew = true;
-    if (!keptNew) {
-        std::fprintf(stderr, "[state] %s is not among the newest three on RomM; "
-                             "deleting nothing\n", job.fileName.c_str());
-        return;
-    }
-    std::vector<int> ids;
-    for (size_t i = kStatesKept; i < mine.size(); ++i) ids.push_back(mine[i].id);
-    if (!client_->deleteStates(ids, &err)) {
-        std::fprintf(stderr, "[state] could not remove older states: %s\n", err.c_str());
-        return;
-    }
-    // This console's copies of the ones that went, and their pictures.
-    const size_t slash = job.localPath.rfind('/');
-    const std::string dir =
-        slash == std::string::npos ? std::string() : job.localPath.substr(0, slash);
-    for (size_t i = kStatesKept; i < mine.size(); ++i) {
-        const std::string& name = mine[i].fileName;
-        std::fprintf(stderr, "[state] rotated out %s\n", name.c_str());
-        if (dir.empty()) continue;
-        cab::removeFile(dir + "/" + name);
-        const size_t dot = name.rfind('.');
-        if (dot != std::string::npos) cab::removeFile(dir + "/" + name.substr(0, dot) + ".png");
-    }
 }
 
 void Uploader::enqueue(Job job) {
@@ -243,11 +214,53 @@ void Uploader::run() {
             finished(job, ok, /*leftSomething=*/!ok);
             continue;
         }
-        // A resend reads its bytes now, off the disk.
-        if (job.data.empty() && !job.localPath.empty()) {
-            job.data = cab::readBytes(job.localPath);
-            if (!job.shotPath.empty()) job.shot = cab::readBytes(job.shotPath);
+        if (job.isPush) {
+            // A GAME BEING PLAYED KEEPS ITS OWED SNAPSHOT UNTIL IT IS LEFT.
+            // A snapshot's save can be the file a core writes, and one read
+            // while the game runs can be half written. Only a resend can
+            // meet a game in play: the push a person's own exit queues comes
+            // after the game has closed, and is tried here at once. Asked
+            // again after the read, in case the game started during it.
+            std::string why;
+            savepush::Sent sent = savepush::Sent::NotSent;
+            if (job.resend && gone::inUse(job.romId)) {
+                why = "the game is being played";
+            } else {
+                sent = savepush::send(savepush::serverOf(*client_), job.who, job.romId, &why,
+                                      [&job] { return job.resend && gone::inUse(job.romId); });
+            }
+            const bool ok = savepush::settled(sent);
+            if (sent == savepush::Sent::Refused) {
+                std::lock_guard<std::mutex> lock(mutex_);
+                refused_.insert(whoKey(job));
+                std::fprintf(stderr, "[save] %sgame %d's snapshot refused by RomM, kept on this "
+                                     "console; not sent again until the next start or a new save "
+                                     "of it: %s\n",
+                             job.resend ? "resent, " : "", job.romId, why.c_str());
+            } else if (sent == savepush::Sent::NotSent) {
+                std::fprintf(stderr, "[save] %sgame %d's snapshot not sent, kept on this "
+                                     "console: %s\n",
+                             job.resend ? "resent, " : "", job.romId, why.c_str());
+            } else if (sent == savepush::Sent::Waits && !job.resend) {
+                // ON A RomM TOO OLD FOR SAVE CHANNELS (savepush.h) it waits,
+                // said once, at the push a leave queued: the five-minute
+                // retry asks nothing of the server for it. A server never
+                // heard since the console started is away, not too old.
+                const bool heard = !romm::heardServerVersion().empty() && !romm::serverAway();
+                std::fprintf(stderr, heard ? "[save] game %d's snapshot waits on this console "
+                                             "until RomM has save channels\n"
+                                           : "[save] game %d's snapshot not sent, kept on this "
+                                             "console: the server is away\n",
+                             job.romId);
+            }
+            // What waits stays owed, so the five-minute retry goes on behind
+            // the notice of the server gaining channels (App::followServer).
+            finished(job, ok, /*leftSomething=*/savepush::triedAgain(sent));
+            continue;
         }
+        // A SCREENSHOT (#79), the one file that still goes up by itself. A
+        // resend reads its bytes now, off the disk.
+        if (job.data.empty() && !job.localPath.empty()) job.data = cab::readBytes(job.localPath);
         bool ok = false;
         std::string err;
         if (job.data.empty()) {
@@ -256,9 +269,7 @@ void Uploader::run() {
             err = "its file is gone";
             cache::clearPending(job.who, job.romId, job.fileName);
         } else {
-            ok = uploadOne(*client_, job.romId, job.isState, job.isScreenshot,
-                           job.emulator, job.fileName, job.data, job.shotName, job.shot,
-                           &err);
+            ok = client_->uploadScreenshot(job.romId, job.fileName, job.data, &err);
             // Cleared only on success. A failed upload leaves the marker,
             // which is the point: the file is still on disk, it still has
             // not reached RomM, and the console still owes it.
@@ -269,39 +280,16 @@ void Uploader::run() {
             std::lock_guard<std::mutex> lock(mutex_);
             refused_.insert(whoKey(job));
         }
-        if (ok && job.isState) rotate(job);
-        if (ok && !job.isState && !job.isScreenshot) refreshSaveCopy(job);
-        // 1 reached RomM; 2 RomM could not be reached, so it will be retried;
-        // 3 RomM was there and refused it (a permission unticked at pairing, a
-        // role without write access, any HTTP error), which is not "when RomM
-        // is back" (#477). The file stays owed either way.
-        if (job.isState && !job.resend)
-            stateOutcome.store(ok ? 1 : romm::serverAway() ? 2 : 3);
-        const char* kind = job.isScreenshot ? "screenshot" : job.isState ? "state" : "save";
         if (refused)
-            std::fprintf(stderr, "[%s] %s%s refused by RomM, kept locally; not sent "
+            std::fprintf(stderr, "[screenshot] %s%s refused by RomM, kept locally; not sent "
                                  "again until the next start or a new save of it: %s\n",
-                         kind, job.resend ? "resent, " : "", job.fileName.c_str(),
-                         err.c_str());
+                         job.resend ? "resent, " : "", job.fileName.c_str(), err.c_str());
         else
-            std::fprintf(stderr, "[%s] %s%s %s%s\n", kind, job.resend ? "resent, " : "",
-                         ok ? "uploaded" : "upload failed, kept locally:",
-                         ok ? job.emulator.c_str() : err.c_str(),
-                         ok && !job.shot.empty() ? " with its picture" : "");
+            std::fprintf(stderr, "[screenshot] %s%s %s%s\n", job.resend ? "resent, " : "",
+                         job.fileName.c_str(), ok ? "uploaded" : "upload failed, kept locally: ",
+                         ok ? "" : err.c_str());
         finished(job, ok, /*leftSomething=*/!ok && !job.data.empty() && !refused);
     }
-}
-
-void Uploader::refreshSaveCopy(const Job& job) {
-    const storage::User& u = job.who;
-    savemirror::forget(u, job.romId);
-    std::vector<romm::Asset> rows;
-    std::string err;
-    if (!client_->fetchSaves(job.romId, &rows, &err)) return;
-    savemirror::putList(u, job.romId, rows);
-    for (const romm::Asset& a : rows)
-        if (a.fileName == job.fileName && a.emulator == job.emulator)
-            savemirror::putBytes(u, job.romId, a, job.data);
 }
 
 void Uploader::finished(const Job& job, bool ok, bool leftSomething) {

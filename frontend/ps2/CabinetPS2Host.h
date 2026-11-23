@@ -115,6 +115,9 @@ namespace CabinetPS2
 		/// one (#217). On unless the player turned it off for this game in
 		/// the pause menu (#368).
 		bool widescreen = true;
+		/// Which of the two ports holds a guitar rather than a DualShock 2,
+		/// from the player holding one as the game starts (frontend/src/guitar.h).
+		bool guitar[2] = {false, false};
 
 	};
 
@@ -174,7 +177,8 @@ namespace CabinetPS2
 	/// deliberately so: the frontend fills one of those in for every
 	/// libretro core, and PlayStation 2 taking a different shape would mean
 	/// two input paths to keep in step. This layer does the translation to
-	/// PCSX2's DualShock 2 numbering, which is one table in one file.
+	/// PCSX2's DualShock 2 numbering, or its guitar's in a guitar's port, which
+	/// is two tables in one file (CabinetPS2Pad.cpp).
 	///
 	/// `buttons` is a bitmask using **libretro's RetroPad ids as bit
 	/// positions** — B is bit 0, Start is bit 3, and so on — which is what the

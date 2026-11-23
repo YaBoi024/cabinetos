@@ -1,8 +1,9 @@
 // The controller's half of CabinetOS's host layer for PCSX2: the pads the
 // frontend hands over (CabinetPS2::SetPad, on the frontend's thread), and
-// their translation into a DualShock 2's inputs (ApplyPads, on PCSX2's CPU
-// thread, first thing in Host::PumpMessagesOnCPUThread). The pads are not
-// reset between games, on purpose. Moved out of CabinetPS2Host.cpp in the
+// their translation into a DualShock 2's inputs, or a guitar's in a port that
+// holds one (ApplyPads, on PCSX2's CPU thread, first thing in
+// Host::PumpMessagesOnCPUThread). The pads are not reset between games, on
+// purpose. Moved out of CabinetPS2Host.cpp in the
 // restructure (#398).
 
 #include "CabinetPS2Pad.h"
@@ -15,6 +16,7 @@
 #include "pcsx2/PrecompiledHeader.h"
 #include "pcsx2/SIO/Pad/Pad.h"
 #include "pcsx2/SIO/Pad/PadDualshock2.h"
+#include "pcsx2/SIO/Pad/PadGuitar.h"
 
 namespace
 {
@@ -50,6 +52,45 @@ namespace
 		PadDualshock2::Inputs::PAD_L3,       // 14
 		PadDualshock2::Inputs::PAD_R3,       // 15
 	};
+
+	// RetroPad id -> PCSX2's guitar's input (SIO/Pad/PadGuitar.h), or -1, for
+	// a port that holds a guitar. The frontend hands such a port the guitar's
+	// state (frontend/src/guitar.h, ps2State): the frets by position as any
+	// pad's buttons, so green is the bottom button and blue the left; the
+	// whammy as the left trigger, 0 at rest; tilt as the L2 bit.
+	constexpr int kRetroToGuitar[16] = {
+		PadGuitar::Inputs::GREEN,      // 0  B      bottom
+		PadGuitar::Inputs::BLUE,       // 1  Y      left
+		PadGuitar::Inputs::SELECT,     // 2         star power
+		PadGuitar::Inputs::START,      // 3
+		PadGuitar::Inputs::STRUM_UP,   // 4
+		PadGuitar::Inputs::STRUM_DOWN, // 5
+		-1,                            // 6  Left
+		-1,                            // 7  Right
+		PadGuitar::Inputs::RED,        // 8  A      right
+		PadGuitar::Inputs::YELLOW,     // 9  X      top
+		PadGuitar::Inputs::ORANGE,     // 10 L
+		-1,                            // 11 R
+		PadGuitar::Inputs::TILT,       // 12 L2
+		-1,                            // 13 R2
+		-1,                            // 14 L3
+		-1,                            // 15 R3
+	};
+
+	// A guitar's port. THE WHAMMY GOES IN AT HALF: PadGuitar::Set takes the
+	// half axis 0 to 1 as 127 less 255 times it, held to 0 to 127 (127 at
+	// rest, 0 pushed), so a whole push would reach the end at its middle.
+	void ApplyGuitar(u32 port, const CabinetPS2::Pad& pad)
+	{
+		for (int i = 0; i < 16; i++)
+		{
+			if (kRetroToGuitar[i] < 0)
+				continue;
+			const bool down = ((pad.buttons >> i) & 1u) != 0;
+			::Pad::SetControllerState(port, static_cast<u32>(kRetroToGuitar[i]), down ? 1.0f : 0.0f);
+		}
+		::Pad::SetControllerState(port, PadGuitar::Inputs::WHAMMY, pad.leftTrigger * 0.5f);
+	}
 } // namespace
 
 namespace CabinetPS2
@@ -69,6 +110,13 @@ namespace CabinetPS2
 		for (u32 port = 0; port < 2; port++)
 		{
 			const CabinetPS2::Pad& pad = pads[port];
+
+			if (const PadBase* held = ::Pad::GetPad(static_cast<u8>(port));
+				held && held->GetType() == ::Pad::ControllerType::Guitar)
+			{
+				ApplyGuitar(port, pad);
+				continue;
+			}
 
 			for (int i = 0; i < 16; i++)
 			{

@@ -381,8 +381,27 @@ void App::overlayHooks() {
     }
 }
 
-// --state-check, --load-state and --sync-test, after the disc rig.
+// --state-check, --load-state, --sync-test and --save-write-at, after the
+// disc rig.
 void App::stateHooks() {
+    // --save-write-at N: one byte of the core's save memory changed at its
+    // Nth frame, as a game writes its save, so the watch sees a save made
+    // mid-game (savepicture.h). A core with no battery is left alone: a run
+    // changes the files a core writes, or its save folder, itself.
+    if (saveWriteAt > 0 && playing && cab::Core::shared().framesRun() >= saveWriteAt) {
+        saveWriteAt = 0;
+        cab::Core& core = cab::Core::shared();
+        std::vector<uint8_t> ram;
+        if (core.readSaveRam(ram) && !ram.empty()) {
+            ram[ram.size() / 2] ^= 0x5A;
+            core.writeSaveRam(ram);
+            std::fprintf(stderr, "[save-write] the battery written at frame %llu, as a game "
+                                 "saves\n",
+                         static_cast<unsigned long long>(core.framesRun()));
+        } else {
+            std::fprintf(stderr, "[save-write] no battery in this core to write\n");
+        }
+    }
     if (stateCheckAfter > 0 && playing) {
         static std::vector<uint8_t> first;
         static uint64_t savedAt = 0;
@@ -427,12 +446,13 @@ void App::stateHooks() {
         if (++sinceStart == 150) {
             std::fprintf(stderr, "[sync-test] --- saving ---\n");
             const uint64_t t0 = SDL_GetTicksNS();
-            saveStateNow(session, uploader, menuNotice);
+            saveStateNow(session, menuNotice);
             // Forced: at a title screen with no input the battery has not
             // changed, and "nothing to send" is the correct behaviour but
-            // proves nothing about whether sending works.
+            // proves nothing about whether sending works. Gathered now, it
+            // goes up with the quit's snapshot (savepush.h).
             session.saveAtLaunch.clear();
-            syncSave(session, uploader);
+            syncSave(session);
             // The same forcing for the saves the core writes as files, and
             // it is the only way to see that half send anything: those are
             // captured after the unload rather than here, and a headless

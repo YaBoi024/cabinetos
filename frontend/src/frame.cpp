@@ -99,6 +99,8 @@ void App::runFrameLoop() {
             cab::Core& core = cab::Core::shared();
             const bool rewinding = readGameInput(core);
             runGameFrame(core, dt, rewinding);
+            // The save looked at once a second, for its picture (savepicture.h).
+            savePicture.tick(session, SDL_GetTicks());
             // A CORE THAT MOVED ITS SOUND RATE MID-GAME (#220): the speaker
             // is set to it again, as at the launch (openSoundAndPace), or
             // the sound would play at the old rate's speed.
@@ -187,7 +189,6 @@ void App::runFrameLoop() {
         tickLinkUp(dt);
         retryOwedUploads(dt);
         followServer(dt);
-        sayStateUploaded();
         tickLaunchBusy(dt);
         tickPauseMenu(dt);
         {

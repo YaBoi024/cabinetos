@@ -32,7 +32,10 @@
 
 #pragma once
 
+#include <locale.h>
+
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -61,12 +64,22 @@ struct DirEntry {
 // never saved is the normal case, not a fault.
 std::vector<DirEntry> listTree(const std::string& root);
 
+// One file of an archive, in memory.
+struct ZipFile {
+    std::string relPath;
+    std::vector<uint8_t> bytes;
+};
+
 // Zips the named files, which must be paths relative to `root`. Returns false
 // with a reason when libarchive refuses; an empty selection returns false too,
 // because "nothing to send" is a decision the caller should make rather than an
 // empty archive nobody can tell apart from a failure.
 bool zipTree(const std::string& root, const std::vector<std::string>& relPaths,
              std::vector<uint8_t>* out, std::string* err);
+// The same from memory, each file under the name given: a save of several
+// files, each under the path its core reads it from, whatever name the core
+// left it under (savepush.h). False for none.
+bool zipFiles(const std::vector<ZipFile>& files, std::vector<uint8_t>* out, std::string* err);
 
 // Unpacks into `root`, creating directories as needed. Existing files are
 // overwritten; files NOT in the archive are left alone, deliberately — a save
@@ -80,6 +93,20 @@ bool zipTree(const std::string& root, const std::vector<std::string>& relPaths,
 bool unzipTree(const std::vector<uint8_t>& data, const std::string& root,
                std::string* err);
 
+// Every file `data` holds, read into memory and written nowhere: for a save
+// that is checked against what is on the disk before it is unpacked over it,
+// and one that holds a core's files by name (saves.cpp). False, with a
+// reason, when it cannot be read or a name is one unzipTree refuses.
+bool readZip(const std::vector<uint8_t>& data, std::vector<ZipFile>* out, std::string* err);
+
+// Whether the zip marks each of its names as UTF-8 (general purpose bit 11),
+// keyed by the name's bytes, read from its central directory: where Python's
+// zipfile, and so RomM, reads every name and its mark. libarchive gives a
+// name and never says whether it was marked (the content hash,
+// romm_snapshots.cpp). False when there is no central directory to read, or
+// one name is in it both marked and not.
+bool zipNameMarks(const std::vector<uint8_t>& zip, std::map<std::string, bool>* marked);
+
 // Whether an archive member's name may be written under the folder it is
 // unpacked into. An archive is data that arrived over a network, so its own
 // names decide nothing about where bytes land: anything absolute or with a
@@ -88,9 +115,66 @@ bool unzipTree(const std::vector<uint8_t>& data, const std::string& root,
 // archive (romfile.cpp, prepareFile) both go by it.
 bool safeRelPath(const std::string& p);
 
+// A ZIP'S NAMES READ AS THEIR BYTES, FOR THIS THREAD WHILE ONE OF THESE
+// STANDS. The program runs in the C locale (it never calls setlocale), where
+// libarchive cannot give a name a zip marks as UTF-8, the mark Python's
+// zipfile and so RomM reads names by. With glibc's own C.UTF-8 it gives a
+// name the zip marks rightly, and one it leaves unmarked, as the bytes the
+// zip holds: readZip and unzipTree read
+// under one, and RomM's content hash of a zip is read under one
+// (romm_snapshots.cpp). zipTree and zipFiles choose the locale for each name
+// they write, which is what decides the mark (dirsave.cpp).
+class Utf8Names {
+public:
+    Utf8Names();
+    ~Utf8Names();
+    Utf8Names(const Utf8Names&) = delete;
+    Utf8Names& operator=(const Utf8Names&) = delete;
+
+private:
+    locale_t utf8_;
+    locale_t was_;
+};
+
 // Whether these bytes are a zip. Sniffed, never inferred from the name: the
 // reference implementation's PSP saves are an Apple archive wearing an `.srm`
 // extension, so the name says nothing at all about what is inside.
 bool looksLikeZip(const std::vector<uint8_t>& data);
+
+// RomM'S SHAPE FOR A FOLDER SAVE'S ZIP, WHERE IT IS NOT THE FOLDER AS IT IS
+// (#346, step 8): Sigil's unit for the system (its sync page and its layout
+// table at the commit RomM 5.5.0-alpha.2 builds in). Sigil reads a
+// zip in its own shape only, so this console's saves reach the other apps
+// only in it:
+//   Wii: `<title>/data/...`, without Dolphin's `<kind>/` folder above it;
+//   3DS: `<high>/<low>/data/...`, and the title's extra data as
+//   `<high>/<low>/extdata/...`, without the SD card's `<id0>/<id1>/title/`
+//   and `<id0>/<id1>/extdata/00000000/<low / 256>/` above them.
+//   Switch (the Switch step): `<title>/...` for the profile's own saves and
+//   `device/<title>/...` for the device's, which every profile shares,
+//   without Eden's `<profile>/` and all-zero folder above them.
+// A Wii or 3DS save holding any file that has no place in it travels in the
+// folder's own shape, so nothing is ever left out. A Switch save is only
+// what Sigil's unit holds: the profile's and the device's folders, without
+// the size file each Switch emulator keeps beside a save
+// (`.yuzu_save_size`), which Sigil never moves (inSwitchUnit). The zips
+// already on RomM keep the folder's shape, which a start still reads
+// (MMagTech's rule of 2026-10-28: no update breaks a save); a Switch zip
+// from before was rooted in the profile's folder, `<title>/...`, the unit's
+// own shape, and goes there whole.
+enum class ZipShape { Folder, Wii, ThreeDS, Switch };
+// `place`: Switch's profile folder (standalone::saveProfile); the other
+// shapes take none.
+std::vector<ZipFile> toZipShape(ZipShape shape, std::vector<ZipFile> files,
+                                const std::string& place = std::string());
+// Back to the folder's own paths; a zip in the folder's shape comes back as
+// it is. `place`: the Wii title's kind folder, `00010000` for a disc; Switch's
+// profile folder.
+std::vector<ZipFile> fromZipShape(ZipShape shape, const std::string& place,
+                                  std::vector<ZipFile> files);
+// Whether a file under Eden's save root (standalone::saveRoot) is in the
+// Switch unit: in `profile`'s folder or the device's, in a game's folder
+// named by its title ID, and not a size file.
+bool inSwitchUnit(const std::string& profile, const std::string& relPath);
 
 }  // namespace cab

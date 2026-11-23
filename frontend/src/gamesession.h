@@ -39,8 +39,9 @@ struct GameSession {
     // Controls, holding Start), or empty for any other game.
     std::string arcadeCore() const { return arcade ? core : std::string(); }
     std::string title;
-    // The server's own file name for the game, without its extension. A
-    // save's row on RomM is named after it — see saveRowName.
+    // The server's own file name for the game, without its extension. This
+    // console's copy of a save, and the save a snapshot carries, are named
+    // after it (saves.cpp, saveRowName; savepush.h).
     std::string fsStem;
     // TWO TAGS, NOT ONE, and the difference is what lets five platforms' saves
     // travel at all. A STATE is a photograph of the emulator's insides and the
@@ -71,6 +72,39 @@ struct GameSession {
     std::string saveDir;
     std::string stateDir;
     std::vector<uint8_t> saveAtLaunch;   // to tell whether it actually changed
+    // The cartridge's clock as the start set it, for a core whose clock
+    // travels with its save (catalog::SaveForm::clock); empty for any other.
+    // A change to it alone is kept on this console and sends nothing.
+    std::vector<uint8_t> clockAtLaunch;
+    // THE SAVE CHANGED AND IS WRITTEN ON THIS CONSOLE, and RomM has not been
+    // told yet: set by whichever of the three gatherings found a change
+    // (saves.cpp: syncSave, syncDirSave, syncFileSaves), and taken by the one
+    // snapshot that goes up once the game has closed (savepush.h, leave).
+    bool saveChanged = false;
+    // THE SAVE'S OWN PICTURE (#346, savepicture.h): the newest picture this
+    // sitting took of the game the moment its save changed, on this console
+    // in the person's pending folder; the snapshot's save goes up with it.
+    // Empty when the sitting took none.
+    std::string savePicture;
+    // WHERE THIS SESSION'S SAVE CAME FROM (#346, save channels; saves.cpp,
+    // noteStart), for the snapshot pushed when the game is left
+    // (savepush.h): the channel and snapshot the start continued from, both
+    // empty when it started from the console's own save or one from before
+    // channels. `startHardcore`: that channel's current was saved in
+    // hardcore, which the console never saves into. `couldNotUseNewest`: the
+    // newest save on RomM was one this console could not use, so what this
+    // session saves is kept RomM's way beside it and never put on top.
+    std::string startChannelId;
+    int startSnapshotId = 0;
+    bool startHardcore = false;
+    bool couldNotUseNewest = false;
+    // A GAME IN A CORE THAT NEVER ENDED (#346, step 9; saves.h,
+    // finishInterruptedPlay): the file the core was handed, without its
+    // folder, which the save table names a core's own save files after
+    // (catalog::saveFiles), and when the note a start leaves in `saveDir`
+    // was first written, nanoseconds since 1970; 0 for none.
+    std::string romFile;
+    int64_t playingSince = 0;
     // An emulator of its own: which, and the game's folder, for whatever it
     // needs doing once it has gone (standalone::afterEnd).
     std::string standaloneCore;
@@ -102,6 +136,10 @@ struct GameSession {
     std::string dirSaveCore;
     std::string dirSavePlatform;
     std::string dirSaveTitleId;   // the Mii Channel's is rooted higher (#275)
+    // Switch: Eden's profile folder under the root, the person's own saves
+    // beside the device's (standalone::saveProfile, dirsave.h's
+    // ZipShape::Switch).
+    std::string dirSaveProfile;
 
     // --- Saves the core writes as a FILE ----------------------------------
     //

@@ -82,6 +82,7 @@ struct json_object;
 #include "report.h"
 #include "rewind.h"
 #include "romm.h"
+#include "savepicture.h"
 #include "screens.h"
 #include "screenview.h"
 #include "searchscreen.h"
@@ -320,6 +321,9 @@ struct App {
     // that gets checked against a real server rather than assumed.
     int romProbeId = 0;
     const char* romProbeExts = "gb|gbc|dmg";
+    // Lists one game's save channels as RomM 5.5 gives them to the console's
+    // person, reading only (#346, `--romm-channels <id>`).
+    int channelsProbeId = 0;
     // Where the built cores are. Where games and saves go is storage.h's
     // answer, not a constant here — see --storage-root.
     //
@@ -340,6 +344,10 @@ struct App {
     // upload it, then fetch the newest one back and restore it. Headless, so
     // the sync can be proved on a machine nobody is sitting at.
     bool syncTest = false;
+    // --save-write-at N (#346, the save's picture): the battery written at
+    // the core's Nth frame as a game saves (testhooks.cpp), so a run shows a
+    // save made mid-game going up with its picture (savepicture.h).
+    uint64_t saveWriteAt = 0;
     // See --overlay-test below. A test instrument for open question 24.
     bool overlayTest = false;
     // Opens the overlay once the game is up, so it can be looked at on a
@@ -1017,6 +1025,9 @@ struct App {
         int64_t size = -1;
         uint64_t askedMs = 0, checkedMs = 0;
     } standaloneShot;
+    // THE SAVE'S OWN PICTURE (#346, savepicture.h): the game's save watched
+    // while it runs, and its picture taken the moment it changes.
+    savepicture::Watch savePicture;
     // One worker for every upload. Started here and drained on the way out, so
     // quitting does not discard a save someone has already made.
     Uploader uploader;
@@ -1025,6 +1036,10 @@ struct App {
     playtime::Clock playClock;
     float playCheckpointClock = 0.0f;
     bool shownAway = false;
+    // Whether the server had save channels when last heard (#346, step 9):
+    // 1 or 0, and -1 before it was first heard. followServer sends what
+    // waited when it gains them.
+    int shownChannels = -1;
     float onlineAgainClock = 5.0f;   // a failed reload waits before the next
     // The library being fetched for a console that started offline (#88).
     struct OnlineLoad {
@@ -2212,6 +2227,9 @@ struct App {
     void powerActivate(PowerItem item);
     void backToPauseMenu();
     void standaloneScreenshot();
+    // An emulator of its own asked to close, its save's picture taken first
+    // while it is still on screen (savepicture.h).
+    void stopStandaloneGame();
     void pumpStandaloneShot();
     void stepChoice(int slot, int delta, bool wrap);
     void beginInsert(int n);
@@ -2424,7 +2442,6 @@ struct App {
     void playFromState(const screens::Result& res);
     void loadPendingStates();
     void drawStateHold(float sc);
-    void sayStateUploaded();
     // favorites.cpp
     void toggleFavorite(const screens::Result& res);
     // ps2window.cpp

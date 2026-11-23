@@ -47,6 +47,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 
 - [wii-remote-outside-wii-games](2026-10-24-wii-remote-outside-wii-games.md): a Wii Remote starts only Wii games, holding HOME on one opens the pause menu in every game, and a game's line says *Needs a controller* or *Needs a Wii Remote* when the controller it needs is off.
 - [fight-stick-layout](2026-10-24-fight-stick-layout.md): the 8BitDo Arcade Stick over Bluetooth plays arcade games with a fixed fight-stick layout, and every other pad as before.
+- [guitars-on-ps2-and-ps3](2026-11-20-guitars-on-ps2-and-ps3.md): a controller that says it is a guitar plays every PS2 and PS3 game as one, RPCS3's Rock Band guitar for every PS3 game but Guitar Hero III and Aerosmith, which get its Guitar Hero guitar, and every other system and pad as before.
 - [hold-start-opens-arcade-settings](2026-10-25-hold-start-opens-arcade-settings.md): holding Start in an arcade game opens the emulator's own menu, never one of the console's.
 - [stand-in-dualsense-id](2026-11-10-stand-in-dualsense-id.md): the controller the console gives Eden, Cemu and Vita3K is a stand-in DualSense Edge over USB, Sony's id and the console's name, so the kernel's own driver makes the sensor pair SDL needs; the console tells its stand-ins apart by name.
 - [a-pad-without-sensors-gives-none](2026-11-11-a-pad-without-sensors-gives-none.md): a player whose controller has no motion sensors gets a stand-in on which the emulator finds none, so a Switch, Wii U or Vita game reads no tilt from it.
@@ -120,6 +121,15 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [game-gone-from-romm](2026-11-01-game-gone-from-romm.md): a game deleted in RomM leaves the console at the next start with the server there, a played copy or a download, with its saves, states and screenshots.
 - [one-download-or-one-game-at-a-time](2026-11-09-one-download-or-one-game-at-a-time.md): the console does one download or one game at a time, no queue, no download behind a game and none pausing for one; Stop on the row gets the console back.
 - [power-cut-caught-at-the-next-start](2026-11-14-power-cut-caught-at-the-next-start.md): a game starts at once after a download, unpacking or install; what its drive may not have yet is listed on the console's own drive and fetched again at its next start after a power cut.
+- [save-channels](2026-11-15-save-channels.md): saves and states live in RomM's save channels; a game starts from the newest save from any device, the one made later goes on top, nothing is deleted on RomM, and the console builds no converter of its own.
+- [follow-romm-and-sigil-docs](2026-11-17-follow-romm-and-sigil-docs.md): every save that leaves or reaches the console follows RomM's and Sigil's documentation; other apps are only tested against, and a gap in Sigil is closed in Sigil.
+- [romm-converts-saves](2026-11-20-romm-converts-saves.md): RomM converts another app's save for the console for every system but Switch, which the console converts itself with a pinned Sigil; the console writes nothing about a game to RomM.
+- [sigil-pin-follows-romm](2026-11-22-sigil-pin-follows-romm.md): the console builds in the Sigil commit the RomM release it needs builds in, moving with that release or ahead of it only for one of the five pin reasons.
+- [arcade-saves-cabinetos-only](2026-11-20-arcade-saves-cabinetos-only.md): an arcade game takes no other app's save, whichever emulator it names; saves between CabinetOS consoles travel as before.
+- [another-apps-blank-card-is-no-save](2026-11-22-another-apps-blank-card-is-no-save.md): another app's save that RomM says holds none of the game's saves, such as a blank memory card, is no save: the console starts from its own, says nothing, and saves on top of it.
+- [another-apps-battery-fits-the-emulator](2026-11-22-another-apps-battery-fits-the-emulator.md): another app's battery save is used when it is no longer than the emulator's battery as the game starts, the rest left blank; a longer one is refused.
+- [other-apps-saves-outside-channels](2026-11-20-other-apps-saves-outside-channels.md): another app's save in no channel stays on RomM as it is; the console copies nothing into a channel.
+- [channels-on-every-file](2026-11-20-channels-on-every-file.md): a game's channels are listed on every one of its files in one request, a push names its channel's own file, and RomM's file for new channels is used only for a new one.
 
 ### Screens and settings
 

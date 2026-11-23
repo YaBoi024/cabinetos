@@ -30,7 +30,6 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
-          BODY: ${{ github.event.pull_request.body }}
         run: |
           set -euo pipefail
           changed=$(git diff --name-only "${BASE}...${HEAD}")
@@ -47,7 +46,14 @@ jobs:
             echo "The changelog is updated."
             exit 0
           fi
-          if printf '%s' "${BODY}" | grep -qiE '^Changelog: *none'; then
+          # THE PR BODY FROM THE EVENT FILE, not an environment variable: one
+          # variable may hold at most 128 KB (Linux's MAX_ARG_STRLEN), and a
+          # longer body kept bash from starting at all ("Argument list too
+          # long", #722). Read as a here-string, not through a pipe: grep -q
+          # stops at the first match, and with pipefail a long body's printf
+          # then fails on the closed pipe and the line reads as no match.
+          body=$(jq -r '.pull_request.body // ""' "${GITHUB_EVENT_PATH}")
+          if grep -qiE '^Changelog: *none' <<< "${body}"; then
             echo "The PR body says \"Changelog: none\": nothing a player can notice."
             exit 0
           fi

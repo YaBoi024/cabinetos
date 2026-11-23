@@ -261,6 +261,17 @@ the frontend for RetroAchievements (#74): the copy in
 `1433173220a7`), with its `LICENSE` beside it and the files left out listed in
 its `VERSION`. It is the library RetroArch, Dolphin and PCSX2 use.
 
+**Sigil** (github.com/rommapp/argosy-sigil, MPL 2.0) is compiled into the
+frontend for Switch saves (#346): the copy in `frontend/third_party/sigil/`,
+unmodified, at commit `85f88a85b7e8` (the one RomM builds in), with its
+`LICENSE` and `licenses/` beside it, and the parts of the two libraries it
+carries that its build compiles, each with its licence: libchdr (BSD
+3-clause) and, inside it, zlib (zlib licence), zstd (BSD 3-clause), the LZMA
+SDK (public domain) and dr_flac (public domain or MIT-0); and tiny-AES-c (The
+Unlicense). What was left out is listed in its `VERSION`. MPL 2.0 covers
+Sigil's own files, which are unchanged, and their source is in this
+repository at the commit the image is built from.
+
 **Signing in to RetroAchievements sends data to RetroAchievements**, and only
 then: it is opt-in, per person, in Settings. The username and password go to
 retroachievements.org once; afterwards the console sends the token it was

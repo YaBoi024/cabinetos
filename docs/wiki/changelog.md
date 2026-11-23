@@ -4,6 +4,73 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## Next
+
+- **Fixed:** a Game Boy Advance save from RomM's web player, another app or
+  RomM's website was not used unless the game keeps a 128 KB save, and the
+  game started from the console's own save with *Couldn't use the newest
+  save*. Most Mega Drive, Master System and Game Gear saves from other apps
+  met the same. A save from the same emulator now carries on.
+  ([Saves from other apps](saves.md#saves-from-other-apps))
+- **Fixed:** leaving a Game Boy Advance game before it loaded its save sent
+  the same save to RomM again, as a new save in the game's history.
+
+## 2026.11.22.3 {#v2026-11-22-3}
+
+- **New:** Guitar Hero and Rock Band guitars play PlayStation 2 and
+  PlayStation 3 games as guitars: frets, strum, whammy, star power and tilt,
+  over Bluetooth, a cable or the guitar's receiver. Turn the guitar on, then
+  start the game; tilt the neck or press View for star power, and tap Home
+  for the pause menu. PlayStation 3 games see a Rock Band guitar, except
+  Guitar Hero III and Aerosmith, which see a Guitar Hero guitar. Controllers
+  lists it as Guitar. A CRKD Les Paul goes on the PC slider position and mode
+  dial 8. ([Guitars](controllers.md#guitars),
+  [#727](https://github.com/MMagTech/cabinetos/pull/727))
+
+## 2026.11.22.2 {#v2026-11-22-2}
+
+- **New:** your saves follow you between devices and apps. A game now starts
+  from your newest save on your RomM server, wherever you made it: this
+  console, another CabinetOS console, RomM's web player or an app such as
+  Argosy, and says *Continuing from another device* when it came from
+  somewhere else. A save the console's emulator can't use stays on RomM, and
+  the game starts from the console's own with *Couldn't use the newest save*.
+  Your saves from the console carry on in those apps the same way. Your saves
+  already on RomM come along by themselves, the first time you start each
+  game. This needs RomM 5.5 or newer: System update waits until your server
+  has it. ([Saves](saves.md),
+  [#346](https://github.com/MMagTech/cabinetos/issues/346))
+- **Fixed:** a Switch game's save that every profile on the console shares,
+  such as Animal Crossing's island, never reached your RomM server, so
+  another console, or this one after a reinstall, started without it. It now
+  goes up and comes back with the rest of the game's save.
+  ([Saves](saves.md))
+- **Fixed:** a console that had been offline, or away on a trip, put its
+  older save over newer progress made on another device. Now the save made
+  later wins, and the other stays on RomM, where **Restore as current** on
+  RomM's website brings it back.
+  ([The same game on two devices](saves.md#the-same-game-on-two-devices),
+  [#261](https://github.com/MMagTech/cabinetos/issues/261))
+- **Changed:** a save state goes to RomM with the game's save when you leave
+  the game, and Save state says *State saved*. A game offers your three
+  newest states from any of your CabinetOS consoles, and the console no
+  longer deletes older states on RomM: RomM keeps them in the game's save
+  history. ([Save states](saves.md#save-states))
+- **Fixed:** after a crash or a power cut in a DS, Dreamcast, PS2, PSP, 3DS,
+  GameCube or Wii game, the next start put RomM's older save over the one the
+  game had just made. It is kept and sent now.
+- **Improved:** on RomM's website, a save from the console shows a picture of
+  the game from the moment it saved.
+- **New:** a Game Boy game with a clock, such as Pokémon Gold or Silver,
+  keeps its clock with its save, on this console, your other consoles and
+  other apps. A Saturn game saved to its backup cartridge takes the cartridge
+  with it. ([Saves](saves.md),
+  [#353](https://github.com/MMagTech/cabinetos/issues/353))
+- **Improved:** the diagnostic report says, for each game you played, which
+  save the console is on and what it still has to send to your server, so a
+  problem with a save can be found from the report.
+  ([Reporting a problem](troubleshooting.md#reporting-a-problem))
+
 ## 2026.11.18 {#v2026-11-18}
 
 - **New:** an update that needs a newer RomM than your server runs says so

@@ -30,6 +30,16 @@ GAME = {'id': 1, 'platform_id': 1, 'platform_slug': 'snes', 'platform_fs_slug': 
         'files': [{'id': 1, 'file_name': 'race.sfc', 'file_size_bytes': len(CONTENT),
                    'category': 'game', 'is_top_level': True}]}
 FAVOURITES = {'id': 7, 'is_favorite': True, 'user_id': 1, 'name': 'Favorites', 'rom_count': 1}
+# One save channel on file 1, and the snapshot a push makes, in RomM 5.5's
+# shapes (endpoints/responses/snapshots.py), cut to what the client reads.
+SNAPSHOT = {'id': 2, 'digest': 'sha256:00', 'kind': 'channel', 'parent_snapshot_id': 1,
+            'channel_id': '00000000-0000-7000-8000-000000000001', 'is_hardcore': False,
+            'created_at': '2026-11-18T00:00:00+00:00',
+            'device': {'id': 'race', 'name': 'CabinetOS', 'client': 'cabinetos', 'is_own': True},
+            'held_by': [], 'save': None, 'states': {}}
+CHANNEL = {'id': '00000000-0000-7000-8000-000000000001', 'label': 'default', 'is_hardcore': False,
+           'rom_id': 1, 'rom_file_id': 1, 'snapshot_count': 1, 'updated_at': '2026-11-18',
+           'current_snapshot_id': 2, 'current': SNAPSHOT}
 COUNT = {'answered': 0, 'refused, token': 0, 'refused, host': 0, 'unknown': 0}
 LOCK = threading.Lock()
 TURN = [0]
@@ -58,8 +68,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def allowed(self):
         length = int(self.headers.get('Content-Length') or 0)
-        if length:
-            self.rfile.read(length)
+        self.body = self.rfile.read(length) if length else b''
         if self.headers.get('Host') not in HOSTS:
             count('refused, host')
             self.send(400, {'detail': 'host'})
@@ -83,7 +92,16 @@ class Handler(BaseHTTPRequestHandler):
             return
         path = self.path.split('?')[0]
         if path == '/api/heartbeat':
-            self.answer({'SYSTEM': {'VERSION': 'race'}})
+            self.answer({'SYSTEM': {'VERSION': 'race'},
+                         'SAVE_SYNC': {'SNAPSHOT_RETENTION': 10,
+                                       'SNAPSHOT_BRANCH_LIFETIME_DAYS': 30}})
+        elif path == '/api/channels':
+            if self.path.split('?', 1)[-1] == 'rom_file_id=1':
+                self.answer([CHANNEL])
+            else:
+                self.unknown()
+        elif path == '/api/states':
+            self.answer([])
         elif path == '/api/roms':
             self.answer({'items': [GAME], 'total': 1})
         elif path == '/api/roms/1':
@@ -113,16 +131,24 @@ class Handler(BaseHTTPRequestHandler):
         if not self.allowed():
             return
         path = self.path.split('?')[0]
-        if path == '/api/saves':
-            self.answer({'id': 1})
-        elif path == '/api/states/delete':
-            self.answer({})
-        elif path == '/api/collections':
+        if path == '/api/collections':
             self.answer({'id': 7})
         elif path == '/api/collections/7/roms':
             self.answer({})
         elif path == '/api/auth/device/token':
             self.answer({'access_token': 'race-token-b-longer'})
+        elif path == '/api/snapshots':
+            # Made only when the whole push came: its manifest naming file 1,
+            # the save and the state, each part whole.
+            whole = (b'name="manifest"' in self.body and b'"rom_file_id":1' in self.body and
+                     b'name="save"; filename="race.srm"' in self.body and
+                     b'Z' * 64 in self.body and
+                     b'name="state:race:1"; filename="race.state1"' in self.body and
+                     b'\xa5' * 128 in self.body and self.body.endswith(b'--\r\n'))
+            if whole:
+                self.answer(SNAPSHOT, 201)
+            else:
+                self.unknown()
         else:
             self.unknown()
 

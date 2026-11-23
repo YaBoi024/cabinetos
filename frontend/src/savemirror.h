@@ -7,15 +7,25 @@
 // the bytes of the rows a launch would restore. Offline, a launch reads this
 // exactly as it reads the server online (savesFor, in saves.cpp), so the one
 // rule stays the rule: the console's own copy wins only while its upload is
-// still owed (cache::isPending); otherwise the server's newest does.
+// still owed (pending.h); otherwise the server's newest does (savepick.h).
 //
 // WHY IT CAN NEVER BE OLDER THAN A SAVE THE CONSOLE SENT: an upload that lands
 // forgets this game's copy before anything else, and only then asks the
 // server again. Should that ask fail, there is no copy, and offline falls back
 // to the console's own save, which is the one just sent.
 //
+// RomM 5.5's SAVE CHANNELS (#346) are kept the same way beside the rows: the
+// person's channels for the game as last seen, each with its current
+// snapshot, and the bytes of the saves in them. With them, one note that is
+// the console's own and not a copy: the snapshot this console holds of the
+// game (Held). The words are RomM's, in romm_types.h.
+//
 // Where: `users/<id> - <name>/server-saves/<romId>/`: `saves.json` (the rows)
-// and `<assetId>-<updated>.bin` (the bytes of a row at that version).
+// and `<assetId>-<updated>.bin` (the bytes of a row at that version);
+// `channels.json` (the channels, in RomM's own form: romm::channelsJson) and
+// `snapshot-<content hash>.bin` (the bytes of a save in a snapshot);
+// `held.json` (the snapshot this console holds). Each is replaced whole
+// through cab::writeBytes, so a power cut leaves the one before.
 
 #pragma once
 
@@ -41,13 +51,75 @@ void putBytes(const storage::User& u, int romId, const romm::Asset& row,
 std::vector<uint8_t> getBytes(const storage::User& u, int romId, const romm::Asset& row);
 bool hasBytes(const storage::User& u, int romId, const romm::Asset& row);
 
-// Deletes this game's copy entirely.
+// This person's channels for this game as RomM listed them (fetchChannels).
+// Bytes kept for a save that no listed channel's current holds are deleted.
+void putChannels(const storage::User& u, int romId, const std::vector<romm::Channel>& channels);
+// False when there is no copy (never seen, or forgotten).
+bool getChannels(const storage::User& u, int romId, std::vector<romm::Channel>* channels);
+
+// The bytes of a save in a snapshot, kept by its content hash: RomM names
+// every save in a snapshot by it, and the same bytes in two channels are
+// kept once. A save with no hash is not kept.
+void putSnapshotSave(const storage::User& u, int romId, const romm::SnapshotFile& save,
+                     const std::vector<uint8_t>& bytes);
+// Empty when the bytes of this save are not kept.
+std::vector<uint8_t> getSnapshotSave(const storage::User& u, int romId,
+                                     const romm::SnapshotFile& save);
+bool hasSnapshotSave(const storage::User& u, int romId, const romm::SnapshotFile& save);
+
+// THE SNAPSHOT THIS CONSOLE HOLDS OF A GAME (#346, decision 9): the one it
+// last started from or pushed, for this person. RomM keeps the same note per
+// device (`held_by`), but every CabinetOS console is one device on RomM, so
+// only the console itself can say which save it last had. It is this
+// console's own note, so forgetting RomM's copy leaves it (forget); it goes
+// with the game (forgetHeld) and with the person.
+struct Held {
+    std::string channelId;
+    int snapshotId = 0;
+    std::string digest;     // the snapshot's, "sha256:<hex>"
+    std::string saveHash;   // its save's content hash; empty when it has none
+    int64_t at = 0;         // when this console took it, seconds since 1970
+    // When its save was made, seconds since 1970: for one this console
+    // pushed, when the console wrote the save; for one it started from, when
+    // RomM took it (the snapshot's `created_at`).
+    int64_t madeAt = 0;
+    // A push of this console's that RomM kept beside its channel's current,
+    // as a branch, and that stayed there (savepush.h). The console's own save
+    // is then newer than anything the channels list shows of it, and a start
+    // takes nothing from RomM that was made before it (savepick.h).
+    bool beside = false;
+    // The content hash of every save of this game this console has held,
+    // oldest first, `saveHash` last. What tells a save another device made
+    // from one of this console's own that RomM's website put back on top
+    // (savepick.h).
+    std::vector<std::string> hashesHad;
+};
+void putHeld(const storage::User& u, int romId, const Held& held);
+// False when this console holds none of this game (never, or since a
+// reinstall).
+bool getHeld(const storage::User& u, int romId, Held* held);
+
+// Deletes this game's copy of RomM's saves: the rows, the channels and every
+// byte kept. The snapshot this console holds stays.
 void forget(const storage::User& u, int romId);
+// Deletes the snapshot this console holds of this game, and the game's folder
+// once it is empty: for a game RomM no longer has (gonegames.h).
+void forgetHeld(const storage::User& u, int romId);
 
 // A FETCH THAT STARTED BEFORE A FORGET MUST NOT PUT ITS OLDER LIST BACK. The
 // fetch takes a mark before asking the server, and skips a game whose copy was
 // forgotten after it (an upload landed meanwhile).
 uint64_t mark();
 bool forgottenSince(int romId, uint64_t mark);
+
+// A SAVE OF THIS CONSOLE'S WENT ON TOP: a push carrying it landed as its
+// channel's current (savepush.cpp). A start whose fetch began before that
+// keeps this console's own copy, the newest on RomM (saves.cpp,
+// fetchIsStale). A push RomM kept beside a newer save, or states alone, mark
+// nothing: what the start fetched still names the newest. On the same marks as
+// forgottenSince, which every landing moves, so the copy for offline is never
+// put back older either way.
+void ownSaveWentOnTop(int romId);
+bool ownSaveOnTopSince(int romId, uint64_t mark);
 
 }  // namespace savemirror

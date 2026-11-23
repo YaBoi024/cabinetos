@@ -1,6 +1,8 @@
-// What this console still owes RomM: a marker on the disk for each save,
-// state and screenshot not yet uploaded, so it survives a crash or a power
-// cut. cache.h includes this; moved out of it in the restructure (#398).
+// What this console still owes RomM: a marker on the disk for each screenshot
+// not yet uploaded (and each save and state a console left from before save
+// channels), and one per game for a snapshot not yet pushed, so it survives a
+// crash or a power cut. cache.h includes this; moved out of it in the
+// restructure (#398).
 
 #pragma once
 
@@ -52,23 +54,124 @@ void markPending(const storage::User& u, const Owed& o, int64_t bytes);
 std::vector<Owed> owed(const storage::User& u);
 void clearPending(const storage::User& u, int romId, const std::string& fileName);
 
-// Whether this console still owes the server this exact file. Read off the
-// disk like everything else here, so it survives the console being switched
-// off between the save and the upload.
+// --- A game's snapshot not on RomM yet (#346) --------------------------------
+//
+// ONE MARKER PER PERSON AND GAME for RomM 5.5's save channels: what a session
+// left of a game, its save and its states, to go up together as one snapshot
+// into the channel the session started from (the words are RomM's, in
+// romm_types.h). The same rule as the markers above: written before the push
+// is tried, removed when RomM has it, so a crash or a power cut leaves it
+// owed. A newer one replaces it, carrying the states the older one held, so
+// what goes is always the newest. Kept beside the markers above, one per
+// file, which a screenshot keeps; a save's or a state's from before save
+// channels is read, and becomes its game's push (savepush::adoptOldSaves,
+// adoptOldStates).
+//
+// In `pending/` as `<romId>.push`: the byte count on the first line, where
+// pendingBytes() reads it, then "key value" lines as above. A state's lines
+// follow its own "state" line.
+struct OwedPush {
+    int romId = 0;
+    // New each time the marker is written. A push that lands clears the
+    // marker only while it is still the one that push sent (clearPushOwed),
+    // so one written meanwhile stays owed.
+    std::string stamp;
+    // When this console wrote the save, in seconds since 1970. A push carries
+    // no time the save was made, and of two saves the one made later wins.
+    int64_t madeAt = 0;
+    // Where it goes (romm::SnapshotPush): the channel, or none to make one
+    // named `label`; the current it builds on, 0 for an empty channel; the
+    // snapshot it was made from, 0 for that current. The file it names is
+    // the channel's own, found when it is sent (savepush::send).
+    std::string channelId;
+    std::string label;
+    int expectedCurrentId = 0;
+    int parentId = 0;
+    // The session started from this console's own save because the newest
+    // could not be used: RomM keeps the push as it comes, and it is never put
+    // on top.
+    bool couldNotUseNewest = false;
+    // The emulator's tag and the core's own name, as the push names them.
+    std::string emulator;
+    std::string core;
+    // The save, when the session changed it: the name it goes up under, the
+    // file on disk, and how it travels (romm::SnapshotFile's shape).
+    bool hasSave = false;
+    std::string saveName;
+    std::string savePath;
+    std::string saveShape;
+    // OR THE SAVE IS RomM'S OWN FROM BEFORE SAVE CHANNELS (#346, step 7),
+    // which a start took and this push brings into a channel: each of its
+    // rows by RomM's id, with the time RomM had for it then, in seconds. One
+    // row RomM copies in itself, so no byte is sent (`savePath` empty); the
+    // save of several (Sega CD's own memory and its cartridge) goes as the
+    // zip of them at `savePath`. Sent only while RomM still has every row as
+    // it was. Not a save this console owes (saveOwed passes it by), and
+    // `madeAt` is RomM's time for the newest row.
+    struct OldRow {
+        int id = 0;
+        int64_t at = 0;
+    };
+    std::vector<OldRow> oldRows;
+    bool fromOldRows() const { return !oldRows.empty(); }
+    // ITS PICTURE (#346, savepicture.h), the moment it was saved: the name
+    // it goes up under and its file in `pending/`, empty for none. The marker
+    // owns the file: one that replaces it naming another, and the clearing
+    // of it, delete it.
+    std::string savePictureName;
+    std::string savePicturePath;
+    // The states made on this console that it carries (#346, step 6), newest
+    // first: each under the core's name the bank files it under, the name it
+    // travels under, its file, its picture, and when it was made. The push
+    // gives each its slot (savepush.h).
+    struct State {
+        std::string core;
+        std::string fileName;
+        std::string path;
+        std::string pictureName;
+        std::string picturePath;
+        int64_t madeMs = 0;   // milliseconds since 1970
+    };
+    std::vector<State> states;
+};
+// Writes `push` with a new stamp, which it returns; empty when the marker
+// could not be written. The save's picture of the marker it replaces goes
+// when `push` names another or none.
+std::string markPushOwed(const storage::User& u, const OwedPush& push, int64_t bytes);
+// Every game this person's console still owes a push for, oldest first.
+std::vector<OwedPush> owedPushes(const storage::User& u);
+// This game's, when it is owed. Read off the disk like everything else
+// here, so it survives the console being switched off between the save and
+// the push.
 //
 // IT IS WHAT STOPS A LAUNCH UNDOING A SAVE. A game saved with no network
-// leaves a newer file on this machine than anything the server holds; without
-// this the next launch would fetch the server's older copy and write it over
-// the top, and the person would lose the session they made offline.
-bool isPending(const storage::User& u, int romId, const std::string& fileName);
+// leaves a newer save on this machine than anything the server holds;
+// without this the next launch would fetch the server's older copy and write
+// it over the top, and the person would lose the session they made offline.
+// A start takes nothing from RomM while it is owed (savepick.h), and the
+// same holds for a save's own marker from before save channels (owed).
+bool owedPush(const storage::User& u, int romId, OwedPush* push);
+bool isPushOwed(const storage::User& u, int romId);
+// THIS CONSOLE OWES RomM A SAVE of the game: a push with a save, or a save's
+// own marker from before save channels. What keeps a start from taking
+// RomM's (savepick.h); a push of states alone leaves the save as RomM has it,
+// and so does one that brings RomM's own save from before channels in.
+bool saveOwed(const storage::User& u, int romId);
+// Removes the marker if it still has this stamp, and the save's picture it
+// names.
+void clearPushOwed(const storage::User& u, int romId, const std::string& stamp);
+// The name an owed push goes by where an owed file goes by its own: gone
+// games asks the upload queue's refusals by it (gonegames.cpp).
+extern const char kOwedPushName[];
 
 // Across everybody on the machine: the floor is a fact about the disk, and the
-// disk does not care whose upload is queued on it.
+// disk does not care whose upload is queued on it. Both kinds of marker.
 int64_t pendingBytes();
 
 // How many things this one person still owes the server, sendable or not (a
-// marker from before 2026-09-26 cannot be sent again but is still owed).
-// Removing a person (#194) asks before throwing any of them away.
+// marker from before 2026-09-26 cannot be sent again but is still owed), a
+// game's owed push counted as one. Removing a person (#194) asks before
+// throwing any of them away.
 int pendingCount(const storage::User& u);
 
 }  // namespace cache

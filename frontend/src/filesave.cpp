@@ -81,6 +81,17 @@ bool gameCubeHoldsASave(const std::vector<uint8_t>& d) {
     return false;
 }
 
+// A Saturn backup cartridge with a save on it (catalog::Untouched): a block
+// from the third on, of 512 bytes, that begins with a save's mark. Anything
+// shorter than its two reserved blocks holds none.
+bool saturnCartHoldsASave(const std::vector<uint8_t>& d) {
+    constexpr size_t kBlock = 512;
+    for (size_t at = 2 * kBlock; at + 4 <= d.size(); at += kBlock)
+        if (d[at] == 0x80 && d[at + 1] == 0x00 && d[at + 2] == 0x00 && d[at + 3] == 0x00)
+            return true;
+    return false;
+}
+
 bool anyRealByte(const std::vector<uint8_t>& d, size_t skipFront, size_t skipBack) {
     if (d.size() <= skipFront + skipBack) return false;
     for (size_t i = skipFront; i < d.size() - skipBack; ++i)
@@ -108,23 +119,42 @@ bool holdsASave(const std::vector<uint8_t>& d, catalog::Untouched rule) {
             return ps2IsFormatted(d);
         case catalog::Untouched::GameCubeDirectory:
             return gameCubeHoldsASave(d);
+        case catalog::Untouched::SaturnCartridge:
+            return saturnCartHoldsASave(d);
     }
     return anyRealByte(d, 0, 0);
 }
 
-std::string writtenFile(const catalog::SaveFile& spec, const std::string& path) {
-    struct stat st;
-    if (spec.captureSuffix.empty())
-        return ::stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode) ? path : std::string();
+bool passesCheck(const std::vector<uint8_t>& data, const catalog::SaveCheck& check,
+                 catalog::Untouched rule, std::string* why) {
+    auto no = [why](const std::string& w) {
+        if (why) *why = w;
+        return false;
+    };
+    if (!check.sizes.empty() &&
+        std::find(check.sizes.begin(), check.sizes.end(), data.size()) == check.sizes.end())
+        return no(std::to_string(data.size()) + " bytes is no size this emulator's file has");
+    if (!check.mark.empty()) {
+        const size_t n = check.mark.size();
+        const bool fits = check.markFromEnd ? data.size() >= check.markAt && check.markAt >= n
+                                            : data.size() >= check.markAt + n;
+        if (!fits) return no("too short to carry its format's mark");
+        const size_t at = check.markFromEnd ? data.size() - check.markAt : check.markAt;
+        if (std::memcmp(data.data() + at, check.mark.data(), n) != 0)
+            return no("it does not carry its format's mark");
+    }
+    if (!holdsASave(data, rule)) return no("it holds no save");
+    return true;
+}
 
-    // The predicted name first. A scan is only ever a fallback, because it
-    // cannot tell two files apart if a core ever writes more than one.
-    if (::stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode)) return path;
-
+// Every file in `path`'s folder that ends in the spec's capture suffix and is
+// not the other region's, by full path, sorted so a folder holding two answers
+// the same way twice rather than however readdir felt.
+static std::vector<std::string> captures(const catalog::SaveFile& spec, const std::string& path) {
+    std::vector<std::string> out;
     const std::string dir = parentOf(path);
     DIR* d = ::opendir(dir.c_str());
-    if (!d) return std::string();
-    std::string found;
+    if (!d) return out;
     while (struct dirent* e = ::readdir(d)) {
         const std::string name = e->d_name;
         if (name == "." || name == "..") continue;
@@ -135,13 +165,48 @@ std::string writtenFile(const catalog::SaveFile& spec, const std::string& path) 
         // restored over it.
         if (!spec.captureExclude.empty() && endsWith(name, spec.captureExclude)) continue;
         const std::string cand = dir + "/" + name;
+        struct stat st;
         if (::lstat(cand.c_str(), &st) != 0 || !S_ISREG(st.st_mode)) continue;
-        // Sorted by name so a directory holding two matches answers the same
-        // way twice rather than however readdir felt.
-        if (found.empty() || cand < found) found = cand;
+        out.push_back(cand);
     }
     ::closedir(d);
-    return found;
+    std::sort(out.begin(), out.end());
+    return out;
+}
+
+std::string writtenFile(const catalog::SaveFile& spec, const std::string& path) {
+    struct stat st;
+    if (spec.captureSuffix.empty())
+        return ::stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode) ? path : std::string();
+
+    // A core that names the file itself reads its own name first and writes
+    // only under it (catalog::SaveFile::coreNamesItself): the newest of the
+    // files is the one it last wrote, `path` on a tie.
+    if (spec.coreNamesItself) {
+        std::string found;
+        int64_t foundAt = 0;
+        for (const std::string& c : captures(spec, path)) {
+            if (::stat(c.c_str(), &st) != 0) continue;
+            const int64_t at = static_cast<int64_t>(st.st_mtim.tv_sec) * 1000000000 +
+                               st.st_mtim.tv_nsec;
+            if (found.empty() || at > foundAt || (at == foundAt && c == path)) {
+                found = c;
+                foundAt = at;
+            }
+        }
+        return found;
+    }
+
+    // The predicted name first. A scan is only ever a fallback, because it
+    // cannot tell two files apart if a core ever writes more than one.
+    if (::stat(path.c_str(), &st) == 0 && S_ISREG(st.st_mode)) return path;
+    const std::vector<std::string> all = captures(spec, path);
+    return all.empty() ? std::string() : all.front();
+}
+
+void removeOtherCaptures(const catalog::SaveFile& spec, const std::string& path) {
+    for (const std::string& c : captures(spec, path))
+        if (c != path) removeFile(c);
 }
 
 }  // namespace cab

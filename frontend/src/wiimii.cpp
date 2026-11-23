@@ -40,9 +40,10 @@ bool findMiiChannel(romm::Client& client, int platformId, int* romId, std::strin
 
 // THIS PERSON'S MIIS INTO A WII GAME'S NAND, before it boots (#275). The
 // master copy is the Mii Channel's own `RFL_DB.dat`, brought up to date first
-// exactly as the Mii Channel's own launch would (restoreDirSave: RomM's newest
-// online, the copy last seen offline, and never over a save still owed to the
-// server), from what the launch worker fetched for it. It replaces whatever
+// exactly as the Mii Channel's own launch would (restoreDirSave: the save
+// the launch's rule picks, savepick.h, from RomM online or its copy as last
+// seen offline, and never over a save still owed to the server), from what
+// the launch worker fetched for it. It replaces whatever
 // the game's NAND held, so a change a game makes to the Mii list lasts until
 // its next launch; the game's own zip never carries it
 // (catalog::inDirectorySave). No Mii Channel, or no Miis made in it yet:

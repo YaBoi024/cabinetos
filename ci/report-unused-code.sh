@@ -23,7 +23,7 @@
 # What is listed: functions, and variables that can change (.data, .bss).
 # Constants are not: a constexpr is folded where it is used and never
 # referenced, so it would be listed though it is used. Nor the C++
-# library's templates, or vendored rcheevos (counted only). Never seen at
+# library's templates, or vendored rcheevos and Sigil (counted only). Never seen at
 # all: a static function nobody calls (-Wunused-function names those in the
 # Warnings step) and an inline one nobody calls (a header's, or one written
 # in its class), which the compiler never emits. A function used only by
@@ -123,7 +123,7 @@ variables=$(awk -F'\t' '$2 == "variable"' "$WORK/ours" | wc -l)
 
 {
     echo "The linker found $functions function(s) and $variables variable(s) that" \
-        "nothing reachable from \`main\` uses (and $vendored in vendored rcheevos," \
+        "nothing reachable from \`main\` uses (and $vendored in vendored rcheevos and Sigil," \
         "not listed). A scratch build at -O0, ${seconds}s; the binary that ships" \
         "is not this one."
     echo

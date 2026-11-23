@@ -10,7 +10,8 @@
 // in Supermodel) through a layout
 // made from the buttons the game says it uses, and
 // every other game as the pad it says it is. Its Home opens the pause menu in every game, switch or not, since it
-// has no stick clicks for the pair that opens it on a pad (play.cpp).
+// has no stick clicks for the pair that opens it on a pad (play.cpp, and
+// standalone_play.cpp for a game in an emulator of its own).
 //
 // THE TABLE IS MEASURED, NEVER GUESSED. A row is a stick somebody connected
 // and read: its id, and the name the kernel gives its device where that id is

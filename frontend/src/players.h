@@ -35,6 +35,9 @@
 namespace fightstick {
 struct Stick;
 }
+namespace guitar {
+struct Layout;
+}
 
 namespace players {
 
@@ -139,6 +142,9 @@ SDL_Gamepad* gamepad(int player);
 // The fight stick an open pad is (fightstick.h), or null for any other pad:
 // the table is read once, as the pad is opened.
 const fightstick::Stick* stick(SDL_JoystickID id);
+// The layout an open pad plays with as a guitar (guitar.h), or null for a pad
+// that is not one: told once, as the pad is opened, as a fight stick is.
+const ::guitar::Layout* guitar(SDL_JoystickID id);
 int playerOf(SDL_JoystickID id);
 // How many players there are, counting a seat held for a pad that went off.
 int count();
@@ -146,7 +152,7 @@ int count();
 struct Pad {
     int player = -1;
     SDL_JoystickID id = 0;
-    std::string name;      // as the pad gives it
+    std::string name;      // as the pad gives it; "Guitar" for a guitar
     std::string address;   // "AA:BB:CC:DD:EE:01", Bluetooth only
 };
 // The seated pads that are on, player one first.
