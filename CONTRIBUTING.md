@@ -455,6 +455,22 @@ runs `checks.yml`, a few seconds each:
   Sunshine's. The paths spelled outside the client today are listed in the
   script (`KNOWN`), so editing one of those lines does not fail; moving one
   into the client takes it off the list.
+- **RomM API** (`ci/check-romm-api.py`): what the RomM client sends to RomM
+  and reads from its answers is written out in `ci/romm-api-uses.txt`, one
+  block a call, and held to RomM's own description of its API, in
+  `ci/romm-api.json` at the release the console is tested against: a call,
+  a setting in an address or a field RomM does not have, or answers as
+  another kind, fails, and so does a field the client's code spells that the
+  list does not have. It checks shapes, not what RomM does with them, and the
+  copy must be of the RomM version the console needs (`ROMM_NEEDED`). A pull
+  request that adds a field the client reads or sends adds its line to the
+  list; one that adds a call also takes the copy again. When the release the
+  console is tested against moves, take the copy again with
+  `ci/fetch-romm-api.sh <release>` (podman): its diff is what RomM changed in
+  the parts the client uses. `romm-api.yml` does the same against RomM's
+  newest release of that version, on the 1st of each month and on a pull
+  request that changes the version needed or the check. Report only until
+  2026-11-30.
 - **Doc paths** (`ci/check-doc-paths.py`): a `.md` file that names a file
   or folder of this repository that is not there fails, so a pull request
   that moves or deletes a file also puts right the docs that name it. It

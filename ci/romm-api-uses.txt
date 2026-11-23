@@ -1,0 +1,328 @@
+# What the console's RomM client sends to RomM and reads from its answers (#729).
+#
+# One block a call, held by ci/check-romm-api.py to RomM's own description of its
+# API (ci/romm-api.json) and to the client's code. A call is METHOD /path, its
+# path parameters in braces; under it, indented:
+#
+#   query name name              settings it puts in the address
+#   send path kind               a field it sends in the body (a part of an upload)
+#   read path kind               a field it reads from a good answer
+#   undeclared name: reason      a name RomM's description does not spell out
+#
+# A path names a field inside a field: `a.b`, `a[].b` (a list's entries), `a.{}.b`
+# (a map's values). Kinds are text, number, yesno, list, object and any. Only
+# what the client really reads or sends is here; RomM may answer more. A name
+# the code spells that is not here fails the check, so a new field a call reads
+# is added in the same pull request. ci/check-romm-api.py's header says what it
+# checks and what it does not.
+
+GET /api/heartbeat
+  read SYSTEM.VERSION text
+  read SAVE_SYNC object
+
+POST /api/auth/device/init
+  send client_device_identifier text
+  send name text
+  send client text
+  send platform text
+  send requested_scopes list
+  read user_code text
+  read device_code text
+  read expires_in number
+  read interval number
+  read verification_path_complete text
+
+POST /api/auth/device/token
+  send device_code text
+  read access_token text
+  undeclared detail: an error answer's reason, which RomM's description does not list
+
+GET /api/users/me
+  read id number
+  read username text
+  read created_at text
+  read current_device_id text
+  read avatar_path text
+
+GET /api/users/{id}/avatar
+
+GET /api/platforms
+  read [].id number
+  read [].display_name text
+  read [].name text
+  read [].slug text
+  read [].fs_slug text
+  read [].rom_count number
+  read [].updated_at text
+
+GET /api/collections
+  read [].id number
+  read [].user_id number
+  read [].owner_username text
+  read [].name text
+  read [].rom_count number
+  read [].is_favorite yesno
+  read [].path_cover_small text
+  read [].path_covers_small list
+
+GET /api/collections/smart
+  read [].id number
+  read [].user_id number
+  read [].owner_username text
+  read [].name text
+  read [].rom_count number
+  read [].is_favorite yesno
+  read [].path_cover_small text
+  read [].path_covers_small list
+
+GET /api/roms
+  query limit offset platform_ids collection_id smart_collection_id search_term
+  query favorite last_played order_by order_dir
+  query with_filter_values with_rom_id_index with_char_index
+  read total number
+  read items[].id number
+  read items[].platform_id number
+  read items[].platform_slug text
+  read items[].platform_fs_slug text
+  read items[].platform_display_name text
+  read items[].name text
+  read items[].fs_name text
+  read items[].name_sort_key text
+  read items[].fs_size_bytes number
+  read items[].has_multiple_files yesno
+  read items[].has_nested_single_file yesno
+  read items[].title_id text
+  read items[].ra_hash text
+  read items[].md5_hash text
+  read items[].path_cover_small text
+  read items[].path_cover_large text
+  read items[].path_manual text
+  read items[].regions list
+  read items[].languages list
+  read items[].revision text
+  read items[].tags list
+
+GET /api/roms/{id}
+  read id number
+  read platform_id number
+  read platform_slug text
+  read platform_fs_slug text
+  read platform_display_name text
+  read name text
+  read fs_name text
+  read name_sort_key text
+  read fs_size_bytes number
+  read channel_file_id number
+  read has_multiple_files yesno
+  read has_nested_single_file yesno
+  read title_id text
+  read ra_hash text
+  read md5_hash text
+  read path_cover_small text
+  read path_cover_large text
+  read path_manual text
+  read regions list
+  read languages list
+  read revision text
+  read tags list
+  read metadatum.first_release_date number
+  read metadatum.companies list
+  read metadatum.player_count text
+  read files list
+  read files[].id number
+  read files[].file_name text
+  read files[].file_size_bytes number
+  read files[].category text
+  read files[].is_top_level yesno
+  read files[].archive_members list
+  read files[].archive_members[].name text
+  read files[].archive_members[].size number
+  read files[].archive_members[].crc_hash text
+
+GET /api/roms/identifiers
+  read [] number
+
+GET /api/roms/{id}/content/{file_name}
+  query file_ids
+
+GET /api/firmware
+  query platform_id
+  read [].id number
+  read [].file_name text
+  read [].file_size_bytes number
+
+GET /api/firmware/{id}/content/{file_name}
+
+GET /api/saves
+  query rom_id rom_ids
+  read [].id number
+  read [].rom_id number
+  read [].file_name text
+  read [].file_size_bytes number
+  read [].emulator text
+  read [].updated_at text
+  read [].created_at text
+  read [].channel_id text
+  read [].slot text
+  read [].screenshot.download_path text
+
+GET /api/saves/{id}/content
+  query core option profile
+  undeclared error: an error answer's reason, read by its text
+  undeclared detail: an error answer's reason, read by its text
+
+GET /api/states
+  query rom_id
+  read [].id number
+  read [].rom_id number
+  read [].file_name text
+  read [].file_size_bytes number
+  read [].emulator text
+  read [].core text
+  read [].updated_at text
+  read [].created_at text
+  read [].channel_id text
+  read [].screenshot.download_path text
+
+GET /api/states/{id}/content
+
+POST /api/screenshots
+  query rom_id
+  send screenshotFile text
+
+POST /api/collections
+  query is_favorite
+  send name text
+  read id number
+
+POST /api/collections/{id}/roms
+  send rom_ids list
+
+DELETE /api/collections/{id}/roms
+  send rom_ids list
+
+POST /api/play-sessions
+  send sessions list
+  send sessions[].rom_id number
+  send sessions[].start_time text
+  send sessions[].end_time text
+  send sessions[].duration_ms number
+  read results[].index number
+  read results[].status text
+  read results[].detail text
+
+GET /api/play-sessions
+  query rom_id limit offset device_id
+  read [].duration_ms number
+
+GET /api/channels
+  query rom_file_id
+  read [].id text
+  read [].label text
+  read [].is_hardcore yesno
+  read [].rom_id number
+  read [].rom_file_id number
+  read [].snapshot_count number
+  read [].updated_at text
+  read [].current_snapshot_id number
+  read [].current.id number
+  read [].current.digest text
+  read [].current.kind text
+  read [].current.parent_snapshot_id number
+  read [].current.channel_id text
+  read [].current.is_hardcore yesno
+  read [].current.created_at text
+  read [].current.emulator text
+  read [].current.device.is_own yesno
+  read [].current.device.id text
+  read [].current.device.client text
+  read [].current.held_by list
+  read [].current.held_by[].device.id text
+  read [].current.held_by[].device.client text
+  read [].current.held_by[].synced_at text
+  read [].current.save.id number
+  read [].current.save.file_name text
+  read [].current.save.file_size_bytes number
+  read [].current.save.content_hash text
+  read [].current.save.screenshot.download_path text
+  read [].current.save.shape text
+  read [].current.save.format text
+  read [].current.save.emulator text
+  read [].current.save.core text
+  read [].current.states.{}.{}.id number
+  read [].current.states.{}.{}.file_name text
+  read [].current.states.{}.{}.file_size_bytes number
+  read [].current.states.{}.{}.content_hash text
+  read [].current.states.{}.{}.screenshot.download_path text
+
+GET /api/snapshots
+  query channel_id limit
+  read [].id number
+  read [].digest text
+  read [].kind text
+  read [].parent_snapshot_id number
+  read [].channel_id text
+  read [].is_hardcore yesno
+  read [].created_at text
+  read [].emulator text
+  read [].device.is_own yesno
+  read [].device.id text
+  read [].device.client text
+  read [].held_by list
+  read [].held_by[].device.id text
+  read [].held_by[].device.client text
+  read [].held_by[].synced_at text
+  read [].save.id number
+  read [].save.file_name text
+  read [].save.file_size_bytes number
+  read [].save.content_hash text
+  read [].save.screenshot.download_path text
+  read [].save.shape text
+  read [].save.format text
+  read [].save.emulator text
+  read [].save.core text
+  read [].states.{}.{}.id number
+  read [].states.{}.{}.file_name text
+  read [].states.{}.{}.file_size_bytes number
+  read [].states.{}.{}.content_hash text
+  read [].states.{}.{}.screenshot.download_path text
+
+POST /api/snapshots
+  read id number
+  read digest text
+  read kind text
+  read parent_snapshot_id number
+  read channel_id text
+  read is_hardcore yesno
+  read created_at text
+  read emulator text
+  read device.is_own yesno
+  read device.id text
+  read device.client text
+  read held_by list
+  read held_by[].device.id text
+  read held_by[].device.client text
+  read held_by[].synced_at text
+  read save.id number
+  read save.file_name text
+  read save.file_size_bytes number
+  read save.content_hash text
+  read save.screenshot.download_path text
+  read save.shape text
+  read save.format text
+  read save.emulator text
+  read save.core text
+  read states.{}.{}.id number
+  read states.{}.{}.file_name text
+  read states.{}.{}.file_size_bytes number
+  read states.{}.{}.content_hash text
+  read states.{}.{}.screenshot.download_path text
+  undeclared manifest: the push, which RomM reads by hand out of the upload, so its description lists no body
+  undeclared expected_current_id: in the manifest
+  undeclared copy_of: in the manifest, a save RomM copies in
+  undeclared hash: in the manifest
+  undeclared missing: an error answer's list of what RomM has no bytes for
+  undeclared branch: a 409 answer's snapshot, kept beside the current
+  undeclared current: a 409 answer's current snapshot
+  undeclared reason: a 409 answer's reason
+  undeclared hardcore_downgrade: a 409 answer, on a hardcore channel
