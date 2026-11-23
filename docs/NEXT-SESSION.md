@@ -50,9 +50,15 @@ RomM: keep test launches under a minute, or have his go.
 ## Next
 
 1. **#528, "Revoke the console's RomM token on re-pair, Remove account and
-   Sign out (#545; waiting on RomM)".** RomM's self-revoke,
-   rommapp/romm#5419, is in 5.5.0-beta.1, the RomM consoles now need.
-   Check #528 against it before anything else is built on it.
+   Sign out (#545; waiting on RomM)".** Built on RomM 5.5's self-revoke and
+   proven on the write-test RomM from the test VM; a draft, whose text says
+   what is proven. Its branch carries #743, "Checks from RomM and Sigil: a new
+   test is seen failing, a memory check, the RomM API check (#729)" and #739,
+   "Fix the NoCore comment: Switch, PS3 and Vita now have emulators", so one
+   image carries all three and its merge merges them. Next, each on his word:
+   his five-minute TV check, the push to `testing` (the first run of
+   `memory-check.yml`, read before the merge), the merge, and #545 closed. The
+   changelog's `## Next` becomes the testing image's version heading.
 2. **After save channels, small, each on his word:**
    - When RomM moves its Sigil pin: vendor Sigil again at RomM's pin,
      update `savetable.cpp`'s "rows waiting in Sigil" comment, and rerun
