@@ -78,6 +78,9 @@ struct Account {
 // need to build these paths itself.
 std::string listPath();              // <storage config>/accounts.json
 std::string tokenPath(int id);       // ~/.config/cabinetos/accounts/<id>.json
+// What the console still owes RomM a revoke of (tokenrevoke.h), in the
+// accounts' own folder, so Sign out's clearing takes it with them.
+std::string revokePath();            // ~/.config/cabinetos/accounts/revoke.json
 
 // --- Reading ---------------------------------------------------------------
 
@@ -103,6 +106,16 @@ int ownerId();
 // this takes the list rather than hiding a static.
 const Account* find(const std::vector<Account>& list, int id);
 
+// WHAT AN ACCOUNT SIGNS IN WITH, off its file: the token, and the number RomM
+// gave it with the pairing, which is what it is revoked by (#545). 0 for a
+// token paired before the console kept the number, or on a RomM before 5.5.
+// A credential, as the file is: never printed, never logged.
+struct Login {
+    std::string token;
+    int tokenId = 0;
+};
+Login login(int id);
+
 // --- Writing ---------------------------------------------------------------
 
 // Records a freshly-paired account and its token. Does NOT make it active:
@@ -113,7 +126,11 @@ const Account* find(const std::vector<Account>& list, int id);
 // account is worse than none: see firstrun::completion() (firstrun.h), which
 // decides whether this console has been configured by asking whether an
 // account is active.
-bool add(const Account& a, const std::string& token, std::string* err);
+//
+// `tokenId` is RomM's number for the token (Login). For somebody already here
+// this is a re-pairing: the login it replaces is owed a revoke first
+// (tokenrevoke.h).
+bool add(const Account& a, const std::string& token, std::string* err, int tokenId = 0);
 
 // Forgets an account and its token.
 //
@@ -127,7 +144,8 @@ bool add(const Account& a, const std::string& token, std::string* err);
 //
 // Does NOT touch `users/<id> - <name>/`. Forgetting a login is not the same as
 // throwing away somebody's saves; Settings' Remove (#194) deletes the folder
-// itself, after sending what is owed, and calls this last.
+// itself, after sending what is owed, and calls this last. Their token is owed
+// a revoke on RomM (tokenrevoke.h) before their login goes.
 bool remove(int id, std::string* err);
 
 // Whether remove() would agree, asked BEFORE anything of theirs is deleted.

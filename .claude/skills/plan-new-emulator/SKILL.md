@@ -38,6 +38,30 @@ plan is recorded on that issue.
    some changes").
 6. **Any change to its source** is named to MMagTech before it is built
    (docs/WORKING.md, "Patches to an emulator's code").
+7. **How its saves go into save channels**
+   (`docs/decisions/2026-11-15-save-channels.md`), each read from the source
+   at the pin, never from memory:
+   - **Its name in Sigil:** Sigil's page for the system, in Sigil's
+     docs/platforms folder, at the commit the console pins
+     (`frontend/third_party/sigil/VERSION`). Every save the console sends
+     carries that name beside its label (`savetable.cpp`), and the label
+     never changes once it ships (CONTRIBUTING.md, "The rules", the Cabinet
+     point). A system or emulator Sigil has no row for is said plainly; the
+     row goes to Sigil as a pull request on MMagTech's word, never made up
+     here.
+   - **Whether RomM converts its saves** to and from the system's other
+     emulators: Sigil's own docs/sync.md at that commit
+     (`docs/decisions/2026-11-20-romm-converts-saves.md`). Where it does
+     not, another app's save crosses only from the same emulator, and that
+     goes on Discussion #731's list.
+   - **For a battery save, its size as a game starts:** what the emulator's
+     battery reports before the game first touches it, against what it
+     writes. Another app's battery is used only when it is no longer than
+     the first (`docs/decisions/2026-11-22-another-apps-battery-fits-the-emulator.md`,
+     #736): mGBA reports 128 KiB and writes the chip's size.
+   - **Every kind of save the system's games use:** each size, chip and
+     layout (CONTRIBUTING.md, "Test what varies inside a system"), each to
+     be proved with a real game.
 
 Research that would not change what gets built is left out, and offered for
 later.
@@ -56,8 +80,9 @@ MMagTech, never applied silently.
 
 List every choice the build needs, in a player's words: which emulator, the
 controls, the screen layout, the picture levels, what plays and what does
-not, what states promise across an emulator update, firmware, and anything
-else the television shows. Put them to MMagTech one at a time, mechanics
+not, what states promise across an emulator update, how its saves cross to
+other apps while RomM does not convert them, firmware, and anything else
+the television shows. Put them to MMagTech one at a time, mechanics
 first, each with your recommendation, and never with options he did not ask
 for. A choice he leaves to you is decided and said. Record each answer on
 the issue. A choice between real options also gets a decision file
@@ -71,6 +96,8 @@ One list on the issue:
 - the duties in CONTRIBUTING.md, "Duties that come with some changes":
   licences, credits, the options list, the rows, and the controls pages
   when the controls change;
+- the save kinds to prove, one real game each, and the system's rows in
+  `--save-pick-test` (its form, its check, its name in Sigil);
 - the wiki page, and a changelog entry that says how to use it;
 - the phases: research, build, television run, testing push. Each phase is
   a fresh session with a short brief that names the files and what done

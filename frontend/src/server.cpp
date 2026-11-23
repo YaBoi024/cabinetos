@@ -9,6 +9,7 @@
 #include "pending.h"
 #include "romm.h"
 #include "storage.h"
+#include "tokenrevoke.h"
 
 namespace server {
 
@@ -75,6 +76,9 @@ bool signOut(std::string* err) {
 }
 
 void finishSignOut() {
+    // Everybody's token on RomM, while the files that hold them are here
+    // (#545). A server that is away holds this up for three seconds at most.
+    tokenrevoke::signOut(firstrun::serverAddress());
     int64_t bytes = 0;
     auto remove = [&](const std::string& path) {
         if (!storage::exists(path)) return;

@@ -11,6 +11,7 @@
 #include "fileio.h"
 #include "romm.h"
 #include "storage.h"
+#include "tokenrevoke.h"
 
 namespace accounts {
 namespace {
@@ -158,6 +159,8 @@ std::string tokenPath(int id) {
     return homeDir() + "/.config/cabinetos/accounts/" + std::to_string(id) + ".json";
 }
 
+std::string revokePath() { return homeDir() + "/.config/cabinetos/accounts/revoke.json"; }
+
 std::vector<Account> all() { return load().list; }
 
 int activeId() { return load().active; }
@@ -167,7 +170,31 @@ const Account* find(const std::vector<Account>& list, int id) {
     return nullptr;
 }
 
-bool add(const Account& a, const std::string& token, std::string* err) {
+Login login(int id) {
+    Login l;
+    json_object* o = json_tokener_parse(readFile(tokenPath(id)).c_str());
+    if (!o) return l;
+    l.token = jstr(o, "access_token");
+    l.tokenId = jint(o, "token_id");
+    json_object_put(o);
+    return l;
+}
+
+namespace {
+// An account's file: its token, and RomM's number for it when known.
+bool writeLogin(int id, const std::string& token, int tokenId, std::string* err) {
+    makeDirs0700(homeDir() + "/.config/cabinetos/accounts");
+    std::string body = "{\"access_token\":\"" + token + "\"";
+    if (tokenId > 0) body += ",\"token_id\":" + std::to_string(tokenId);
+    if (!cab::writeBytes(tokenPath(id), body + "}\n", 0600)) {
+        if (err) *err = "could not write the token for account " + std::to_string(id);
+        return false;
+    }
+    return true;
+}
+}  // namespace
+
+bool add(const Account& a, const std::string& token, std::string* err, int tokenId) {
     if (!a.valid()) {
         if (err) *err = "an account needs the id RomM gave it";
         return false;
@@ -190,19 +217,14 @@ bool add(const Account& a, const std::string& token, std::string* err) {
         // error, and it is worse than the duplicate add.
         existing.name = a.name;
         existing.avatar = a.avatar;
-        makeDirs0700(homeDir() + "/.config/cabinetos/accounts");
-        if (!cab::writeBytes(tokenPath(a.id), "{\"access_token\":\"" + token + "\"}\n", 0600)) {
-            if (err) *err = "could not write the token for account " + std::to_string(a.id);
-            return false;
-        }
+        // OWED BEFORE IT IS REPLACED (#545): a power cut in between leaves it
+        // both owed and signed in with, and that is never revoked.
+        if (const Login old = login(a.id); old.token != token) tokenrevoke::owe(old, a.name);
+        if (!writeLogin(a.id, token, tokenId, err)) return false;
         return save(b, err);
     }
 
-    makeDirs0700(homeDir() + "/.config/cabinetos/accounts");
-    if (!cab::writeBytes(tokenPath(a.id), "{\"access_token\":\"" + token + "\"}\n", 0600)) {
-        if (err) *err = "could not write the token for account " + std::to_string(a.id);
-        return false;
-    }
+    if (!writeLogin(a.id, token, tokenId, err)) return false;
     b.list.push_back(a);
     // The first account to arrive on a console with none becomes the active
     // one, because there is nobody for it to take over from. Every later one
@@ -241,9 +263,11 @@ bool remove(int id, std::string* err) {
         if (err) *err = "cannot remove the console's owner";
         return false;
     }
+    std::string name;
     const size_t before = b.list.size();
     for (size_t i = 0; i < b.list.size(); ++i) {
         if (b.list[i].id != id) continue;
+        name = b.list[i].name;
         b.list.erase(b.list.begin() + static_cast<long>(i));
         break;
     }
@@ -251,8 +275,11 @@ bool remove(int id, std::string* err) {
         if (err) *err = "no account with id " + std::to_string(id);
         return false;
     }
-    // The list first, then the token: if the list cannot be written the
-    // account is still whole, rather than listed with no credential.
+    // Their token's revoke first (tokenrevoke.h): owed, it is never sent
+    // while they are listed. Then the list, then the token: if the list
+    // cannot be written the account is still whole, rather than listed with
+    // no credential.
+    tokenrevoke::owe(login(id), name);
     if (!save(b, err)) return false;
     ::unlink(tokenPath(id).c_str());
     ::unlink(raPath(id).c_str());
@@ -328,7 +355,7 @@ bool recordPairing(romm::Client& client, Paired* out, std::string* err) {
     a.id = me.id;
     a.name = me.username;
     a.avatar = me.avatarPath;
-    if (!add(a, client.token(), err)) return false;
+    if (!add(a, client.token(), err, client.tokenId())) return false;
     if (out) { out->id = me.id; out->name = me.username; out->isNew = !already; }
     return true;
 }

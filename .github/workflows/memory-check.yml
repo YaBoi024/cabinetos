@@ -1,0 +1,86 @@
+name: Memory check
+
+# THE SELF-TESTS UNDER ADDRESSSANITIZER (#729,
+# docs/decisions/2026-11-22-memory-check-on-testing-pushes.md). The frontend
+# is built a second time with AddressSanitizer, which stops a program at the
+# first byte it reads or writes outside what it was given, or after it was
+# freed, and names the line; ci/run-self-tests.sh then runs every self-test on
+# that build. A test that passes on the plain build can still read past the
+# end of a save: here it fails.
+#
+# ON A PUSH TO TESTING ONLY, in a workflow of its own, so it runs beside the
+# image build and nothing waits for it: the image build waits for every job in
+# build-frontend.yml, so it cannot go there. A failure stops neither the image
+# nor its promotion; the run is read before the merge, as every run is
+# (docs/WORKING.md, "Check CI yourself"). workflow_dispatch runs it on any
+# branch by hand.
+#
+# THE BUILDER'S RECIPE IS LEFT AS IT IS. It has GCC's AddressSanitizer but not
+# its runtime library, libasan, which nothing else needs. frontend/Containerfile
+# is part of every core's cache key (ci/core-cache-key.sh), so adding it there
+# would build every core again; it is added to a copy of the builder here.
+
+on:
+  push:
+    branches: [testing]
+    paths:
+      - 'frontend/**'
+      - 'ci/run-self-tests.sh'
+      - '.github/workflows/memory-check.yml'
+  workflow_dispatch:
+
+# REPORT ONLY FOR ITS FIRST WEEK, the rule checks.yml has: until the end of
+# this day (UTC) a failing test warns and the run passes; from the next day it
+# fails.
+env:
+  REPORT_ONLY_UNTIL: '2026-11-30'
+
+permissions:
+  contents: read
+
+jobs:
+  memory-check:
+    name: Self-tests under AddressSanitizer
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      # The builder as build-frontend.yml fetches it, then a copy with libasan.
+      - name: Fetch the builder container, with AddressSanitizer's library
+        run: |
+          set -euo pipefail
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          image="ghcr.io/$owner/cabinetos-builder:$(sha256sum frontend/Containerfile | cut -c1-16)"
+          if podman pull "$image"; then
+            podman tag "$image" cabinetos-builder
+          else
+            echo "could not pull $image; building it here instead"
+            podman build -t cabinetos-builder -f frontend/Containerfile frontend
+          fi
+          printf '%s\n' 'FROM localhost/cabinetos-builder' \
+            'RUN dnf install -y --setopt=install_weak_deps=False libasan && dnf clean all' \
+            > "$RUNNER_TEMP/Containerfile.asan"
+          podman build -t cabinetos-builder-asan -f "$RUNNER_TEMP/Containerfile.asan" "$RUNNER_TEMP"
+
+      # The Makefile's own flags with AddressSanitizer added, the C parts
+      # (rcheevos, Sigil) included. -O1 and the frame pointer keep its reports
+      # readable. No recover flag: the first bad byte ends the test.
+      - name: Compile with AddressSanitizer
+        run: |
+          set -euo pipefail
+          podman run --rm -v "$PWD/frontend":/src:Z -w /src \
+            -e CXXFLAGS="-std=c++20 -O1 -g -fsanitize=address -fno-omit-frame-pointer -Wall -Wextra -Wno-unused-parameter -MMD -MP" \
+            -e CFLAGS="-O1 -g -fsanitize=address -fno-omit-frame-pointer -MMD -MP" \
+            -e LDFLAGS="-fsanitize=address" \
+            cabinetos-builder-asan make -j"$(nproc)" -O
+
+      # Leaks are counted at each test's end; the stack and start-up order
+      # checks are the stricter ones AddressSanitizer leaves off by default.
+      - name: Self-tests under AddressSanitizer
+        env:
+          SELF_TESTS_IMAGE: cabinetos-builder-asan
+          ASAN_OPTIONS: detect_leaks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
+        run: ci/run-self-tests.sh

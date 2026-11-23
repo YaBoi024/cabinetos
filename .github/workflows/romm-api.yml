@@ -1,0 +1,66 @@
+# The console's RomM client against RomM's published API, at RomM's newest
+# release of the version the console needs (ci/check-romm-api.py;
+# docs/decisions/2026-11-22-romm-api-checked-against-a-copy.md).
+#
+# Monthly, on the 1st with the other pin checks, and on a pull request that
+# changes the version the console needs, the check or this workflow. It opens
+# nothing: a red run means RomM's newest release changed something the client
+# sends or reads, so the client changes in the pull request that checks the
+# console against that release, which also takes the copy again
+# (ci/fetch-romm-api.sh).
+#
+# Pull requests that only change the client are held to the copy in the
+# repository by checks.yml, offline and in seconds; this one runs RomM's own
+# image to have its newest description.
+
+name: Check RomM's API
+
+on:
+  schedule:
+    # The 1st at 11:00 UTC, after Sigil's pin.
+    - cron: '0 11 1 * *'
+  pull_request:
+    paths:
+      - cabinetos.env
+      - ci/check-romm-api.py
+      - ci/fetch-romm-api.sh
+      - ci/newest-romm.sh
+      - ci/romm-api-uses.txt
+      - ci/romm-api.json
+      - .github/workflows/romm-api.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: The client against RomM's newest release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      # Report only for its first week (checks.yml says how).
+      REPORT_ONLY_UNTIL: '2026-11-30'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7
+
+      - name: The client against RomM's newest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          newest=$(ci/newest-romm.sh)
+          if [[ -z "${newest}" ]]; then
+            echo "::warning::RomM has no release of the version cabinetos.env says the console needs."
+            exit 0
+          fi
+          newest=${newest#v}
+          copied=$(python3 -c 'import json; print(json.load(open("ci/romm-api.json"))["x-cabinetos"]["release"])')
+          if [[ "${newest}" == "${copied}" ]]; then
+            echo "RomM ${newest} is the newest release of the version the console needs, and the copy in ci/romm-api.json is of it."
+            exit 0
+          fi
+          ci/fetch-romm-api.sh --full "${newest}" "${RUNNER_TEMP}/romm-api.json"
+          python3 -I ci/check-romm-api.py --description "${RUNNER_TEMP}/romm-api.json"

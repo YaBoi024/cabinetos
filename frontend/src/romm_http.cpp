@@ -24,6 +24,7 @@
 #include <cstring>
 #include <ctime>
 #include <functional>
+#include <map>
 #include <mutex>
 
 namespace romm {
@@ -186,9 +187,64 @@ CURLcode performOnServer(CURL* c, const std::string& base, const std::function<v
 Client::Client() { curl_global_init(CURL_GLOBAL_DEFAULT); }
 Client::~Client() = default;
 
+// WHAT HOLDS EACH TOKEN (tokenHeld): one hold per token, shared by every
+// client that has it and every request going out with it, and gone when the
+// last of them is.
+namespace {
+std::mutex gHoldMu;
+std::map<std::string, std::weak_ptr<void>> gHolds;   // under gHoldMu
+
+std::shared_ptr<void> holdOf(const std::string& token) {
+    if (token.empty()) return {};
+    std::lock_guard<std::mutex> lock(gHoldMu);
+    std::weak_ptr<void>& held = gHolds[token];
+    std::shared_ptr<void> hold = held.lock();
+    if (!hold) held = hold = std::make_shared<char>();
+    return hold;
+}
+}  // namespace
+
+bool tokenHeld(const std::string& token) {
+    std::lock_guard<std::mutex> lock(gHoldMu);
+    const auto it = gHolds.find(token);
+    return it != gHolds.end() && !it->second.expired();
+}
+
+void Client::setToken(std::string token, int id) {
+    std::shared_ptr<void> hold = holdOf(token);
+    std::lock_guard<std::mutex> lock(mu_);
+    token_ = std::move(token);
+    hold_.swap(hold);    // the last one's is let go after the lock
+    tokenId_ = id;
+    deviceId_.clear();
+}
+
+void Client::giveUpBy(std::chrono::steady_clock::time_point when) {
+    std::lock_guard<std::mutex> lock(mu_);
+    by_ = when;
+}
+
 Client::Where Client::where() const {
     std::lock_guard<std::mutex> lock(mu_);
-    return {base_, token_};
+    return {base_, token_, hold_, by_};
+}
+
+// The two timeouts every request starts from, or what is left of a client
+// told when to give up (giveUpBy).
+static void setTimeouts(CURL* c, std::chrono::steady_clock::time_point by) {
+    long connectMs = kConnectTimeoutSec * 1000, wholeMs = kTimeoutSec * 1000;
+    if (by != std::chrono::steady_clock::time_point{}) {
+        const long left = static_cast<long>(
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                by - std::chrono::steady_clock::now()).count());
+        wholeMs = std::clamp(left, 1L, wholeMs);
+        connectMs = std::clamp(left / 2, 1L, connectMs);
+        // Nor waited for past that: without it curl's end waits for a name
+        // lookup that has not answered, whatever the timeouts say.
+        curl_easy_setopt(c, CURLOPT_QUICK_EXIT, 1L);
+    }
+    curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT_MS, connectMs);
+    curl_easy_setopt(c, CURLOPT_TIMEOUT_MS, wholeMs);
 }
 
 bool Client::get(const std::string& path, std::string* body, std::string* err,
@@ -211,8 +267,7 @@ bool Client::getAt(const Where& at, const std::string& path, std::string* body,
     curl_easy_setopt(c, CURLOPT_URL, url.c_str());
     curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, sink);
     curl_easy_setopt(c, CURLOPT_WRITEDATA, body);
-    curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, kConnectTimeoutSec);
-    curl_easy_setopt(c, CURLOPT_TIMEOUT, kTimeoutSec);
+    setTimeouts(c, at.by);
     if (hdrs) curl_easy_setopt(c, CURLOPT_HTTPHEADER, hdrs);
 
     CURLcode rc = performOnServer(c, at.base, [body] { body->clear(); }, movedTo);
@@ -257,8 +312,7 @@ bool Client::sendJson(const char* method, const std::string& path, const std::st
     if (std::strcmp(method, "POST") != 0) curl_easy_setopt(c, CURLOPT_CUSTOMREQUEST, method);
     curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, sink);
     curl_easy_setopt(c, CURLOPT_WRITEDATA, body);
-    curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, kConnectTimeoutSec);
-    curl_easy_setopt(c, CURLOPT_TIMEOUT, kTimeoutSec);
+    setTimeouts(c, at.by);
     curl_easy_setopt(c, CURLOPT_HTTPHEADER, hdrs);
 
     CURLcode rc = curl_easy_perform(c);
