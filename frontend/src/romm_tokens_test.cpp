@@ -378,11 +378,15 @@ int test() {
     same(romm.deleted(), "96 by gone-e: 401", "and the next one owed replaces it");
 
     std::printf("What cannot be written down stops nothing\n");
-    storage::makeDirs(accounts::revokePath() + "/in-the-way");
+    // A folder where the list's temporary goes (cab::writeBytes), so it cannot
+    // be written by anybody, root in CI's container included.
+    const std::string inTheWay = accounts::revokePath() + ".placing";
+    storage::makeDirs(inTheWay + "/full");
     romm.nextPairing("one-h", 18, 1);
     check(pair(romm, &who) && accounts::login(1).token == "one-h", "a re-pairing goes on");
     check(accounts::remove(2, &err), "and so does a Remove");
-    storage::removeEntry(accounts::revokePath());
+    check(!owedFile(), "with nothing owed, since nothing could be written");
+    storage::removeEntry(inTheWay);
 
     std::printf("Remove\n");
     romm.nextPairing("two-c", 23, 2);
