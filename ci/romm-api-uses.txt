@@ -35,7 +35,10 @@ POST /api/auth/device/init
 POST /api/auth/device/token
   send device_code text
   read access_token text
+  read id number
   undeclared detail: an error answer's reason, which RomM's description does not list
+
+DELETE /api/client-tokens/{token_id}
 
 GET /api/users/me
   read id number

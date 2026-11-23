@@ -9388,6 +9388,64 @@
     ]
    }
   },
+  "/api/client-tokens/{token_id}": {
+   "delete": {
+    "description": "Revoke one of the caller's tokens; a client token can always revoke itself.",
+    "operationId": "delete_token_api_client_tokens__token_id__delete",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "token_id",
+      "required": true,
+      "schema": {
+       "title": "Token Id",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "401": {
+      "description": "The request has no valid credentials."
+     },
+     "403": {
+      "description": "The caller lacks the `me.write` scope and is revoking a token other than the one it authenticated with, or the token being revoked has scopes the caller does not hold."
+     },
+     "404": {
+      "description": "The caller has no token with this ID that it can see."
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "security": [
+     {
+      "OAuth2PasswordBearer": []
+     },
+     {
+      "HTTPBasic": []
+     }
+    ],
+    "summary": "Delete Token",
+    "tags": [
+     "client-tokens"
+    ]
+   }
+  },
   "/api/collections": {
    "get": {
     "description": "List the caller's collections and other users' public collections.",
