@@ -768,6 +768,11 @@ here, not reworded; follow the link for the full text.
   that system's games for the thing changed (save chip and size, controller,
   file format, region) and prove each kind with a real game. Say which kinds
   were not covered.
+- **A new test is seen failing first (MMagTech, 2026-11-22).** Run every
+  test a pull request adds once with the code it checks broken on purpose
+  (the fix taken out, or the old rule put back), and see it fail on its own
+  check, not on a crash or a build error; then see it pass. Say in the pull
+  request what you broke. A test that has never failed proves nothing.
 
 ### Duties that come with some changes
 
