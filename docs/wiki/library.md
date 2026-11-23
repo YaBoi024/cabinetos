@@ -33,6 +33,16 @@ A system whose emulator is still being set up shows greyed, with *Emulator not
 installed*. A system the console does not play has no tile; its games still
 show in Search.
 
+## Changes made in RomM
+
+What changes on your server shows on Home and the Library without a restart: a
+game played in RomM's web player or another app, favorites, collections,
+systems and how many games they have, a game's new name or cover, and anything
+deleted, hidden from you or taken off RomM's *Continue Playing*. The console
+asks RomM as you come to Home or the Library, or pick up the controller after
+a minute, and at most once a minute. A system's or a collection's own list is
+read again when you open it a minute or more later.
+
 ## A system's games
 
 ![The arcade grid, with the letter index](../media/grid-letters.webp)

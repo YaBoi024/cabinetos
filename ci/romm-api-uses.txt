@@ -67,6 +67,8 @@ GET /api/collections
   read [].is_favorite yesno
   read [].path_cover_small text
   read [].path_covers_small list
+  read [].updated_at text
+  read [].rom_ids list
 
 GET /api/collections/smart
   read [].id number
@@ -77,10 +79,12 @@ GET /api/collections/smart
   read [].is_favorite yesno
   read [].path_cover_small text
   read [].path_covers_small list
+  read [].updated_at text
+  read [].rom_ids list
 
 GET /api/roms
   query limit offset platform_ids collection_id smart_collection_id search_term
-  query favorite last_played order_by order_dir
+  query favorite last_played order_by order_dir updated_after
   query with_filter_values with_rom_id_index with_char_index
   read total number
   read items[].id number
@@ -104,6 +108,9 @@ GET /api/roms
   read items[].languages list
   read items[].revision text
   read items[].tags list
+  read items[].updated_at text
+  read items[].rom_user object
+  read items[].rom_user.last_played text
 
 GET /api/roms/{id}
   read id number
@@ -128,6 +135,9 @@ GET /api/roms/{id}
   read languages list
   read revision text
   read tags list
+  read updated_at text
+  read rom_user object
+  read rom_user.last_played text
   read metadatum.first_release_date number
   read metadatum.companies list
   read metadatum.player_count text

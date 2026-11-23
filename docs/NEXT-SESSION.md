@@ -106,8 +106,7 @@ RomM: keep test launches under a minute, or have his go.
   #203 closed until libretro/dolphin#508 moves.
 - **Filed, not scheduled:** #675, "Arcade: a Naomi or Atomiswave game with
   a plain joystick moves only on the d-pad", the fix agreed in principle on
-  2026-10-28 and written on the issue. #730, "Home: a game played on
-  another device is not on Recent until this console restarts", in Later.
+  2026-10-28 and written on the issue.
 - **With the next real core change:** the comments #490, "Code comments
   that say what the code no longer does, and machine details left in
   comments", left in the core and PCSX2 build files and `core*.cpp`, kept

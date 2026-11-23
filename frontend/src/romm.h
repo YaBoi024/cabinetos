@@ -42,6 +42,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <functional>
 #include <memory>
@@ -119,6 +120,17 @@ public:
     // revoking makes (tokenrevoke::signOut). Each gets what is left, and its
     // connection half of that, so an address with no scheme has both tried.
     void giveUpBy(std::chrono::steady_clock::time_point when);
+
+    // THIS CLIENT'S READS END WHEN `stop` BECOMES TRUE, whatever the server
+    // does: the GETs (getAt, fetchRange), within the second curl takes to look
+    // up from a server that says nothing. For a read nobody waits for, which
+    // must never be waited for (libraryrefresh.h). `stop` outlives the client.
+    void stopWhen(const std::atomic<bool>* stop);
+
+    // The other client's server and sign-in as they are now, with nothing
+    // asked: no heartbeat, no scheme tried. For a worker's own client beside
+    // the live one, so the live one's sign-in can change while it reads.
+    void copySignIn(const Client& other);
 
     // Step one of pairing. Asks for the scopes in kScopes (romm_pairing.cpp):
     // the reads, and the three writes the console makes (its saves, states
@@ -238,8 +250,10 @@ public:
     // The games marked favourite, in RomM's title order: RomM keeps no date
     // for a favourite. Home's second shelf, in the console's own order
     // (favorites.cpp, keepFavorites), and only drawn when there are any — an
-    // empty Favorites row is worse than none.
-    bool fetchFavorites(int limit, std::vector<Game>* out, std::string* err);
+    // empty Favorites row is worse than none. With `since`, a time RomM gave
+    // (Game::updatedAt), only the ones whose entry RomM changed after it.
+    bool fetchFavorites(int limit, std::vector<Game>* out, std::string* err,
+                        const std::string& since = "");
 
     // Every firmware file a platform carries. Empty is a normal answer: most
     // platforms need none.
@@ -362,7 +376,7 @@ private:
     // Wii U game its product code, which RomM does not have (fillWiiUCode).
     void fillWiiCodes(std::vector<Game>& games, size_t first = 0) const;
     void fillWiiUCode(Game& g) const;
-    bool fetchFiltered(const char* filter, int limit, std::vector<Game>* out,
+    bool fetchFiltered(const std::string& filter, int limit, std::vector<Game>* out,
                        std::string* err);
     // One part of a multipart/form-data body: a file, or a plain field when
     // `fileName` is empty (a push's manifest). `data` is held by the caller
@@ -402,6 +416,7 @@ private:
         std::string token;
         std::shared_ptr<void> hold;
         std::chrono::steady_clock::time_point by;
+        const std::atomic<bool>* stop = nullptr;   // stopWhen's, or nothing
     };
     Where where() const;
     // The only place this client's token changes: the token, its hold and
@@ -427,6 +442,7 @@ private:
     mutable std::string deviceId_;   // the token's device, once asked (deviceId)
     std::string serverVersion_;
     std::chrono::steady_clock::time_point by_{};   // giveUpBy
+    const std::atomic<bool>* stop_ = nullptr;      // stopWhen
 };
 
 // WHETHER ANYTHING IN THIS PROGRAM STILL USES A TOKEN (#545): a client that

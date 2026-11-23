@@ -180,6 +180,7 @@ void App::runFrameLoop() {
         tickLinkUp(dt);
         retryOwedUploads(dt);
         followServer(dt);
+        followLibrary();
         tickLaunchBusy(dt);
         tickPauseMenu(dt);
         {

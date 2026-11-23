@@ -30,18 +30,20 @@ bool App::haveResume() { return heroIndex >= 0 && !shelf.empty(); }
 bool App::haveFavorites() { return !favorites.empty(); }
 
 // A GAME JUST PLAYED GOES TO THE FRONT OF RECENT (#196), as Resume. Recent
-// is RomM's play history, fetched only at start and on an account switch,
-// so Forza stayed behind the night before's game until a restart (A9,
-// 2026-09-30) although RomM already had it first. Moved here instead of
-// refetched: no network, so it is right offline too, and it is what the
-// next fetch will say. Every system, built-in and separate alike.
-void App::playedJustNow(int romId) {
+// is RomM's play history, so Forza stayed behind the night before's game
+// until the next read of it (A9, 2026-09-30) although RomM already had it
+// first. Moved here instead of refetched: no network, so it is right offline
+// too, and it is what the next read will say. Every system, built-in and
+// separate alike. Remembered with when, for a read that comes before RomM has
+// its time, or for a game RomM is never told of (putLibrary, #730).
+void App::playedJustNow(int romId, const playtime::Session& played) {
     auto it = lib.byRomId.find(romId);
     if (it == lib.byRomId.end() || !catalog::playable(lib.games[it->second])) return;
     const int idx = it->second;
+    lib.playedHere[romId] = {played.endMs / 1000, played.playedMs >= playtime::kShortestMs};
     shelf.erase(std::remove(shelf.begin(), shelf.end(), idx), shelf.end());
     shelf.insert(shelf.begin(), idx);
-    if (shelf.size() > 16) shelf.resize(16);   // as many as fetchRecent asks for
+    if (shelf.size() > kRecentGames) shelf.resize(kRecentGames);
     heroIndex = idx;
     heroPlatform = lib.games[idx].platformName;
 }
@@ -124,6 +126,12 @@ void App::activateHome() {
     //
     // Home promises one action from cold to playing, and this is it.
     if (haveResume() && focusRow == RowRecent && focusSlot == 0) {
+        // ANOTHER GAME JUST TOOK ITS PLACE (#730): a press meant for the one
+        // that was there starts nothing.
+        if (clockSeconds() < resumeHeldUntil) {
+            sound::play(sound::Cue::Edge);
+            return;
+        }
         if (refuseStartWithoutController(cards[heroIndex].id)) return;
         sound::play(sound::Cue::Activate);   // #389
         // Set only when the press counts (#484): refused because another

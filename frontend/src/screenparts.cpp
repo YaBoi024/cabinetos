@@ -170,6 +170,21 @@ void drawKeptMark(Ctx& c, const Card& card, float x, float y, float w, float rad
     c.r.draw(ui::Rect{mx, my, d, d, d * 0.5f, ui::palette::kScreenCyan});
 }
 
+const ui::Image* coverUnder(ui::ImageCache& images, const ui::Image& now, const std::string& was) {
+    if (was.empty() || (now.ready && now.fade >= 1.0f)) return nullptr;
+    return images.held(was);
+}
+
+std::string coverInHand(ui::ImageCache& images, const std::string& cover, const std::string& was) {
+    if (was.empty() || images.get(cover).ready || !images.held(was)) return cover;
+    return was;
+}
+
+std::string roomCover(ui::ImageCache& images, const Card& card) {
+    return card.coverLarge.empty() ? coverInHand(images, card.cover, card.coverWas)
+                                   : coverInHand(images, card.coverLarge, card.coverLargeWas);
+}
+
 void drawCover(Ctx& c, const Card& card, float x, float y, float w, float h,
                float radius, float f, bool rim, bool large) {
     ui::Rect panel{x, y, w, h, radius, card.art};
@@ -179,10 +194,14 @@ void drawCover(Ctx& c, const Card& card, float x, float y, float w, float h,
     // and only the launch screen does: it draws a 340x460 cover, which is 680
     // real pixels wide on a 4K panel. A shelf or a grid cover is small enough
     // that the thumbnail holds up and cheap enough that dozens stay resident.
-    const std::string& key =
-        (large && !card.coverLarge.empty()) ? card.coverLarge : card.cover;
+    const bool big = large && !card.coverLarge.empty();
+    const std::string& key = big ? card.coverLarge : card.cover;
     if (!key.empty()) {
-        ui::drawImage(c.r, c.images.get(key), x, y, w, h, ui::Fit::Fill, 1.0f, radius);
+        const ui::Image& img = c.images.get(key);
+        if (const ui::Image* was =
+                coverUnder(c.images, img, big ? card.coverLargeWas : card.coverWas))
+            ui::drawImage(c.r, *was, x, y, w, h, ui::Fit::Fill, 1.0f, radius);
+        ui::drawImage(c.r, img, x, y, w, h, ui::Fit::Fill, 1.0f, radius);
         // Unfocused artwork sits back. See design::kRestArtDim.
         if (f < 1.0f)
             c.r.draw(ui::Rect{x, y, w, h, radius,

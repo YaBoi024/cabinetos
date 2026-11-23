@@ -79,6 +79,9 @@ auto App::switchAccount(int id, std::string* why) -> bool {
             *why = owed == 1 ? "A save is still uploading" : "Saves are still uploading";
         return false;
     }
+    // A read of the last person's library is for nobody now (#730). It is
+    // never waited for.
+    dropLibraryRead();
     // NOR WHILE THE LIBRARY IS RELOADING after an offline start (#483,
     // FILES-10): its worker asks who the person is when it writes their
     // favourites, so a switch in between wrote the last person's into the
@@ -152,6 +155,7 @@ auto App::switchAccount(int id, std::string* why) -> bool {
         return refuse("That account's library came back empty.");
     }
     lib = std::move(fresh);
+    libraryLoaded();
     libraryScreen.build(platformTiles, collectionTiles);
     startCoverFill();
     // HOME STARTS OVER FOR THE NEW PERSON: the first card of Recent, every

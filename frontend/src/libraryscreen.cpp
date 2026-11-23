@@ -41,6 +41,42 @@ void LibraryScreen::build(std::vector<Tile> platforms, std::vector<Tile> collect
     collections_ = std::move(collections);
 }
 
+bool sameTile(const Tile& a, const Tile& b) {
+    return a.namesFolder || b.namesFolder ? a.namesFolder && b.namesFolder : a.query == b.query;
+}
+
+void LibraryScreen::refresh(std::vector<Tile> platforms, std::vector<Tile> collections) {
+    auto find = [](const std::vector<Tile>& in, const Tile& t) {
+        for (size_t i = 0; i < in.size(); ++i)
+            if (sameTile(in[i], t)) return static_cast<int>(i);
+        return -1;
+    };
+    const std::vector<Tile>& shown = tab_ == 0 ? platforms_ : collections_;
+    const std::vector<Tile>& next = tab_ == 0 ? platforms : collections;
+    const int at = row_ > 0 ? slot_ : rememberedTileSlot_;
+    int to = -1;
+    if (at >= 0 && at < static_cast<int>(shown.size())) to = find(next, shown[static_cast<size_t>(at)]);
+    const bool gone = to < 0;
+    if (gone) to = std::clamp(at, 0, std::max(0, static_cast<int>(next.size()) - 1));
+    for (Tile& t : platforms)
+        if (const int i = find(platforms_, t); i >= 0) t.focus = platforms_[static_cast<size_t>(i)].focus;
+    for (Tile& t : collections)
+        if (const int i = find(collections_, t); i >= 0) t.focus = collections_[static_cast<size_t>(i)].focus;
+    platforms_ = std::move(platforms);
+    collections_ = std::move(collections);
+    auto& tiles = tab_ == 0 ? platforms_ : collections_;
+    rememberedTileSlot_ = to;
+    if (row_ == 0) return;
+    slot_ = to;
+    if (tiles.empty()) {
+        row_ = 0;
+        slot_ = tab_;
+        pillFocus_[slot_].retarget(1.0f, design::kFocusDuration);
+    } else if (gone) {
+        tiles[static_cast<size_t>(slot_)].focus.retarget(1.0f, design::kFocusDuration);
+    }
+}
+
 void LibraryScreen::learnedTile(const std::string& query, const std::string& detail,
                                 const std::string& cover) {
     for (auto* v : {&platforms_, &collections_}) {
@@ -73,12 +109,12 @@ void LibraryScreen::enter() {
     pillFocus_[0].settle(1.0f);
 }
 
-std::string LibraryScreen::focusedCover() const {
+std::string LibraryScreen::focusedCover(ui::ImageCache& images) const {
     const auto& tiles = visible();
     if (tiles.empty()) return {};
     const int i = (row_ == 0) ? 0 : slot_;
     if (i < 0 || i >= static_cast<int>(tiles.size())) return {};
-    return tiles[i].cover;
+    return coverInHand(images, tiles[i].cover, tiles[i].coverWas);
 }
 
 void LibraryScreen::focusTile(int index) {
@@ -399,8 +435,7 @@ void LibraryScreen::draw(Ctx& c) {
             const float artH = t.cover.empty() ? 0.0f : design::kTileArtHeight * s;
             const float artW = artH * 0.75f;      // 3:4
             const float artX = x + w - pad - artW;
-            if (!t.cover.empty()) {
-                const ui::Image& img = c.images.get(t.cover);
+            auto drawArt = [&](const ui::Image& img) {
                 // The blurred echo behind everything, so the tile is the art's
                 // own colours rather than a flat panel. Clipped to the tile.
                 if (img.ready) {
@@ -413,6 +448,11 @@ void LibraryScreen::draw(Ctx& c) {
                 // now that it no longer spans the full height.
                 ui::drawImage(c.r, img, artX, y + (h - artH) * 0.5f, artW, artH,
                               ui::Fit::Fill, t.enterable ? 1.0f : 0.45f, 8.0f);
+            };
+            if (!t.cover.empty()) {
+                const ui::Image& img = c.images.get(t.cover);
+                if (const ui::Image* was = coverUnder(c.images, img, t.coverWas)) drawArt(*was);
+                drawArt(img);
             }
 
             // The label, left. Title 3 for the name, Footnote for the count —

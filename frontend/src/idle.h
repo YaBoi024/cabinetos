@@ -124,6 +124,8 @@ public:
     Level update(double now, bool playing);
 
     double idleFor(double now) const { return now - last_; }
+    // When that was, in the same clock: it moves with every press.
+    double lastInput() const { return last_; }
 
 private:
     bool enabled_ = true;
