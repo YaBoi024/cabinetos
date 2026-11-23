@@ -188,6 +188,9 @@ const Emulator kEmulators[] = {
 
 // How long a program that was asked to close gets before it is made to.
 // Eden took 0.8 s on the A9; ten is room for a slow disk flushing a save.
+// One that crashes as it closes is gone at once (no core file, proc::spawn);
+// this is spent only on one that hangs, as Eden 0.2.1 now and then does
+// (docs/lessons/emulators.md, "Switch (Eden)").
 constexpr int64_t kStopGraceMs = 10 * 1000;
 // A failed load shows the emulator's own error box and waits for a click
 // nobody can make, so its log is watched for this long after a start.

@@ -4,7 +4,17 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## Next
+## 2026.11.23 {#v2026-11-23}
+
+- **Fixed:** leaving a Switch game, most often a busy one such as Mario
+  Kart 8 Deluxe or Xenoblade Chronicles X, could keep its last picture on
+  the TV for 10 seconds, and up to two minutes more on a slower drive,
+  before Home came back. Eden, the Switch emulator, sometimes crashes as it
+  closes; the console now goes straight back to Home when it does. Your
+  save was never affected. Now and then Eden still stalls instead, and
+  that 10-second wait stays until Eden's next release fixes it.
+
+## 2026.11.22.4 {#v2026-11-22-4}
 
 - **Fixed:** a Game Boy Advance save from RomM's web player, another app or
   RomM's website was not used unless the game keeps a 128 KB save, and the

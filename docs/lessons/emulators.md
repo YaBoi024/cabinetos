@@ -653,3 +653,43 @@ code.
   **When an emulator's settings file is written from scratch, read what every
   missing key does, not only the ones being set.**
 
+
+## Switch (Eden)
+
+- **EDEN 0.2.1 CRASHES OR HANGS NOW AND THEN AS IT CLOSES A BUSY GAME, AND
+  IT IS EDEN'S.** Its close (SIGTERM is its window's close) runs
+  `System::ShutdownMainProcess`, which frees the game's GPU memory
+  (`services.reset()`, the Nvidia service's handles) before it stops its GPU
+  thread (`gpu_core.reset()`); `NotifyShutdown` only set a flag. The GPU
+  thread, still drawing queued frames, then reads or writes freed memory:
+  a fault in libc's `memmove` from a garbage address, or a write to address
+  0 in the query cache; or the two threads deadlock. Seen in 4 of 25 quits
+  on the A9 from 10-29 to 11-22 (Mario Kart 8 Deluxe 3 of 8, Brotato 1 of
+  2), a tester's Xenoblade Chronicles X 3 of 3, Viper Phase 1 5 of about 42
+  scratch quits, and none in about 59 quits of 2D games. Not the pause
+  menu's freeze (the scratch quits had none), not save pictures, not Remote
+  Play. Proven from the A9's core files, read with gdb with the Flatpak's
+  files as its root: the Flathub build has no symbols at all (its recipe
+  sets `no-debuginfo`), so frames were named from each function's unwind
+  bounds and the file and function names its own log and assert calls
+  carry. Eden fixed it in its development code on 2026-09-11 (`c95ad020fb`,
+  Eden's pull request 4395: the GPU thread is stopped and joined first); no release has it
+  yet. Until one does, a crash ends at once (no core file, `proc::spawn`)
+  and a hang waits the 10 s grace. Findings: the session notes of
+  2026-11-22, "Eden close crash".
+- **A CRASH'S CORE FILE CAN HOLD THE CONSOLE FOR MINUTES.** systemd-coredump
+  keeps the dying process until it has its memory (5 to 6 GB for Eden), and
+  then writes it compressed to the same drive, so every fsync the console
+  makes meanwhile (a save's zip, play time) waits behind it: on a tester's
+  slower drive, Home came 2 min 14 s after Exit, half a second after the
+  journal's "dumped core". The A9's NVMe hid it (10.9 s). **When something
+  waits on a crashed program, read the journal for systemd-coredump before
+  blaming your own code.**
+- **EDEN'S SAVES ARE SAFE ONCE THE GAME CLOSES ITS FILE, AND NOT BEFORE.**
+  Its save files are C `FILE`s: each write is an `fseek` then `fwrite`, so a
+  file's last write can stay in Eden's memory until the file is next read or
+  closed; the game's `Flush` does nothing and `Commit` is a stub, so there is
+  no all-or-nothing save as on a Switch. In the A9's 11-22 crash, a save made
+  13 s before the quit was whole: Eden's core file listed no save file open.
+  A quit while the game is still writing its save could leave it part
+  written, crash or not; nobody has hit it.
