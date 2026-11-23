@@ -257,6 +257,11 @@ int test() {
     romm::Client live;   // stands in for the app's own client
     live.setAddress(romm.address(), &err);
     live.loadToken(accounts::tokenPath(1));
+    {
+        romm::Client another;
+        another.loadToken(accounts::tokenPath(1));
+    }
+    check(romm::tokenHeld("one-a"), "a token two clients had is in use while one still has it");
     std::thread slow([&] { live.fetchBytes("/slow"); });
     for (int i = 0; i < 200 && romm.slowHere == 0; ++i)
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -319,6 +324,14 @@ int test() {
     check(!sendOwed(romm.address()) && owedFile(), "a 500 is not an answer: still owed");
     same(romm.deleted(), "90 by gone-a: 500", "asked once");
     check(!sendOwed("127.0.0.1:1") && owedFile(), "nothing there: still owed");
+    romm.letSlowGo = false;
+    romm.behaveAs(StandIn::As::Mute);
+    auto t = Clock::now();
+    const bool answered = sendOwed(romm.address());
+    long took = msSince(t);
+    check(!answered && owedFile() && took < kSendOwedSeconds * 1000 + 700,
+          "one that never answers: still owed, and left after " + std::to_string(took) + " ms");
+    romm.letSlowGo = true;
     romm.behaveAs(StandIn::As::Romm55);
     check(sendOwed(romm.address()) && !owedFile(), "and sent when it answers");
     same(romm.deleted(), "90 by gone-a: 401", "once");
@@ -403,9 +416,9 @@ int test() {
     };
     signedIn("one-i", 19);
     setenv("CABINETOS_ROMM", "127.0.0.1:1", 1);
-    auto t = Clock::now();
+    t = Clock::now();
     server::finishSignOut();
-    long took = msSince(t);
+    took = msSince(t);
     check(took < 1000 && accounts::all().empty() && !storage::exists(accounts::tokenPath(1)),
           "nothing there: done in " + std::to_string(took) + " ms, the files gone");
     setenv("CABINETOS_ROMM", romm.address().c_str(), 1);

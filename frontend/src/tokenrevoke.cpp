@@ -132,6 +132,7 @@ bool sendOwed(const std::string& address, const std::atomic<bool>* stop) {
     });
     if (list.empty()) return true;
     romm::Client client;
+    client.giveUpBy(std::chrono::steady_clock::now() + std::chrono::seconds(kSendOwedSeconds));
     std::string err;
     if (!client.setAddress(address, &err)) return false;
     for (const Owed& o : list) {
