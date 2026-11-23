@@ -44,6 +44,7 @@ void App::playedJustNow(int romId, const playtime::Session& played) {
     shelf.erase(std::remove(shelf.begin(), shelf.end(), idx), shelf.end());
     shelf.insert(shelf.begin(), idx);
     if (shelf.size() > kRecentGames) shelf.resize(kRecentGames);
+    shelfGlide[RowRecent].stop();
     heroIndex = idx;
     heroPlatform = lib.games[idx].platformName;
 }
@@ -93,7 +94,7 @@ void App::homeFromTheStart() {
     shelfScroll[0].settle(0.0f);
     shelfScroll[1].settle(0.0f);
     scrollY.settle(0.0f);
-    for (int r = 0; r < 2; ++r) { slotFocus[r].clear(); slotPress[r].clear(); }
+    for (int r = 0; r < 2; ++r) { slotFocus[r].clear(); slotPress[r].clear(); shelfGlide[r].stop(); }
     if (cardAt(focusRow, focusSlot)) slotAnim(slotFocus, focusRow, focusSlot).settle(1.0f);
 }
 
@@ -407,17 +408,38 @@ void App::drawHome(float dt, float sc) {
             return kContentInset + static_cast<float>(slot) * pitch - scroll;
         };
 
+        auto drawAt = [&](const Card& card, float x, float y, float w, float h, float scale,
+                          float f, float alpha) {
+            const float whole = renderer.contentAlpha();
+            renderer.setContentAlpha(whole * alpha);
+            screens::drawCover(coverCtx, card, x, y, w, h, kCoverRadius * scale, f, /*rim=*/true);
+            renderer.setContentAlpha(whole);
+        };
+        // What left the row as RomM changed fades out where it was, under what
+        // moves over it (glide.h).
+        for (const int k : shelfGlide[rowId].leaving()) {
+            const ShelfWas& gone = shelfWas[rowId][static_cast<size_t>(k)];
+            const float scale = 1.0f + gone.lift * (kFocusScale - 1.0f);
+            const float w = kShelfCoverWidth * scale, h = kShelfCoverHeight * scale;
+            drawAt(cards[static_cast<size_t>(gone.card)],
+                   gone.x - scroll - (w - kShelfCoverWidth) * 0.5f,
+                   shelfTop - (h - kShelfCoverHeight) * 0.5f, w, h, scale, gone.lift,
+                   shelfGlide[rowId].leavingAlpha());
+        }
+
     // Unfocused cards first, so a focused card's shadow and rim land on top
-    // of its neighbours rather than under them.
-    for (int pass = 0; pass < 2; ++pass) {
+    // of its neighbours rather than under them; and under those, the ones
+    // coming onto the row, which the others slide off.
+    for (int pass = 0; pass < 3; ++pass) {
         for (size_t slot = 0; slot < count; ++slot) {
             const size_t i = at(slot);
             const bool isFocused = rowFocused && (static_cast<int>(slot) == focusSlot);
-            if ((pass == 0) == isFocused) continue;
+            const glide::Look moving = shelfGlide[rowId].look(slot);
+            if (pass != (isFocused ? 2 : moving.coming ? 0 : 1)) continue;
 
-            const float cullX = cardBaseX(slot);
+            const float cullX = cardBaseX(slot) + moving.dx;
             if (cullX + kShelfCoverWidth < -kCullMargin) continue;
-            if (cullX > ui::kCanvasWidth + kCullMargin) break;
+            if (cullX > ui::kCanvasWidth + kCullMargin) continue;
 
             const Card& card = cards[i];
             // THE LIFT FOLLOWS FOCUS EVERY FRAME, as the grid's does, so
@@ -444,8 +466,7 @@ void App::drawHome(float dt, float sc) {
             // THE GRID'S COVER, NOT A COPY OF IT. Home had its own, which
             // drifted: no grey for a game that cannot be played here, and a
             // kept dot that grew with focus (#398, HOME-07).
-            screens::drawCover(coverCtx, card, x, y, w, h, kCoverRadius * scale, f,
-                               /*rim=*/true);
+            drawAt(card, x, y, w, h, scale, f, moving.alpha);
 
             // No caption under the card: the focused card's title is in
             // the shelf header.

@@ -77,6 +77,10 @@ Place homePlace(Place at, const std::vector<int>& recentWas, const std::vector<i
 // ---- The App's side ------------------------------------------------------
 // Members of the App (app.h).
 
+// How long a read's change waits for the covers of games new to Home, which
+// come from RomM as it did: in hand, they fade in as pictures.
+constexpr double kCoverWaitSeconds = 1.5;
+
 // Once a frame: what happened that asks for a read, the one out, and its
 // answer when there is one.
 void App::followLibrary() {
@@ -119,7 +123,7 @@ void App::followLibrary() {
     if (r.held && (r.forUser != storage::currentUser().id || libFromDrive ||
                    now - r.heldAt >= libraryrefresh::kBetweenSeconds))
         r.held.reset();
-    if (r.held && libraryMayChange()) {
+    if (r.held && libraryMayChange() && (newCoversIn(*r.held) || now - r.heldAt >= kCoverWaitSeconds)) {
         takeLibraryRead(std::move(*r.held));
         r.held.reset();
     }
@@ -174,6 +178,7 @@ void App::dropLibraryRead() {
 // The whole library has just been read, some other way: the minute starts over.
 void App::libraryLoaded() {
     dropLibraryRead();
+    for (glide::Glide& g : shelfGlide) g.stop();   // of cards that are no more
     libraryRefresh.when.ended(power::upSeconds());
 }
 
@@ -191,43 +196,81 @@ bool App::libraryMayChange() {
            !linkupSessionOpen();
 }
 
+// Whether the covers of the games a read brings are here, or will not come:
+// asked for before the row makes room, so none of them shows its colour there.
+bool App::newCoversIn(const LibraryRead& read) {
+    bool in = true;
+    for (const auto* list : {&read.recent, &read.games})
+        for (const romm::Game& g : *list) {
+            if (g.coverPath.empty() || lib.byRomId.count(g.id)) continue;
+            const ui::Image& img = images.get(g.coverPath);
+            in = in && (img.ready || img.failed);
+        }
+    return in;
+}
+
 void App::takeLibraryRead(LibraryRead read) {
     read.hearts = libraryRefresh.hearts;
     read.settled = libraryRefresh.settled;
     const std::vector<int> recentWas = shelf, favoritesWas = favorites;
     const LibraryChanges changes = putLibrary(lib, std::move(read), storage::currentUser());
     keepHomePlace(recentWas, favoritesWas);
-    libraryScreen.refresh(platformTiles, collectionTiles);
+    libraryScreen.refresh(platformTiles, collectionTiles, here() == Screen::Library);
     fillNewCovers();
     std::string said;
     for (const std::string& s : changes.said) said += (said.empty() ? "" : "; ") + s;
     if (!said.empty()) std::fprintf(stderr, "[library] RomM changed: %s\n", said.c_str());
 }
 
-// Home's highlight, its lift and its rows' places, after the rows changed
-// under them (homePlace).
+// One of Home's rows glides from what it was to what it is now, each cover
+// taking its lift with it: the row's lifts are by place (slotFocus), and the
+// games moved. drawHome carries the highlight's on from there.
+void App::glideRow(int row, const std::vector<int>& before, const std::vector<int>& now) {
+    const float pitch = kShelfCoverWidth + kShelfSpacing;
+    auto place = [&](size_t slot) {
+        return glide::Point{kContentInset + static_cast<float>(slot) * pitch, 0.0f};
+    };
+    shelfWas[row].clear();
+    std::vector<glide::Point> was, is;
+    for (size_t k = 0; k < before.size(); ++k) {
+        const float lift = k < slotFocus[row].size() ? slotFocus[row][k].value() : 0.0f;
+        shelfWas[row].push_back({before[k], place(k).x, lift});
+        was.push_back(place(k));
+    }
+    std::vector<int> from;
+    std::vector<design::Animated> lifts(now.size());
+    for (size_t i = 0; i < now.size(); ++i) {
+        const auto it = std::find(before.begin(), before.end(), now[i]);
+        const size_t k = static_cast<size_t>(it - before.begin());
+        from.push_back(it == before.end() ? -1 : static_cast<int>(k));
+        is.push_back(place(i));
+        if (from.back() >= 0 && k < slotFocus[row].size()) lifts[i] = slotFocus[row][k];
+    }
+    slotFocus[row] = std::move(lifts);
+    slotPress[row].clear();
+    shelfGlide[row].start(from, was, is);
+}
+
+// Home's highlight and its rows' places, after the rows changed under them
+// (homePlace).
 void App::keepHomePlace(const std::vector<int>& recentWas, const std::vector<int>& favoritesWas) {
     bool newResume = false;
     const libraryrefresh::Place was{focusRow, focusSlot};
     const libraryrefresh::Place to = libraryrefresh::homePlace(was, recentWas, favoritesWas, shelf,
                                                                favorites, &newResume);
-    bool settle = !(to == was);
+    const float pitch = kShelfCoverWidth + kShelfSpacing;
     for (int row = RowRecent; row <= RowFavorites; ++row) {
         const std::vector<int>& now = row == RowRecent ? shelf : favorites;
-        if (now == (row == RowRecent ? recentWas : favoritesWas)) continue;
-        // The lifts belong to places on the row, and the games moved.
-        slotFocus[row].clear();
-        slotPress[row].clear();
-        settle = settle || row == to.row;
+        const std::vector<int>& before = row == RowRecent ? recentWas : favoritesWas;
+        if (now == before) continue;
+        glideRow(row, before, now);
         // A shorter row is not left scrolled past its end.
-        const float pitch = kShelfCoverWidth + kShelfSpacing;
         const float end = std::max(0.0f, 2.0f * kContentInset + static_cast<float>(now.size()) * pitch -
                                              kShelfSpacing - ui::kCanvasWidth);
         if (shelfScroll[row].to > end) shelfScroll[row].retarget(end, kFocusDuration * 1.6f);
     }
     focusRow = to.row;
     focusSlot = to.slot;
-    if (settle && !barFocused && !accountsOpen) settleFocus();
     if (newResume) resumeHeldUntil = clockSeconds() + libraryrefresh::kResumeHoldSeconds;
 }
 
@@ -405,6 +448,51 @@ int test() {
         check(to({0, 0}, {}, {}, {}, {5, 6}) == P{1, 0} && !resume,
               "or on Favorites when that is all there is");
         check(to({0, 0}, {1}, {}, {}, {}) == P{0, 0} && !resume, "and an emptied Home holds nothing");
+    }
+
+    // ---- How a row or a grid gets there ----------------------------------
+    {
+        glide::Glide g;
+        check(!g.going() && g.look(0).alpha == 1.0f && g.leaving().empty(),
+              "nothing glides until something changed");
+        auto row = [](int n) {
+            std::vector<glide::Point> p;
+            for (int i = 0; i < n; ++i) p.push_back({static_cast<float>(i) * 100.0f, 0.0f});
+            return p;
+        };
+        // Five on a row, the fourth to the front, and a sixth that is new.
+        g.start({3, 0, 1, 2, 4, -1}, row(5), row(6));
+        check(g.going() && g.look(0).alpha == 0.0f && g.look(0).dx == 0.0f && g.look(0).coming,
+              "one that jumped past others fades in at its place");
+        check(g.look(1).dx == -100.0f && g.look(3).dx == -100.0f && g.look(1).alpha == 1.0f,
+              "the ones it passed slide from where they were");
+        check(g.look(4).dx == 0.0f && g.look(4).alpha == 1.0f, "one that kept its place stays");
+        check(g.look(5).alpha == 0.0f, "a new one fades in");
+        check(g.leaving() == std::vector<int>{3} && g.leavingAlpha() == 1.0f,
+              "and the jumped one fades out where it was");
+        g.tick(design::kGlideDuration * 0.5f);
+        check(g.look(1).dx < 0.0f && g.look(1).dx > -100.0f && g.look(0).alpha > 0.0f &&
+                  g.leavingAlpha() < 1.0f,
+              "halfway, it is on its way");
+        g.tick(design::kGlideDuration);
+        check(!g.going() && g.look(1).dx == 0.0f && g.look(0).alpha == 1.0f && g.leaving().empty(),
+              "and then it is there");
+        g.start({1, 2}, row(3), row(2));
+        check(g.leaving() == std::vector<int>{0} && g.look(0).dx == 100.0f && g.look(1).dx == 100.0f,
+              "the first one gone, the rest close up");
+        // A grid of three, one put in at the front: the third wraps.
+        auto grid = [](int n) {
+            std::vector<glide::Point> p;
+            for (int i = 0; i < n; ++i)
+                p.push_back({static_cast<float>(i % 3) * 100.0f, static_cast<float>(i / 3) * 50.0f});
+            return p;
+        };
+        g.start({-1, 0, 1, 2, 3}, grid(4), grid(5));
+        check(g.look(1).dx == -100.0f && g.look(1).dy == 0.0f, "along a line of a grid, it slides");
+        check(g.look(3).alpha == 0.0f && g.leaving() == std::vector<int>{2},
+              "onto another line of it, it fades");
+        g.stop();
+        check(!g.going() && g.look(0).alpha == 1.0f && g.leaving().empty(), "stopped, it is there");
     }
 
     // ---- What building changes -------------------------------------------
@@ -699,7 +787,7 @@ int test() {
               "its list, of the folders it named, is read again when it is opened");
         more.platforms.push_back(platform(50, "genesis", "Aardvark", 1));
         putLibrary(lib, more, {});
-        screen.refresh(lib.platformTiles, lib.collectionTiles);
+        screen.refresh(lib.platformTiles, lib.collectionTiles, false);
         check(screen.focusedTile() == 1 && screen.visible()[1].title == "Arcade",
               "and the highlight stays on it, whatever its folders");
     }
@@ -796,12 +884,12 @@ int test() {
         LibraryRead r = again(first);
         r.platforms.push_back(platform(3, "genesis", "Genesis", 1));
         putLibrary(lib, r, {});
-        s.refresh(lib.platformTiles, lib.collectionTiles);
+        s.refresh(lib.platformTiles, lib.collectionTiles, false);
         check(s.focusedTile() == 2 && s.visible()[2].title == "SNES" && s.visible()[2].focus.value() > 0.99f,
               "on a system it stays on that system, lifted as it was");
         r.platforms = {platform(1, "nes", "NES", 5), platform(3, "genesis", "Genesis", 1)};
         putLibrary(lib, r, {});
-        s.refresh(lib.platformTiles, lib.collectionTiles);
+        s.refresh(lib.platformTiles, lib.collectionTiles, false);
         check(s.focusedTile() == 1 && s.visible()[1].title == "NES", "one that is gone gives it to the nearest");
         // To the Collections, and down onto Beat em ups.
         s.key(screens::Nav::Up);
@@ -813,12 +901,12 @@ int test() {
               "(the test is on a collection)");
         r.collections.insert(r.collections.begin(), collection(8, "Aces", 7, 1));
         putLibrary(lib, r, {});
-        s.refresh(lib.platformTiles, lib.collectionTiles);
+        s.refresh(lib.platformTiles, lib.collectionTiles, false);
         check(s.focusedTile() == 2 && s.visible()[2].title == "Beat em ups", "a collection too");
         r.collections = {};
         r.smartCollections = {};
         putLibrary(lib, r, {});
-        s.refresh(lib.platformTiles, lib.collectionTiles);
+        s.refresh(lib.platformTiles, lib.collectionTiles, false);
         check(s.focusedTile() == -1 && s.visible().empty() && s.tab() == 1,
               "and no collections at all gives it to the switcher");
     }

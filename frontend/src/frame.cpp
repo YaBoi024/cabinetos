@@ -147,6 +147,7 @@ void App::runFrameLoop() {
         for (int r = 0; r < 2; ++r) {
             for (auto& a : slotFocus[r]) a.tick(dt);
             for (auto& a : slotPress[r]) a.tick(dt);
+            shelfGlide[r].tick(dt);
         }
         // These two are not Cards and so are not in the loop above. Forgetting
         // them cost a debugging pass: the scroll target was computed correctly

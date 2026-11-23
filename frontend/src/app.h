@@ -56,6 +56,7 @@
 #include "drives.h"
 #include "files.h"
 #include "gameevents.h"
+#include "glide.h"
 #include "grid.h"
 #include "idle.h"
 #include "image.h"
@@ -598,6 +599,15 @@ struct App {
     // and one press per (row, slot), grown as a row is drawn.
     std::vector<design::Animated> slotFocus[2], slotPress[2];
     design::Animated& slotAnim(std::vector<design::Animated>* v, int row, int slot);
+    // Home's rows gliding to what RomM's changes made of them (glide.h, #730),
+    // and what each row was as they came: the card, its place from the row's
+    // start, and its lift.
+    struct ShelfWas {
+        int card = -1;
+        float x = 0.0f, lift = 0.0f;
+    };
+    glide::Glide shelfGlide[2];
+    std::vector<ShelfWas> shelfWas[2];
 
     // RESUME-FIRST, and it is now one rule rather than a separate object:
     // Home opens on the first card of Recent, which is the most recently played
@@ -2629,8 +2639,10 @@ struct App {
     void dropLibraryRead();
     void libraryLoaded();
     bool libraryMayChange();
+    bool newCoversIn(const LibraryRead& read);
     void takeLibraryRead(LibraryRead read);
     void keepHomePlace(const std::vector<int>& recentWas, const std::vector<int>& favoritesWas);
+    void glideRow(int row, const std::vector<int>& before, const std::vector<int>& now);
     // notice.cpp
     void drawNotice(float sc);
     // idle.cpp

@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "glide.h"
 #include "screens.h"
 
 namespace screens {
@@ -81,7 +82,8 @@ public:
     // The same screen with RomM's newer tiles (#730): focus, its lift and the
     // remembered tile follow the tile they were on (sameTile). One that is
     // gone gives focus to the nearest, and an empty list to the switcher.
-    void refresh(std::vector<Tile> platforms, std::vector<Tile> collections);
+    // `seen`: it is on screen, and its tiles glide to their new places.
+    void refresh(std::vector<Tile> platforms, std::vector<Tile> collections, bool seen);
     // Which visible tile focus is on, or -1 on the switcher.
     int focusedTile() const { return row_ > 0 ? slot_ : -1; }
 
@@ -183,6 +185,21 @@ private:
     design::Animated appear_;
     design::Animated pillFocus_[2];
     design::Animated scroll_;
+
+    // ---- The tiles gliding to what RomM's changes made of them (glide.h) ----
+    // Where the tab last drawn had each tile and each heading, from the top of
+    // what scrolls; and, of a list that changed, the tiles and headings it had
+    // and where each one now was among them, for the draw that starts it.
+    struct Glided {
+        std::vector<glide::Point> tiles, heads;
+        std::vector<std::string> headings;
+    };
+    Glided drawn_, was_;
+    int drawnTab_ = -1;
+    std::vector<Tile> wasTiles_;
+    std::vector<int> from_;
+    bool glideNext_ = false;
+    glide::Glide glide_, headGlide_;
 };
 
 }  // namespace screens

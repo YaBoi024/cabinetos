@@ -202,6 +202,7 @@ void App::toggleFavorite(const screens::Result& res) {
     // or Favorites is now the only one (nothing played yet).
     slotFocus[RowFavorites].clear();
     slotPress[RowFavorites].clear();
+    shelfGlide[RowFavorites].stop();
     if (focusRow == RowFavorites || !rowExists(focusRow)) {
         if (!rowExists(focusRow)) { focusRow = homeTopRow(); focusSlot = 0; }
         else focusSlot = std::clamp(focusSlot, 0, static_cast<int>(favorites.size()) - 1);
