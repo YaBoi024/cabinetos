@@ -54,16 +54,32 @@ take it.
    decision file. "Written with" is filled in. The changelog has an entry
    under `## Next`, or the body says `Changelog: none` and no player could
    notice the change.
-6. **CI:** `gh pr checks <n>`. A fork's pull request runs nothing until
+6. **The testing rules** (CONTRIBUTING.md, "The rules" and "Duties that
+   come with some changes"). "What I checked" must show:
+   - for a change to how a system's games behave (saves, controls, file
+     formats), what differs between that system's games for the thing
+     changed (save chip and size, controller, file format, region), the
+     real game that proved each kind, and the kinds not covered. One game
+     for a system is not enough;
+   - for a change to the RomM version the console needs (`ROMM_NEEDED` in
+     `cabinetos.env`, `docs/wiki/romm.md`), what changed in RomM's save
+     code and libraries since the version needed, how that was tested, and
+     one game per kind of save with each app: the console, RomM's web
+     player, Argosy and Ludo;
+   - for each test it adds, what was broken on purpose to see it fail.
+   A missing one is a change the verdict asks for, with its rule.
+7. **CI:** `gh pr checks <n>`. A fork's pull request runs nothing until
    MMagTech approves the run. Say what approving would run: the workflows the
    pull request changes, and the scripts they call. GitHub gives a fork's run
    no secrets, so approving is safer than a push to `testing`, but its code
    still runs on GitHub's machines.
-7. **Correctness:** `/code-review <n>` where it is available. Its findings go
+8. **Correctness:** `/code-review <n>` where it is available. Its findings go
    in the verdict with the rest.
-8. **What only the television can tell:** from the rows in
+9. **What only the television can tell:** from the rows in
    `docs/ARCHITECTURE.md` for what it touches, list what MMagTech would judge
-   on the testing image.
+   on the testing image. It goes to `testing` alone, once the change there
+   is merged or dropped, with main merged in first (docs/WORKING.md, "One
+   pull request per testing image").
 
 ## The verdict
 

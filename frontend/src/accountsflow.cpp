@@ -221,6 +221,7 @@ void App::startAddAccount() {
             std::string aerr;
             accounts::Paired who;
             const bool wrote = accounts::recordPairing(c, &who, &aerr);
+            if (wrote && !who.isNew) addJob->repaired = who.id;
             std::lock_guard<std::mutex> lk(addJob->m);
             addJob->ok = wrote;
             addJob->who = who;
@@ -430,6 +431,16 @@ void App::takeAccountResults() {
                           if (k == 0) finishRemove(who);
                       });
     }
+    // THE PERSON THE CONSOLE IS ACTING AS PAIRED AGAIN: their new token is
+    // taken up here, wherever the screen is by then, as the account switch
+    // does: only with nothing going up, since the uploader holds this client.
+    // The one it replaces is revoked once nothing uses it (tokenrevoke.h).
+    // Anybody else's is read at the next switch to them.
+    if (const int id = addJob->repaired.load(); id > 0 && uploader.pending() == 0) {
+        addJob->repaired = 0;
+        if (id == accounts::activeId() && accounts::loadActiveToken(liveClient))
+            uploader.resendOwed();
+    }
     // The pairing worker's answer, picked up on the frame thread. Nothing
     // here touches the network — it reads what the thread published.
     if (here() == Screen::AddAccount) {
@@ -475,13 +486,8 @@ void App::takeAccountResults() {
                 // exactly as it did is what made this look broken.
                 // IT RENEWED THEIR SIGN-IN, which is also how a console
                 // paired before a new permission gets it (collections.write
-                // for favourites, #267): say that, and use the new key now
-                // if it is the person the console is acting as, as the
-                // account switch does: only with nothing going up, since
-                // the uploader holds this client. Otherwise at next start.
-                if (who.id == accounts::activeId() && uploader.pending() == 0 &&
-                    accounts::loadActiveToken(liveClient))
-                    uploader.resendOwed();
+                // for favourites, #267): say that. The new key is taken up
+                // above (repaired).
                 addAccountScreen.setError(
                     who.name + " is already on this console. Sign in to RomM as "
                     "the person you are adding.");

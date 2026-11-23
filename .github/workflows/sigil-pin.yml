@@ -19,6 +19,7 @@ on:
       - frontend/third_party/sigil/VERSION
       - cabinetos.env
       - ci/check-sigil-follows-romm.sh
+      - ci/newest-romm.sh
       - .github/workflows/sigil-pin.yml
   workflow_dispatch:
 

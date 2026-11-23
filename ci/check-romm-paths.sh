@@ -44,6 +44,11 @@ EXEMPT=(
     'frontend/src/romm_*'
     'frontend/src/remoteplay.cpp'
     'ci/check-romm-paths.sh'
+    # RomM's API as it is written out on purpose: the client's uses list, the
+    # copy of RomM's description, and the check that reads both.
+    'ci/check-romm-api.py'
+    'ci/romm-api-uses.txt'
+    'ci/romm-api.json'
 )
 
 # file <tab> the text that spells it <tab> what it is

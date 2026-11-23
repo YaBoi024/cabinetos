@@ -43,7 +43,7 @@ void setCoreDirectory(const char* dir);
 enum class Support {
     // A core exists and ships. The game can be launched.
     Playable,
-    // Nothing in the manifest serves this system. Switch, PS3, Vita and the
+    // Nothing in the manifest serves this system. Jaguar, ColecoVision and the
     // rest. Not a defect, just outside what this console is.
     NoCore,
     // The manifest has a core for this system, and this console does not have
@@ -51,8 +51,8 @@ enum class Support {
     // wrong, the core simply has not been built yet.
     //
     // NOTHING ANSWERS THIS ON A HEALTHY CONSOLE, checked against the reference
-    // A9 2026-09-22: all 23 cores this table names are in
-    // /usr/lib/cabinetos/cores, 22 libretro plus PCSX2 as cabinetos-ps2.so.
+    // A9 2026-09-22, when every core the table then named was in
+    // /usr/lib/cabinetos/cores (the libretro cores, and PCSX2 as cabinetos-ps2.so).
     // GameCube is dolphin_libretro.so and IS a libretro core; PPSSPP is built
     // and PSP plays. An earlier version of this comment said otherwise on both
     // counts and was believed for a fortnight, which is the argument for

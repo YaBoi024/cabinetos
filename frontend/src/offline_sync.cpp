@@ -24,6 +24,7 @@
 #include "savemirror.h"
 #include "savepick.h"
 #include "storage.h"
+#include "tokenrevoke.h"
 
 // STOPPED AT EXIT (#406). Both threads were detached and endless or long,
 // so one still running at exit ran on into the program's teardown. Each now
@@ -283,7 +284,10 @@ static bool haveDefaultRoute() {
 // never touched from here. AND ONCE A MINUTE WHILE IT IS THERE, the same
 // heartbeat, so a server that goes while the console sits on Home is
 // noticed (the Offline chip, launches that stop asking it) without waiting
-// for somebody to need it.
+// for somebody to need it. THE TOKENS THIS CONSOLE IS DONE WITH go from here
+// too (tokenrevoke.h), at the start and every five seconds after: one that is
+// still used waits, and one RomM did not answer for is asked again in a
+// minute.
 void startReconnect(const std::string& address) {
     std::lock_guard<std::mutex> lk(gThreads);
     if (gStop.load() || gReconnect.joinable()) return;
@@ -292,9 +296,14 @@ void startReconnect(const std::string& address) {
         bool hadRoute = haveDefaultRoute();
         long long lastBeat = static_cast<long long>(std::time(nullptr));
         long long lastFill = lastBeat;
+        long long lastRevoke = 0, revokeEvery = 5;
         while (!gStop.load()) {
             if (!romm::serverAway()) {
                 const long long now = static_cast<long long>(std::time(nullptr));
+                if (now - lastRevoke >= revokeEvery) {
+                    lastRevoke = now;
+                    revokeEvery = tokenrevoke::sendOwed(address, &gStop) ? 5 : 60;
+                }
                 // What offline needs, again every quarter of an hour: a save
                 // made on another device since is the one a trip starts from.
                 if (now - lastFill >= 900) {
