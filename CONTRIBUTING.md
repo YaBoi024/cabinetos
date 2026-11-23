@@ -405,6 +405,17 @@ result and time. `--romm-race-test` and the tests that need a screen, a core
 or a server do not run; the script's header names them. Report only for
 its first week, like the checks below.
 
+**The self-tests under AddressSanitizer** (`memory-check.yml`, on a push to
+`testing` that changes the frontend, never on a pull request): the frontend
+built a second time with AddressSanitizer, which stops a program at the
+first byte it reads or writes where it should not and names the line, and
+the same self-tests run on it by `ci/run-self-tests.sh`. It runs beside the
+image build, so nothing waits for it, and a failure stops neither the image
+nor its promotion: read the run before a merge
+(`docs/decisions/2026-11-22-memory-check-on-testing-pushes.md`). Run it on
+any branch by hand with `gh workflow run memory-check.yml --ref <branch>`.
+Report only until 2026-11-30.
+
 **The unused code** (`ci/report-unused-code.sh`, the job's last step, on
 pull requests): every function, and every variable that can change, that
 nothing reachable from `main` uses, by file, in the run's summary. It comes
@@ -445,6 +456,22 @@ runs `checks.yml`, a few seconds each:
   Sunshine's. The paths spelled outside the client today are listed in the
   script (`KNOWN`), so editing one of those lines does not fail; moving one
   into the client takes it off the list.
+- **RomM API** (`ci/check-romm-api.py`): what the RomM client sends to RomM
+  and reads from its answers is written out in `ci/romm-api-uses.txt`, one
+  block a call, and held to RomM's own description of its API, in
+  `ci/romm-api.json` at the release the console is tested against: a call,
+  a setting in an address or a field RomM does not have, or answers as
+  another kind, fails, and so does a field the client's code spells that the
+  list does not have. It checks shapes, not what RomM does with them, and the
+  copy must be of the RomM version the console needs (`ROMM_NEEDED`). A pull
+  request that adds a field the client reads or sends adds its line to the
+  list; one that adds a call also takes the copy again. When the release the
+  console is tested against moves, take the copy again with
+  `ci/fetch-romm-api.sh <release>` (podman): its diff is what RomM changed in
+  the parts the client uses. `romm-api.yml` does the same against RomM's
+  newest release of that version, on the 1st of each month and on a pull
+  request that changes the version needed or the check. Report only until
+  2026-11-30.
 - **Doc paths** (`ci/check-doc-paths.py`): a `.md` file that names a file
   or folder of this repository that is not there fails, so a pull request
   that moves or deletes a file also puts right the docs that name it. It
@@ -769,6 +796,11 @@ here, not reworded; follow the link for the full text.
   that system's games for the thing changed (save chip and size, controller,
   file format, region) and prove each kind with a real game. Say which kinds
   were not covered.
+- **A new test is seen failing first (MMagTech, 2026-11-22).** Run every
+  test a pull request adds once with the code it checks broken on purpose
+  (the fix taken out, or the old rule put back), and see it fail on its own
+  check, not on a crash or a build error; then see it pass. Say in the pull
+  request what you broke. A test that has never failed proves nothing.
 
 ### Duties that come with some changes
 

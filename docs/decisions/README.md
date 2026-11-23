@@ -166,6 +166,8 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [when-the-downloads-are-cut](2026-11-12-when-the-downloads-are-cut.md): the ISO and the portable are cut again together after each month's base update, and at once for a fix to the installer, first run or privacy, each published by hand from the run that was checked.
 - [a-release-page-per-download](2026-11-13-a-release-page-per-download.md): each cut of the downloads gets a GitHub release page for the version the ISO installs, tagged at its image's commit, linking the SHA-256 rather than typing it.
 - [controller-list-on-report](2026-11-14-controller-list-on-report.md): the controller list is updated to the community's newest by hand, when a player reports a pad the console does not know, not on a schedule.
+- [romm-api-checked-against-a-copy](2026-11-22-romm-api-checked-against-a-copy.md): what the client sends and reads is a list, held on every pull request to a cut copy of RomM's own API description at the tested release, and each month to RomM's newest.
+- [memory-check-on-testing-pushes](2026-11-22-memory-check-on-testing-pushes.md): the self-tests run under AddressSanitizer on each push to testing, beside the image build, never on pull requests, with its library added in the job and not to the builder's recipe.
 
 ### How we work
 
