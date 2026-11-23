@@ -260,7 +260,7 @@ romm::Game game(int id, const char* name, const char* lastPlayed = "", int platf
     g.platformFsSlug = std::string(slug) + "-folder" + std::to_string(platformId);
     g.platformName = system;
     g.lastPlayed = lastPlayed;
-    g.coverPath = "/cover/" + std::to_string(id) + "?ts=1";
+    g.coverPath = "/art/" + std::to_string(id) + "?ts=1";
     g.coverLargePath = g.coverPath + "&big";
     return g;
 }
@@ -536,19 +536,19 @@ int test() {
         Library lib = fresh();
         LibraryRead r = again(first);
         r.recent[0].name = "Wed, renamed";
-        r.recent[0].coverPath = "/cover/11?ts=2";
+        r.recent[0].coverPath = "/art/11?ts=2";
         r.recent[0].manualPath = "manual.pdf";
         romm::Game a = game(21, "Fav A, renamed");
-        a.coverPath = "/cover/21?ts=2";
+        a.coverPath = "/art/21?ts=2";
         r.games = {a};
         const LibraryChanges c = putLibrary(lib, r, {});
         const Card& wed = lib.cards[static_cast<size_t>(cardOf(lib, 11))];
         const Card& fav = lib.cards[static_cast<size_t>(cardOf(lib, 21))];
-        check(wed.title == "Wed, renamed" && wed.cover == "/cover/11?ts=2" &&
+        check(wed.title == "Wed, renamed" && wed.cover == "/art/11?ts=2" &&
                   lib.games[static_cast<size_t>(cardOf(lib, 11))].manualPath == "manual.pdf" &&
                   fav.title == "Fav A, renamed",
               "a game on Home takes its new name, cover and manual, a favorite too");
-        check(wed.coverWas == "/cover/11?ts=1" && fav.coverWas == "/cover/21?ts=1" &&
+        check(wed.coverWas == "/art/11?ts=1" && fav.coverWas == "/art/21?ts=1" &&
                   wed.coverLargeWas.empty(),
               "and keeps the picture it had until the new one is in");
         check(c.said.size() == 1 && c.said[0] == "2 game(s) on Home changed", "said once, as two games");
@@ -622,15 +622,15 @@ int test() {
         t.cards = {cardOf(lib, 11)};
         t.readId = 5;
         t.fetched = t.total = 4;
-        lib.platformTiles[0].cover = "/cover/first?ts=1";
-        lib.tileCache[1].cover = "/cover/first?ts=1";
+        lib.platformTiles[0].cover = "/art/first?ts=1";
+        lib.tileCache[1].cover = "/art/first?ts=1";
         LibraryRead r = again(first);
         putLibrary(lib, r, {});
         const screens::Tile* now = tileOf(lib.collectionTiles, "Beat em ups");
         check(now->detail == "3 of 4" && now->cards.size() == 1 && now->readId == 5 && now->total == 4,
               "the line a collection learned stays while its count has not moved, its grid too");
-        check(tileOf(lib.platformTiles, "NES")->cover == "/cover/first?ts=1" &&
-                  lib.tileCache[1].cover == "/cover/first?ts=1",
+        check(tileOf(lib.platformTiles, "NES")->cover == "/art/first?ts=1" &&
+                  lib.tileCache[1].cover == "/art/first?ts=1",
               "a system keeps its cover");
         r.collections[1].romCount = 5;
         r.collections[1].coverPath = "/collection/2?ts=2";
@@ -654,7 +654,7 @@ int test() {
         r.collections[2].covers = {"/game/4?ts=5"};
         putLibrary(lib, r, {});
         check(tileOf(lib.collectionTiles, "Later")->cover == "/game/4?ts=5", "and takes another once it does not");
-        check(tileOf(lib.platformTiles, "NES")->cover == "/cover/first?ts=1" &&
+        check(tileOf(lib.platformTiles, "NES")->cover == "/art/first?ts=1" &&
                   lib.tileCache[1].cover.empty() && lib.tileCache[1].romCount == 6,
               "a system that changed keeps its cover on the screen, to be asked about at the next start");
     }
@@ -676,7 +676,7 @@ int test() {
         screens::Tile& t = lib.platformTiles[0];
         t.cards = {cardOf(lib, 11)};
         t.readId = 9;
-        t.cover = "/cover/arcade";
+        t.cover = "/art/arcade";
         LibraryRead more = again(r);
         more.platforms.push_back(platform(40, "cps2", "CPS2", 2));
         screens::LibraryScreen screen;
@@ -685,7 +685,7 @@ int test() {
         putLibrary(lib, more, {});
         check(tiles(lib.platformTiles) == "Arcade=5 games,NES=5 games,SNES=9 games" &&
                   lib.platformTiles[0].query == "platform_ids=40&platform_ids=45" &&
-                  lib.platformTiles[0].cover == "/cover/arcade",
+                  lib.platformTiles[0].cover == "/art/arcade",
               "a new arcade folder: the same Arcade tile, with its cover");
         check(lib.platformTiles[0].cards.empty() && lib.platformTiles[0].readId == 0,
               "its list, of the folders it named, is read again when it is opened");
