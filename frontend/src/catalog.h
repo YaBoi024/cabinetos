@@ -51,8 +51,8 @@ enum class Support {
     // wrong, the core simply has not been built yet.
     //
     // NOTHING ANSWERS THIS ON A HEALTHY CONSOLE, checked against the reference
-    // A9 2026-09-22: all 23 cores this table names are in
-    // /usr/lib/cabinetos/cores, 22 libretro plus PCSX2 as cabinetos-ps2.so.
+    // A9 2026-09-22, when every core the table then named was in
+    // /usr/lib/cabinetos/cores (the libretro cores, and PCSX2 as cabinetos-ps2.so).
     // GameCube is dolphin_libretro.so and IS a libretro core; PPSSPP is built
     // and PSP plays. An earlier version of this comment said otherwise on both
     // counts and was believed for a fortnight, which is the argument for
