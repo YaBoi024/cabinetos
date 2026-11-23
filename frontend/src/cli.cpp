@@ -34,6 +34,7 @@
 #include "selftests.h"
 #include "storage.h"
 #include "tilt.h"
+#include "tokenrevoke.h"
 #include "update.h"
 #include "vdualsense.h"
 #include "xboxhdd.h"
@@ -393,6 +394,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             return romm::raceTest(argv[i + 1], SDL_atoi(argv[i + 2]));
         } else if (SDL_strcmp(argv[i], "--romm-snapshots-test") == 0) {
             return romm::snapshotsTest();
+        } else if (SDL_strcmp(argv[i], "--token-revoke-test") == 0) {
+            return tokenrevoke::test();
         } else if (SDL_strcmp(argv[i], "--romm-channels") == 0 && i + 1 < argc) {
             channelsProbeId = SDL_atoi(argv[++i]);
             rommProbeMode = true;

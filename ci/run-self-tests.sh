@@ -78,6 +78,7 @@ TESTS=(
     --update-romm-test
     --game-events-test
     --romm-snapshots-test
+    --token-revoke-test
     --dualsense-test
 )
 

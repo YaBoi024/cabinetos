@@ -130,6 +130,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [another-apps-blank-card-is-no-save](2026-11-22-another-apps-blank-card-is-no-save.md): another app's save that RomM says holds none of the game's saves, such as a blank memory card, is no save: the console starts from its own, says nothing, and saves on top of it.
 - [another-apps-battery-fits-the-emulator](2026-11-22-another-apps-battery-fits-the-emulator.md): another app's battery save is used when it is no longer than the emulator's battery as the game starts, the rest left blank; a longer one is refused.
 - [other-apps-saves-outside-channels](2026-11-20-other-apps-saves-outside-channels.md): another app's save in no channel stays on RomM as it is; the console copies nothing into a channel.
+- [tokens-owed-a-revoke](2026-11-22-tokens-owed-a-revoke.md): a token the console is done with is owed a revoke on the disk and revokes itself once nothing uses it; Sign out gives each one try.
 - [channels-on-every-file](2026-11-20-channels-on-every-file.md): a game's channels are listed on every one of its files in one request, a push names its channel's own file, and RomM's file for new channels is used only for a new one.
 
 ### Screens and settings

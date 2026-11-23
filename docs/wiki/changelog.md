@@ -4,6 +4,16 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## Next
+
+- **Fixed:** your RomM server kept every sign-in your console ever had, so an
+  old one went on working after you paired again, removed someone or signed
+  out. The console now cancels it on RomM: the old one when you pair again, a
+  removed person's, and everyone's when you sign out. You do not have to pair
+  again. A sign-in from before this update is never cancelled by the console;
+  it stays under *Client API Tokens* in RomM's settings until you delete it
+  there. ([#545](https://github.com/MMagTech/cabinetos/issues/545))
+
 ## 2026.11.23 {#v2026-11-23}
 
 - **Fixed:** leaving a Switch game, most often a busy one such as Mario

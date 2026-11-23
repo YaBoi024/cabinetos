@@ -110,7 +110,12 @@ status here to Built.
   with Cancel focused. **Built, #58 ("Settings: remove an account"), in pull
   request #92 ("Settings: owner and PIN, remove an account; account
   switching fixed"); the sending is #194 ("Removing a person deletes their
-  folder, after sending what is owed").**
+  folder, after sending what is owed").** Their sign-in to RomM is ended
+  there too, once they are gone from the console: the token revokes itself
+  (#545, `tokenrevoke.h`). RomM being away or refusing stops nothing and
+  shows nothing; away, it is sent when RomM is back. A token paired before
+  the console kept RomM's number for it stays on RomM's own list of tokens
+  until it is removed there.
 - **RetroAchievements**, a sign-in per account, **opt-in** (#74, decided with
   MMagTech 2026-10-06). One row, "RetroAchievements", its value "Sign in" or
   the username. Pressing it asks for the username, then the password, on the
@@ -373,7 +378,9 @@ Decided with MMagTech 2026-09-26, from the things people will actually do.
   account does (#194); if something could not be sent it asks again, "Sign
   out?" / "Saves waiting to upload will be lost." Said, not counted
   (MMagTech, 2026-09-25). Uploads still in flight are waited for, 20 s at
-  most. Then everything tied to that server is
+  most. Then every account's token is revoked on RomM, one try each and
+  three seconds in all, whatever the server does (#545); and everything tied
+  to that server is
   cleared: kept and cached games on every drive plugged in, every account's
   saves, states and keeps on this console, its covers, the accounts, their
   tokens, the PIN and the address. Wi-Fi, controllers, BIOS and the console's

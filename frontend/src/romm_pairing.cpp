@@ -1,9 +1,10 @@
 // Reaching a RomM server and pairing with it: the address and its probe
 // (setAddress, looksLocal), what the heartbeat says (readHeartbeat: the
 // version, and whether the server has save channels), the token read back
-// from an account's file
-// (loadToken), the device flow and the scopes it asks for (beginPairing,
-// pollPairing), and who the token belongs to (fetchCurrentUser). Moved out of
+// from an account's file or handed over
+// (loadToken, useToken), the device flow and the scopes it asks for
+// (beginPairing, pollPairing), who the token belongs to (fetchCurrentUser),
+// and a token revoking itself (revokeOwnToken). Moved out of
 // romm.cpp in the restructure (#398).
 
 #include "romm.h"
@@ -37,7 +38,9 @@ namespace {
 // NOT ASKED FOR, deliberately: roms.write, platforms.write and firmware.write
 // (the console must never alter the library it is reading), users.*, tasks.run
 // and logs.read. The line is that this can change YOUR data and never THE
-// library.
+// library. Nor me.write, which mints tokens, approves pairings and edits the
+// profile: RomM 5.5 lets a token revoke itself without it, which is all the
+// console does to tokens (revokeOwnToken, #545).
 //
 // Two rounds of under-scoping got here. "Ask again when something needs it" is
 // right for genuinely occasional access and wrong for a requirement, and each
@@ -194,11 +197,11 @@ bool Client::loadToken(const std::string& path) {
     std::string t = jstr(root, "access_token");
     json_object_put(root);
     if (t.empty()) return false;
-    std::lock_guard<std::mutex> lock(mu_);
-    token_ = std::move(t);
-    deviceId_.clear();   // a device belongs to a token
+    setToken(std::move(t), 0);
     return true;
 }
+
+void Client::useToken(const std::string& token) { setToken(token, 0); }
 
 bool Client::beginPairing(Pairing* out, std::string* err) {
     json_object* req = json_object_new_object();
@@ -282,12 +285,23 @@ int Client::pollPairing(const Pairing& p, std::string* err) {
     json_object* root = json_tokener_parse(body.c_str());
     if (!root) { if (err) *err = "token response was not JSON"; return -1; }
     std::string t = jstr(root, "access_token");
+    const int id = static_cast<int>(jint(root, "id"));
     json_object_put(root);
     if (t.empty()) return 0;   // approved-but-empty should not happen; treat as pending
-    std::lock_guard<std::mutex> lock(mu_);
-    token_ = std::move(t);
-    deviceId_.clear();   // a device belongs to a token
+    setToken(std::move(t), id);
     return 1;
+}
+
+Client::Revoke Client::revokeOwnToken(int id, std::string* why) const {
+    std::string body;
+    long status = 0;
+    if (!sendJson("DELETE", "/api/client-tokens/" + std::to_string(id), "", &body, &status, why))
+        return Revoke::NoAnswer;
+    if (status >= 200 && status < 300) return Revoke::Done;
+    if (why) *why = "HTTP " + std::to_string(status);
+    if (status == 401 || status == 404) return Revoke::Gone;
+    if (status >= 400 && status < 500 && status != 408 && status != 429) return Revoke::Refused;
+    return Revoke::NoAnswer;
 }
 
 bool Client::fetchCurrentUser(User* out, std::string* err) {
