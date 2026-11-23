@@ -28,7 +28,8 @@ AND THE LIST AGAINST THE CODE, so the list cannot fall behind: every RomM path, 
 address and every field name that the client's files spell in a JSON read or write is in the list. It
 reads the patterns the client uses (jstr, jint, jobj, jbool, jstrs, json_object_object_get_ex,
 json_object_object_add, addStr, a setting in a string's address). A field spelled another way is not
-seen.
+seen, and a name counts wherever it stands in the list: that it is read from the right answer is the
+list's word, held to RomM's description call by call.
 
 AND THE COPY'S RELEASE: it must be a release of the RomM the console needs (ROMM_NEEDED in
 cabinetos.env), so moving that version stops here until the copy is taken again.
