@@ -15,12 +15,14 @@ source of truth for anything on RomM's data.
 ## Where things stand
 
 **2026-11-23.** The newest release is 2026.11.13.2. The last image with a
-change a player can see is 2026.11.23.3: #528, "Revoke the console's RomM
-token on re-pair, Remove account and Sign out (#545; waiting on RomM)", which
-closed #545 and carried #743, "Checks from RomM and Sigil: a new test is seen
-failing, a memory check, the RomM API check (#729)" and #739, "Fix the NoCore
-comment: Switch, PS3 and Vita now have emulators". Read the newest image from
-the registry, not from here. Before it, on 2026-11-22, four merges reached
+change a player can see is 2026.11.24: #744, "Home and the Library keep up
+with RomM without a restart (#730)", which closed #730. Read the newest image
+from the registry, not from here. Before it, the same day: #528, "Revoke the
+console's RomM token on re-pair, Remove account and Sign out (#545; waiting on
+RomM)" (2026.11.23.3), which closed #545 and carried #743, "Checks from RomM
+and Sigil: a new test is seen failing, a memory check, the RomM API check
+(#729)" and #739, "Fix the NoCore comment: Switch, PS3 and Vita now have
+emulators". On 2026-11-22, four merges reached
 `main`, each promoting its tested image: #722, "Save channels: the
 console's saves move to RomM's channels (#346, steps 2 to 12)" (2026.11.22.2,
 which closed #346 and carried #723, "LinkUp's interop check: the wrong
