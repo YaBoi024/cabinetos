@@ -30,18 +30,21 @@ bool App::haveResume() { return heroIndex >= 0 && !shelf.empty(); }
 bool App::haveFavorites() { return !favorites.empty(); }
 
 // A GAME JUST PLAYED GOES TO THE FRONT OF RECENT (#196), as Resume. Recent
-// is RomM's play history, fetched only at start and on an account switch,
-// so Forza stayed behind the night before's game until a restart (A9,
-// 2026-09-30) although RomM already had it first. Moved here instead of
-// refetched: no network, so it is right offline too, and it is what the
-// next fetch will say. Every system, built-in and separate alike.
-void App::playedJustNow(int romId) {
+// is RomM's play history, so Forza stayed behind the night before's game
+// until the next read of it (A9, 2026-09-30) although RomM already had it
+// first. Moved here instead of refetched: no network, so it is right offline
+// too, and it is what the next read will say. Every system, built-in and
+// separate alike. Remembered with when, for a read that comes before RomM has
+// its time, or for a game RomM is never told of (putLibrary, #730).
+void App::playedJustNow(int romId, const playtime::Session& played) {
     auto it = lib.byRomId.find(romId);
     if (it == lib.byRomId.end() || !catalog::playable(lib.games[it->second])) return;
     const int idx = it->second;
+    lib.playedHere[romId] = {played.endMs / 1000, played.playedMs >= playtime::kShortestMs};
     shelf.erase(std::remove(shelf.begin(), shelf.end(), idx), shelf.end());
     shelf.insert(shelf.begin(), idx);
-    if (shelf.size() > 16) shelf.resize(16);   // as many as fetchRecent asks for
+    if (shelf.size() > kRecentGames) shelf.resize(kRecentGames);
+    shelfGlide[RowRecent].stop();
     heroIndex = idx;
     heroPlatform = lib.games[idx].platformName;
 }
@@ -91,7 +94,7 @@ void App::homeFromTheStart() {
     shelfScroll[0].settle(0.0f);
     shelfScroll[1].settle(0.0f);
     scrollY.settle(0.0f);
-    for (int r = 0; r < 2; ++r) { slotFocus[r].clear(); slotPress[r].clear(); }
+    for (int r = 0; r < 2; ++r) { slotFocus[r].clear(); slotPress[r].clear(); shelfGlide[r].stop(); }
     if (cardAt(focusRow, focusSlot)) slotAnim(slotFocus, focusRow, focusSlot).settle(1.0f);
 }
 
@@ -124,6 +127,12 @@ void App::activateHome() {
     //
     // Home promises one action from cold to playing, and this is it.
     if (haveResume() && focusRow == RowRecent && focusSlot == 0) {
+        // ANOTHER GAME JUST TOOK ITS PLACE (#730): a press meant for the one
+        // that was there starts nothing.
+        if (clockSeconds() < resumeHeldUntil) {
+            sound::play(sound::Cue::Edge);
+            return;
+        }
         if (refuseStartWithoutController(cards[heroIndex].id)) return;
         sound::play(sound::Cue::Activate);   // #389
         // Set only when the press counts (#484): refused because another
@@ -400,17 +409,38 @@ void App::drawHome(float dt, float sc) {
             return kContentInset + static_cast<float>(slot) * pitch - scroll;
         };
 
+        auto drawAt = [&](const Card& card, float x, float y, float w, float h, float scale,
+                          float f, float alpha) {
+            const float whole = renderer.contentAlpha();
+            renderer.setContentAlpha(whole * alpha);
+            screens::drawCover(coverCtx, card, x, y, w, h, kCoverRadius * scale, f, /*rim=*/true);
+            renderer.setContentAlpha(whole);
+        };
+        // What left the row as RomM changed fades out where it was, under what
+        // moves over it (glide.h).
+        for (const int k : shelfGlide[rowId].leaving()) {
+            const ShelfWas& gone = shelfWas[rowId][static_cast<size_t>(k)];
+            const float scale = 1.0f + gone.lift * (kFocusScale - 1.0f);
+            const float w = kShelfCoverWidth * scale, h = kShelfCoverHeight * scale;
+            drawAt(cards[static_cast<size_t>(gone.card)],
+                   gone.x - scroll - (w - kShelfCoverWidth) * 0.5f,
+                   shelfTop - (h - kShelfCoverHeight) * 0.5f, w, h, scale, gone.lift,
+                   shelfGlide[rowId].leavingAlpha());
+        }
+
     // Unfocused cards first, so a focused card's shadow and rim land on top
-    // of its neighbours rather than under them.
-    for (int pass = 0; pass < 2; ++pass) {
+    // of its neighbours rather than under them; and under those, the ones
+    // coming onto the row, which the others slide off.
+    for (int pass = 0; pass < 3; ++pass) {
         for (size_t slot = 0; slot < count; ++slot) {
             const size_t i = at(slot);
             const bool isFocused = rowFocused && (static_cast<int>(slot) == focusSlot);
-            if ((pass == 0) == isFocused) continue;
+            const glide::Look moving = shelfGlide[rowId].look(slot);
+            if (pass != (isFocused ? 2 : moving.coming ? 0 : 1)) continue;
 
-            const float cullX = cardBaseX(slot);
+            const float cullX = cardBaseX(slot) + moving.dx;
             if (cullX + shelfCoverWidth() < -kCullMargin) continue;
-            if (cullX > ui::kCanvasWidth + kCullMargin) break;
+            if (cullX > ui::kCanvasWidth + kCullMargin) continue;
 
             const Card& card = cards[i];
             // THE LIFT FOLLOWS FOCUS EVERY FRAME, as the grid's does, so
@@ -440,8 +470,7 @@ void App::drawHome(float dt, float sc) {
             // THE GRID'S COVER, NOT A COPY OF IT. Home had its own, which
             // drifted: no grey for a game that cannot be played here, and a
             // kept dot that grew with focus (#398, HOME-07).
-            screens::drawCover(coverCtx, card, x, y, w, h, kCoverRadius * scale, f,
-                               /*rim=*/true);
+            drawAt(card, x, y, w, h, scale, f, moving.alpha);
 
             // No caption under the card: the focused card's title is in
             // the shelf header.

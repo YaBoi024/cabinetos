@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "glide.h"
 #include "screens.h"
 #include "tapspots.h"
 #include "touchscroll.h"
@@ -39,7 +40,16 @@ struct Tile {
     // The Arcade tile: its grid's line names each game's folder (#611).
     bool namesFolder = false;
     std::string detail;       // "141 games", or why it cannot be played
+    // The count `detail` was written from, RomM's less the games that show
+    // nowhere. A line a grid corrected ("194 of 204") stays while it has not
+    // moved (putLibrary).
+    int counted = 0;
     std::string cover;        // a cover path for the tile's artwork
+    // The cover that one replaced, drawn until the new one is in, as
+    // design::Card's; and whether RomM has been asked for a platform's since
+    // the platform last changed (App::startCoverFill).
+    std::string coverWas;
+    bool coverAsked = false;
     bool enterable = true;
     // The heading the tile sits under, empty for none. Collections only: a
     // person's own come first with none, then each other person's shared ones
@@ -64,9 +74,20 @@ struct Tile {
     design::Animated focus;
 };
 
+// The same tile in two lists: the same query, and the Arcade tile always
+// itself, whose query names its folders and moves as RomM gains one.
+bool sameTile(const Tile& a, const Tile& b);
+
 class LibraryScreen {
 public:
     void build(std::vector<Tile> platforms, std::vector<Tile> collections);
+    // The same screen with RomM's newer tiles (#730): focus, its lift and the
+    // remembered tile follow the tile they were on (sameTile). One that is
+    // gone gives focus to the nearest, and an empty list to the switcher.
+    // `seen`: it is on screen, and its tiles glide to their new places.
+    void refresh(std::vector<Tile> platforms, std::vector<Tile> collections, bool seen);
+    // Which visible tile focus is on, or -1 on the switcher.
+    int focusedTile() const { return row_ > 0 ? slot_ : -1; }
 
     // LinkUp's invite picks from the platforms alone, because a collection can
     // hold the handheld systems it does not cover.
@@ -139,8 +160,9 @@ public:
     //
     // On the switcher row it answers the first tile rather than nothing: the
     // grid below is still what the screen is about, and a backdrop that blanked
-    // whenever focus touched a pill would flicker on the way past.
-    std::string focusedCover() const;
+    // whenever focus touched a pill would flicker on the way past. A cover
+    // that changed is the old one until the new one is in.
+    std::string focusedCover(ui::ImageCache& images) const;
 
 private:
     // Where every tile of the visible tab sits, rows and headings. Rows are
@@ -175,6 +197,21 @@ private:
     design::Animated appear_;
     design::Animated pillFocus_[2];
     design::Animated scroll_;
+
+    // ---- The tiles gliding to what RomM's changes made of them (glide.h) ----
+    // Where the tab last drawn had each tile and each heading, from the top of
+    // what scrolls; and, of a list that changed, the tiles and headings it had
+    // and where each one now was among them, for the draw that starts it.
+    struct Glided {
+        std::vector<glide::Point> tiles, heads;
+        std::vector<std::string> headings;
+    };
+    Glided drawn_, was_;
+    int drawnTab_ = -1;
+    std::vector<Tile> wasTiles_;
+    std::vector<int> from_;
+    bool glideNext_ = false;
+    glide::Glide glide_, headGlide_;
 };
 
 }  // namespace screens

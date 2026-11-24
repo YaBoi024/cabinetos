@@ -24,9 +24,10 @@
 //
 // ONE LOCK FOR BOTH FILES (#405): the frame thread presses, the uploader's
 // worker sends, and loadLibrary rewrites the list on the online reload's
-// worker as well as on the frame thread. Each change is made whole under the
-// lock, so two writers never share the `.part` file, and a press during a
-// reload is not written over by the list the reload read before it.
+// worker as well as on the frame thread, where a refresh does too (#730).
+// Each change is made whole under the lock, so two writers never share the
+// `.part` file, and a press during a reload is not written over by the list
+// the reload read before it.
 static std::mutex gFavMutex;
 
 // PEOPLE RomM WILL NOT MAKE A FAVOURITES COLLECTION FOR (#474), by folder,
@@ -112,9 +113,8 @@ void pressFavorite(const storage::User& u, int romId, bool on) {
 //
 // What is owed is read here, under the lock, rather than when the caller
 // fetched: a press made since then wins (#405).
-std::vector<int> keepFavorites(const storage::User& u, const std::vector<int>& onServer) {
-    std::lock_guard<std::mutex> lock(gFavMutex);
-    const std::vector<int> old = listLocked(u);
+static std::vector<int> orderLocked(const storage::User& u, const std::vector<int>& old,
+                                    const std::vector<int>& onServer) {
     const std::map<int, bool> owed = favOwedLocked(u);
     auto has = [](const std::vector<int>& v, int id) {
         return std::find(v.begin(), v.end(), id) != v.end();
@@ -131,8 +131,20 @@ std::vector<int> keepFavorites(const storage::User& u, const std::vector<int>& o
         if (!has(old, id) && wanted(id) && !has(ids, id)) ids.push_back(id);
     for (int id : old)
         if (wanted(id) && !has(ids, id)) ids.push_back(id);
-    putListLocked(u, ids);
     return ids;
+}
+
+std::vector<int> keepFavorites(const storage::User& u, const std::vector<int>& onServer) {
+    std::lock_guard<std::mutex> lock(gFavMutex);
+    const std::vector<int> old = listLocked(u);
+    const std::vector<int> ids = orderLocked(u, old, onServer);
+    if (ids != old) putListLocked(u, ids);
+    return ids;
+}
+
+std::vector<int> favoriteOrder(const storage::User& u, const std::vector<int>& onServer) {
+    std::lock_guard<std::mutex> lock(gFavMutex);
+    return orderLocked(u, listLocked(u), onServer);
 }
 
 // Every favourite `who` owes, sent; each stops being owed once the server has
@@ -190,6 +202,7 @@ void App::toggleFavorite(const screens::Result& res) {
     // or Favorites is now the only one (nothing played yet).
     slotFocus[RowFavorites].clear();
     slotPress[RowFavorites].clear();
+    shelfGlide[RowFavorites].stop();
     if (focusRow == RowFavorites || !rowExists(focusRow)) {
         if (!rowExists(focusRow)) { focusRow = homeTopRow(); focusSlot = 0; }
         else focusSlot = std::clamp(focusSlot, 0, static_cast<int>(favorites.size()) - 1);
@@ -199,5 +212,6 @@ void App::toggleFavorite(const screens::Result& res) {
         pressFavorite(who, romId, on);
         uploader.sendFavorites();
     }
+    libraryRefresh.hearts[romId] = on;   // it wins over a read already out
     std::fprintf(stderr, "[favorite] %d %s\n", romId, on ? "on" : "off");
 }

@@ -16,6 +16,7 @@ using namespace design;   // NOLINT: the design system's names (design.h, motion
 // platforms stayed bare colour until each was opened. MMagTech, on the A9,
 // 2026-09-24. Any fill still running for the last account is stopped and
 // its results dropped first, so no cover lands on the wrong person's tile.
+// And by a refresh that brought a system with none (fillNewCovers, #730).
 void App::startCoverFill() {
     coverFill.quit.store(true);
     for (std::thread& w : coverFill.workers)
@@ -39,7 +40,8 @@ void App::startCoverFill() {
     const std::map<int, covercache::Tile> saved = covercache::loadTiles();
     int reused = 0;
     for (screens::Tile& t : platformTiles) {
-        if (!t.enterable || !t.cover.empty()) continue;
+        if (!t.enterable || !t.cover.empty() || t.coverAsked) continue;
+        t.coverAsked = true;
         auto mine = lib.tileCache.find(t.id);
         auto was = saved.find(t.id);
         if (mine != lib.tileCache.end() && was != saved.end() &&
@@ -69,25 +71,40 @@ void App::startCoverFill() {
     // four at a time is about a quarter of that, which is the difference
     // between tiles that fill in and tiles you watch filling in.
     const unsigned kWorkers = 4;
+    coverFill.working.store(static_cast<int>(kWorkers));
     for (unsigned w = 0; w < kWorkers; ++w) {
         coverFill.workers.emplace_back([this]() {
             for (;;) {
-                if (coverFill.quit.load()) return;
+                if (coverFill.quit.load()) break;
                 const size_t i = coverFill.next.fetch_add(1);
-                if (i >= coverFill.want.size()) return;
+                if (i >= coverFill.want.size()) break;
                 std::vector<romm::Game> one;
                 std::string err;
                 // The tile's own query, so the Arcade tile's cover is the
                 // first among every arcade folder's games (#611).
-                if (!liveClient.fetchRoms(coverFill.want[i].second, 1, &one, &err) ||
-                    one.empty())
-                    continue;
-                if (one[0].coverPath.empty()) continue;
+                const bool ok = liveClient.fetchRoms(coverFill.want[i].second, 1, &one, &err);
+                if (ok && (one.empty() || one[0].coverPath.empty())) continue;
+                // One RomM did not answer for goes back with no cover, to be
+                // asked for again (drainCovers).
                 std::lock_guard<std::mutex> lk(coverFill.m);
-                coverFill.done.emplace_back(coverFill.want[i].first, one[0].coverPath);
+                coverFill.done.emplace_back(coverFill.want[i].first,
+                                            ok ? one[0].coverPath : std::string());
             }
+            --coverFill.working;
         });
     }
+}
+
+// The covers of systems that came since (#730): asked for only where a tile
+// has none and RomM has not been asked since the platform changed, and never
+// while the last fill is out, which starting another would wait for.
+void App::fillNewCovers() {
+    if (coverFill.working.load() > 0) return;
+    for (const screens::Tile& t : platformTiles)
+        if (t.enterable && t.cover.empty() && !t.coverAsked) {
+            startCoverFill();
+            return;
+        }
 }
 
 // Covers that arrived behind Home. Applied here because this is
@@ -102,12 +119,16 @@ void App::drainCovers() {
         for (const auto& [id, cover] : arrived) {
             for (screens::Tile& t : platformTiles) {
                 if (t.id != id) continue;
+                if (cover.empty()) {
+                    t.coverAsked = false;
+                    break;
+                }
                 if (t.cover.empty()) t.cover = cover;
                 libraryScreen.learnedTile(t.query, "", cover);
                 break;
             }
             auto it = lib.tileCache.find(id);
-            if (it != lib.tileCache.end()) it->second.cover = cover;
+            if (!cover.empty() && it != lib.tileCache.end()) it->second.cover = cover;
         }
         // Written when the last one lands rather than per cover: this
         // is thirty-six short lines and the next boot is what reads it.

@@ -74,6 +74,9 @@ Event poll();
 // Let the shutdown or sleep proceed. Taken again automatically on waking.
 void releaseDelay();
 
+// Seconds since the machine started, the time it slept included.
+double upSeconds();
+
 // True for idle::kWakeSettleSeconds after the machine comes back from a sleep.
 // The press that woke it reaches us as an ordinary power-key press, and
 // without this the console would wake straight into its own Power menu; no

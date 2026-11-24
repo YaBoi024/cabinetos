@@ -110,6 +110,9 @@ bool parseGame(json_object* o, Game* g) {
     g->revision = jstr(o, "revision");
     g->tags = jstrs(o, "tags");
     g->tagLabel = tagLabel(*g);
+    g->updatedAt = jstr(o, "updated_at");
+    if (json_object* mine = nullptr; json_object_object_get_ex(o, "rom_user", &mine))
+        g->lastPlayed = jstr(mine, "last_played");
     return true;
 }
 
@@ -232,6 +235,13 @@ static bool parseCollections(const std::string& body, bool smart,
         json_object* fav = nullptr;
         if (json_object_object_get_ex(o, "is_favorite", &fav) && fav)
             c.isFavorite = json_object_get_boolean(fav);
+        c.updatedAt = jstr(o, "updated_at");
+        json_object* ids = nullptr;
+        if (c.isFavorite && json_object_object_get_ex(o, "rom_ids", &ids) &&
+            json_object_get_type(ids) == json_type_array) {
+            for (size_t k = 0, m = json_object_array_length(ids); k < m; ++k)
+                c.romIds.push_back(json_object_get_int(json_object_array_get_idx(ids, k)));
+        }
 
         // `path_cover_small` is null for a collection the person never gave
         // art to, which is the common case; `path_covers_small` is RomM's
@@ -239,14 +249,8 @@ static bool parseCollections(const std::string& body, bool smart,
         // real game. Either way the tile gets a picture rather than a hole.
         c.coverPath = jstr(o, "path_cover_small");
         if (c.coverPath.empty()) {
-            json_object* covers = nullptr;
-            if (json_object_object_get_ex(o, "path_covers_small", &covers) &&
-                json_object_get_type(covers) == json_type_array &&
-                json_object_array_length(covers) > 0) {
-                const char* s =
-                    json_object_get_string(json_object_array_get_idx(covers, 0));
-                if (s) c.coverPath = s;
-            }
+            c.covers = jstrs(o, "path_covers_small");
+            if (!c.covers.empty()) c.coverPath = c.covers.front();
         }
         if (c.id != 0) out->push_back(std::move(c));
     }
@@ -561,8 +565,11 @@ std::string Client::romFilePath(int romId, const RomFile& f) {
            "?file_ids=" + std::to_string(f.id);
 }
 
-bool Client::fetchFavorites(int limit, std::vector<Game>* out, std::string* err) {
-    return fetchFiltered("&favorite=true", limit, out, err);
+bool Client::fetchFavorites(int limit, std::vector<Game>* out, std::string* err,
+                            const std::string& since) {
+    std::string filter = "&favorite=true";
+    if (!since.empty()) filter += "&updated_after=" + encodeQueryValue(since);
+    return fetchFiltered(filter, limit, out, err);
 }
 
 bool Client::fetchRecent(int limit, std::vector<Game>* out, std::string* err) {
@@ -570,7 +577,7 @@ bool Client::fetchRecent(int limit, std::vector<Game>* out, std::string* err) {
                          limit, out, err);
 }
 
-bool Client::fetchFiltered(const char* filter, int limit, std::vector<Game>* out,
+bool Client::fetchFiltered(const std::string& filter, int limit, std::vector<Game>* out,
                            std::string* err) {
     out->clear();
     const std::string path = "/api/roms?limit=" + std::to_string(limit) + filter + kLeanRoms;

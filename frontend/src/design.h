@@ -158,6 +158,9 @@ struct HeldRepeat {
 // in the capsule long enough to be read before the next one arrives.
 constexpr float kLetterRepeat = 0.280f;
 constexpr float kPressDuration = 0.120f;
+// A row or a grid gliding to what RomM's changes made of it (glide.h, #730):
+// slow enough to be seen to move, ease-in-out.
+constexpr float kGlideDuration = 0.450f;
 
 // SELECTION IS NOT FOCUS, and both are visible at once. A selected switcher
 // pill is tinted white 35%; a focused one is tinted white 25% and scaled. A

@@ -61,6 +61,7 @@ TESTS=(
     --arcade-settings-test
     --arcade-match-test
     --arcade-tile-test
+    --library-refresh-test
     --screen-view-test
     --controls-test
     --netblock-test

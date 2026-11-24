@@ -56,12 +56,14 @@
 #include "drives.h"
 #include "files.h"
 #include "gameevents.h"
+#include "glide.h"
 #include "grid.h"
 #include "idle.h"
 #include "image.h"
 #include "job.h"
 #include "keyboard.h"
 #include "levelbar.h"
+#include "libraryrefresh.h"
 #include "libraryscreen.h"
 struct json_object;
 
@@ -585,7 +587,7 @@ struct App {
     size_t shelfSlots();
     bool haveResume();
     bool haveFavorites();
-    void playedJustNow(int romId);
+    void playedJustNow(int romId, const playtime::Session& played);
     bool homeEmpty();
     size_t rowSlots(int row);
     bool rowExists(int row);
@@ -598,6 +600,15 @@ struct App {
     // and one press per (row, slot), grown as a row is drawn.
     std::vector<design::Animated> slotFocus[2], slotPress[2];
     design::Animated& slotAnim(std::vector<design::Animated>* v, int row, int slot);
+    // Home's rows gliding to what RomM's changes made of them (glide.h, #730),
+    // and what each row was as they came: the card, its place from the row's
+    // start, and its lift.
+    struct ShelfWas {
+        int card = -1;
+        float x = 0.0f, lift = 0.0f;
+    };
+    glide::Glide shelfGlide[2];
+    std::vector<ShelfWas> shelfWas[2];
 
     // RESUME-FIRST, and it is now one rule rather than a separate object:
     // Home opens on the first card of Recent, which is the most recently played
@@ -833,10 +844,12 @@ struct App {
         std::vector<std::pair<int, std::string>> want;   // tile id, its query
         std::atomic<size_t> next{0};
         std::atomic<bool> quit{false};
+        std::atomic<int> working{0};   // how many of the workers have not ended
         std::vector<std::thread> workers;
     };
     CoverFill coverFill;
     void startCoverFill();
+    void fillNewCovers();
     // THE REST OF A BIG GRID, BEHIND THE FIRST PAGE.
     //
     // A grid is proportional to its own platform — about 1 ms a game — so the
@@ -1053,6 +1066,30 @@ struct App {
         ~OnlineLoad() { if (th.joinable()) th.join(); }
     };
     OnlineLoad onlineLoad;
+    // HOME AND THE LIBRARY KEEPING UP WITH RomM (#730, libraryrefresh.h): when
+    // to read, the one read out, and the answer waiting for a moment nothing
+    // is in front of the library (libraryMayChange).
+    struct LibraryRefresh {
+        libraryrefresh::When when;
+        std::atomic<bool> stop{false};   // before the job, whose client reads it
+        cab::Job<LibraryRead> job;
+        bool out = false;                // one is asked for and not yet taken
+        bool dropped = false;            // and nobody wants it any more
+        bool askedMeanwhile = false;     // and another was asked for while it was
+        int forUser = 0;                 // whose it is
+        // Hearts not yet on RomM as it was asked or pressed since, and the
+        // games whose time RomM had by then (LibraryRead).
+        std::map<int, bool> hearts;
+        std::map<int, int64_t> settled;
+        std::optional<LibraryRead> held;
+        double heldAt = 0.0;
+        std::string failing;             // what did not come last time (said once)
+        double inputSeen = 0.0;          // idleWatch's last press, as last looked at
+    };
+    LibraryRefresh libraryRefresh;
+    // Until when A does nothing on Home's first cover, another game having
+    // just taken its place (clockSeconds).
+    double resumeHeldUntil = 0.0;
     float owedClock = 0.0f;   // seconds since the last try at what is owed
     StateLoad stateLoad;
     MenuNotice menuNotice;
@@ -2630,6 +2667,16 @@ struct App {
     // offline_sync.cpp
     void retryOwedUploads(float dt);
     void followServer(float dt);
+    // libraryrefresh.cpp
+    void followLibrary();
+    void startLibraryRead();
+    void dropLibraryRead();
+    void libraryLoaded();
+    bool libraryMayChange();
+    bool newCoversIn(const LibraryRead& read);
+    void takeLibraryRead(LibraryRead read);
+    void keepHomePlace(const std::vector<int>& recentWas, const std::vector<int>& favoritesWas);
+    void glideRow(int row, const std::vector<int>& before, const std::vector<int>& now);
     // notice.cpp
     void drawNotice(float sc);
     // idle.cpp

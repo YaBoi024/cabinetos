@@ -37,6 +37,11 @@ struct Card {
     // game the server has no art for, the two are the same string.
     std::string cover;
     std::string coverLarge;
+    // The covers those two replaced, while RomM changes one with the console
+    // on: drawn until the new one is in (screens::drawCover), so a changed
+    // cover never shows its colour on the way (#730). Empty for none.
+    std::string coverWas;
+    std::string coverLargeWas;
     // What it runs on, for the one line under a shelf heading that names the
     // focused game. Titles collide across platforms — "Altered Beast" is a Game
     // & Watch entry AND a Genesis one — so the name alone is not an answer.

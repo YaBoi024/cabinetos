@@ -59,7 +59,7 @@ void App::finishExit() {
         playedMs = played.playedMs;
         playtime::close(storage::currentUser(), played);
         uploader.sendPlay();
-        playedJustNow(session.romId);
+        playedJustNow(session.romId, played);
     }
     gameEventEnded(playedMs);
     syncSave(session);

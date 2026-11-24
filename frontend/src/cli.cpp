@@ -381,6 +381,8 @@ std::optional<int> App::parseCommandLine(int argc, char** argv) {
             return samenames::test();
         } else if (SDL_strcmp(argv[i], "--arcade-tile-test") == 0) {
             return arcadeTileTest();
+        } else if (SDL_strcmp(argv[i], "--library-refresh-test") == 0) {
+            return libraryrefresh::test();
         } else if (SDL_strcmp(argv[i], "--same-names") == 0) {
             sameNamesMode = true;
         } else if (SDL_strcmp(argv[i], "--romm-probe") == 0) {
