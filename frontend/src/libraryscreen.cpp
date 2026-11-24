@@ -39,6 +39,60 @@ void LibraryScreen::setSessionLine(std::string line) {
 void LibraryScreen::build(std::vector<Tile> platforms, std::vector<Tile> collections) {
     platforms_ = std::move(platforms);
     collections_ = std::move(collections);
+    glideNext_ = false;
+    glide_.stop();
+    headGlide_.stop();
+}
+
+bool sameTile(const Tile& a, const Tile& b) {
+    return a.namesFolder || b.namesFolder ? a.namesFolder && b.namesFolder : a.query == b.query;
+}
+
+void LibraryScreen::refresh(std::vector<Tile> platforms, std::vector<Tile> collections, bool seen) {
+    auto find = [](const std::vector<Tile>& in, const Tile& t) {
+        for (size_t i = 0; i < in.size(); ++i)
+            if (sameTile(in[i], t)) return static_cast<int>(i);
+        return -1;
+    };
+    const std::vector<Tile>& shown = tab_ == 0 ? platforms_ : collections_;
+    const std::vector<Tile>& next = tab_ == 0 ? platforms : collections;
+    const int at = row_ > 0 ? slot_ : rememberedTileSlot_;
+    int to = -1;
+    if (at >= 0 && at < static_cast<int>(shown.size())) to = find(next, shown[static_cast<size_t>(at)]);
+    const bool gone = to < 0;
+    if (gone) to = std::clamp(at, 0, std::max(0, static_cast<int>(next.size()) - 1));
+    for (Tile& t : platforms)
+        if (const int i = find(platforms_, t); i >= 0) t.focus = platforms_[static_cast<size_t>(i)].focus;
+    for (Tile& t : collections)
+        if (const int i = find(collections_, t); i >= 0) t.focus = collections_[static_cast<size_t>(i)].focus;
+    // Glided only from a list that was on screen, and only when what is in it
+    // or its order changed: a count or a name changes where it is.
+    std::vector<int> from;
+    bool moved = next.size() != shown.size();
+    for (size_t i = 0; i < next.size(); ++i) {
+        from.push_back(find(shown, next[i]));
+        moved = moved || from.back() != static_cast<int>(i) ||
+                next[i].group != shown[static_cast<size_t>(from.back())].group;
+    }
+    if (seen && moved && drawnTab_ == tab_ && drawn_.tiles.size() == shown.size()) {
+        was_ = drawn_;
+        from_ = std::move(from);
+        wasTiles_ = shown;
+        glideNext_ = true;
+    }
+    platforms_ = std::move(platforms);
+    collections_ = std::move(collections);
+    auto& tiles = tab_ == 0 ? platforms_ : collections_;
+    rememberedTileSlot_ = to;
+    if (row_ == 0) return;
+    slot_ = to;
+    if (tiles.empty()) {
+        row_ = 0;
+        slot_ = tab_;
+        pillFocus_[slot_].retarget(1.0f, design::kFocusDuration);
+    } else if (gone) {
+        tiles[static_cast<size_t>(slot_)].focus.retarget(1.0f, design::kFocusDuration);
+    }
 }
 
 void LibraryScreen::learnedTile(const std::string& query, const std::string& detail,
@@ -73,12 +127,12 @@ void LibraryScreen::enter() {
     pillFocus_[0].settle(1.0f);
 }
 
-std::string LibraryScreen::focusedCover() const {
+std::string LibraryScreen::focusedCover(ui::ImageCache& images) const {
     const auto& tiles = visible();
     if (tiles.empty()) return {};
     const int i = (row_ == 0) ? 0 : slot_;
     if (i < 0 || i >= static_cast<int>(tiles.size())) return {};
-    return tiles[i].cover;
+    return coverInHand(images, tiles[i].cover, tiles[i].coverWas);
 }
 
 void LibraryScreen::focusTile(int index) {
@@ -141,6 +195,9 @@ void LibraryScreen::tick(float dt) {
     appear_.tick(dt);
     for (auto& p : pillFocus_) p.tick(dt);
     scroll_.tick(dt);
+    glide_.tick(dt);
+    headGlide_.tick(dt);
+    if (!glideNext_ && !glide_.going()) wasTiles_.clear();
     for (auto& t : platforms_) t.focus.tick(dt);
     for (auto& t : collections_) t.focus.tick(dt);
 }
@@ -340,112 +397,155 @@ void LibraryScreen::draw(Ctx& c) {
         return;
     }
 
-    // The groups' headings: Title 3 on the margin, as Home's shelves.
+    // Where everything is, whatever it has scrolled to; a list that changed
+    // glides there from where it was.
+    drawnTab_ = tab_;
+    drawn_ = {};
+    for (size_t i = 0; i < tiles.size(); ++i)
+        drawn_.tiles.push_back({design::kLibraryInset + static_cast<float>(L.colOf[i]) *
+                                                            (tw + design::kTileSpacing),
+                                gridTop + L.rowY[static_cast<size_t>(L.rowOf[i])]});
     for (const auto& [hy, text] : L.headings) {
-        const float top = gridTop + hy - scroll;
-        if (top + headingH < 0.0f || top > ui::kCanvasHeight) continue;
+        drawn_.heads.push_back({design::kLibraryInset, gridTop + hy});
+        drawn_.headings.push_back(text);
+    }
+    if (glideNext_) {
+        glideNext_ = false;
+        glide_.start(from_, was_.tiles, drawn_.tiles);
+        std::vector<int> headFrom;
+        for (const std::string& h : drawn_.headings) {
+            const auto it = std::find(was_.headings.begin(), was_.headings.end(), h);
+            headFrom.push_back(it == was_.headings.end() ? -1
+                                                         : static_cast<int>(it - was_.headings.begin()));
+        }
+        headGlide_.start(headFrom, was_.heads, drawn_.heads);
+    }
+
+    const float whole = c.r.contentAlpha();
+    // The groups' headings: Title 3 on the margin, as Home's shelves.
+    auto drawHeading = [&](const std::string& text, float top, float alpha) {
+        if (top + headingH < 0.0f || top > ui::kCanvasHeight) return;
         c.text.draw(c.r, c.text.truncate(text, ui::TextStyle::Title3, c.sc,
                                          ui::kCanvasWidth - design::kLibraryInset * 2.0f),
                     design::kLibraryInset, top + c.text.ascent(ui::TextStyle::Title3, c.sc),
-                    ui::TextStyle::Title3, ui::Color::white(1.0f), c.sc);
+                    ui::TextStyle::Title3, ui::Color::white(alpha), c.sc);
+    };
+    for (size_t i = 0; i < drawn_.headings.size(); ++i) {
+        const glide::Look moving = headGlide_.look(i);
+        drawHeading(drawn_.headings[i], drawn_.heads[i].y + moving.dy - scroll, moving.alpha);
     }
+    for (const int k : headGlide_.leaving())
+        drawHeading(was_.headings[static_cast<size_t>(k)],
+                    was_.heads[static_cast<size_t>(k)].y - scroll, headGlide_.leavingAlpha());
 
+    // One tile, at its place on the screen.
+    auto drawTile = [&](const Tile& t, float bx, float by) {
+        const float f = t.focus.value();
+        const float s = 1.0f + f * (design::kFocusScale - 1.0f);
+        const float w = tw * s, h = design::kTileHeight * s;
+        const float x = bx - (w - tw) * 0.5f;
+        const float y = by - (h - design::kTileHeight) * 0.5f;
+
+        // The tile's ground: the one solid panel colour in the design
+        // system. Dimmed when the platform cannot be played, which is the
+        // difference a person has to be able to see from a sofa.
+        ui::Rect plate{x, y, w, h, design::kTileRadius,
+                       t.enterable ? look::surface()
+                                   : ui::Color::white(0.06f)};
+        // NO RIM: a platform tile is a composite element, art mixed with
+        // its own text, and a rectangle drawn round it crosses the text.
+        applyArtworkFocus(plate, f, /*rim=*/false);
+        c.r.draw(plate);
+
+        // The cover, right-hand side, inset by the tile's padding. A cover
+        // thumbnail inside another element takes the 8pt radius.
+        const float pad = design::kTilePadding * s;
+        // SMALLER THAN THE TILE IS TALL, and the width it gives back goes to
+        // the label. A thumbnail filling the full height left 227pt for a
+        // name, which is less than "Sega Master" needs at Title 3 — so the
+        // artwork was winning an argument against the thing the tile is
+        // actually for. A tile with no artwork at all gives the label the
+        // whole width, rather than reserving a column for a picture that
+        // does not exist: that is the unplayable ones, which have the most
+        // to say and had the least room to say it in.
+        const float artH = t.cover.empty() ? 0.0f : design::kTileArtHeight * s;
+        const float artW = artH * 0.75f;      // 3:4
+        const float artX = x + w - pad - artW;
+        auto drawArt = [&](const ui::Image& img) {
+            // The blurred echo behind everything, so the tile is the art's
+            // own colours rather than a flat panel. Clipped to the tile.
+            if (img.ready) {
+                c.r.drawTextured(x, y, w, h, img.texture, 0, 0, 1, 1,
+                                 ui::Color{1, 1, 1, 0.35f * img.fade}, false,
+                                 design::kBackdropBlur, x, y, w, h,
+                                 design::kTileRadius);
+            }
+            // Centred against the tile rather than pinned to the padding,
+            // now that it no longer spans the full height.
+            ui::drawImage(c.r, img, artX, y + (h - artH) * 0.5f, artW, artH,
+                          ui::Fit::Fill, t.enterable ? 1.0f : 0.45f, 8.0f);
+        };
+        if (!t.cover.empty()) {
+            const ui::Image& img = c.images.get(t.cover);
+            if (const ui::Image* was = coverUnder(c.images, img, t.coverWas)) drawArt(*was);
+            drawArt(img);
+        }
+
+        // The label, left. Title 3 for the name, Footnote for the count —
+        // the ramp's own roles for a tile title and a game count.
+        //
+        // TWO LINES FOR THE TITLE, for the same reason grid captions get
+        // two: one line truncated almost every real name at this width, and
+        // here it did worse than look untidy. "Nintendo 64" and "Nintendo
+        // DS" both came out as "Nintendo ..." on adjacent tiles, and
+        // "Arcade (FinalBurn Neo)" and "Arcade (MAME 2003-Plus)" — the two
+        // this console goes to some trouble to tell apart — both came out as
+        // "Arcade (...". A tile nobody can identify is not a tile.
+        const float textW = artW > 0 ? (artX - x - pad - design::kTileArtGap)
+                                     : (w - pad * 2.0f);
+        const std::vector<std::string> titleLines =
+            wrapTwoLines(c.text, t.title, ui::TextStyle::Title3, c.sc, textW);
+        const float titleH = c.text.lineHeight(ui::TextStyle::Title3, c.sc) *
+                             static_cast<float>(titleLines.size());
+        const float labelH = titleH + c.text.lineHeight(ui::TextStyle::Footnote, c.sc);
+        // Centred against the artwork rather than pinned to the top, so a
+        // one-line tile and a two-line tile both sit square in the row.
+        float baseline = y + (h - labelH) * 0.5f +
+                         c.text.ascent(ui::TextStyle::Title3, c.sc);
+        for (const std::string& line : titleLines) {
+            c.text.draw(c.r, line, x + pad, baseline, ui::TextStyle::Title3,
+                        ui::Color::white(t.enterable ? 1.0f : 0.60f), c.sc);
+            baseline += c.text.lineHeight(ui::TextStyle::Title3, c.sc);
+        }
+        c.text.draw(c.r, c.text.truncate(t.detail, ui::TextStyle::Footnote, c.sc, textW),
+                    x + pad, baseline, ui::TextStyle::Footnote,
+                    ui::Color::white(0.60f), c.sc);
+    };
+
+    // What left the list fades out where it was, under what moves over it.
+    for (const int k : glide_.leaving()) {
+        c.r.setContentAlpha(whole * glide_.leavingAlpha());
+        const glide::Point& p = was_.tiles[static_cast<size_t>(k)];
+        drawTile(wasTiles_[static_cast<size_t>(k)], p.x, p.y - scroll);
+    }
     // Unfocused first, so a focused tile's shadow lands on top of its
-    // neighbours rather than under them.
-    for (int pass = 0; pass < 2; ++pass) {
+    // neighbours rather than under them; and under those, the ones coming into
+    // the list, which the others slide off.
+    for (int pass = 0; pass < 3; ++pass) {
         for (size_t i = 0; i < tiles.size(); ++i) {
             const bool isFocused = (row_ > 0 && static_cast<int>(i) == slot_);
-            if ((pass == 0) == isFocused) continue;
-
-            const int col = L.colOf[i];
-            const float bx = design::kLibraryInset +
-                             static_cast<float>(col) * (tw + design::kTileSpacing);
-            const float by = gridTop + L.rowY[static_cast<size_t>(L.rowOf[i])] - scroll;
+            const glide::Look moving = glide_.look(i);
+            if (pass != (isFocused ? 2 : moving.coming ? 0 : 1)) continue;
+            const float by = drawn_.tiles[i].y + moving.dy - scroll;
             // Cull to what is on screen. A grid is a window onto a list, not a
             // drawing of the list — and the cover cache must not be asked for
             // art that is nowhere near the screen.
-            if (by + design::kTileHeight < -rowPitch) continue;
-            if (by > ui::kCanvasHeight + rowPitch) break;
-
-            const Tile& t = tiles[i];
-            const float f = t.focus.value();
-            const float s = 1.0f + f * (design::kFocusScale - 1.0f);
-            const float w = tw * s, h = design::kTileHeight * s;
-            const float x = bx - (w - tw) * 0.5f;
-            const float y = by - (h - design::kTileHeight) * 0.5f;
-
-            // The tile's ground: the one solid panel colour in the design
-            // system. Dimmed when the platform cannot be played, which is the
-            // difference a person has to be able to see from a sofa.
-            ui::Rect plate{x, y, w, h, design::kTileRadius,
-                           t.enterable ? look::surface()
-                                       : ui::Color::white(0.06f)};
-            // NO RIM: a platform tile is a composite element, art mixed with
-            // its own text, and a rectangle drawn round it crosses the text.
-            applyArtworkFocus(plate, f, /*rim=*/false);
-            c.r.draw(plate);
-
-            // The cover, right-hand side, inset by the tile's padding. A cover
-            // thumbnail inside another element takes the 8pt radius.
-            const float pad = design::kTilePadding * s;
-            // SMALLER THAN THE TILE IS TALL, and the width it gives back goes to
-            // the label. A thumbnail filling the full height left 227pt for a
-            // name, which is less than "Sega Master" needs at Title 3 — so the
-            // artwork was winning an argument against the thing the tile is
-            // actually for. A tile with no artwork at all gives the label the
-            // whole width, rather than reserving a column for a picture that
-            // does not exist: that is the unplayable ones, which have the most
-            // to say and had the least room to say it in.
-            const float artH = t.cover.empty() ? 0.0f : design::kTileArtHeight * s;
-            const float artW = artH * 0.75f;      // 3:4
-            const float artX = x + w - pad - artW;
-            if (!t.cover.empty()) {
-                const ui::Image& img = c.images.get(t.cover);
-                // The blurred echo behind everything, so the tile is the art's
-                // own colours rather than a flat panel. Clipped to the tile.
-                if (img.ready) {
-                    c.r.drawTextured(x, y, w, h, img.texture, 0, 0, 1, 1,
-                                     ui::Color{1, 1, 1, 0.35f * img.fade}, false,
-                                     design::kBackdropBlur, x, y, w, h,
-                                     design::kTileRadius);
-                }
-                // Centred against the tile rather than pinned to the padding,
-                // now that it no longer spans the full height.
-                ui::drawImage(c.r, img, artX, y + (h - artH) * 0.5f, artW, artH,
-                              ui::Fit::Fill, t.enterable ? 1.0f : 0.45f, 8.0f);
-            }
-
-            // The label, left. Title 3 for the name, Footnote for the count —
-            // the ramp's own roles for a tile title and a game count.
-            //
-            // TWO LINES FOR THE TITLE, for the same reason grid captions get
-            // two: one line truncated almost every real name at this width, and
-            // here it did worse than look untidy. "Nintendo 64" and "Nintendo
-            // DS" both came out as "Nintendo ..." on adjacent tiles, and
-            // "Arcade (FinalBurn Neo)" and "Arcade (MAME 2003-Plus)" — the two
-            // this console goes to some trouble to tell apart — both came out as
-            // "Arcade (...". A tile nobody can identify is not a tile.
-            const float textW = artW > 0 ? (artX - x - pad - design::kTileArtGap)
-                                         : (w - pad * 2.0f);
-            const std::vector<std::string> titleLines =
-                wrapTwoLines(c.text, t.title, ui::TextStyle::Title3, c.sc, textW);
-            const float titleH = c.text.lineHeight(ui::TextStyle::Title3, c.sc) *
-                                 static_cast<float>(titleLines.size());
-            const float labelH = titleH + c.text.lineHeight(ui::TextStyle::Footnote, c.sc);
-            // Centred against the artwork rather than pinned to the top, so a
-            // one-line tile and a two-line tile both sit square in the row.
-            float baseline = y + (h - labelH) * 0.5f +
-                             c.text.ascent(ui::TextStyle::Title3, c.sc);
-            for (const std::string& line : titleLines) {
-                c.text.draw(c.r, line, x + pad, baseline, ui::TextStyle::Title3,
-                            ui::Color::white(t.enterable ? 1.0f : 0.60f), c.sc);
-                baseline += c.text.lineHeight(ui::TextStyle::Title3, c.sc);
-            }
-            c.text.draw(c.r, c.text.truncate(t.detail, ui::TextStyle::Footnote, c.sc, textW),
-                        x + pad, baseline, ui::TextStyle::Footnote,
-                        ui::Color::white(0.60f), c.sc);
+            if (by + design::kTileHeight < -rowPitch || by > ui::kCanvasHeight + rowPitch) continue;
+            c.r.setContentAlpha(whole * moving.alpha);
+            drawTile(tiles[i], drawn_.tiles[i].x + moving.dx, by);
         }
     }
+    c.r.setContentAlpha(whole);
 }
 
 void LibraryScreen::drawGlass(Ctx& c) {

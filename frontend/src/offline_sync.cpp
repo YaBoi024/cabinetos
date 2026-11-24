@@ -501,6 +501,7 @@ void App::followServer(float dt) {
                 onlineLoad.failing = false;
                 adoptUser(liveClient);
                 lib = std::move(onlineLoad.lib);
+                libraryLoaded();
                 libraryScreen.build(platformTiles, collectionTiles);
                 startCoverFill();
                 homeFromTheStart();

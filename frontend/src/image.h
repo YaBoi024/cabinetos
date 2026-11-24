@@ -81,6 +81,10 @@ public:
     // Never blocks. The first call for a key queues a load and returns a
     // not-ready image; later calls return the same one, ready once it is.
     const Image& get(const std::string& key);
+    // The picture for a key if it is here and drawable, and nothing otherwise:
+    // never asks for it. For the cover a changed one replaces, which is only
+    // worth drawing while it is still in hand.
+    const Image* held(const std::string& key);
 
     // Once per frame, on the thread that owns the GL context: uploads whatever
     // the workers finished, advances fades, and evicts down to the budget.

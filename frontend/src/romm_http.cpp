@@ -224,9 +224,40 @@ void Client::giveUpBy(std::chrono::steady_clock::time_point when) {
     by_ = when;
 }
 
+void Client::stopWhen(const std::atomic<bool>* stop) {
+    std::lock_guard<std::mutex> lock(mu_);
+    stop_ = stop;
+}
+
+void Client::copySignIn(const Client& other) {
+    const Where at = other.where();
+    {
+        std::lock_guard<std::mutex> lock(mu_);
+        base_ = at.base;
+    }
+    setToken(at.token, 0);
+}
+
 Client::Where Client::where() const {
     std::lock_guard<std::mutex> lock(mu_);
-    return {base_, token_, hold_, by_};
+    return {base_, token_, hold_, by_, stop_};
+}
+
+namespace {
+int stopAsked(void* stop, curl_off_t, curl_off_t, curl_off_t, curl_off_t) {
+    return static_cast<const std::atomic<bool>*>(stop)->load() ? 1 : 0;
+}
+}  // namespace
+
+// A request of a client that can be told to stop (stopWhen). curl asks at
+// each step and once a second while it waits; a name lookup that has not
+// answered is not waited for either (setTimeouts' QUICK_EXIT, the same way).
+static void setStop(CURL* c, const std::atomic<bool>* stop) {
+    if (!stop) return;
+    curl_easy_setopt(c, CURLOPT_NOPROGRESS, 0L);
+    curl_easy_setopt(c, CURLOPT_XFERINFOFUNCTION, stopAsked);
+    curl_easy_setopt(c, CURLOPT_XFERINFODATA, const_cast<std::atomic<bool>*>(stop));
+    curl_easy_setopt(c, CURLOPT_QUICK_EXIT, 1L);
 }
 
 // The two timeouts every request starts from, or what is left of a client
@@ -267,7 +298,12 @@ bool Client::getAt(const Where& at, const std::string& path, std::string* body,
     curl_easy_setopt(c, CURLOPT_URL, url.c_str());
     curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, sink);
     curl_easy_setopt(c, CURLOPT_WRITEDATA, body);
+    // COMPRESSED, as RomM's own pages ask (every way curl can undo): these
+    // answers are JSON, and a list of games is an eighth of its size (1.2 MB
+    // and 159 KB for what Home is made from, reference server, 2026-11-23).
+    curl_easy_setopt(c, CURLOPT_ACCEPT_ENCODING, "");
     setTimeouts(c, at.by);
+    setStop(c, at.stop);
     if (hdrs) curl_easy_setopt(c, CURLOPT_HTTPHEADER, hdrs);
 
     CURLcode rc = performOnServer(c, at.base, [body] { body->clear(); }, movedTo);
@@ -684,6 +720,7 @@ std::vector<uint8_t> Client::fetchRange(const Game& g, uint64_t offset, size_t b
     curl_easy_setopt(c, CURLOPT_WRITEDATA, &sink);
     curl_easy_setopt(c, CURLOPT_CONNECTTIMEOUT, kConnectTimeoutSec);
     curl_easy_setopt(c, CURLOPT_TIMEOUT, kTimeoutSec);
+    setStop(c, at.stop);
     if (hdrs) curl_easy_setopt(c, CURLOPT_HTTPHEADER, hdrs);
     const CURLcode rc = performOnServer(c, at.base, [&data] { data.clear(); });
     noteTransport(c, rc);

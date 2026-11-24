@@ -133,6 +133,13 @@ const Image& ImageCache::get(const std::string& key) {
     return e.image;
 }
 
+const Image* ImageCache::held(const std::string& key) {
+    const auto it = entries_.find(key);
+    if (it == entries_.end() || !it->second.image.ready) return nullptr;
+    it->second.lastUsedFrame = frame_;
+    return &it->second.image;
+}
+
 int ImageCache::pendingCount() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return static_cast<int>(requests_.size() + finished_.size());

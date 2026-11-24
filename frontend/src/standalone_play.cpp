@@ -249,7 +249,7 @@ void App::finishStandalone() {
         playedMs = played.playedMs;
         playtime::close(storage::currentUser(), played);
         uploader.sendPlay();
-        playedJustNow(session.romId);
+        playedJustNow(session.romId, played);
     }
     gameEventEnded(playedMs);
     curtain.from = curtain.to = 1.0f;

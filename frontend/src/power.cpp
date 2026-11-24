@@ -243,13 +243,15 @@ std::string refusal() {
     return out;
 }
 
+double upSeconds() { return clockSeconds(CLOCK_BOOTTIME); }
+
 bool justWoke() {
     // CLOCK_BOOTTIME counts the time spent asleep and CLOCK_MONOTONIC does
     // not, so the gap between them grows by exactly the length of a sleep.
     static double lastGap = -1.0;
     static double wokeAt = -1e9;
     const double mono = clockSeconds(CLOCK_MONOTONIC);
-    const double gap = clockSeconds(CLOCK_BOOTTIME) - mono;
+    const double gap = upSeconds() - mono;
     if (lastGap >= 0.0 && gap - lastGap > 1.0) {
         wokeAt = mono;
         std::fprintf(stderr, "[power] woke from a %.0fs sleep\n", gap - lastGap);

@@ -29,8 +29,10 @@ struct Platform {
     int romCount = 0;
     // THE TWO FIELDS A CACHE VALIDATES AGAINST, and they cost nothing because
     // the platform list is fetched at every boot anyway. `updatedAt` moves when
-    // the platform changes; `romCount` catches the case where it does not.
-    // Neither is used for anything else — see covercache and PROJECT.md 30.
+    // the platform changes; `romCount` catches the case where it does not (see
+    // covercache and PROJECT.md 30). `romCount` is also a tile's line, and
+    // `updatedAt` one of the times a refresh asks for changes since
+    // (Library::newestUpdate).
     std::string updatedAt;
 };
 
@@ -67,9 +69,19 @@ struct Collection {
     int romCount = 0;
     // A cover for the tile. RomM keeps a mosaic of member covers for a
     // collection with no art of its own, and the first of them is a real cover
-    // from a real game inside it, which is all a tile needs.
+    // from a real game inside it, which is all a tile needs. `covers` is that
+    // whole mosaic, in no order: RomM lists a set's, and its first changes
+    // between two answers with nothing changed (5.5.0-beta.1). Empty for a
+    // collection with art of its own.
     std::string coverPath;
+    std::vector<std::string> covers;
     bool isFavorite = false;
+    // RomM's clock, as Platform::updatedAt.
+    std::string updatedAt;
+    // Its games, read only for a Favorites collection: which games are the
+    // person's favourites without every one's entry (library.h, readLibrary).
+    // RomM leaves out the ones hidden from the person asking.
+    std::vector<int> romIds;
 };
 
 // One file inside an archive, as RomM's `archive_members` lists it for a
@@ -183,6 +195,12 @@ struct Game {
     // the game's page has learned them (rememberChannelFiles), so a start
     // asks for the channels without asking for the game first.
     ChannelFiles channelFiles;
+    // When RomM last changed the game's entry, and when the person asking last
+    // played it (RomM's `rom_user.last_played`), both as RomM writes a time.
+    // For what Home shows now, so neither goes in the game's record, which is
+    // everybody's.
+    std::string updatedAt;
+    std::string lastPlayed;
 };
 
 // RomM's four fields as one line, in RomM's order on its folder structure
