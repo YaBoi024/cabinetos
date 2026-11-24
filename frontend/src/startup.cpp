@@ -760,6 +760,7 @@ void App::settleScreensAtStart() {
 
 void App::startBrowsing() {
     libraryScreen.build(platformTiles, collectionTiles);
+    libraryLoaded();
     if (rommAddress) startCoverFill();
     // EVERY PLATFORM THE SERVER LISTED, not every tile: the Arcade tile holds
     // many (#611), and each keeps its covers under its own id. And only with
@@ -982,6 +983,9 @@ void boundTheRestOfTheExit() {
 }  // namespace
 
 int App::shutDown(char** argv) {
+    // A read for Home and the Library is for nobody now, and ends while the
+    // rest does (#730).
+    dropLibraryRead();
     // Drained rather than abandoned: anything still queued is a save somebody
     // has already made, and quitting is not a reason to throw it away. This is
     // the one place a wait for the network is correct, because there is no

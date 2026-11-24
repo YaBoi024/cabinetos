@@ -118,6 +118,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [arcade-discs-one-folder](2026-10-28-arcade-discs-one-folder.md): an arcade game with a disc is one folder with its CHD at the top, the only layout RomM documents.
 - [arcade-sets-non-merged](2026-09-27-arcade-sets-non-merged.md): arcade sets are non-merged, for every emulator.
 - [one-arcade-tile](2026-10-29-one-arcade-tile.md): every arcade folder is one Library tile, Arcade, whose grid names each game's folder; everywhere else an arcade game's system is Arcade.
+- [library-keeps-up-with-romm](2026-11-23-library-keeps-up-with-romm.md): Home and the Library ask RomM again as they come into view or somebody presses there, at most once a minute, and change in place.
 - [romm-owns-management](2026-10-21-romm-owns-management.md): the console uses what RomM offers and never manages it: no gallery, list or manager of its own.
 - [game-gone-from-romm](2026-11-01-game-gone-from-romm.md): a game deleted in RomM leaves the console at the next start with the server there, a played copy or a download, with its saves, states and screenshots.
 - [one-download-or-one-game-at-a-time](2026-11-09-one-download-or-one-game-at-a-time.md): the console does one download or one game at a time, no queue, no download behind a game and none pausing for one; Stop on the row gets the console back.

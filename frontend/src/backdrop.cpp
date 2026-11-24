@@ -4,6 +4,7 @@
 
 #include "app.h"
 
+#include "screenparts.h"
 
 using namespace design;   // NOLINT: the design system's names (design.h, motion.h, card.h)
 
@@ -65,15 +66,14 @@ void App::drawGround(bool gameUp, float dt) {
         std::string want = backdropWant;
         if (here() == Screen::Home) {
             const Card* lit = cardAt(focusRow, focusSlot);
-            if (lit) want = lit->coverLarge.empty() ? lit->cover : lit->coverLarge;
+            if (lit) want = screens::roomCover(images, *lit);
         } else if (here() == Screen::Library) {
-            const std::string tile = libraryScreen.focusedCover();
+            const std::string tile = libraryScreen.focusedCover(images);
             if (!tile.empty()) want = tile;
         } else if (here() == Screen::Grid) {
             const int ci = gridScreen.focusedCard();
             if (ci >= 0 && ci < static_cast<int>(cards.size()))
-                want = cards[ci].coverLarge.empty() ? cards[ci].cover
-                                                    : cards[ci].coverLarge;
+                want = screens::roomCover(images, cards[ci]);
         } else if (here() == Screen::Search) {
             // The room follows the results here too. With nothing found,
             // or nothing typed yet, it is lit by the last game art you
@@ -83,8 +83,7 @@ void App::drawGround(bool gameUp, float dt) {
             // blurred now.
             const int ci = searchScreen.focusedCard();
             if (ci >= 0 && ci < static_cast<int>(cards.size()))
-                want = cards[ci].coverLarge.empty() ? cards[ci].cover
-                                                    : cards[ci].coverLarge;
+                want = screens::roomCover(images, cards[ci]);
             else if (!lastLitArt.empty())
                 want = lastLitArt;
         } else if (here() == Screen::AddAccount || here() == Screen::TailscaleSignIn ||

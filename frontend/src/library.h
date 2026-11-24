@@ -1,12 +1,15 @@
 // What the console has to show: the store of cards, Home's shelves and the
-// Library's tiles, loaded off RomM at start and at an account switch, or off
-// the drive with no server; and a kept game's record, the writer beside the
-// library until the RomM client's batch (i). Moved out of main.cpp in the
-// restructure (#398).
+// Library's tiles, loaded off RomM at start and at an account switch, kept up
+// with it since (libraryrefresh.h), or off the drive with no server; and a
+// kept game's record, the writer beside the library until the RomM client's
+// batch (i). Moved out of main.cpp in the restructure (#398).
 
 #pragma once
 
+#include <atomic>
+#include <cstdint>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -14,6 +17,25 @@
 #include "design.h"
 #include "libraryscreen.h"
 #include "romm.h"
+#include "users.h"
+
+// A game left on this console since its library was loaded: when, in seconds
+// since 1970, and whether its time goes to RomM (playtime::kShortestMs: a
+// minute or more). RomM's history may not have it, or may never have it.
+struct PlayedHere {
+    int64_t at = 0;
+    bool sent = false;
+};
+
+// A platform some of whose games show nowhere (catalog::hidesSomeGames):
+// RomM's count when its list was read, and how many of them show.
+struct Counted {
+    int listed = 0;
+    int shown = 0;
+};
+
+// As many as Home's Recent row holds, and as RomM is asked for.
+constexpr size_t kRecentGames = 16;
 
 struct Library {
     std::vector<design::Card> cards;
@@ -54,6 +76,21 @@ struct Library {
     // rather than three. THE VALUE IS AN INDEX INTO `cards`, which is why
     // `cards` is append-only — see below.
     std::map<int, int> byRomId;
+
+    // WHAT RomM LAST ANSWERED, kept so a part it does not answer next time
+    // stays as it was (putLibrary): its lists, whose they were read as (0 when
+    // RomM would not say), and the newest time it gave for any of it.
+    std::vector<romm::Platform> platforms;
+    std::vector<romm::Collection> collections;
+    std::vector<romm::Collection> smartCollections;
+    int me = 0;
+    std::map<int, Counted> counted;
+    std::string newestUpdate;
+    // The games left here that RomM's history may not have (App::playedJustNow).
+    std::map<int, PlayedHere> playedHere;
+    // Which games this person keeps (App::refreshKeeps), for a card added
+    // since: a game a grid or Search listed later had no dot until this.
+    std::set<int> kept;
 };
 
 int appendGame(Library& lib, const romm::Game& g);
@@ -74,8 +111,73 @@ bool readFirstPage(romm::Client& client, const std::string& query, std::vector<r
                    int* total, std::string* err);
 void takeFirstPage(Library& lib, screens::Tile& tile, std::vector<romm::Game> games, int total);
 std::vector<int> gridOrder(Library& lib, const screens::Tile& tile);
-// `platformsErr`, when given, is why the platform list did not come: empty
-// when it came, even with nothing in it.
+
+// ---- What Home and the Library are made from, read and built -------------
+//
+// IN TWO HALVES, READING AND BUILDING, for the two ways a library is made:
+// whole, at start, at an account switch and back online (loadLibrary), and
+// again while the console is on (libraryrefresh.h). Reading asks RomM and
+// touches nothing else, so it may run on a worker; building puts the answers
+// into a library, an empty one or the one on the screen, on the thread that
+// owns it.
+
+// What to ask RomM for.
+struct LibraryAsk {
+    storage::User who;             // whose favourites list the order comes from
+    // Everything: who is asking, and every favourite's entry. Otherwise only
+    // what can have changed since the library in hand was read (askAgain).
+    bool whole = true;
+    std::string since;             // favourites RomM changed after this
+    std::map<int, Counted> counted;
+    std::set<int> inHand;          // the games the library holds an entry for
+    std::vector<int> playedHere;   // games to ask by themselves if RomM's history has them not
+};
+
+// What RomM answered, each part with whether it came.
+struct LibraryRead {
+    bool whole = true;
+    bool reached = false;          // RomM was there to be asked
+    int me = 0;
+    bool gotPlatforms = false;
+    std::string platformsErr;
+    std::vector<romm::Platform> platforms;
+    std::map<int, Counted> counted;
+    bool gotCollections = false;
+    std::vector<romm::Collection> collections;
+    bool gotSmart = false;
+    std::vector<romm::Collection> smartCollections;
+    bool gotRecent = false;
+    std::vector<romm::Game> recent;
+    bool gotFavorites = false;
+    std::vector<int> favorites;       // which games, by id
+    bool gotFavoriteEntries = false;  // every one, or every changed one
+    std::vector<romm::Game> games;    // entries that came beside Recent's
+    std::set<int> gone;               // asked by themselves, and not there for this person
+    std::string newest;               // the newest time RomM gave in any of it
+    std::string failed;               // the parts that did not come, for the log
+    // WHAT HAPPENED HERE SINCE IT WAS ASKED, filled in by whoever builds from
+    // it: hearts pressed or not yet sent as it was asked, and the games whose
+    // time RomM already had by then (App::followLibrary).
+    std::map<int, bool> hearts;
+    std::map<int, int64_t> settled;   // rom id -> when it was left
+};
+
+// What building changed, in words for the log; empty when nothing did.
+struct LibraryChanges {
+    std::vector<std::string> said;
+};
+
+// What to ask again for a library in hand.
+LibraryAsk askAgain(const Library& lib, const storage::User& who);
+// Asks. `stop`, when given, ends it between requests; the client's own ends
+// the one on its way (romm::Client::stopWhen).
+LibraryRead readLibrary(romm::Client& client, const LibraryAsk& ask,
+                        const std::atomic<bool>* stop = nullptr);
+// Builds from what came. `who` is the person it was read for, whose favourites
+// list is written (favorites.h).
+LibraryChanges putLibrary(Library& lib, LibraryRead read, const storage::User& who);
+// Both, whole, into a new one. `platformsErr`, when given, is why the platform
+// list did not come: empty when it came, even with nothing in it.
 Library loadLibrary(romm::Client& client, std::string* platformsErr = nullptr);
 Library offlineLibrary();
 std::string gameRecordJson(const romm::Game& g);

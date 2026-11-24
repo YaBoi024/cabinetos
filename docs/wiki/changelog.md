@@ -13,6 +13,21 @@ one you install, so you only ever install the newest.
   are now right, and in UTC, like those of the saves the game makes itself.
   ([#728](https://github.com/MMagTech/cabinetos/issues/728))
 
+## 2026.11.24 {#v2026-11-24}
+
+- **Fixed:** what changed in RomM showed on Home and the Library only after a
+  restart. A game played in RomM's web player or another app now moves to the
+  front of Recent by itself. So do favorites and collections that were made,
+  renamed, shared or deleted, new, renamed and removed systems and their
+  number of games, and a game's new name, cover or manual; and anything
+  deleted, hidden from you or taken off *Continue Playing* goes. The console
+  asks RomM as you come to Home or the Library or press anything there, at most
+  once a minute, and never while nobody is there.
+  ([Changes made in RomM](library.md#changes-made-in-romm),
+  [#730](https://github.com/MMagTech/cabinetos/issues/730))
+- **Fixed:** a downloaded game first listed by a system's list or Search had no
+  cyan dot there until a restart.
+
 ## 2026.11.23.3 {#v2026-11-23-3}
 
 - **Fixed:** your RomM server kept every sign-in your console ever had, so an

@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdio>
+#include <string_view>
+#include <utility>
 
 #include "app.h"
 #include "arcadematch.h"
@@ -13,9 +15,13 @@
 #include "catalog.h"
 #include "favorites.h"
 #include "storage.h"
+#include "timewords.h"
 #include "wii.h"
 
 using namespace design;   // NOLINT: Card and colorForTitle (card.h)
+
+// As many as Home's Favorites row holds.
+constexpr size_t kFavoriteGames = 40;
 
 // What a game's card says while its grid shows it greyed, or nothing.
 //
@@ -27,6 +33,23 @@ using namespace design;   // NOLINT: Card and colorForTitle (card.h)
 static std::string greyedReason(const romm::Game& g) {
     const catalog::Coverage cov = catalog::coverageFor(g);
     return catalog::shownGreyed(cov.support) ? cov.reason : std::string();
+}
+
+// What RomM says of a game, onto its card: everything but the colour stand-in,
+// which is the first name's and stays.
+static void dress(Card& c, const romm::Game& g) {
+    c.title = g.name.empty() ? g.fsName : g.name;
+    c.sortKey = g.sortKey;
+    c.platform = catalog::systemName(g);
+    c.folder = catalog::folderName(g);
+    c.platformId = g.platformId;
+    c.wii = g.platformSlug == "wii";
+    c.needsRemote = c.wii && wii::padDevice(wii::codeFromTitleId(g.titleId)) == 0;
+    c.tagLabel = g.tagLabel;
+    c.unavailable = greyedReason(g);
+    if (c.cover != g.coverPath) c.coverWas = std::exchange(c.cover, g.coverPath);
+    if (c.coverLarge != g.coverLargePath)
+        c.coverLargeWas = std::exchange(c.coverLarge, g.coverLargePath);
 }
 
 // Adds a game to the store if it is not already there, and answers where it is.
@@ -47,32 +70,18 @@ int appendGame(Library& lib, const romm::Game& g) {
     if (it != lib.byRomId.end()) {
         // A GAME ALREADY KNOWN TAKES WHAT THE SERVER SAYS NOW: a cover or a
         // name fixed on RomM (a Match, an uploaded cover) shows the next time
-        // its grid is read, not after a restart (#387). The colour stand-in
-        // stays, so nothing flashes while the new cover loads.
+        // its grid is read (#387) or Home is (#730), not after a restart. The
+        // old cover stays until the new one is in (Card::coverWas).
         const size_t i = static_cast<size_t>(it->second);
-        Card& c = lib.cards[i];
-        c.title = g.name.empty() ? g.fsName : g.name;
-        c.sortKey = g.sortKey;
-        c.cover = g.coverPath;
-        c.coverLarge = g.coverLargePath;
-        c.unavailable = greyedReason(g);
+        dress(lib.cards[i], g);
         if (i < lib.games.size()) lib.games[i] = g;
         return it->second;
     }
     Card c;
     c.id = g.id;
-    c.title = g.name.empty() ? g.fsName : g.name;
-    c.sortKey = g.sortKey;
-    c.cover = g.coverPath;
-    c.coverLarge = g.coverLargePath;
-    c.platform = catalog::systemName(g);
-    c.folder = catalog::folderName(g);
-    c.platformId = g.platformId;
-    c.wii = g.platformSlug == "wii";
-    c.needsRemote = c.wii && wii::padDevice(wii::codeFromTitleId(g.titleId)) == 0;
-    c.tagLabel = g.tagLabel;
+    dress(c, g);
     c.art = colorForTitle(c.title);
-    c.unavailable = greyedReason(g);
+    c.kept = lib.kept.count(g.id) > 0;
     const int idx = static_cast<int>(lib.cards.size());
     lib.cards.push_back(std::move(c));
     lib.games.push_back(g);
@@ -268,47 +277,47 @@ std::vector<std::vector<romm::Platform>> tileGroups(const std::vector<romm::Plat
     return out;
 }
 
-// Builds the shelf from a real library.
+// What a tile learned since it was made, onto the one RomM's newer answer
+// makes: its games, read when somebody walked in, and where the server's list
+// had got to; a cover RomM gave none of; and a line the grid corrected, while
+// the count it was written from has not moved.
+static void carryTile(screens::Tile& now, const screens::Tile& was) {
+    if (now.query == was.query) {
+        // The Arcade tile's list is of the folders its query named: with
+        // another folder it is read again, whole, as it is next opened.
+        now.cards = was.cards;
+        now.loadedAtMs = was.loadedAtMs;
+        now.fetched = was.fetched;
+        now.total = was.total;
+        now.readId = was.readId;
+    }
+    now.coverAsked = was.coverAsked;
+    now.coverWas = was.coverWas;
+    if (now.cover.empty()) now.cover = was.cover;
+    else if (now.cover != was.cover) now.coverWas = was.cover;
+    if (now.enterable && was.enterable && now.counted == was.counted) now.detail = was.detail;
+}
+
+static const screens::Tile* tileLike(const std::vector<screens::Tile>& in, const screens::Tile& t) {
+    for (const screens::Tile& x : in)
+        if (screens::sameTile(x, t)) return &x;
+    return nullptr;
+}
+
+// The Library's platform tiles, from RomM's list in hand (lib.platforms).
 //
 // THE PLATFORMS THIS CONSOLE CANNOT PLAY ARE LEFT OUT, and that is a decision
 // rather than an oversight — see catalog.h. A console must not offer a game it
 // cannot run; the moment to discover that is not after someone has chosen it.
 // What it must not do is drop them silently, so every exclusion is reported on
-// stderr with its reason. The screen that tells the person the same thing is
-// still to build; this is the part that knows.
-//
-// What the console knows the moment it finishes booting.
-//
-// FOUR CALLS, AND NOT ONE OF THEM IS THE CATALOGUE — open question 28. This
-// used to walk every platform and page through all of them, sixteen hundred
-// games on the reference server, before anything was drawn. It was the
-// dominant cost of a boot and it was PROPORTIONAL TO THE LIBRARY, so somebody
-// with twenty thousand games waited proportionally longer every single time
-// they turned the console on, and nothing in the design had noticed.
-//
-// Nothing needed it. A platform tile's count was already on the platform
-// object; a collection's was already on the collection. Home shows about
-// fourteen covers and every one of them comes from the recents and favourites
-// calls, which are bounded. A grid does not exist until somebody walks into
-// it, and search asks the server.
-//
-// So boot is CONSTANT rather than proportional, which is the whole prize: the
-// person with twenty thousand games boots as fast as the person with two
-// hundred.
-Library loadLibrary(romm::Client& client, std::string* platformsErr) {
-    Library lib;
-    std::string err;
-
-    std::vector<romm::Platform> platforms;
-    if (!client.fetchPlatforms(&platforms, &err)) {
-        std::fprintf(stderr, "[romm] platforms: %s\n", err.c_str());
-        if (platformsErr) *platformsErr = err;
-        return lib;
-    }
-    savePlatforms(platforms);
-
-    int skippedGames = 0;
-    for (const auto& p : platforms) lib.platformNames[p.id] = catalog::displayName(p);
+// stderr with its reason, once, as the library loads (`say`).
+static void buildPlatformTiles(Library& lib, bool say) {
+    const std::vector<screens::Tile> was = std::move(lib.platformTiles);
+    const std::map<int, covercache::Tile> cacheWas = std::move(lib.tileCache);
+    lib.platformTiles.clear();
+    lib.tileCache.clear();
+    lib.platformNames.clear();
+    for (const romm::Platform& p : lib.platforms) lib.platformNames[p.id] = catalog::displayName(p);
     // A tile per platform, or for every arcade folder together (tileGroups),
     // built whether or not this console can play it. The
     // unplayable ones are why `coverageFor` gives four different answers rather
@@ -316,7 +325,7 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
     // console has not built it yet" and "it is built and cannot be driven" lead
     // to different work and to different words on the screen. Every arcade
     // folder has the same answer (catalog::coverageFor).
-    for (const std::vector<romm::Platform>& group : tileGroups(platforms)) {
+    for (const std::vector<romm::Platform>& group : tileGroups(lib.platforms)) {
         const romm::Platform& p = group.front();
         const catalog::Coverage cov = catalog::coverageFor(p);
         screens::Tile tile;
@@ -336,15 +345,16 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
         tile.title = catalog::displayName(p);
         tile.namesFolder = arcadematch::isArcadeSlug(p.slug);
         tile.enterable = (cov.support == catalog::Support::Playable);
+        const screens::Tile* before = tileLike(was, tile);
 
         if (!tile.enterable) {
-            skippedGames += romCount;
             // The tile gets the short form, which is all it has room for. The
             // log keeps the full sentence, because a log is read by somebody
             // trying to find out why.
             tile.detail = catalog::shortReason(cov);
-            std::fprintf(stderr, "[library] %s (%d games) — %s\n", tile.title.c_str(),
-                         romCount, cov.reason ? cov.reason : tile.detail.c_str());
+            if (say)
+                std::fprintf(stderr, "[library] %s (%d games) — %s\n", tile.title.c_str(),
+                             romCount, cov.reason ? cov.reason : tile.detail.c_str());
             // ONLY WHAT THIS CONSOLE CAN PLAY (#117, MMagTech 2026-10-04), as
             // Cabinet's tvOS Library did: a system with no emulator here
             // (Jaguar, ColecoVision, Vita) or left out by decision (Game &
@@ -355,6 +365,7 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
             if (cov.support == catalog::Support::NoCore ||
                 cov.support == catalog::Support::Excluded)
                 continue;
+            if (before) carryTile(tile, *before);
             lib.platformTiles.push_back(std::move(tile));
             continue;
         }
@@ -365,23 +376,17 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
         //
         // EXCEPT WHERE SOME OF A PLATFORM'S GAMES ARE HIDDEN (the 3DS's CIAs,
         // catalog::hidesSomeGames), which RomM's count includes: that
-        // platform's list is fetched and what shows is counted, so a server
-        // whose 3DS games are all CIAs gets "0 games", as a platform with
-        // none does. One request, only for such a platform.
+        // platform's list is read and what shows is counted (readLibrary), so
+        // a server whose 3DS games are all CIAs gets "0 games", as a platform
+        // with none does.
         int shown = romCount;
-        if (catalog::hidesSomeGames(p) && shown > 0) {
-            std::vector<romm::Game> games;
-            std::string gerr;
-            if (client.fetchGames(p.id, &games, &gerr)) {
-                shown = 0;
-                for (const auto& g : games)
-                    if (catalog::coverageFor(g).support != catalog::Support::Hidden) ++shown;
-            }
-        }
+        if (catalog::hidesSomeGames(p) && shown > 0)
+            if (const auto c = lib.counted.find(p.id); c != lib.counted.end())
+                shown = c->second.shown;
         char count[48];
         std::snprintf(count, sizeof count, "%d game%s", shown, shown == 1 ? "" : "s");
         tile.detail = count;
-        lib.tileCache[p.id] = covercache::Tile{"", updatedAt, shown};
+        tile.counted = shown;
         // `tile.cover` is deliberately left empty. It used to be the first
         // cover among the platform's games, which cost a fetch per platform —
         // 1.55 s of a 1.8 s boot, measured against the reference server. The
@@ -389,6 +394,16 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
         // Home; see App::startCoverFill (coverfill.cpp). MMagTech chose that
         // over both paying for them at boot and using RomM's platform logo,
         // 2026-09-22.
+        if (before) carryTile(tile, *before);
+        // A PLATFORM THAT CHANGED is asked for its cover again at the next
+        // start (covercache.h), so its row forgets the one it has; now, only
+        // when its tile has none.
+        covercache::Tile row{"", updatedAt, shown};
+        if (const auto c = cacheWas.find(p.id); c != cacheWas.end()) {
+            if (c->second.updatedAt == updatedAt && c->second.romCount == shown) row = c->second;
+            else tile.coverAsked = false;
+        }
+        lib.tileCache[p.id] = row;
         lib.platformTiles.push_back(std::move(tile));
     }
 
@@ -408,170 +423,475 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
                                  return std::tolower(x) < std::tolower(y);
                              });
                      });
+}
 
-    // Collections. The membership used to be resolved against a catalogue that
-    // was already in memory — "no second request", said the comment, and that
-    // was true only because boot had paid for all of them. It is one request
-    // now, made when the collection is opened, exactly like a platform.
+// The collections' tiles, from RomM's two lists in hand. The membership used
+// to be resolved against a catalogue that was already in memory — "no second
+// request", said the comment, and that was true only because boot had paid for
+// all of them. It is one request now, made when the collection is opened,
+// exactly like a platform.
+//
+// SMART COLLECTIONS BESIDE THE REGULAR ONES (#352), read with this person's
+// token, so an account switch shows the new person's own and everyone's
+// public ones, as RomM decides (romm_types.h, Collection).
+//
+// A FAVORITES IS PERSONAL, AND OTHER PEOPLE'S ARE GROUPED BY WHOSE
+// (MMagTech, 2026-10-12, #352). RomM lists other accounts' public
+// collections, their Favorites included, so a parent's public
+// Favorites showed on a child's account beside the child's own: two
+// tiles reading "Favorites". Only this person's own is shown. Then:
+// their own first, Favorites at the front, the rest A to Z, regular
+// and smart together (how a collection was made is not what it is
+// for); then each other person's shared ones under "From <name>",
+// people A to Z and each A to Z. If the server would not say who this
+// person is (lib.me), it is one A to Z list.
+static void buildCollectionTiles(Library& lib) {
+    const std::vector<screens::Tile> was = std::move(lib.collectionTiles);
+    lib.collectionTiles.clear();
+    const int me = lib.me;
+    std::vector<const romm::Collection*> collections;
+    for (const auto* list : {&lib.collections, &lib.smartCollections})
+        for (const romm::Collection& c : *list) collections.push_back(&c);
+    auto lower = [](std::string t) {
+        for (char& ch : t) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        return t;
+    };
+    auto mine = [me](const romm::Collection& c) { return me == 0 || c.userId == me; };
+    std::erase_if(collections,
+                  [&](const romm::Collection* c) { return c->isFavorite && !mine(*c); });
+    std::stable_sort(collections.begin(), collections.end(),
+                     [&](const romm::Collection* x, const romm::Collection* y) {
+                         const romm::Collection &a = *x, &b = *y;
+                         if (mine(a) != mine(b)) return mine(a);
+                         if (!mine(a) && a.userId != b.userId) {
+                             const std::string oa = lower(a.ownerName), ob = lower(b.ownerName);
+                             return oa != ob ? oa < ob : a.userId < b.userId;
+                         }
+                         if (a.isFavorite != b.isFavorite) return a.isFavorite;
+                         return lower(a.name) < lower(b.name);
+                     });
+    for (const romm::Collection* shown : collections) {
+        const romm::Collection& col = *shown;
+        screens::Tile tile;
+        tile.id = col.id;
+        tile.query = (col.smart ? "smart_collection_id=" : "collection_id=") +
+                     std::to_string(col.id);
+        tile.title = col.name;
+        if (!mine(col))
+            tile.group = "From " + (col.ownerName.empty() ? std::string("another account")
+                                                          : col.ownerName);
+        tile.cover = col.coverPath;
+        char count[48];
+        std::snprintf(count, sizeof count, "%d game%s", col.romCount,
+                      col.romCount == 1 ? "" : "s");
+        tile.detail = count;
+        tile.counted = col.romCount;
+        // The server's count, not how many are playable here — that is not
+        // known until it is opened, and loadTileGames rewrites the line to
+        // "4 of 12" at that point if the two differ.
+        tile.enterable = col.romCount > 0;
+        if (const screens::Tile* before = tileLike(was, tile)) {
+            // A PICTURE STAYS WHILE RomM STILL LISTS IT: a collection with no
+            // art of its own has its games' covers, in no order (romm_types.h),
+            // and one picked again each time would change by itself.
+            auto path = [](std::string_view c) { return c.substr(0, c.find('?')); };
+            const std::string_view had = path(before->cover);
+            if (std::any_of(col.covers.begin(), col.covers.end(),
+                            [&](const std::string& c) { return path(c) == had; }))
+                tile.cover = before->cover;
+            carryTile(tile, *before);
+        }
+        lib.collectionTiles.push_back(std::move(tile));
+    }
+}
+
+// Recent and the hero, from the server's play history rather than from
+// anything this console remembers. A game played on another device is recent
+// here the moment this console is paired, which is what lets a machine that
+// has never launched anything still open on the right game.
+//
+// THE GAMES COME STRAIGHT OFF RomM's ANSWER. They used to be looked up in
+// the catalogue and DROPPED IF NOT FOUND — which, once boot stopped
+// fetching the catalogue, would have quietly emptied Home while every one
+// of these calls still succeeded. That is the trap in this change and it
+// is why the store is filled from here rather than searched.
+//
+// AND A GAME PLAYED HERE goes by whichever is later, RomM's time for it or
+// when it was left here (#730): one left within a minute is never sent to RomM
+// (playtime::kShortestMs), and one just left may still be on its way. Once
+// RomM has the time, its history is the word on that game again, so one taken
+// off RomM's Continue Playing goes (LibraryRead::settled), and so does one
+// RomM no longer has for this person (LibraryRead::gone).
+static void buildRecent(Library& lib, const LibraryRead& read) {
+    for (const auto& [id, at] : read.settled)
+        if (const auto p = lib.playedHere.find(id); p != lib.playedHere.end() && p->second.at == at)
+            lib.playedHere.erase(p);
+    for (const int id : read.gone) lib.playedHere.erase(id);
+
+    std::vector<std::pair<int64_t, int>> recent;   // when, and which card
+    for (const romm::Game& g : read.recent) {
+        const int64_t at = isoMicros(g.lastPlayed) / 1000000;
+        if (const auto p = lib.playedHere.find(g.id); p != lib.playedHere.end() && at >= p->second.at)
+            lib.playedHere.erase(p);
+        // A recent game on a platform this console cannot play is skipped,
+        // not shown greyed: Home must not offer a Resume that cannot run.
+        // The reference library exercises this — the most recent "Altered
+        // Beast" is the Game & Watch one, which this console leaves out.
+        if (!catalog::playable(g)) continue;
+        recent.emplace_back(at, appendGame(lib, g));
+    }
+    std::vector<std::pair<int64_t, int>> here;
+    for (const auto& [id, p] : lib.playedHere)
+        if (const auto it = lib.byRomId.find(id);
+            it != lib.byRomId.end() && catalog::playable(lib.games[static_cast<size_t>(it->second)]))
+            here.emplace_back(p.at, it->second);
+    std::sort(here.begin(), here.end());
+    for (const auto& h : here) {
+        std::erase_if(recent, [&](const auto& r) { return r.second == h.second; });
+        // RomM's order is kept: in front of the first game played before it.
+        auto to = recent.begin();
+        while (to != recent.end() && to->first > h.first) ++to;
+        recent.insert(to, h);
+    }
+    lib.shelf.clear();
+    for (const auto& r : recent)
+        if (lib.shelf.size() < kRecentGames) lib.shelf.push_back(r.second);
+    // THE MOST RECENT ONE STAYS ON THE SHELF — changed 2026-09-21.
     //
-    // SMART COLLECTIONS BESIDE THE REGULAR ONES (#352), fetched in this same
-    // load with this person's token, so an account switch shows the new
-    // person's own and everyone's public ones, as RomM decides
-    // (romm_types.h, Collection). The order is below.
-    std::vector<romm::Collection> collections;
-    std::vector<romm::Collection> smart;
-    std::string smartErr;
-    const bool smartOk = client.fetchSmartCollections(&smart, &smartErr);
-    if (!smartOk) std::fprintf(stderr, "[library] no smart collections: %s\n", smartErr.c_str());
-    if (client.fetchCollections(&collections, &err)) {
-        // A FAVORITES IS PERSONAL, AND OTHER PEOPLE'S ARE GROUPED BY WHOSE
-        // (MMagTech, 2026-10-12, #352). RomM lists other accounts' public
-        // collections, their Favorites included, so a parent's public
-        // Favorites showed on a child's account beside the child's own: two
-        // tiles reading "Favorites". Only this person's own is shown. Then:
-        // their own first, Favorites at the front, the rest A to Z, regular
-        // and smart together (how a collection was made is not what it is
-        // for); then each other person's shared ones under "From <name>",
-        // people A to Z and each A to Z. Who "this person" is costs one
-        // request; if the server will not say, it is one A to Z list.
-        int me = 0;
-        collections.insert(collections.end(), smart.begin(), smart.end());
-        if (!collections.empty()) {
-            romm::User u;
-            std::string uerr;
-            if (client.fetchCurrentUser(&u, &uerr)) me = u.id;
-            else std::fprintf(stderr, "[library] who is this: %s\n", uerr.c_str());
+    // `heroIndex` is what Home focuses on when it opens, which is the
+    // whole of "resume-first". It is an index into the shelf's first
+    // slot rather than a separate object on the screen.
+    lib.heroIndex = lib.shelf.empty() ? -1 : lib.shelf.front();
+    lib.heroPlatform =
+        lib.heroIndex < 0 ? "" : lib.games[static_cast<size_t>(lib.heroIndex)].platformName;
+}
+
+// Favorites: which games RomM says, in the console's order (favorites.cpp,
+// keepFavorites): newest first as far as it knows, with what the server has
+// not heard yet winning (#267): a favourite taken off while it was away stays
+// off, one added stays on, until sent. Kept for the offline Home (#88). A
+// heart pressed while RomM was being asked wins too, sent or not.
+//
+// Home's shelf holds the first 40 this console can play.
+static void buildFavorites(Library& lib, const LibraryRead& read, const storage::User& who) {
+    std::vector<int> order = read.favorites;
+    for (const auto& [id, on] : read.hearts) {
+        std::erase(order, id);
+        if (on) order.insert(order.begin(), id);
+    }
+    if (who.valid()) order = keepFavorites(who, order);
+    lib.favorites.clear();
+    for (const int id : order) {
+        if (lib.favorites.size() >= kFavoriteGames) break;
+        const auto it = lib.byRomId.find(id);
+        if (it != lib.byRomId.end()) {
+            if (catalog::playable(lib.games[static_cast<size_t>(it->second)]))
+                lib.favorites.push_back(it->second);
+            continue;
         }
-        auto lower = [](std::string t) {
-            for (char& ch : t) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-            return t;
-        };
-        auto mine = [me](const romm::Collection& c) { return me == 0 || c.userId == me; };
-        collections.erase(std::remove_if(collections.begin(), collections.end(),
-                                         [&](const romm::Collection& c) {
-                                             return c.isFavorite && !mine(c);
-                                         }),
-                          collections.end());
-        std::stable_sort(collections.begin(), collections.end(),
-                         [&](const romm::Collection& a, const romm::Collection& b) {
-                             if (mine(a) != mine(b)) return mine(a);
-                             if (!mine(a) && a.userId != b.userId) {
-                                 const std::string oa = lower(a.ownerName), ob = lower(b.ownerName);
-                                 return oa != ob ? oa < ob : a.userId < b.userId;
-                             }
-                             if (a.isFavorite != b.isFavorite) return a.isFavorite;
-                             return lower(a.name) < lower(b.name);
-                         });
-        for (const auto& col : collections) {
-            screens::Tile tile;
-            tile.id = col.id;
-            tile.query = (col.smart ? "smart_collection_id=" : "collection_id=") +
-                         std::to_string(col.id);
-            tile.title = col.name;
-            if (!mine(col))
-                tile.group = "From " + (col.ownerName.empty() ? std::string("another account")
-                                                              : col.ownerName);
-            tile.cover = col.coverPath;
-            char count[48];
-            std::snprintf(count, sizeof count, "%d game%s", col.romCount,
-                          col.romCount == 1 ? "" : "s");
-            tile.detail = count;
-            // The server's count, not how many are playable here — that is not
-            // known until it is opened, and loadTileGames rewrites the line to
-            // "4 of 12" at that point if the two differ.
-            tile.enterable = col.romCount > 0;
-            lib.collectionTiles.push_back(std::move(tile));
-        }
-        std::fprintf(stderr, "[library] %zu collection(s), %zu of them smart\n",
-                     lib.collectionTiles.size(), smart.size());
-    } else {
-        // Not fatal. A server that will not list collections still has a
-        // library, and the switcher's Collections tab says it is empty.
-        std::fprintf(stderr, "[library] no collections: %s\n", err.c_str());
+        for (const romm::Game& g : read.games)
+            if (g.id == id && catalog::playable(g)) {
+                lib.favorites.push_back(appendGame(lib, g));
+                break;
+            }
+    }
+}
+
+LibraryAsk askAgain(const Library& lib, const storage::User& who) {
+    LibraryAsk ask;
+    ask.who = who;
+    ask.whole = false;
+    ask.since = lib.newestUpdate;
+    ask.counted = lib.counted;
+    for (const auto& [id, idx] : lib.byRomId) ask.inHand.insert(id);
+    for (const auto& [id, p] : lib.playedHere) ask.playedHere.push_back(id);
+    return ask;
+}
+
+// What the console knows the moment it finishes booting, and what it asks for
+// again while it is on.
+//
+// SMALL CALLS, AND NOT ONE OF THEM IS THE CATALOGUE — open question 28. This
+// used to walk every platform and page through all of them, sixteen hundred
+// games on the reference server, before anything was drawn. It was the
+// dominant cost of a boot and it was PROPORTIONAL TO THE LIBRARY, so somebody
+// with twenty thousand games waited proportionally longer every single time
+// they turned the console on, and nothing in the design had noticed.
+//
+// Nothing needed it. A platform tile's count was already on the platform
+// object; a collection's was already on the collection. Home shows about
+// fourteen covers and every one of them comes from the recents and favourites
+// calls, which are bounded. A grid does not exist until somebody walks into
+// it, and search asks the server.
+//
+// So boot is CONSTANT rather than proportional, which is the whole prize: the
+// person with twenty thousand games boots as fast as the person with two
+// hundred.
+//
+// AGAIN (#730) IT IS FIVE CALLS: the platforms, the two lists of collections,
+// the last sixteen played, and the favourites RomM changed since the last time
+// it was asked, which is usually none. Which games are favourites is on the
+// person's own Favorites collection, so their entries (23 KB each) are not
+// asked for again. What more it asks for is what it has none of: a new
+// favourite's entry, a count of a platform that hides some of its games when
+// RomM's moved, and a game played here that RomM's history does not have.
+LibraryRead readLibrary(romm::Client& client, const LibraryAsk& ask, const std::atomic<bool>* stop) {
+    LibraryRead r;
+    r.whole = ask.whole;
+    r.me = ask.whole ? 0 : ask.who.id;
+    std::string err;
+    auto newer = [&](const std::string& at) { if (at > r.newest) r.newest = at; };
+    auto failed = [&](const char* part) {
+        r.failed += (r.failed.empty() ? "" : "; ") + std::string(part) + ": " + err;
+        std::string().swap(err);
+    };
+    // Nothing more is asked of a server that has gone, nor by a read nobody
+    // wants any more.
+    auto over = [&] { return (stop && stop->load()) || (!ask.whole && romm::serverAway()); };
+
+    r.gotPlatforms = client.fetchPlatforms(&r.platforms, &err);
+    if (!r.gotPlatforms) {
+        r.platformsErr = err;
+        failed("platforms");
+        if (ask.whole || over()) return r;
+    }
+    r.reached = true;
+    for (const romm::Platform& p : r.platforms) {
+        newer(p.updatedAt);
+        if (!catalog::hidesSomeGames(p) || p.romCount <= 0 || !catalog::playable(p)) continue;
+        // One request, only for such a platform, and again only when RomM's
+        // count of it moved.
+        if (const auto c = ask.counted.find(p.id);
+            c != ask.counted.end() && c->second.listed == p.romCount)
+            continue;
+        if (over()) return r;
+        std::vector<romm::Game> games;
+        if (!client.fetchGames(p.id, &games, &err)) { failed("a system's games"); continue; }
+        Counted c{p.romCount, 0};
+        for (const romm::Game& g : games)
+            if (catalog::coverageFor(g).support != catalog::Support::Hidden) ++c.shown;
+        r.counted[p.id] = c;
     }
 
-    // The hero, from the server's play history rather than from anything this
-    // console remembers. A game played on another device is recent here the moment
-    // this console is paired, which is what lets a machine that has never
-    // launched anything still open on the right game.
-    //
-    // THE GAMES COME STRAIGHT OFF THIS CALL NOW. They used to be looked up in
-    // the catalogue and DROPPED IF NOT FOUND — which, once boot stopped
-    // fetching the catalogue, would have quietly emptied Home while every one
-    // of these calls still succeeded. That is the trap in this change and it
-    // is why the store is filled from here rather than searched.
+    if (over()) return r;
+    r.gotSmart = client.fetchSmartCollections(&r.smartCollections, &err);
+    if (!r.gotSmart) failed("smart collections");
+    if (over()) return r;
+    r.gotCollections = client.fetchCollections(&r.collections, &err);
+    // Not fatal. A server that will not list collections still has a
+    // library, and the switcher's Collections tab says it is empty.
+    if (!r.gotCollections) failed("collections");
+    // Who "this person" is costs one request, at start only: a library in hand
+    // is whose it is.
+    if (ask.whole && !(r.collections.empty() && r.smartCollections.empty())) {
+        romm::User u;
+        if (client.fetchCurrentUser(&u, &err)) r.me = u.id;
+        else failed("who is this");
+    }
+    for (const auto* list : {&r.collections, &r.smartCollections})
+        for (const romm::Collection& c : *list) newer(c.updatedAt);
+
     // TIMED, because once on the A9 these two took eleven seconds during an
     // account switch when they take a fifth of one at boot, and nothing else
     // in the log said which.
+    if (over()) return r;
     const Uint64 tRecent = SDL_GetTicks();
-    std::vector<romm::Game> recent;
-    const bool gotRecent = client.fetchRecent(16, &recent, &err);
-    std::fprintf(stderr, "[library] play history in %llu ms\n",
-                 static_cast<unsigned long long>(SDL_GetTicks() - tRecent));
-    if (gotRecent) {
-        for (const auto& g : recent) {
-            // A recent game on a platform this console cannot play is skipped,
-            // not shown greyed: Home must not offer a Resume that cannot run.
-            // The reference library exercises this — the most recent "Altered
-            // Beast" is the Game & Watch one, which this console leaves out.
-            if (!catalog::playable(g)) continue;
-            const int idx = appendGame(lib, g);
-            // THE MOST RECENT ONE STAYS ON THE SHELF — changed 2026-09-21.
-            //
-            // `heroIndex` is what Home focuses on when it opens, which is the
-            // whole of "resume-first". It is an index into the shelf's first
-            // slot rather than a separate object on the screen.
-            if (lib.heroIndex < 0) {
-                lib.heroIndex = idx;
-                lib.heroPlatform = g.platformName;
-            }
-            lib.shelf.push_back(idx);
-        }
-    } else {
-        std::fprintf(stderr, "[library] no play history: %s\n", err.c_str());
-    }
+    r.gotRecent = client.fetchRecent(static_cast<int>(kRecentGames), &r.recent, &err);
+    if (ask.whole)
+        std::fprintf(stderr, "[library] play history in %llu ms\n",
+                     static_cast<unsigned long long>(SDL_GetTicks() - tRecent));
+    if (!r.gotRecent) failed("play history");
+    for (const romm::Game& g : r.recent) newer(g.updatedAt);
 
-    // ALL OF THEM ARE ASKED FOR, up to 200, not the shelf's 40 (#476):
-    // RomM lists favourites by title, so asking for 40 left a person with
-    // more never seeing the rest, and a new one past the fortieth title never
-    // reached Home. About 23 KB each on RomM 5.3.1.
+    // ALL OF THE FAVOURITES ARE ASKED FOR, up to 200, not the shelf's 40
+    // (#476): RomM lists favourites by title, so asking for 40 left a person
+    // with more never seeing the rest, and a new one past the fortieth title
+    // never reached Home. About 23 KB each on RomM 5.3.1. Again, only the ones
+    // RomM changed since: a name, a cover or a manual.
+    if (over()) return r;
     const Uint64 tFavs = SDL_GetTicks();
-    std::vector<romm::Game> favs;
-    const bool gotFavs = client.fetchFavorites(200, &favs, &err);
-    std::fprintf(stderr, "[library] favourites in %llu ms\n",
-                 static_cast<unsigned long long>(SDL_GetTicks() - tFavs));
-    if (gotFavs) {
-        // THE ORDER IS THE CONSOLE'S (favorites.cpp, keepFavorites): newest
-        // first as far as it knows, with what the server has not heard yet
-        // winning (#267): a favourite taken off while it was away stays off,
-        // one added stays on, until sent. Kept for the offline Home (#88).
-        std::vector<int> order;
-        for (const auto& g : favs) order.push_back(g.id);
-        if (const storage::User& who = storage::currentUser(); who.valid())
-            order = keepFavorites(who, order);
-        // Home's shelf holds the first 40 this console can play. A game
-        // hearted here and not yet on RomM is not in RomM's answer; its
-        // record is the Recent shelf's, the one kept on the drive, or asked
-        // for (#476).
-        for (const int id : order) {
-            if (lib.favorites.size() >= 40) break;
-            romm::Game asked;
-            const romm::Game* g = nullptr;
-            for (const auto& f : favs) if (f.id == id) { g = &f; break; }
-            if (!g)
-                for (const auto& r : lib.games) if (r.id == id) { g = &r; break; }
-            if (!g && (romm::gameFromJson(cache::gameRecord(id), &asked) ||
-                       client.fetchGame(id, &asked, nullptr)))
-                g = &asked;
-            if (!g || !catalog::playable(*g)) continue;
-            const romm::Game game = *g;   // appendGame grows lib.games
-            lib.favorites.push_back(appendGame(lib, game));
+    r.gotFavoriteEntries = client.fetchFavorites(200, &r.games, &err, ask.whole ? "" : ask.since);
+    if (ask.whole)
+        std::fprintf(stderr, "[library] favourites in %llu ms\n",
+                     static_cast<unsigned long long>(SDL_GetTicks() - tFavs));
+    if (!r.gotFavoriteEntries) failed("favourites");
+    for (const romm::Game& g : r.games) newer(g.updatedAt);
+
+    // WHICH GAMES ARE FAVOURITES: at start, the ones that came, in RomM's
+    // title order, then any past the 200; again, the person's own Favorites
+    // collection, and none for somebody who has none.
+    if (ask.whole)
+        for (const romm::Game& g : r.games) r.favorites.push_back(g.id);
+    r.gotFavorites = ask.whole ? r.gotFavoriteEntries : r.gotCollections;
+    if (r.gotFavorites && r.me > 0)
+        for (const romm::Collection& c : r.collections)
+            if (c.isFavorite && c.userId == r.me)
+                for (const int id : c.romIds)
+                    if (std::find(r.favorites.begin(), r.favorites.end(), id) == r.favorites.end())
+                        r.favorites.push_back(id);
+
+    // THE ENTRIES STILL MISSING FROM HOME'S SHELF: a game hearted here and not
+    // yet on RomM, or one hearted elsewhere since. Its entry is Recent's, the
+    // one kept on the drive, or asked for (#476).
+    auto inHand = [&](int id) -> const romm::Game* {
+        for (const auto* list : {&r.games, &r.recent})
+            for (const romm::Game& g : *list)
+                if (g.id == id) return &g;
+        return nullptr;
+    };
+    size_t shown = 0;
+    if (r.gotFavorites)
+        for (const int id : ask.who.valid() ? favoriteOrder(ask.who, r.favorites) : r.favorites) {
+            if (shown >= kFavoriteGames || over()) break;
+            if (ask.inHand.count(id)) { ++shown; continue; }
+            if (const romm::Game* g = inHand(id)) { shown += catalog::playable(*g); continue; }
+            romm::Game g;
+            if (romm::gameFromJson(cache::gameRecord(id), &g) || client.fetchGame(id, &g, nullptr)) {
+                shown += catalog::playable(g);
+                r.games.push_back(std::move(g));
+            }
         }
-        std::fprintf(stderr, "[library] %zu favourites\n", lib.favorites.size());
+
+    // A GAME PLAYED HERE THAT RomM's HISTORY DOES NOT HAVE is asked for by
+    // itself, so its name and cover keep up too, and one RomM no longer has
+    // for this person goes.
+    if (r.gotRecent)
+        for (const int id : ask.playedHere) {
+            if (over()) break;
+            if (std::any_of(r.recent.begin(), r.recent.end(),
+                            [id](const romm::Game& g) { return g.id == id; }))
+                continue;
+            romm::Game g;
+            bool notFound = false;
+            if (client.fetchGame(id, &g, nullptr, &notFound)) r.games.push_back(std::move(g));
+            else if (notFound) r.gone.insert(id);
+        }
+    return r;
+}
+
+// What is on a tile's face, for saying what changed.
+static std::string tileFace(const screens::Tile& t) {
+    return t.title + '\n' + t.detail + '\n' + t.group + '\n' + (t.enterable ? "1" : "0") + t.cover;
+}
+
+// "systems: new Saturn; gone Lynx; 2 changed", or nothing.
+static void sayTiles(LibraryChanges& out, const char* what, const std::vector<screens::Tile>& was,
+                     const std::vector<screens::Tile>& now) {
+    std::string words;
+    auto add = [&](const std::string& w) { words += (words.empty() ? "" : "; ") + w; };
+    int changed = 0;
+    for (const screens::Tile& t : now) {
+        const screens::Tile* before = tileLike(was, t);
+        if (!before) add("new " + t.title);
+        else if (tileFace(*before) != tileFace(t)) ++changed;
+    }
+    for (const screens::Tile& t : was)
+        if (!tileLike(now, t)) add("gone " + t.title);
+    if (changed) add(std::to_string(changed) + " changed");
+    if (!words.empty()) out.said.push_back(std::string(what) + ": " + words);
+}
+
+// BUILT IN PLACE, part by part (#730): the cards are only ever added to, so an
+// index a grid, Search or a game's page holds stays the game it was, and a
+// part RomM did not answer for keeps what was there. An empty library is the
+// same: everything is new.
+LibraryChanges putLibrary(Library& lib, LibraryRead read, const storage::User& who) {
+    LibraryChanges out;
+    const std::vector<int> recentWas = lib.shelf, favoritesWas = lib.favorites;
+    const std::vector<screens::Tile> platformsWas = lib.platformTiles;
+    const std::vector<screens::Tile> collectionsWas = lib.collectionTiles;
+    std::vector<std::string> facesWas;
+    auto face = [&](int i) {
+        const Card& c = lib.cards[static_cast<size_t>(i)];
+        return c.title + '\n' + c.cover + '\n' + c.coverLarge + '\n' + c.platform + '\n' +
+               lib.games[static_cast<size_t>(i)].manualPath;
+    };
+    for (const auto* list : {&recentWas, &favoritesWas})
+        for (const int i : *list) facesWas.push_back(face(i));
+
+    if (read.gotPlatforms) {
+        std::map<int, const romm::Platform*> had;
+        for (const romm::Platform& p : lib.platforms) had[p.id] = &p;
+        bool sameList = !read.whole && had.size() == read.platforms.size(), sameNames = true;
+        for (const romm::Platform& p : read.platforms) {
+            const auto h = had.find(p.id);
+            if (h == had.end() || h->second->slug != p.slug || h->second->fsSlug != p.fsSlug)
+                sameList = false;
+            else if (h->second->name != p.name)
+                sameList = sameNames = false;
+        }
+        lib.platforms = std::move(read.platforms);
+        if (!sameList) savePlatforms(lib.platforms);
+        for (const auto& [id, c] : read.counted) lib.counted[id] = c;
+        buildPlatformTiles(lib, /*say=*/read.whole);
+        // A SYSTEM RENAMED IN RomM is renamed on every card of its games: a
+        // favourite's entry is asked for only when the game itself changed.
+        if (!sameNames) {
+            std::map<int, std::string> names;
+            for (const romm::Platform& p : lib.platforms) names[p.id] = p.name;
+            for (size_t i = 0; i < lib.games.size(); ++i) {
+                const auto n = names.find(lib.games[i].platformId);
+                if (n == names.end() || n->second == lib.games[i].platformName) continue;
+                lib.games[i].platformName = n->second;
+                dress(lib.cards[i], lib.games[i]);
+            }
+        }
     }
 
-    int withArt = 0;
+    if (read.gotCollections || read.gotSmart) {
+        if (read.gotCollections) lib.collections = std::move(read.collections);
+        if (read.gotSmart) lib.smartCollections = std::move(read.smartCollections);
+        lib.me = read.me;
+        buildCollectionTiles(lib);
+    }
+
+    // Entries of games already in hand; the rest are added only where a shelf
+    // has a place for them.
+    for (const romm::Game& g : read.games)
+        if (lib.byRomId.count(g.id)) appendGame(lib, g);
+    if (read.gotRecent) buildRecent(lib, read);
+    if (read.gotFavorites) buildFavorites(lib, read, who);
+    if (read.gotFavoriteEntries && read.newest > lib.newestUpdate) lib.newestUpdate = read.newest;
+
+    if (lib.shelf != recentWas)
+        out.said.push_back(lib.shelf.empty() ? "Recent is empty"
+                           : recentWas.empty() || lib.shelf.front() != recentWas.front()
+                               ? "Recent starts with " +
+                                     lib.cards[static_cast<size_t>(lib.shelf.front())].title
+                               : "Recent changed");
+    if (lib.favorites != favoritesWas)
+        out.said.push_back("Favorites: " + std::to_string(lib.favorites.size()));
+    int changed = 0;
+    size_t k = 0;
+    std::set<int> seen;
+    for (const auto* list : {&recentWas, &favoritesWas})
+        for (const int i : *list)
+            if (face(i) != facesWas[k++] && seen.insert(i).second) ++changed;
+    if (changed) out.said.push_back(std::to_string(changed) + " game(s) on Home changed");
+    sayTiles(out, "systems", platformsWas, lib.platformTiles);
+    sayTiles(out, "collections", collectionsWas, lib.collectionTiles);
+    return out;
+}
+
+Library loadLibrary(romm::Client& client, std::string* platformsErr) {
+    Library lib;
+    LibraryAsk ask;
+    ask.who = storage::currentUser();
+    LibraryRead read = readLibrary(client, ask);
+    if (!read.failed.empty())
+        std::fprintf(stderr, "[library] not read: %s\n", read.failed.c_str());
+    if (!read.gotPlatforms) {
+        if (platformsErr) *platformsErr = read.platformsErr;
+        return lib;
+    }
+    putLibrary(lib, std::move(read), ask.who);
+
+    int withArt = 0, skippedGames = 0;
     for (const auto& c : lib.cards) if (!c.cover.empty()) ++withArt;
+    for (const romm::Platform& p : lib.platforms)
+        if (!catalog::playable(p)) skippedGames += p.romCount;
+    std::fprintf(stderr, "[library] %zu collection(s), %zu of them smart; %zu favourites\n",
+                 lib.collectionTiles.size(), lib.smartCollections.size(), lib.favorites.size());
     // NOT "playable games" any more, and the wording matters: this is what the
     // console is holding, which is Home's worth of it. The library's size is
     // the server's business now.
@@ -581,8 +901,8 @@ Library loadLibrary(romm::Client& client, std::string* platformsErr) {
 
     if (lib.heroIndex >= 0)
         std::fprintf(stderr, "[library] resume: %s (%s), %zu on the Recent shelf\n",
-                     lib.cards[lib.heroIndex].title.c_str(), lib.heroPlatform.c_str(),
-                     lib.shelf.size());
+                     lib.cards[static_cast<size_t>(lib.heroIndex)].title.c_str(),
+                     lib.heroPlatform.c_str(), lib.shelf.size());
     else
         std::fprintf(stderr, "[library] nothing recent is playable here\n");
     return lib;
@@ -619,7 +939,7 @@ Library offlineLibrary() {
         if (d.record.empty() || !romm::gameFromJson(d.record, &g)) { ++noRecord; continue; }
         if (!catalog::playable(g)) { ++notHere; continue; }
         const int idx = appendGame(lib, g);
-        if (lib.shelf.size() < 16) lib.shelf.push_back(idx);   // as many as fetchRecent asks for
+        if (lib.shelf.size() < kRecentGames) lib.shelf.push_back(idx);
         if (lib.heroIndex < 0) {
             lib.heroIndex = idx;
             lib.heroPlatform = g.platformName;
@@ -824,15 +1144,15 @@ romm::ChannelFiles rememberedChannelFiles(int romId) {
 // reads the keep directory; `cache::isKeptBy` is a stat() per game, and
 // twelve covers at sixty frames a second would be seven hundred stats a
 // second to draw a dot. So the answer is pushed onto the cards whenever it
-// can have changed: at startup, and after a download or a removal.
+// can have changed: at startup, and after a download or a removal. And kept
+// beside them for the cards added after it (appendGame): a game listed by a
+// grid or Search had no dot until this ran again.
 void App::refreshKeeps() {
     const storage::User me = storage::currentUser();
     if (!me.valid()) return;
     const std::vector<int> kept = cache::keptRoms(me);
-    for (Card& c : cards) c.kept = false;
-    for (int romId : kept)
-        for (Card& c : cards)
-            if (c.id == romId) { c.kept = true; break; }
+    lib.kept = std::set<int>(kept.begin(), kept.end());
+    for (Card& c : cards) c.kept = lib.kept.count(c.id) > 0;
 }
 
 // ---- --arcade-tile-test ----------------------------------------------------
