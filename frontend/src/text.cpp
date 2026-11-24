@@ -8,11 +8,13 @@
 #include <cmath>
 #include <cstdio>
 
+#include "platform.h"
 #include "ui.h"
 
 namespace ui {
 
-float styleSize(TextStyle s) {
+namespace {
+float designSize(TextStyle s) {
     switch (s) {
         case TextStyle::LargeTitle: return 76;
         case TextStyle::Title2: return 48;
@@ -24,6 +26,17 @@ float styleSize(TextStyle s) {
         case TextStyle::ScreenTitle: return 40;
     }
     return 29;
+}
+}  // namespace
+
+// FORK (phones): THE PHONE'S OWN TEXT SIZES. A machine that has a text size setting of its own
+// (an iPhone's Text Size) says how many window pixels each style is (platform::textPixels), and
+// the text is that size on the screen whichever way the phone is held. The design sizes are a
+// television's, read from a sofa, and on a phone held upright they came out half again as big.
+float styleSize(TextStyle s) {
+    const float px = platform::textPixels(static_cast<int>(s));
+    if (px > 0.0f && ui::gCanvasScale > 0.0f) return px / ui::gCanvasScale;
+    return designSize(s);
 }
 
 Weight styleWeight(TextStyle s) {

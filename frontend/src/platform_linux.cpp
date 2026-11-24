@@ -38,6 +38,7 @@ bool dsScreens(float*, float*) { return false; }
 bool dsLook(float*, float*) { return false; }
 bool gameLook(float*, float*) { return false; }
 bool gameScreen(float*) { return false; }
+float textPixels(int) { return 0.0f; }
 void gamePlaying(bool, const char*) {}
 bool runsInAnotherApp(const char*) { return false; }
 bool openInAnotherApp(const char*, const std::string&) { return false; }

@@ -171,6 +171,14 @@ bool gameLook(float body[4], float bezel[4]);
 // is drawn there as big as it fits at its own shape. False: the picture is placed as always.
 bool gameScreen(float r[4]);
 
+// --- Text -----------------------------------------------------------------------
+
+// FORK (phones): HOW BIG A TEXT STYLE IS ON THIS SCREEN, in window pixels, where the machine
+// has a text size setting of its own. `style` is text.h's TextStyle in its order: LargeTitle,
+// Title2, Title3, Callout, Body, Footnote, Caption1, ScreenTitle. 0: the design size (a
+// television's), as the console has it.
+float textPixels(int style);
+
 // --- A game running -------------------------------------------------------------
 
 // Told when a game starts (true) and when it ends (false), on the thread that
