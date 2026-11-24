@@ -726,10 +726,34 @@ void App::drawGamePicture(cab::Core& core, int dh) {
         auto snap = [physPerPoint](float v) {
             return std::round(v * physPerPoint) / physPerPoint;
         };
-        const float dh = snap(shownRows * scale);
-        const float dw = snap(shownRows * scale * shownAspect);
-        const float px = snap((ui::kCanvasWidth - dw) * 0.5f);
-        const float py = snap((ui::kCanvasHeight - dh) * 0.5f);
+        float dh = snap(shownRows * scale);
+        float dw = snap(shownRows * scale * shownAspect);
+        float px = snap((ui::kCanvasWidth - dw) * 0.5f);
+        float py = snap((ui::kCanvasHeight - dh) * 0.5f);
+        // FORK (phones): A HANDHELD'S OWN SHAPE. Where the machine lays the game out as the
+        // handheld it was (platform::gameScreen), the picture goes in the screen's place, as
+        // big as it fits there at its own shape, and the buttons are round it, not over it.
+        {
+            float r[4];
+            int pw = 0, ph = 0;
+            if (!quarterTurn && platform::gameScreen(r) && window &&
+                SDL_GetWindowSizeInPixels(window, &pw, &ph) && pw > 0 && ph > 0 &&
+                ui::gCanvasScale > 0.0f) {
+                const float bx = (r[0] * pw - ui::gCanvasLeft) / ui::gCanvasScale;
+                const float by = (r[1] * ph - ui::gCanvasTop) / ui::gCanvasScale;
+                const float bw = r[2] * pw / ui::gCanvasScale;
+                const float bh = r[3] * ph / ui::gCanvasScale;
+                float fw = bw, fh = bw / shownAspect;
+                if (fh > bh) {
+                    fh = bh;
+                    fw = bh * shownAspect;
+                }
+                dw = snap(fw);
+                dh = snap(fh);
+                px = snap(bx + (bw - dw) * 0.5f);
+                py = snap(by + (bh - dh) * 0.5f);
+            }
+        }
         // Where the picture actually sits in that texture. A
         // software core answers "all of it, the right way up"; a
         // hardware core answers a corner of a larger target with its

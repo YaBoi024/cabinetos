@@ -166,6 +166,11 @@ bool dsLook(float body[4], float bezel[4]);
 // glow round the picture is not drawn with one. False: no look, black as always.
 bool gameLook(float body[4], float bezel[4]);
 
+// FORK (phones): WHERE A HANDHELD'S SCREEN IS, when the machine lays the game out as that
+// handheld (a skin on, on a phone): x, y, width, height as shares of the window. The picture
+// is drawn there as big as it fits at its own shape. False: the picture is placed as always.
+bool gameScreen(float r[4]);
+
 // --- A game running -------------------------------------------------------------
 
 // Told when a game starts (true) and when it ends (false), on the thread that
