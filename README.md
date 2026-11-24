@@ -44,7 +44,8 @@ adapted for handhelds (tested on Steam Deck OLEDs for now).
   downloaded and the ones you played recently; saves wait and go up when you
   are back.
 - **Install once.** From then on it updates itself in one press, the whole
-  system at once, checked against CabinetOS Handheld's signature.
+  system at once, checked against CabinetOS Handheld's signature, with the
+  version before kept on the console.
 
 | | | |
 |---|---|---|
@@ -79,6 +80,9 @@ handheld? You can switch to this image without a stick:
 
 2. Restart the handheld. It now runs CabinetOS Handheld and updates from this
    repository's image.
+
+**Try it without installing:** [run it from a USB drive](docs/wiki/portable.md).
+Your PC's own drives stay as they are.
 
 ## Thanks
 

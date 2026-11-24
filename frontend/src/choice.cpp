@@ -266,7 +266,7 @@ void ChoiceScreen::focusOn(int i) {
 
 void ChoiceScreen::draw(Ctx& c) {
     taps_.clear();   // FORK (handheld): only what is drawn this frame can be tapped
-    if (!visible()) return;
+    if (!visible() && !fadingWithMenu()) return;
     using ui::TextStyle;
     if (overMenu_) {
         // It fades in over the menu's panel, and fades with the menu itself.

@@ -138,7 +138,10 @@ pin() {
 }
 
 entries=()
-while read -r kind ref branch commit; do
+# `|| [[ -n "${kind:-}" ]]`: read fails on a last line with no newline, after
+# filling its variables, so without this the list's last line was never run
+# (FORK: Moonlight, the last line of flatpaks.list, was skipped on every boot).
+while read -r kind ref branch commit || [[ -n "${kind:-}" ]]; do
     [[ -z "${kind:-}" || "${kind}" =~ ^# ]] && continue
 
     if [[ -z "${ref:-}" || -z "${branch:-}" || -z "${commit:-}" ]]; then

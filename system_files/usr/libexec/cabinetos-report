@@ -363,7 +363,12 @@ def collect_secrets(root):
     adir = os.path.join(HOME, ".config", "cabinetos", "accounts")
     for path in sorted(glob.glob(os.path.join(adir, "*.json"))):
         j = read_json(path) or {}
-        for k, v in j.items():
+        # FORK (handheld): revoke.json (tokenrevoke.h, #545) is a list of
+        # logins still owed a revoke, each with its access_token. Read as one
+        # object it ended the report; each entry's token is scrubbed instead.
+        pairs = [kv for e in j if isinstance(e, dict) for kv in e.items()] \
+            if isinstance(j, list) else (j.items() if isinstance(j, dict) else [])
+        for k, v in pairs:
             if isinstance(v, str) and ("token" in k.lower() or "key" in k.lower()):
                 s.add(v, "token", numbered=False)
             elif isinstance(v, str) and "user" in k.lower():

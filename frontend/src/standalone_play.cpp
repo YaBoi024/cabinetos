@@ -56,12 +56,18 @@ void App::startStandalone(const cab::standalone::Emulator& emu) {
     // ONE VIRTUAL CONTROLLER PER PLAYER, and at least one: the emulator
     // is given these and never the real pads (vpad.h). Without them the
     // game would start and nothing would move it, so that refuses here.
+    // FORK (handheld): ONE CONTROLLER KEPT FREE FOR A FRIEND while Streaming is
+    // on and nobody is streaming yet. The emulator is given its controllers
+    // once, here, so a friend whose Moonlight connects after the game has
+    // started would otherwise have none to press (Switch, 2026-10-29).
+    const bool spare = rpState == "active" && players::sharing() && !remoteplay::streaming() &&
+                       players::count() < cab::vpad::kMaxPlayers;
     // Beside them, for an emulator that reads one, a motion device for each
     // player whose pad has the sensors (PS3, #683); or, for an emulator that
     // reads a pad's own sensors, the stand-in DualSense in place of the plain
     // controller (Switch, Wii U and Vita, #669). A guitar's seat is a guitar's
     // for an emulator that takes one (PS3, guitar.h).
-    const int pads = std::max(1, players::count());
+    const int pads = std::max(1, players::count() + (spare ? 1 : 0));
     if (!cab::vpad::open(pads, emu.motion, emu.dualsense, emu.onlyPlayerOneTilts, emu.guitars)) {
         refuseLaunch("Couldn't start this game");
         return;

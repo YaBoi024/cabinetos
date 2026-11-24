@@ -311,8 +311,11 @@ std::vector<std::string> edenControls(int players) {
         lines.push_back(k + "button_screenshot=\"\"");
         lines.push_back(k + "lstick=" + stick(p, SDL_GAMEPAD_AXIS_LEFTX, SDL_GAMEPAD_AXIS_LEFTY));
         lines.push_back(k + "rstick=" + stick(p, SDL_GAMEPAD_AXIS_RIGHTX, SDL_GAMEPAD_AXIS_RIGHTY));
-        lines.push_back(k + "motionleft=" + motion(p));
-        lines.push_back(k + "motionright=" + motion(p));
+        // FORK (handheld): a pad whose stand-in DualSense carries its tilt is bound to it
+        // (#669); any other player keeps the Cemuhook binding, so the Deck's gyro still
+        // comes from sdgyrodsu when its pad does not carry tilt.
+        lines.push_back(k + "motionleft=" + (cab::vpad::carriesMotion(p) ? sensors(p) : motion(p)));
+        lines.push_back(k + "motionright=" + (cab::vpad::carriesMotion(p) ? sensors(p) : motion(p)));
     }
     return lines;
 }
