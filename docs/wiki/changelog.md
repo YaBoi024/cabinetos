@@ -4,7 +4,7 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
-## Next
+## 2026.11.24.2 {#v2026-11-24-2}
 
 - **Fixed:** an original Xbox game's saves went back onto its drive with the
   wrong time: 16 hours early after 4 pm, 32 minutes early in the second half
