@@ -274,13 +274,14 @@ private:
 
 // --- FATX -------------------------------------------------------------------
 //
-// A retail 8 GB drive's E: partition, at its fixed place (libfatx
-// fatx_drive_to_offset_size; checked against xemu's published drive). The
-// superblock is 4 KiB, the FAT follows it, one entry per cluster plus one
-// reserved, rounded up to 4 KiB; cluster 1 is the first after it. 16-bit
-// entries below 0xfff0 clusters, 32-bit above; E: is 32-bit.
+// A retail 8 GB drive's E: partition, at its fixed place and size (libfatx
+// v0.0.8 fatx_disk.c and X1 BOX's xemu_fatx_import.c agree on both; checked
+// against xemu's published drive). The superblock is 4 KiB, the FAT follows
+// it, one entry per cluster plus one reserved, rounded up to 4 KiB; cluster 1
+// is the first after it. 16-bit entries below 0xfff0 clusters, 32-bit above;
+// E: is 32-bit.
 constexpr uint64_t kEOffset = 0xABE80000ull;
-constexpr uint64_t kESize = 0x131F00000ull;
+constexpr uint64_t kESize = 0x1312D6000ull;
 constexpr uint8_t kDeleted = 0xE5;
 constexpr uint8_t kAttrDir = 0x10;
 constexpr size_t kMaxName = 42;
@@ -433,9 +434,15 @@ public:
         std::memcpy(raw + 2, name.data(), name.size());
         putLe32(raw + 44, first);
         putLe32(raw + 48, isDir ? 0 : uint32_t(data.size()));
+        // Packed as FAT packs a time: five bits of hour, six of minutes.
+        // libfatx v0.0.8's FATX_TIME keeps one bit fewer of each, which put a
+        // save 16 hours or 32 minutes back (#728). IN UTC, because the Xbox's
+        // own clock is: xemu starts it from the PC's time in UTC, so what a
+        // game writes is stamped in UTC, and a save put back in the player's
+        // zone sorted wrongly among them.
         struct tm t{};
-        localtime_r(&when, &t);
-        const uint16_t tm = uint16_t(((t.tm_hour & 0xf) << 11) | ((t.tm_min & 0x1f) << 5) |
+        gmtime_r(&when, &t);
+        const uint16_t tm = uint16_t(((t.tm_hour & 0x1f) << 11) | ((t.tm_min & 0x3f) << 5) |
                                      ((t.tm_sec / 2) & 0x1f));
         const uint16_t dt = uint16_t((t.tm_mday & 0x1f) | (((t.tm_mon + 1) & 0xf) << 5) |
                                      (((t.tm_year + 1900 - 2000) & 0x7f) << 9));

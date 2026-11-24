@@ -4,6 +4,15 @@ Every update that reached consoles, newest first. To update: Settings,
 **System**, **System update**. An update you skipped is included in the next
 one you install, so you only ever install the newest.
 
+## 2026.11.24.2 {#v2026-11-24-2}
+
+- **Fixed:** an original Xbox game's saves went back onto its drive with the
+  wrong time: 16 hours early after 4 pm, 32 minutes early in the second half
+  of any hour, and in your time zone, where the Xbox's own clock is in UTC. A
+  game that lists its saves by time could put an older one first. The times
+  are now right, and in UTC, like those of the saves the game makes itself.
+  ([#728](https://github.com/MMagTech/cabinetos/issues/728))
+
 ## 2026.11.24 {#v2026-11-24}
 
 - **Fixed:** what changed in RomM showed on Home and the Library only after a
