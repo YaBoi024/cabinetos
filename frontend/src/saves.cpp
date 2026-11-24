@@ -970,9 +970,9 @@ void syncDirSave(GameSession& sess) {
     sess.saveChanged = true;
 }
 
-// A GAME WHOSE SAVES NEVER GOT ZIPPED: Xbox 360, Wii U, Switch and PS3, where
-// the emulator writes straight into the person's folder and a note says a game is running there
-// (standalone::beforeStart). The console went down, or the frontend did,
+// A GAME WHOSE SAVES NEVER GOT ZIPPED: Xbox 360, Wii U, Switch, PS3, Vita, Model 2 or Model 3,
+// where the emulator writes straight into the person's folder and a note says a game is running
+// there (`notesPlaying`, standalone::beforeStart). The console went down, or the frontend did,
 // before the end of the game. The whole folder is zipped now, as if the game
 // had just ended with everything changed, and goes up as that game's snapshot
 // (savepush.h, leave), owed until it lands, so the start that follows keeps

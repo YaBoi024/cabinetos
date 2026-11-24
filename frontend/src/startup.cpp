@@ -855,8 +855,8 @@ void App::recoverPowerCutSaves() {
     // id>/<core>/`: an Xbox 360, Wii U, Switch, PS3, Vita, Model 2 or Model 3
     // game's (`notesPlaying`, the emulator writes there), an Xbox game's
     // whose saves another person's start brought off the drive for them
-    // (recoverDriveSaves, below), and a game's in a core whose save is files
-    // (notePlaying: DS, Dreamcast, PlayStation 2, PSP, 3DS, GameCube, Wii).
+    // (recoverDriveSaves, below), and a game's in a core whose save is files (notePlaying:
+    // DS, Dreamcast, PlayStation 2, PSP, 3DS, GameCube, Wii, Saturn's backup cartridge).
     // Only this person's, since the upload goes as them; anyone else's is
     // finished when they next start that game here, or the console starts as
     // them.

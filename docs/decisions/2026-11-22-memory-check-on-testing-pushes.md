@@ -1,0 +1,7 @@
+# The self-tests run under AddressSanitizer on each push to testing
+
+- **Decided:** On each push to `testing` that changes the frontend, CI builds the frontend a second time with AddressSanitizer and runs every self-test on that build, in a workflow of its own beside the image build. A failure stops neither the image nor its promotion; it is read before the merge. It does not run on pull requests. The runtime library it needs is added to a copy of the builder in that job, not to the builder's recipe.
+- **Date:** 2026-11-22
+- **Why:** The save code reads files other apps made, in every size and layout, and changes with each new system and each RomM release; a wrong length there can pass a test and still put the wrong bytes in a player's save. AddressSanitizer stops a test at the first such byte. Every change reaches `testing` before `main`, so a check there covers everything that ships, and it runs beside the image build, so nothing waits for it. Measured on GitHub on 2026-11-22: the whole check took about 5 minutes, its build 224 s and its tests 53 s; testing's last eight image builds took 10.6 to 17.8. The builder's recipe is part of every core's cache key, so a change to it would build every core again. Not taken: every pull request, where the same code is checked again at the testing push anyway, and no job at all, where a mistake in the save code would reach players unseen.
+- **Numbers:** #729, "Discuss: ideas from RomM's and Sigil's pull request checks".
+- **Replaces:** none.

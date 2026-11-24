@@ -130,6 +130,7 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [another-apps-blank-card-is-no-save](2026-11-22-another-apps-blank-card-is-no-save.md): another app's save that RomM says holds none of the game's saves, such as a blank memory card, is no save: the console starts from its own, says nothing, and saves on top of it.
 - [another-apps-battery-fits-the-emulator](2026-11-22-another-apps-battery-fits-the-emulator.md): another app's battery save is used when it is no longer than the emulator's battery as the game starts, the rest left blank; a longer one is refused.
 - [other-apps-saves-outside-channels](2026-11-20-other-apps-saves-outside-channels.md): another app's save in no channel stays on RomM as it is; the console copies nothing into a channel.
+- [tokens-owed-a-revoke](2026-11-22-tokens-owed-a-revoke.md): a token the console is done with is owed a revoke on the disk and revokes itself once nothing uses it; Sign out gives each one try.
 - [channels-on-every-file](2026-11-20-channels-on-every-file.md): a game's channels are listed on every one of its files in one request, a push names its channel's own file, and RomM's file for new channels is used only for a new one.
 
 ### Screens and settings
@@ -165,6 +166,8 @@ One line per file, under the area it belongs to, in the form `- [name](file.md):
 - [when-the-downloads-are-cut](2026-11-12-when-the-downloads-are-cut.md): the ISO and the portable are cut again together after each month's base update, and at once for a fix to the installer, first run or privacy, each published by hand from the run that was checked.
 - [a-release-page-per-download](2026-11-13-a-release-page-per-download.md): each cut of the downloads gets a GitHub release page for the version the ISO installs, tagged at its image's commit, linking the SHA-256 rather than typing it.
 - [controller-list-on-report](2026-11-14-controller-list-on-report.md): the controller list is updated to the community's newest by hand, when a player reports a pad the console does not know, not on a schedule.
+- [romm-api-checked-against-a-copy](2026-11-22-romm-api-checked-against-a-copy.md): what the client sends and reads is a list, held on every pull request to a cut copy of RomM's own API description at the tested release, and each month to RomM's newest.
+- [memory-check-on-testing-pushes](2026-11-22-memory-check-on-testing-pushes.md): the self-tests run under AddressSanitizer on each push to testing, beside the image build, never on pull requests, with its library added in the job and not to the builder's recipe.
 
 ### How we work
 

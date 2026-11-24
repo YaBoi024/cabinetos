@@ -1425,6 +1425,9 @@ struct App {
         bool ok = false;
         accounts::Paired who;
         std::string err;
+        // Somebody already here paired again, and the frame has not looked
+        // at it yet: their id (takeAccountResults).
+        std::atomic<int> repaired{0};
         // Set at exit (shutDown), under `m`: the wait between polls ends
         // at once and the worker returns, so it can be joined.
         bool stop = false;

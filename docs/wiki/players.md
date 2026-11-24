@@ -32,7 +32,8 @@ waits while a save is still uploading.
 Settings, Accounts, **Remove an account**. Their saves are sent to RomM first.
 If any cannot be sent, the console says so before removing them. The owner and
 the person signed in cannot be removed. Removing someone only removes them from
-this console, not from RomM.
+this console, not from RomM; the console's own sign-in to their RomM account is
+cancelled.
 
 ## The owner and the PIN
 

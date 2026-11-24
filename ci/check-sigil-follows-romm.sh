@@ -74,11 +74,8 @@ ours=$(sed -n '1s/^sigil [^,]*, commit \([0-9a-f]\{40\}\)$/\1/p' "${VERSION_FILE
 [[ -n "${needed}" ]] || { say "cabinetos.env has no ROMM_NEEDED line."; finish 1 "no ROMM_NEEDED in cabinetos.env"; }
 [[ -n "${ours}" ]] || { say "${VERSION_FILE} names no commit on its first line."; finish 1 "no commit in ${VERSION_FILE}"; }
 
-# The newest release of the version the console needs: its tag is that
-# version, or that version and more (5.5 -> 5.5.0, 5.5.0-beta.1, 5.5.2).
-tag=$(gh api "repos/${ROMM}/releases?per_page=100" \
-        --jq '[.[] | select(.draft | not)] | sort_by(.published_at) | reverse | .[].tag_name' |
-    grep -E "^v?${needed//./\\.}([.-]|$)" | head -1 || true)
+# The newest release of the version the console needs.
+tag=$(ci/newest-romm.sh)
 if [[ -z "${tag}" ]]; then
     say "RomM has no release of ${needed}, the version cabinetos.env says the console needs."
     finish 1 "no RomM ${needed} release"

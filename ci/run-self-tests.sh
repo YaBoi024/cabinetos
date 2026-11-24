@@ -31,6 +31,12 @@
 # /dev/uinput, so it says so and exits 0; it runs for real on a console
 # (ci/base-watch.txt, Kernel and startup).
 #
+# THE SAME TESTS UNDER ADDRESSSANITIZER (#729): memory-check.yml builds the
+# frontend with it and runs this script with two settings, SELF_TESTS_IMAGE
+# (the container to run in, cabinetos-builder when unset) and ASAN_OPTIONS,
+# which is handed to each test when set. A test that reads or writes a byte
+# it should not stops there, and fails as any other.
+#
 # REPORT ONLY UNTIL A DATE: while today (UTC) is not past REPORT_ONLY_UNTIL
 # (YYYY-MM-DD, set by build-frontend.yml), a failing test is the same report
 # and a warning annotation, and it exits 0; from the next day it fails, the
@@ -38,8 +44,9 @@
 #
 # Usage: ci/run-self-tests.sh
 #
-# Run by build-frontend.yml after the Compile step; it needs
-# frontend/build/cabinetos-frontend and the cabinetos-builder container.
+# Run by build-frontend.yml after the Compile step, and by memory-check.yml
+# on its own build; it needs frontend/build/cabinetos-frontend and the
+# container it runs in.
 
 set -euo pipefail
 
@@ -78,6 +85,7 @@ TESTS=(
     --update-romm-test
     --game-events-test
     --romm-snapshots-test
+    --token-revoke-test
     --dualsense-test
 )
 
@@ -88,6 +96,10 @@ cd "$ROOT"
     exit 1
 }
 
+IMAGE="${SELF_TESTS_IMAGE:-cabinetos-builder}"
+SANITIZER=()
+[[ -n "${ASAN_OPTIONS:-}" ]] && SANITIZER=(-e "ASAN_OPTIONS=${ASAN_OPTIONS}")
+
 SUMMARY="${GITHUB_STEP_SUMMARY:-/dev/null}"
 WORK="${RUNNER_TEMP:-/tmp}/self-tests"
 rm -rf "$WORK"
@@ -95,7 +107,7 @@ mkdir -p "$WORK"
 REPORT="$WORK/report.md"
 
 {
-    echo "## Self-tests"
+    echo "## Self-tests${ASAN_OPTIONS:+ under AddressSanitizer}"
     echo
     echo "| Test | Result | Seconds |"
     echo "|---|---|---|"
@@ -111,7 +123,7 @@ for t in "${TESTS[@]}"; do
     timeout 300 podman run --rm \
         -v "$ROOT/frontend":/src:Z -v "$scratch":/scratch:Z -w /src \
         -e HOME=/scratch/home -e CABINETOS_DRIVES=/scratch/drives \
-        cabinetos-builder \
+        "${SANITIZER[@]}" "$IMAGE" \
         build/cabinetos-frontend --storage-root /scratch/root "$t" \
         > "$WORK/$name.log" 2>&1 || rc=$?
     seconds=$SECONDS

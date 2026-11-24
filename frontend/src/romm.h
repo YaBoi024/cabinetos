@@ -42,7 +42,9 @@
 
 #pragma once
 
+#include <chrono>
 #include <functional>
+#include <memory>
 #include <mutex>
 
 #include "romm_types.h"
@@ -83,9 +85,40 @@ public:
         return token_;
     }
 
+    // The number RomM gave the token this client's pairing brought, off the
+    // pairing's own answer. 0 for a token from a file, and for one from a
+    // RomM before 5.5, whose answer carries none.
+    int tokenId() const {
+        std::lock_guard<std::mutex> lock(mu_);
+        return tokenId_;
+    }
+
     // A token read back from a file an account keeps (accounts.h). It is a
     // credential, so it does not belong anywhere near the repository.
     bool loadToken(const std::string& path);
+    // A token in hand rather than in an account's file: one this console is
+    // done with, going out to revoke itself (tokenrevoke.h).
+    void useToken(const std::string& token);
+
+    // THE TOKEN THIS CLIENT HOLDS, REVOKED ON RomM BY ITSELF (#545):
+    // `DELETE /api/client-tokens/{id}`, where `id` is its own number. RomM 5.5
+    // lets a token revoke itself without `me.write`, and only itself: any
+    // other number is refused (403), as every number is on a RomM before 5.5.
+    // It takes nothing else with it: the device RomM gives every CabinetOS
+    // console of a person, and that device's saves, stay.
+    enum class Revoke {
+        Done,      // RomM revoked it
+        Gone,      // it was no longer a token of RomM's (401, or 404)
+        Refused,   // RomM said no (403, or another 4xx)
+        NoAnswer,  // no answer, or not one to go by (5xx, 408, 429)
+    };
+    Revoke revokeOwnToken(int id, std::string* why) const;
+
+    // THIS CLIENT'S REQUESTS ARE OVER BY THEN, whatever the server does: the
+    // heartbeat and the calls that carry JSON, which are the ones Sign out's
+    // revoking makes (tokenrevoke::signOut). Each gets what is left, and its
+    // connection half of that, so an address with no scheme has both tried.
+    void giveUpBy(std::chrono::steady_clock::time_point when);
 
     // Step one of pairing. Asks for the scopes in kScopes (romm_pairing.cpp):
     // the reads, and the three writes the console makes (its saves, states
@@ -363,12 +396,20 @@ private:
     bool probe(const std::string& candidate, bool report = true, std::string* why = nullptr);
 
     // What a request is sent with, the address and the token, copied
-    // together under the lock (romm_http.cpp).
+    // together under the lock (romm_http.cpp). `hold` keeps the token in use
+    // until the request is over (tokenHeld), and `by` is giveUpBy's, or
+    // nothing.
     struct Where {
         std::string base;
         std::string token;
+        std::shared_ptr<void> hold;
+        std::chrono::steady_clock::time_point by;
     };
     Where where() const;
+    // The only place this client's token changes: the token, its hold and
+    // its number together, and the device forgotten, since a device belongs
+    // to a token.
+    void setToken(std::string token, int id);
     // get, sent to whatever `at` names. probe asks a candidate this way
     // without making it the address until it has answered, and says whether
     // what it met is reported (`report`, as probe's). A redirect off the
@@ -378,14 +419,25 @@ private:
                std::string* err, bool report = true, std::string* movedTo = nullptr,
                long* status = nullptr) const;
 
-    // GUARDS THE THREE BELOW. Nothing is done while holding it but a copy or
+    // GUARDS THE ONES BELOW. Nothing is done while holding it but a copy or
     // an assignment, never a request (see the head of this file).
     mutable std::mutex mu_;
     std::string base_;
     std::string token_;
+    std::shared_ptr<void> hold_;     // while this client has it (tokenHeld)
+    int tokenId_ = 0;
     mutable std::string deviceId_;   // the token's device, once asked (deviceId)
     std::string serverVersion_;
+    std::chrono::steady_clock::time_point by_{};   // giveUpBy
 };
+
+// WHETHER ANYTHING IN THIS PROGRAM STILL USES A TOKEN (#545): a client that
+// has it, or a request on its way with it, however long that takes. Asked
+// before a token the console is done with is revoked (tokenrevoke.h): after
+// that RomM answers it 401, which Change server address takes for another
+// server, a start for a sign-in RomM refuses, and the upload queue for a save
+// RomM will not have this run. Read from any thread.
+bool tokenHeld(const std::string& token);
 
 // WHETHER THE SERVER IS AWAY (#88, offline play). Every request reports what
 // it met: one that could not reach the server at all (no connection, no name,

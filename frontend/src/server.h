@@ -53,7 +53,9 @@ int unsentSaves();
 // write can land in a folder that has just been emptied.
 bool signOut(std::string* err);
 
-// AT STARTUP, when the marker says signed out and not cleared. Removes that
+// AT STARTUP, when the marker says signed out and not cleared. Revokes every
+// account's token on RomM, one try each (tokenrevoke.h; a server that is away
+// stops nothing), then removes that
 // server's games (kept and cached, on every drive that is plugged in), what
 // the console learned about them by rom id (their records in games/, the Wii
 // and Wii U codes read off their files, the per-game picture and widescreen
