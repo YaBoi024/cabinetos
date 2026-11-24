@@ -237,7 +237,13 @@ void Renderer::presentScene() {
     // showed as a ghost strip of the last frame across the top of the screen.
     glViewport(0, 0, drawableW_, drawableH_);
     glDisable(GL_SCISSOR_TEST);
-    glClearColor(0, 0, 0, transparentBackground_ ? 0.0f : 1.0f);
+    {
+        // FORK (phones): a handheld's skin is the ground, round the picture and behind the
+        // on-screen buttons (platform::gameLook).
+        float body[4] = {0, 0, 0, 1}, bezel[4];
+        if (!platform::gameLook(body, bezel)) body[0] = body[1] = body[2] = 0.0f;
+        glClearColor(body[0], body[1], body[2], transparentBackground_ ? 0.0f : 1.0f);
+    }
     glClear(GL_COLOR_BUFFER_BIT);
     // The pixel shift lands HERE, on the finished picture, and nowhere else:
     // the scene was drawn unshifted, and everything drawn after this point —
@@ -448,7 +454,13 @@ void Renderer::beginFrame(int drawableWidth, int drawableHeight) {
     glEnable(GL_BLEND);
     glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE,
                         GL_ONE_MINUS_SRC_ALPHA);
-    glClearColor(0, 0, 0, transparentBackground_ ? 0.0f : 1.0f);
+    {
+        // FORK (phones): a handheld's skin is the ground, round the picture and behind the
+        // on-screen buttons (platform::gameLook).
+        float body[4] = {0, 0, 0, 1}, bezel[4];
+        if (!platform::gameLook(body, bezel)) body[0] = body[1] = body[2] = 0.0f;
+        glClearColor(body[0], body[1], body[2], transparentBackground_ ? 0.0f : 1.0f);
+    }
     glClear(GL_COLOR_BUFFER_BIT);
     glBindVertexArray(vao_);
 }

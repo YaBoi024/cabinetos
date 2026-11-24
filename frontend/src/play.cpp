@@ -819,6 +819,16 @@ void App::drawGamePicture(cab::Core& core, int dh) {
                 return;
             }
         }
+        // FORK (phones): a handheld's skin: its body as the ground, a bezel round the picture.
+        float skinBody[4], skinBezel[4];
+        const bool skinned = platform::gameLook(skinBody, skinBezel);
+        if (skinned) {
+            renderer.draw(ui::Rect{0, 0, ui::kCanvasWidth, ui::kCanvasHeight, 0,
+                                   ui::Color{skinBody[0], skinBody[1], skinBody[2], skinBody[3]}});
+            const float mg = 0.014f * ui::kCanvasWidth;
+            renderer.draw(ui::Rect{px - mg, py - mg, dw + 2.0f * mg, dh + 2.0f * mg, mg * 1.5f,
+                                   ui::Color{skinBezel[0], skinBezel[1], skinBezel[2], skinBezel[3]}});
+        }
         screenfx::Chain& look = screenfx::shared();
         look.use(screenfx::presetFor(session.platformSlug));
         GLuint looked = 0;
@@ -855,7 +865,7 @@ void App::drawGamePicture(cab::Core& core, int dh) {
         // two wide bars at the sides and nothing above or below, where
         // a picture that fills the height leaves no room to ramp
         // across. The rect is the whole interface.
-        renderer.drawBiasGlow(px, py, dw, dh, glowPeak);
+        if (!skinned) renderer.drawBiasGlow(px, py, dw, dh, glowPeak);   // FORK (phones)
     }
 }
 
