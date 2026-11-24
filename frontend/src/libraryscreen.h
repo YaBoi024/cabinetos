@@ -155,6 +155,9 @@ private:
     };
     Layout layout(float headingH) const;
     int columns() const;
+    bool compact() const;        // FORK (phones): upright, two short tiles a row
+    float tileGap() const;       // FORK (phones)
+    float tileHeight() const;    // FORK (phones)
     float tileWidth() const;
     void moveFocus(int dx, int dy);
     void focusOn(int row, int slot);   // FORK (handheld)

@@ -6,6 +6,8 @@
 
 #include "qr.h"
 
+#include <algorithm>
+
 namespace screens {
 
 // --- Adding an account ------------------------------------------------------
@@ -101,10 +103,16 @@ void QrLinkScreen::draw(Ctx& c) {
     constexpr float kPanelY = 168.0f;
     constexpr float kPanelW = ui::kCanvasDesignWidth - kPanelX - kInset;
     constexpr float kPanelH = 660.0f;
+    // FORK (phones): HELD UPRIGHT, ONE COLUMN. The two columns above are placed for a
+    // 1920pt canvas, and on a phone's narrow one the codes were off its right edge. There
+    // the words come first, across the width, and the codes under them, as big as fit.
+    const bool narrow = design::shelvesNarrow();
+    const float inset = narrow ? design::kContentInset : kInset;
+    const float proseW = narrow ? ui::kCanvasWidth - 2.0f * inset : kProseWidth;
 
     // --- the left column: what is happening and why --------------------------
     float y = kTitleTop;
-    c.text.draw(c.r, title_, kInset,
+    c.text.draw(c.r, title_, inset,
                 y + c.text.ascent(ui::TextStyle::LargeTitle, c.sc),
                 ui::TextStyle::LargeTitle, ui::Color::white(0.96f * a), c.sc);
     y += c.text.lineHeight(ui::TextStyle::LargeTitle, c.sc) + 28.0f;
@@ -121,7 +129,7 @@ void QrLinkScreen::draw(Ctx& c) {
     const std::vector<std::string> lines =
         busy_ ? std::vector<std::string>{busyLine_} : lines_;
     for (const std::string& line : lines) {
-        c.text.draw(c.r, line, kInset, y + c.text.ascent(ui::TextStyle::Body, c.sc),
+        c.text.draw(c.r, line, inset, y + c.text.ascent(ui::TextStyle::Body, c.sc),
                     ui::TextStyle::Body, ui::Color::white(0.72f * a), c.sc);
         y += c.text.lineHeight(ui::TextStyle::Body, c.sc);
     }
@@ -139,7 +147,7 @@ void QrLinkScreen::draw(Ctx& c) {
         // first (the line below), then this fork's.
         const bool two = !forkUrl_.empty() && forkQr_.valid();
         if (two) {
-            c.text.draw(c.r, "Original CabinetOS", kInset,
+            c.text.draw(c.r, "Original CabinetOS", inset,
                         y + c.text.ascent(ui::TextStyle::Body, c.sc), ui::TextStyle::Body,
                         ui::Color::white(0.72f * a), c.sc);
             y += c.text.lineHeight(ui::TextStyle::Body, c.sc);
@@ -151,18 +159,19 @@ void QrLinkScreen::draw(Ctx& c) {
             // no phone to scan the QR, 2026-10-06).
             std::string shown = url_;
             if (shown.rfind("http://", 0) == 0) shown = shown.substr(7);
-            c.text.draw(c.r, shown, kInset,
+            if (narrow) shown = c.text.truncate(shown, ui::TextStyle::Body, c.sc, proseW);
+            c.text.draw(c.r, shown, inset,
                         y + c.text.ascent(ui::TextStyle::Body, c.sc),
                         ui::TextStyle::Body, ui::palette::kScreenCyan, c.sc);
             y += c.text.lineHeight(ui::TextStyle::Body, c.sc);
         }
         if (two) {
             y += 28.0f;
-            c.text.draw(c.r, "CabinetOS Handheld", kInset,
+            c.text.draw(c.r, "CabinetOS Handheld", inset,
                         y + c.text.ascent(ui::TextStyle::Body, c.sc), ui::TextStyle::Body,
                         ui::Color::white(0.72f * a), c.sc);
             y += c.text.lineHeight(ui::TextStyle::Body, c.sc);
-            c.text.draw(c.r, forkUrl_, kInset, y + c.text.ascent(ui::TextStyle::Body, c.sc),
+            c.text.draw(c.r, narrow ? c.text.truncate(forkUrl_, ui::TextStyle::Body, c.sc, proseW) : forkUrl_, inset, y + c.text.ascent(ui::TextStyle::Body, c.sc),
                         ui::TextStyle::Body, ui::palette::kScreenCyan, c.sc);
             y += c.text.lineHeight(ui::TextStyle::Body, c.sc);
         }
@@ -179,12 +188,12 @@ void QrLinkScreen::draw(Ctx& c) {
         for (int guard = 0; guard < 6 && !rest.empty(); ++guard) {
             size_t cut = rest.size();
             while (cut > 0 &&
-                   c.text.measure(rest.substr(0, cut), ui::TextStyle::Callout, c.sc) > kProseWidth) {
+                   c.text.measure(rest.substr(0, cut), ui::TextStyle::Callout, c.sc) > proseW) {
                 const size_t sp = rest.rfind(' ', cut - 1);
                 if (sp == std::string::npos) break;
                 cut = sp;
             }
-            c.text.draw(c.r, rest.substr(0, cut), kInset,
+            c.text.draw(c.r, rest.substr(0, cut), inset,
                         y + c.text.ascent(ui::TextStyle::Callout, c.sc),
                         ui::TextStyle::Callout, ui::Color::white(0.92f * a), c.sc);
             y += c.text.lineHeight(ui::TextStyle::Callout, c.sc);
@@ -210,6 +219,38 @@ void QrLinkScreen::draw(Ctx& c) {
     // holding nothing else. The card is the material on this side now.
 
     if (code_.empty()) return;
+
+    // FORK (phones): upright, the codes under the words, side by side when there are two,
+    // each with its name under it, as large as the width and the height left allow.
+    if (narrow) {
+        const bool two = forkQr_.valid() && qr_.valid();
+        constexpr float kGap = 28.0f, kLabelGap = 8.0f;
+        const float labelH = two ? c.text.lineHeight(ui::TextStyle::Footnote, c.sc) + kLabelGap : 0.0f;
+        const float top = y + 48.0f;
+        const float roomH = ui::kCanvasHeight - design::kScreenBottomPad - top - labelH;
+        const float across = two ? (proseW - kGap) * 0.5f : proseW;
+        const float side = std::max(0.0f, std::min({across, roomH, 560.0f}));
+        const float rowW = two ? 2.0f * side + kGap : side;
+        float x = (ui::kCanvasWidth - rowW) * 0.5f;
+        const char* const names[2] = {"Original CabinetOS", "CabinetOS Handheld"};
+        for (int i = 0; i < (two ? 2 : 1); ++i) {
+            if (i == 0) {
+                if (qr_.valid()) qr_.draw(c.r, x, top, side);
+                if (baked_ && qr_.valid()) wikiqr::drawPatch(*baked_, c.r, x, top, side, 1.0f);
+            } else {
+                forkQr_.draw(c.r, x, top, side);
+            }
+            if (two) {
+                const std::string name = c.text.truncate(names[i], ui::TextStyle::Footnote, c.sc, side);
+                const float w = c.text.measure(name, ui::TextStyle::Footnote, c.sc);
+                c.text.draw(c.r, name, x + (side - w) * 0.5f,
+                            top + side + kLabelGap + c.text.ascent(ui::TextStyle::Footnote, c.sc),
+                            ui::TextStyle::Footnote, ui::Color::white(0.85f * a), c.sc);
+            }
+            x += side + kGap;
+        }
+        return;
+    }
 
     // Everything that is words lives in the column on the left; this side is
     // the shortcut past typing them. Bigger than it was, because it no longer

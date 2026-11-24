@@ -79,7 +79,10 @@ struct ScrollFling {
 };
 ScrollFling gScroll;
 constexpr float kScrollStopSpeed = 30.0f;    // slower than this, it has stopped
-constexpr float kScrollFriction = 0.998f;    // what is kept of the speed each millisecond, as on iOS
+// What is kept of the speed each millisecond. 0.998 is iOS's own rate, and on the Library a
+// flick ran on far past where it was aimed (2026-11-23); this stops in about a third the way.
+constexpr float kScrollFriction = 0.995f;
+constexpr float kScrollMaxSpeed = 7000.0f;   // canvas points a second, the most a flick starts at
 
 // The last few places the finger was, to tell how fast it was going when it lifted.
 constexpr int kTrail = 6;
@@ -491,7 +494,8 @@ bool App::handleTouch(const SDL_Event& e) {
                     const float secs = static_cast<float>(last.t - first.t) / 1000.0f;
                     if (now - last.t <= kFlingMaxAgeMs && secs >= 0.02f) {
                         const float v = (last.y - first.y) / secs;
-                        if (std::fabs(v) >= kFlingMinSpeed) gScroll = ScrollFling{true, v, l.touch};
+                        if (std::fabs(v) >= kFlingMinSpeed)
+                            gScroll = ScrollFling{true, std::clamp(v, -kScrollMaxSpeed, kScrollMaxSpeed), l.touch};
                     }
                 }
                 return true;

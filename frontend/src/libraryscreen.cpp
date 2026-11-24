@@ -92,9 +92,18 @@ void LibraryScreen::focusTile(int index) {
     entered_ = true;
 }
 
+// FORK (phones): HELD UPRIGHT, A GRID, NOT A LIST. On a narrow canvas (a phone held
+// upright, design::shelvesNarrow) the 380pt minimum fits one tile a row, and a column of
+// 200pt tiles went on and on. There the tiles are two a row, shorter, and carry the name
+// and count over the game's art, with no thumbnail beside them.
+bool LibraryScreen::compact() const { return design::shelvesNarrow(); }
+float LibraryScreen::tileGap() const { return compact() ? 24.0f : design::kTileSpacing; }
+float LibraryScreen::tileHeight() const { return compact() ? 150.0f : design::kTileHeight; }
+
 int LibraryScreen::columns() const {
     // Adaptive: as many columns of at least the minimum width as fit, then
     // stretched to fill. Four on a 1920 canvas at an 80pt inset.
+    if (compact()) return 2;   // FORK (phones)
     const float usable = ui::kCanvasWidth - design::kLibraryInset * 2.0f;
     const int n = static_cast<int>((usable + design::kTileSpacing) /
                                    (design::kTileMinWidth + design::kTileSpacing));
@@ -104,7 +113,7 @@ int LibraryScreen::columns() const {
 float LibraryScreen::tileWidth() const {
     const float usable = ui::kCanvasWidth - design::kLibraryInset * 2.0f;
     const int n = columns();
-    return (usable - design::kTileSpacing * static_cast<float>(n - 1)) /
+    return (usable - tileGap() * static_cast<float>(n - 1)) /
            static_cast<float>(n);
 }
 
@@ -112,7 +121,7 @@ LibraryScreen::Layout LibraryScreen::layout(float headingH) const {
     Layout L;
     const auto& tiles = visible();
     const int cols = columns();
-    const float pitch = design::kTileHeight + design::kTileSpacing;
+    const float pitch = tileHeight() + tileGap();
     float y = 0.0f;
     for (size_t i = 0; i < tiles.size(); ++i) {
         const bool newGroup = i > 0 && tiles[i].group != tiles[i - 1].group;
@@ -340,7 +349,7 @@ void LibraryScreen::draw(Ctx& c) {
     const float tw = tileWidth();
     const float pillH = pillHeight(c.text, c.sc);
     const float gridTop = design::kSwitcherTop + pillH + design::kSwitcherGapBelow;
-    const float rowPitch = design::kTileHeight + design::kTileSpacing;
+    const float rowPitch = tileHeight() + tileGap();
     const float headingH = c.text.lineHeight(ui::TextStyle::Title3, c.sc);
     const Layout L = layout(headingH);
 
@@ -357,7 +366,7 @@ void LibraryScreen::draw(Ctx& c) {
                              (L.rowHeaded[static_cast<size_t>(r)]
                                   ? headingH + design::kTileGroupGapBelow
                                   : 0.0f);
-        const float rowBottom = gridTop + L.rowY[static_cast<size_t>(r)] + design::kTileHeight;
+        const float rowBottom = gridTop + L.rowY[static_cast<size_t>(r)] + tileHeight();
         const float current = scroll_.to;
         if (rowBottom - current > ui::kCanvasHeight - design::kScreenBottomPad)
             want = rowBottom - (ui::kCanvasHeight - design::kScreenBottomPad);
@@ -406,25 +415,25 @@ void LibraryScreen::draw(Ctx& c) {
 
             const int col = L.colOf[i];
             const float bx = design::kLibraryInset +
-                             static_cast<float>(col) * (tw + design::kTileSpacing);
+                             static_cast<float>(col) * (tw + tileGap());
             const float by = gridTop + L.rowY[static_cast<size_t>(L.rowOf[i])] - scroll;
             // Cull to what is on screen. A grid is a window onto a list, not a
             // drawing of the list — and the cover cache must not be asked for
             // art that is nowhere near the screen.
-            if (by + design::kTileHeight < -rowPitch) continue;
+            if (by + tileHeight() < -rowPitch) continue;
             if (by > ui::kCanvasHeight + rowPitch) break;
             if (by >= gridTop - 1.0f && (firstInView_ < 0 || static_cast<int>(i) < firstInView_))
                 firstInView_ = static_cast<int>(i);
 
-            taps_.add(static_cast<int>(i), bx, by, tw, design::kTileHeight,
+            taps_.add(static_cast<int>(i), bx, by, tw, tileHeight(),
                       design::kScrollClipTop);
 
             const Tile& t = tiles[i];
             const float f = t.focus.value();
             const float s = 1.0f + f * (design::kFocusScale - 1.0f);
-            const float w = tw * s, h = design::kTileHeight * s;
+            const float w = tw * s, h = tileHeight() * s;
             const float x = bx - (w - tw) * 0.5f;
-            const float y = by - (h - design::kTileHeight) * 0.5f;
+            const float y = by - (h - tileHeight()) * 0.5f;
 
             // The tile's ground: the one solid panel colour in the design
             // system. Dimmed when the platform cannot be played, which is the
@@ -448,7 +457,7 @@ void LibraryScreen::draw(Ctx& c) {
             // whole width, rather than reserving a column for a picture that
             // does not exist: that is the unplayable ones, which have the most
             // to say and had the least room to say it in.
-            const float artH = t.cover.empty() ? 0.0f : design::kTileArtHeight * s;
+            const float artH = (t.cover.empty() || compact()) ? 0.0f : design::kTileArtHeight * s;
             const float artW = artH * 0.75f;      // 3:4
             const float artX = x + w - pad - artW;
             if (!t.cover.empty()) {
